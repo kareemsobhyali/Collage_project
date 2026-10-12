@@ -1,0 +1,75 @@
+import { Router, Request, Response } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const router = Router();
+
+// التأكد من وجود مجلد الرفع وتحديده بدقة
+function getUploadDir(): string {
+  const candidates = [
+    path.resolve(process.cwd(), "uploads"),
+    path.resolve(process.cwd(), "backend", "uploads"),
+    path.resolve(process.cwd(), "..", "uploads"),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  const defaultDir = path.resolve(process.cwd(), "uploads");
+  fs.mkdirSync(defaultDir, { recursive: true });
+  return defaultDir;
+}
+const uploadDir = getUploadDir();
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, `${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB حد أقصى
+  fileFilter: (_req, file, cb) => {
+    const allowed = /jpeg|jpg|png|webp|gif/;
+    const ext = allowed.test(path.extname(file.originalname).toLowerCase().replace(".", ""));
+    const mime = allowed.test(file.mimetype.toLowerCase());
+    if (ext && mime) {
+      cb(null, true);
+    } else {
+      cb(new Error("يُسمح فقط برفع ملفات الصور بصيغة (JPG, PNG, WEBP, GIF)"));
+    }
+  },
+}).single("image");
+
+// نقطة نهاية رفع الصور مع معالجة آمنة للأخطاء
+router.post("/", (req: Request, res: Response) => {
+  upload(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: "حجم الصورة كبير جداً، الحد الأقصى المسموح به هو 5 ميجابايت" });
+      }
+      return res.status(400).json({ error: `خطأ أثناء رفع الملف: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ error: err.message || "فشل رفع الصورة" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "لم يتم اختيار أي صورة للرفع" });
+    }
+
+    const fileUrl = `/uploads/${req.file.filename}`;
+    return res.json({
+      success: true,
+      url: fileUrl,
+      filename: req.file.filename,
+    });
+  });
+});
+
+export default router;

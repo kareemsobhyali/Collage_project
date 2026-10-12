@@ -1,0 +1,331 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              String        @id @default(uuid())
+  name            String
+  phone           String        @unique
+  password        String
+  role            String        @default("CUSTOMER") // "CUSTOMER" | "SUPERADMIN"
+  loyaltyPoints   Int           @default(0)          // نقاط الولاء الجامعية
+  walletBalance   Float         @default(0.0)        // رصيد المحفظة بالجنيه
+  isBlocked       Boolean       @default(false)      // حظر/إيقاف الحساب من عمل طلبات جديدة
+  restaurantNotes String?                            // ملاحظات المطعم/الإدارة المسجلة على هذا الرقم
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  orders          Order[]
+  addresses       UserAddress[]
+}
+
+model Branch {
+  id                String                @id @default(uuid())
+  name              String
+  phone             String?
+  logoUrl           String?
+  address           String?
+  isActive          Boolean               @default(true)
+  operationalStatus String                @default("OPEN") // "OPEN" | "BUSY" | "CLOSED"
+  closedUntil       DateTime?
+  closingReason     String?
+  allowDelivery     Boolean               @default(true)
+  allowPickup       Boolean               @default(true)
+  deliveryFee       Float                 @default(10.0)
+  deliveryType      String                @default("FIXED") // "FIXED" | "ZONES"
+  deliveryZones     BranchDeliveryZone[]
+  scheduledLeadMins Int                   @default(20) // دقائق إشعار المطبخ قبل موعد الطلب المحجوز
+  openingTime       String?               @default("08:00") // موعد بدء العمل اليومي (مثال: 08:00)
+  closingTime       String?               @default("22:00") // موعد إغلاق العمل اليومي (مثال: 22:00)
+  workingDays       String?               @default("SUN,MON,TUE,WED,THU,FRI,SAT") // أيام العمل المتاحة
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  users             BranchUser[]
+  drivers           DeliveryDriver[]
+  paymentConfig     BranchPaymentConfig?
+  categories        MenuCategory[]
+  items             MenuItem[]
+  modifierGroups    ModifierGroup[]
+  orders            Order[]
+
+  @@index([isActive])
+  @@index([operationalStatus])
+}
+
+model BranchUser {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([branchId])
+}
+
+model BranchPaymentConfig {
+  id                  String   @id @default(uuid())
+  branchId            String   @unique
+  branch              Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  cashEnabled         Boolean  @default(true)
+  vodafoneCashEnabled Boolean  @default(false)
+  vodafoneCashNumber  String?
+  instapayEnabled     Boolean  @default(false)
+  instapayHandle      String?
+  cardEnabled         Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model MenuCategory {
+  id           String     @id @default(uuid())
+  branchId     String
+  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name         String
+  displayOrder Int        @default(0)
+  items        MenuItem[]
+
+  @@index([branchId])
+  @@index([displayOrder])
+}
+
+model MenuItem {
+  id                 String                  @id @default(uuid())
+  branchId           String
+  branch             Branch                  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  categoryId         String
+  category           MenuCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name               String
+  description        String?
+  basePrice          Float
+  imageUrl           String?
+  isAvailable        Boolean                 @default(true)
+  comboItems         String?                 // JSON: عروض كومبو أو مكملات مقترحة
+  sizes              ItemSize[]
+  modifierGroupLinks ItemModifierGroupLink[]
+  orderItems         OrderItem[]
+
+  @@index([branchId])
+  @@index([categoryId])
+  @@index([isAvailable])
+}
+
+model ItemSize {
+  id     String   @id @default(uuid())
+  itemId String
+  item   MenuItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  name   String
+  price  Float
+
+  @@index([itemId])
+}
+
+model ModifierGroup {
+  id           String                  @id @default(uuid())
+  branchId     String
+  branch       Branch                  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  title        String
+  isRequired   Boolean                 @default(false)
+  minSelection Int                     @default(0)
+  maxSelection Int                     @default(1)
+  options      ModifierOption[]
+  itemLinks    ItemModifierGroupLink[]
+
+  @@index([branchId])
+}
+
+model ModifierOption {
+  id          String        @id @default(uuid())
+  groupId     String
+  group       ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name        String
+  price       Float         @default(0)
+  isAvailable Boolean       @default(true)
+
+  @@index([groupId])
+}
+
+model ItemModifierGroupLink {
+  id      String        @id @default(uuid())
+  itemId  String
+  item    MenuItem      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  groupId String
+  group   ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, groupId])
+  @@index([itemId])
+  @@index([groupId])
+}
+
+model Order {
+  id                 String      @id @default(uuid())
+  orderNumber        Int
+  branchId           String
+  branch             Branch      @relation(fields: [branchId], references: [id])
+  userId             String
+  user               User        @relation(fields: [userId], references: [id])
+  orderType          String      @default("DELIVERY") // "DELIVERY" | "PICKUP"
+  paymentMethod      String      @default("CASH") // "CASH" | "VODAFONE_CASH" | "INSTAPAY" | "CARD"
+  addressText        String?
+  deliveryZoneName   String?
+  paymentProofUrl    String?
+  paymentSenderPhone String?
+  estimatedMinutes   Int?
+  acceptedAt         DateTime?
+  preparingAt        DateTime?
+  readyAt            DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  rating             Int?
+  review             String?
+  promoCode          String?
+  discount           Float       @default(0)
+  walletDiscount     Float       @default(0.0)   // قيمة الخصم المسحوب من المحفظة الجامعية
+  pointsEarned       Int         @default(0)     // نقاط الولاء المكتسبة من هذا الطلب
+  customerPhone      String
+  customerName       String
+  notes              String?
+  status             String      @default("PENDING") // "PENDING", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"
+  subtotal           Float
+  deliveryFee        Float       @default(0)
+  total              Float
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  isScheduled        Boolean         @default(false)
+  scheduledFor       DateTime?       // موعد الاستلام أو التوصيل المسبق المحدد
+  pickupPin          String?         // رمز أمان الاستلام (PIN من 4 أرقام لتأكيد الاستلام مع الطيار)
+  driverId           String?
+  driver             DeliveryDriver? @relation(fields: [driverId], references: [id])
+  driverAssignedAt   DateTime?
+  driverPickedUpAt   DateTime?
+  groupCartDetails   String?         // JSON: تفاصيل تقسيم الأكياس بأسماء الطلاب (كيس أحمد، كيس محمد..)
+  items              OrderItem[]
+
+  @@index([branchId])
+  @@index([userId])
+  @@index([driverId])
+  @@index([isScheduled])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id                String   @id @default(uuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId        String
+  menuItem          MenuItem @relation(fields: [menuItemId], references: [id])
+  itemName          String
+  sizeName          String?
+  unitPrice         Float
+  quantity          Int
+  totalPrice        Float
+  notes             String? // ملاحظات خاصة بالصنف
+  selectedModifiers String? // JSON text of modifiers chosen
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+model UserAddress {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String   // "سكن الطلاب", "كلية الهندسة", "المكتبة"
+  details   String   // "مبنى ب - الدور الثالث - مدرج 2"
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model BranchDeliveryZone {
+  id        String   @id @default(uuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name      String
+  fee       Float    @default(10.0)
+  createdAt DateTime @default(now())
+
+  @@index([branchId])
+}
+
+model PromoCode {
+  id           String    @id @default(uuid())
+  code         String    @unique
+  discountType String    @default("FIXED") // "FIXED" | "PERCENT"
+  value        Float     @default(10.0)
+  minOrder     Float     @default(0.0)
+  maxUses      Int?      // الحد الأقصى لعدد مرات الاستخدام الكلي (null = غير محدود)
+  usedCount    Int       @default(0) // عدد مرات الاستخدام الفعلية حتى الآن
+  oncePerUser  Boolean   @default(false) // هل يُسمح باستخدامه مرة واحدة لكل طالب؟
+  isActive     Boolean   @default(true)
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model Banner {
+  id           String   @id @default(uuid())
+  title        String
+  subtitle     String?
+  imageUrl     String
+  badgeText    String?
+  linkUrl      String?
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model DeliveryDriver {
+  id        String   @id @default(uuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String
+  username  String   @unique
+  password  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+
+  @@index([branchId])
+  @@index([username])
+}
+
+model GroupCart {
+  id        String          @id @default(uuid())
+  shareCode String          @unique
+  branchId  String
+  hostName  String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  items     GroupCartItem[]
+
+  @@index([shareCode])
+}
+
+model GroupCartItem {
+  id                String    @id @default(uuid())
+  groupCartId       String
+  groupCart         GroupCart @relation(fields: [groupCartId], references: [id], onDelete: Cascade)
+  studentName       String    // اسم الطالب صاحب الصنف
+  menuItemId        String
+  itemName          String
+  sizeName          String?
+  unitPrice         Float
+  quantity          Int       @default(1)
+  totalPrice        Float
+  notes             String?
+  selectedModifiers String?
+  createdAt         DateTime  @default(now())
+
+  @@index([groupCartId])
+}
