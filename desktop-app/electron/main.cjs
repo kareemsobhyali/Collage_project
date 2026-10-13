@@ -27,11 +27,62 @@ function createWindow() {
   });
 }
 
+// 1. جلب قائمة الطابعات المتعرف عليها على الجهاز
+ipcMain.handle('get-system-printers', async () => {
+  if (!mainWindow) return [];
+  try {
+    const printers = await mainWindow.webContents.getPrintersAsync();
+    return printers.map(p => ({
+      name: p.name,
+      displayName: p.displayName || p.name,
+      isDefault: Boolean(p.isDefault),
+      status: p.status
+    }));
+  } catch (err) {
+    console.error('Failed to get printers:', err);
+    return [];
+  }
+});
+
+// 2. معالج أمر الطباعة الحرارية الصامتة والمباشرة
+ipcMain.handle('print-receipt-silent', async (_event, { html, deviceName }) => {
+  return new Promise((resolve) => {
+    try {
+      const printWin = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      });
+
+      printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+      printWin.webContents.on('did-finish-load', () => {
+        printWin.webContents.print({
+          silent: true,
+          deviceName: deviceName || undefined,
+          printBackground: true,
+          margins: { marginType: 'none' },
+        }, (success, failureReason) => {
+          try {
+            printWin.close();
+          } catch (_e) {}
+          resolve({ success, failureReason });
+        });
+      });
+    } catch (err) {
+      resolve({ success: false, failureReason: err.message });
+    }
+  });
+});
+
 // معالج أمر الطباعة الحرارية المباشر
-ipcMain.on('print-receipt', (event) => {
+ipcMain.on('print-receipt', (event, payload = {}) => {
   if (mainWindow) {
     mainWindow.webContents.print({
-      silent: false,
+      silent: typeof payload.silent === 'boolean' ? payload.silent : true,
+      deviceName: payload.deviceName || undefined,
       printBackground: true,
     }, (success, failureReason) => {
       event.reply('print-result', { success, failureReason });

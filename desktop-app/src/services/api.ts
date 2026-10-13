@@ -425,4 +425,17 @@ export const api = {
     if (!res.ok) throw new Error(data.error || 'فشل تحديث ملاحظات أو حالة العميل');
     return data;
   },
+
+  // استعلام طابعات الويندوز من السيرفر (عند تشغيله محلياً)
+  async getSystemPrinters() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/branch/system-printers`, {
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      return data?.printers || [];
+    } catch (_e) {
+      return [];
+    }
+  },
 };

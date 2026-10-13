@@ -1,30 +1,125 @@
 /**
  * UniFood Thermal Printing Service
- * Handles thermal receipt generation, iframe printing without blank pages,
- * and printer settings (auto-print on accept & test receipts).
+ * Handles thermal receipt generation, silent printing without dialogs,
+ * system printer detection, and automated printing on order arrival.
  */
 
+export interface DetectedPrinter {
+  name: string;
+  isDefault: boolean;
+  displayName?: string;
+  portName?: string;
+}
+
+export const isElectron = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return Boolean(
+    (window as any).process?.type ||
+    (window as any).electron ||
+    navigator.userAgent.toLowerCase().includes('electron') ||
+    typeof (window as any).require === 'function'
+  );
+};
+
+export const getElectronIpc = () => {
+  if (typeof window !== 'undefined' && typeof (window as any).require === 'function') {
+    try {
+      return (window as any).require('electron').ipcRenderer;
+    } catch (_e) {}
+  }
+  return null;
+};
+
+// 1. استعلام الطابعات المتعرف عليها من نظام التشغيل
+export const fetchSystemPrinters = async (): Promise<DetectedPrinter[]> => {
+  // أولاً: فحص الطابعات عبر Electron إن كان التطبيق يعمل كـ Desktop App
+  const ipc = getElectronIpc();
+  if (ipc) {
+    try {
+      const printers = await ipc.invoke('get-system-printers');
+      if (Array.isArray(printers) && printers.length > 0) {
+        return printers;
+      }
+    } catch (e) {
+      console.warn('Electron get-system-printers error:', e);
+    }
+  }
+
+  // ثانياً: فحص الطابعات عبر سيرفر الـ Backend إن كان يعمل محلياً على جهاز الكاشير
+  try {
+    const { api } = await import('./api');
+    const printers = await api.getSystemPrinters();
+    if (Array.isArray(printers) && printers.length > 0) {
+      return printers;
+    }
+  } catch (_e) {}
+
+  return [];
+};
+
+// 2. إعدادات الطباعة التلقائية والصامتة
+export const getAutoPrintOnNewOrder = (): boolean => {
+  const val = localStorage.getItem('unifood_autoprint_new_order');
+  return val === null ? true : val === 'true';
+};
+
+export const setAutoPrintOnNewOrder = (enabled: boolean): void => {
+  localStorage.setItem('unifood_autoprint_new_order', enabled ? 'true' : 'false');
+};
+
+export const getAutoPrintOnAccept = (): boolean => {
+  const val = localStorage.getItem('unifood_autoprint_on_accept');
+  return val === null ? true : val === 'true';
+};
+
+export const setAutoPrintOnAccept = (enabled: boolean): void => {
+  localStorage.setItem('unifood_autoprint_on_accept', enabled ? 'true' : 'false');
+};
+
 export const getAutoPrintEnabled = (): boolean => {
-  return localStorage.getItem('unifood_autoprint') === 'true';
+  return getAutoPrintOnAccept();
 };
 
 export const setAutoPrintEnabled = (enabled: boolean): void => {
-  localStorage.setItem('unifood_autoprint', enabled ? 'true' : 'false');
+  setAutoPrintOnAccept(enabled);
+};
+
+export const getSilentPrintEnabled = (): boolean => {
+  const val = localStorage.getItem('unifood_silent_print');
+  return val === null ? true : val === 'true';
+};
+
+export const setSilentPrintEnabled = (enabled: boolean): void => {
+  localStorage.setItem('unifood_silent_print', enabled ? 'true' : 'false');
 };
 
 export const getPreferredPrinter = (): string => {
-  return localStorage.getItem('unifood_printer_name') || 'الطابعة الافتراضية للنظام (Default Thermal Printer)';
+  return localStorage.getItem('unifood_printer_name') || '';
 };
 
 export const setPreferredPrinter = (name: string): void => {
   localStorage.setItem('unifood_printer_name', name);
 };
 
-export const generateReceiptHtml = (order: any, branchName: string): string => {
+export const getReceiptPaperWidth = (): '80mm' | '58mm' => {
+  return (localStorage.getItem('unifood_receipt_width') as '80mm' | '58mm') || '80mm';
+};
+
+export const setReceiptPaperWidth = (width: '80mm' | '58mm'): void => {
+  localStorage.setItem('unifood_receipt_width', width);
+};
+
+export const generateReceiptHtml = (order: any, branchName: string, paperWidth: '80mm' | '58mm' = '80mm'): string => {
   const formattedDate = new Date(order.createdAt || Date.now()).toLocaleString('ar-EG', {
     dateStyle: 'short',
     timeStyle: 'short',
   });
+
+  const is58 = paperWidth === '58mm';
+  const pageWidth = is58 ? '58mm' : '80mm';
+  const bodyWidth = is58 ? '50mm' : '72mm';
+  const fontSize = is58 ? '11px' : '12px';
+  const titleSize = is58 ? '15px' : '18px';
 
   const itemsHtml = (order.items || []).map((item: any) => {
     let modifiersList: any[] = [];
@@ -36,11 +131,11 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
       } catch (e) {}
     }
     const modsText = modifiersList && modifiersList.length > 0 
-      ? `<div style="font-size: 11px; color: #555; padding-right: 12px; margin-top: 2px;">+ ${modifiersList.map((m: any) => `${m.optionName} (${m.price} ج.م)`).join('، ')}</div>`
+      ? `<div style="font-size: 10px; color: #555; padding-right: 8px; margin-top: 2px;">+ ${modifiersList.map((m: any) => `${m.optionName} (${m.price} ج.م)`).join('، ')}</div>`
       : '';
     return `
-      <div style="border-bottom: 1px dotted #ccc; padding: 6px 0;">
-        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px;">
+      <div style="border-bottom: 1px dotted #ccc; padding: 5px 0;">
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: ${is58 ? '12px' : '13px'};">
           <span>${item.quantity} × ${item.itemName} ${item.sizeName ? `(${item.sizeName})` : ''}</span>
           <span>${item.totalPrice} ج.م</span>
         </div>
@@ -64,8 +159,8 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
           @page {
-            margin: 4mm;
-            size: 80mm auto;
+            margin: 2mm;
+            size: ${pageWidth} auto;
           }
           * {
             box-sizing: border-box;
@@ -77,11 +172,11 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
             direction: rtl;
             color: #000;
             background: #fff;
-            font-size: 12px;
+            font-size: ${fontSize};
             line-height: 1.4;
-            width: 72mm;
+            width: ${bodyWidth};
             margin: 0 auto;
-            padding: 8px 4px;
+            padding: 6px 2px;
           }
           .center { text-align: center; }
           .right { text-align: right; }
@@ -89,11 +184,11 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
           .font-black { font-weight: 900; }
           .dashed {
             border-bottom: 1px dashed #777;
-            margin: 8px 0;
+            margin: 6px 0;
           }
           .solid {
             border-bottom: 1.5px solid #000;
-            margin: 8px 0;
+            margin: 6px 0;
           }
           .row {
             display: flex;
@@ -105,13 +200,13 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
             background: #f8f8f8;
             border: 1px solid #ddd;
             border-radius: 6px;
-            padding: 8px;
-            margin: 8px 0;
+            padding: 6px;
+            margin: 6px 0;
             text-align: right;
-            font-size: 12px;
+            font-size: 11px;
           }
           .customer-card div {
-            margin-bottom: 3px;
+            margin-bottom: 2px;
           }
           .customer-card div:last-child {
             margin-bottom: 0;
@@ -120,9 +215,9 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
       </head>
       <body>
         <div class="center">
-          <div style="font-size: 11px; font-weight: 800; color: #333; letter-spacing: 1px;">UNIFOOD • يونيفود</div>
-          <div style="font-size: 18px; font-weight: 900; margin: 4px 0;">${branchName}</div>
-          <div style="font-size: 11px; color: #666;">منظومة توصيل طلبات الحرم الجامعي</div>
+          <div style="font-size: 10px; font-weight: 800; color: #333; letter-spacing: 1px;">UNIFOOD • يونيفود</div>
+          <div style="font-size: ${titleSize}; font-weight: 900; margin: 3px 0;">${branchName}</div>
+          <div style="font-size: 10px; color: #666;">منظومة توصيل طلبات الحرم الجامعي</div>
           <div class="dashed"></div>
 
           <div class="row">
@@ -153,13 +248,13 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
             ${order.orderType === 'DELIVERY' && order.deliveryZoneName ? `<div><strong>منطقة التوصيل:</strong> ${order.deliveryZoneName}</div>` : ''}
             ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${order.addressText}</div>` : ''}
             ${order.paymentSenderPhone ? `<div><strong>رقم المحول منه:</strong> ${order.paymentSenderPhone}</div>` : ''}
-            ${order.notes ? `<div style="color: #b45309; margin-top: 4px;"><strong>ملاحظات العميل:</strong> ${order.notes}</div>` : ''}
+            ${order.notes ? `<div style="color: #b45309; margin-top: 3px;"><strong>ملاحظات:</strong> ${order.notes}</div>` : ''}
           </div>
 
           <div class="solid"></div>
 
           <div style="width: 100%; text-align: right;">
-            <div class="row font-bold" style="border-bottom: 1px solid #000; padding-bottom: 4px; font-size: 12px;">
+            <div class="row font-bold" style="border-bottom: 1px solid #000; padding-bottom: 4px; font-size: 11px;">
               <span>الصنف / التفاصيل</span>
               <span>المبلغ</span>
             </div>
@@ -168,7 +263,7 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
 
           <div class="dashed"></div>
 
-          <div style="margin: 6px 0;">
+          <div style="margin: 5px 0;">
             <div class="row">
               <span>المجموع الفرعي:</span>
               <span>${order.subtotal || 0} ج.م</span>
@@ -183,14 +278,14 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
               <span>خصم الكوبون${order.promoCode ? ` (${order.promoCode})` : ''}:</span>
               <span>-${order.discount} ج.م</span>
             </div>` : ''}
-            <div class="row font-black" style="border-top: 1.5px solid #000; padding-top: 6px; margin-top: 6px; font-size: 15px;">
+            <div class="row font-black" style="border-top: 1.5px solid #000; padding-top: 5px; margin-top: 5px; font-size: 14px;">
               <span>الإجمالي المطلوب:</span>
               <span>${order.total || 0} ج.م</span>
             </div>
           </div>
 
           <div class="dashed"></div>
-          <div style="font-size: 11px; color: #444; font-weight: bold; margin-top: 8px;">
+          <div style="font-size: 10px; color: #444; font-weight: bold; margin-top: 6px;">
             شكراً لطلبكم عبر UniFood • وجبتك لحد عندك 🎓
           </div>
         </div>
@@ -199,7 +294,30 @@ export const generateReceiptHtml = (order: any, branchName: string): string => {
   `;
 };
 
-export const printOrderReceipt = (order: any, branchName: string): Promise<boolean> => {
+// تنفيذ أمر الطباعة المباشرة الصامتة
+export const printOrderReceipt = async (order: any, branchName: string): Promise<boolean> => {
+  const paperWidth = getReceiptPaperWidth();
+  const html = generateReceiptHtml(order, branchName, paperWidth);
+  const preferredPrinter = getPreferredPrinter();
+  const isSilent = getSilentPrintEnabled();
+
+  // 1. إذا كان التطبيق يعمل داخل Electron: الطباعة الصامتة المباشرة بالخلفية بدون أي نوافذ
+  const ipc = getElectronIpc();
+  if (ipc && isSilent) {
+    try {
+      const res = await ipc.invoke('print-receipt-silent', {
+        html,
+        deviceName: preferredPrinter && preferredPrinter !== 'DEFAULT' ? preferredPrinter : undefined
+      });
+      if (res && res.success) {
+        return true;
+      }
+    } catch (err) {
+      console.warn('Electron silent print failed, fallback to iframe:', err);
+    }
+  }
+
+  // 2. إذا كان يعمل داخل المتصفح (Chrome / Edge)
   return new Promise((resolve) => {
     try {
       const iframe = document.createElement('iframe');
@@ -218,7 +336,6 @@ export const printOrderReceipt = (order: any, branchName: string): Promise<boole
         return;
       }
 
-      const html = generateReceiptHtml(order, branchName);
       doc.open();
       doc.write(html);
       doc.close();
@@ -232,7 +349,7 @@ export const printOrderReceipt = (order: any, branchName: string): Promise<boole
           }
           resolve(true);
         }, 1500);
-      }, 350);
+      }, 300);
     } catch (e) {
       console.error('Print receipt error:', e);
       resolve(false);
@@ -250,7 +367,7 @@ export const printTestReceipt = (branchName: string): Promise<boolean> => {
     customerName: 'طالب تجريبي',
     customerPhone: '01012345678',
     addressText: 'الدور الثاني - مدرج 3',
-    notes: 'بون فحص وتجربة الطابعة الحرارية',
+    notes: 'بون فحص وتجربة الطابعة الحرارية الصامتة',
     items: [
       {
         itemName: 'برجر كلاسيك سينجل',
@@ -271,4 +388,41 @@ export const printTestReceipt = (branchName: string): Promise<boolean> => {
   };
 
   return printOrderReceipt(dummyOrder, branchName);
+};
+
+// دالة لتوليد وتحميل ملف تشغيل المتصفح بوضع الطباعة الصامتة الفورية (Kiosk Printing)
+export const downloadKioskPrintingShortcut = (appUrl: string = window.location.href) => {
+  const batContent = `@echo off
+chcp 65001 > nul
+title تشغيل كاشير UniFood بالطباعة الصامتة
+echo جاري تشغيل شاشة المطعم بوضع الطباعة الحرارية الصامتة...
+
+:: محاولة فتح مايكروسوفت إيدج أولاً
+where msedge >nul 2>nul
+if %ERRORLEVEL% EQU 0 (
+    start msedge --app="${appUrl}" --kiosk-printing
+    exit
+)
+
+:: إن لم يتوفر إيدج، فتح جوجل كروم
+where chrome >nul 2>nul
+if %ERRORLEVEL% EQU 0 (
+    start chrome --app="${appUrl}" --kiosk-printing
+    exit
+)
+
+:: المتصفح الافتراضي
+start "" "${appUrl}"
+exit
+`;
+
+  const blob = new Blob([batContent], { type: 'application/x-bat' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'UniFood-POS-SilentPrint.bat';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import { exec } from "child_process";
 import prisma from "../prisma.js";
 import { generateToken, authenticateBranch, AuthRequest } from "../middleware/auth.js";
 import { notifyOrderStatusChanged, notifyBranchStatusChanged, notifyDriverAssigned } from "../sockets/socketManager.js";
@@ -55,6 +56,31 @@ router.post("/login", async (req: Request, res: Response) => {
 
 // المسارات التالية خاصة بالفرع فقط
 router.use(authenticateBranch);
+
+// استعلام طابعات الويندوز المتصلة بالجهاز
+router.get("/system-printers", async (_req: AuthRequest, res: Response) => {
+  if (process.platform !== "win32") {
+    return res.json({ success: true, platform: process.platform, printers: [] });
+  }
+
+  exec('powershell -NoProfile -Command "Get-CimInstance Win32_Printer | Select-Object Name, Default, PortName | ConvertTo-Json"', { timeout: 4000 }, (err, stdout) => {
+    if (err || !stdout || !stdout.trim()) {
+      return res.json({ success: true, platform: "win32", printers: [] });
+    }
+    try {
+      let parsed = JSON.parse(stdout);
+      if (!Array.isArray(parsed)) parsed = [parsed];
+      const printers = parsed.map((p: any) => ({
+        name: p.Name,
+        isDefault: Boolean(p.Default),
+        portName: p.PortName,
+      }));
+      return res.json({ success: true, platform: "win32", printers });
+    } catch (_e) {
+      return res.json({ success: true, platform: "win32", printers: [] });
+    }
+  });
+});
 
 // 2. الملف الشخصي للفرع وإعداداته
 router.get("/profile", async (req: AuthRequest, res: Response) => {

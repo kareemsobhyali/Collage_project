@@ -14,7 +14,8 @@ import {
   WifiOff,
   Clock,
   PowerOff,
-  Truck
+  Truck,
+  Printer
 } from 'lucide-react';
 import { api } from './services/api';
 import { soundNotifier } from './services/audioAlert';
@@ -26,6 +27,8 @@ import { DriversManager } from './components/DriversManager';
 import { QuickStockModal } from './components/QuickStockModal';
 import { BranchProfileView } from './components/BranchProfileView';
 import { BranchStatusModal } from './components/BranchStatusModal';
+import { PrinterSettingsModal } from './components/PrinterSettingsModal';
+import { getAutoPrintOnNewOrder, printOrderReceipt } from './services/printer';
 import { Logo } from './components/Logo';
 
 export function App() {
@@ -44,6 +47,7 @@ export function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
   const [showQuickStock, setShowQuickStock] = useState<boolean>(false);
+  const [showPrinterSettings, setShowPrinterSettings] = useState<boolean>(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
   // حساب العداد التنازلي وتحديثه كل ثانية عندما يكون الفرع مغلقاً مؤقتاً
@@ -142,6 +146,11 @@ export function App() {
       setOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
       // تشغيل جرس التنبيه المستمر
       soundNotifier.startRepeatingAlarm();
+
+      // طباعة تلقائية فورية للبون دون أي تدخل يدوي إن كانت مفعلة
+      if (getAutoPrintOnNewOrder()) {
+        printOrderReceipt(newOrder, branch?.name || 'UniFood');
+      }
     });
 
     // تحديث حالة طلب
@@ -285,6 +294,19 @@ export function App() {
                 {branch.operationalStatus === 'BUSY' ? `مغلق مؤقتاً (${formatCountdown(secondsLeft)})` : ''}
                 {branch.operationalStatus === 'CLOSED' ? 'المطعم مغلق' : ''}
               </span>
+            </button>
+
+            {/* Printer Settings Button */}
+            <button
+              onClick={() => setShowPrinterSettings(true)}
+              className="h-9 sm:h-10 px-2.5 sm:px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-xs"
+              title="إعدادات واختيار الطابعة الحرارية وتثبيتها والطباعة الصامتة"
+            >
+              <Printer className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span className="hidden sm:inline">الطابعة</span>
+              {getAutoPrintOnNewOrder() && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="الطباعة الفورية مفعلة" />
+              )}
             </button>
 
             {/* Sound Mute/Unmute */}
@@ -486,6 +508,13 @@ export function App() {
           currentReason={branch.closingReason}
           onSave={handleSaveOperationalStatus}
           onClose={() => setShowStatusModal(false)}
+        />
+      )}
+
+      {showPrinterSettings && (
+        <PrinterSettingsModal
+          branchName={branch.name}
+          onClose={() => setShowPrinterSettings(false)}
         />
       )}
     </div>
