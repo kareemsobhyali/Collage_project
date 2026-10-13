@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowRight, 
   MapPin, 
@@ -6,10 +6,12 @@ import {
   Plus, 
   ShoppingBag, 
   Image as ImageIcon,
-  Truck,
   Store,
   Clock,
-  PowerOff
+  PowerOff,
+  ChevronRight,
+  ChevronLeft,
+  UtensilsCrossed
 } from 'lucide-react';
 import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
 
@@ -21,6 +23,241 @@ interface BranchMenuProps {
   onSelectItem: (item: any) => void;
   onOpenCart: () => void;
 }
+
+const DAY_NAMES_AR: Record<string, string> = {
+  SUN: 'الأحد',
+  MON: 'الإثنين',
+  TUE: 'الثلاثاء',
+  WED: 'الأربعاء',
+  THU: 'الخميس',
+  FRI: 'الجمعة',
+  SAT: 'السبت',
+};
+
+function formatWorkingDaysArabic(workingDays?: string | null): string {
+  if (!workingDays) return 'يومياً';
+  const parts = workingDays
+    .split(',')
+    .map((d) => d.trim().toUpperCase())
+    .filter(Boolean);
+  if (parts.length === 0 || parts.length >= 7) {
+    return 'طوال أيام الأسبوع';
+  }
+  return parts.map((p) => DAY_NAMES_AR[p] || p).join('، ');
+}
+
+interface CategoryCarouselProps {
+  category: any;
+  isBranchOpen: boolean;
+  onItemClick: (item: any) => void;
+}
+
+const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
+  category,
+  isBranchOpen,
+  onItemClick,
+}) => {
+  const items: any[] = Array.isArray(category.items) ? category.items : [];
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number>(() => (items.length >= 3 ? 1 : 0));
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || items.length < 3) {
+      setActiveIndex(0);
+      return;
+    }
+    // عند وجود 3 أصناف أو أكثر، نبدأ بالكارت الأوسط ليظهر الكارت الأيمن والأيسر بجانبه فوراً
+    const initialIdx = 1;
+    setActiveIndex(initialIdx);
+    requestAnimationFrame(() => {
+      const cards = container.querySelectorAll('[data-carousel-card="true"]');
+      const targetCard = cards[initialIdx] as HTMLElement | undefined;
+      if (targetCard) {
+        targetCard.scrollIntoView({ behavior: 'instant' as ScrollBehavior, inline: 'center', block: 'nearest' });
+      }
+    });
+  }, [category.id, items.length]);
+
+  const handleScroll = () => {
+    const container = scrollRef.current;
+    if (!container || items.length <= 1) return;
+    const containerRect = container.getBoundingClientRect();
+    const containerCenter = containerRect.left + containerRect.width / 2;
+
+    const cards = container.querySelectorAll('[data-carousel-card="true"]');
+    let closestIdx = 0;
+    let minDistance = Infinity;
+
+    cards.forEach((card, idx) => {
+      const rect = card.getBoundingClientRect();
+      const cardCenter = rect.left + rect.width / 2;
+      const dist = Math.abs(containerCenter - cardCenter);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIdx = idx;
+      }
+    });
+
+    if (closestIdx !== activeIndex) {
+      setActiveIndex(closestIdx);
+    }
+  };
+
+  const scrollToCard = (index: number) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const bounded = Math.max(0, Math.min(items.length - 1, index));
+    const cards = container.querySelectorAll('[data-carousel-card="true"]');
+    const target = cards[bounded] as HTMLElement | undefined;
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      setActiveIndex(bounded);
+    }
+  };
+
+  return (
+    <div className="space-y-2.5">
+      {/* Category Title + Swipe Controls */}
+      <div className="flex items-center justify-between px-1">
+        <h3 className="text-sm sm:text-base font-black text-slate-800 flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 shadow-sm shadow-indigo-600/40" />
+          <span>{category.name}</span>
+          <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+            {items.length}
+          </span>
+        </h3>
+
+        {items.length > 1 && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 ml-1">اسحب للجانبين</span>
+            <button
+              type="button"
+              onClick={() => scrollToCard(activeIndex - 1)}
+              disabled={activeIndex <= 0}
+              className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-35 transition-all shadow-sm"
+              title="السابق"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToCard(activeIndex + 1)}
+              disabled={activeIndex >= items.length - 1}
+              className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-35 transition-all shadow-sm"
+              title="التالي"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Horizontal Peek Carousel (Right Card + Center Card + Left Card) */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className={`flex items-stretch overflow-x-auto snap-x snap-mandatory no-scrollbar py-2 -mx-3 sm:-mx-4 ${
+          items.length === 1
+            ? 'justify-center px-6'
+            : 'gap-3 px-[16%] sm:px-[22%]'
+        }`}
+      >
+        {items.map((item: any, idx: number) => {
+          const isCenter = items.length === 1 || idx === activeIndex;
+          return (
+            <div
+              key={item.id}
+              data-carousel-card="true"
+              onClick={() => {
+                if (!isCenter && items.length > 1) {
+                  scrollToCard(idx);
+                }
+                onItemClick(item);
+              }}
+              className={`w-[68vw] max-w-[250px] sm:w-[240px] shrink-0 snap-center bg-white rounded-3xl border p-3 flex flex-col justify-between cursor-pointer select-none transition-all duration-300 ${
+                isCenter
+                  ? 'scale-100 opacity-100 shadow-lg border-indigo-200 ring-2 ring-indigo-500/15 z-10'
+                  : 'scale-[0.92] opacity-75 shadow-sm border-slate-200/80 hover:opacity-95'
+              } ${!isBranchOpen ? 'grayscale-[15%]' : ''}`}
+            >
+              <div>
+                {/* Card Top Image */}
+                <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 mb-3">
+                  {item.imageUrl ? (
+                    <img
+                      src={getFullImageUrl(item.imageUrl)}
+                      alt={item.name}
+                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
+                      <ImageIcon className="w-9 h-9 mb-1" />
+                      <span className="text-[10px] font-bold text-slate-400">بدون صورة</span>
+                    </div>
+                  )}
+
+                  {/* Price Badge Floating on Image */}
+                  <div className="absolute bottom-2 right-2 bg-slate-900/85 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-xs font-black shadow-md border border-white/15">
+                    {item.basePrice} ج.م
+                  </div>
+                </div>
+
+                {/* Item Title & Description */}
+                <div className="px-0.5">
+                  <h4 className="font-black text-sm text-slate-900 line-clamp-1">
+                    {item.name}
+                  </h4>
+                  {item.description ? (
+                    <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-relaxed min-h-[2.25rem]">
+                      {item.description}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 mt-1 min-h-[2.25rem]">
+                      وجبة طازجة من مطبخ {category.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                type="button"
+                className={`mt-3 w-full py-2 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm ${
+                  isCenter
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20'
+                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>اختيار الصنف</span>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Carousel Dots Indicator */}
+      {items.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5 pt-0.5">
+          {items.map((item: any, idx: number) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => scrollToCard(idx)}
+              className={`h-1.5 rounded-full transition-all ${
+                idx === activeIndex
+                  ? 'w-5 bg-indigo-600'
+                  : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+              }`}
+              aria-label={`انتقال إلى ${item.name}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const BranchMenu: React.FC<BranchMenuProps> = ({
   branch,
@@ -82,226 +319,202 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       (branch?.operationalStatus === 'BUSY' && secondsLeft <= 0)) &&
     isWithinWorkingHours;
 
-  const displayedCategories = activeCategoryId === 'ALL'
-    ? categories
-    : categories.filter(c => c.id === activeCategoryId);
+  // إخفاء أي قسم فارغ لا يحتوي على أصناف متاحة للطلاب
+  const nonEmptyCategories = (categories || []).filter(
+    (cat) => Array.isArray(cat.items) && cat.items.length > 0
+  );
+
+  const displayedCategories =
+    activeCategoryId === 'ALL'
+      ? nonEmptyCategories
+      : nonEmptyCategories.filter((c) => c.id === activeCategoryId);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  return (
-    <div className="space-y-6 pb-36">
-      {/* Top Navigation & Branch Info */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
-        >
-          <ArrowRight className="w-4 h-4" />
-          <span>العودة لقائمة المطاعم</span>
-        </button>
+  const handleItemSelection = (item: any) => {
+    if (!isBranchOpen) {
+      if (branch.operationalStatus === 'BUSY' && secondsLeft > 0) {
+        alert(
+          `المطعم مغلق مؤقتاً لضغط الطلبات أو التجهيز.\nسيعاد فتح استقبال الطلبات تلقائياً بعد ${formatCountdown(secondsLeft)}.`
+        );
+      } else if (!isWithinWorkingHours) {
+        alert(
+          `عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || '08:00'} - ${branch.closingTime || '22:00'}).`
+        );
+      } else {
+        alert('عذراً، هذا المطعم مغلق حالياً ولا يستقبل طلبات جديدة.');
+      }
+      return;
+    }
+    onSelectItem(item);
+  };
 
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
+  return (
+    <div className="space-y-5 pb-36 w-full max-w-full overflow-x-hidden">
+      {/* Top Navigation & Branch Info */}
+      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+          >
+            <ArrowRight className="w-4 h-4 shrink-0" />
+            <span>العودة لقائمة المطاعم</span>
+          </button>
+
+          {branch.operationalStatus === 'CLOSED' ? (
+            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+              مغلق حالياً
+            </span>
+          ) : branch.operationalStatus === 'BUSY' && secondsLeft > 0 ? (
+            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0 animate-pulse">
+              مغلق مؤقتاً
+            </span>
+          ) : !isWithinWorkingHours ? (
+            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+              مغلق (خارج مواعيد العمل)
+            </span>
+          ) : (
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
+              مفتوح للطلب
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {branch.logoUrl ? (
               <img
                 src={getFullImageUrl(branch.logoUrl)}
                 alt={branch.name}
-                className="w-14 h-14 rounded-2xl object-cover border border-slate-100 shrink-0"
+                className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl object-cover border border-slate-100 shrink-0"
               />
             ) : (
-              <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-                <Store className="w-7 h-7" />
+              <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+                <Store className="w-6 h-6" />
               </div>
             )}
-            <div>
-              <h2 className="text-lg font-black text-slate-900">{branch.name}</h2>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 truncate">{branch.name}</h2>
+              <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
                 <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span>{branch.address || 'داخل الحرم الجامعي'}</span>
+                <span className="truncate">{branch.address || 'داخل الحرم الجامعي'}</span>
               </div>
             </div>
           </div>
 
-          <div className="text-left">
-            {branch.operationalStatus === 'CLOSED' ? (
-              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 inline-block">
-                مغلق حالياً
-              </span>
-            ) : branch.operationalStatus === 'BUSY' && secondsLeft > 0 ? (
-              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 inline-block animate-pulse">
-                مغلق مؤقتاً
-              </span>
-            ) : !isWithinWorkingHours ? (
-              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 inline-block">
-                مغلق (خارج مواعيد العمل)
-              </span>
-            ) : (
-              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 inline-block">
-                مفتوح للطلب
-              </span>
-            )}
-            {branch.phone && (
-              <a
-                href={`tel:${branch.phone}`}
-                className="block text-[11px] font-mono text-indigo-600 hover:underline mt-1"
-              >
-                {branch.phone}
-              </a>
-            )}
-          </div>
+          {branch.phone && (
+            <a
+              href={`tel:${branch.phone}`}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-indigo-50 text-indigo-600 border border-slate-200 text-[11px] font-mono font-bold shrink-0"
+            >
+              <Phone className="w-3 h-3" />
+              <span>{branch.phone}</span>
+            </a>
+          )}
         </div>
 
-        {/* Categories selector pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-slate-100 no-scrollbar">
-          <button
-            onClick={() => setActiveCategoryId('ALL')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              activeCategoryId === 'ALL'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            كافة الأقسام
-          </button>
-          {categories.map(cat => (
+        {/* Categories selector pills (Only non-empty categories) */}
+        {nonEmptyCategories.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto pt-2.5 border-t border-slate-100 no-scrollbar">
             <button
-              key={cat.id}
-              onClick={() => setActiveCategoryId(cat.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeCategoryId === cat.id
+              onClick={() => setActiveCategoryId('ALL')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                activeCategoryId === 'ALL'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              {cat.name} ({cat.items?.length || 0})
+              كافة الأقسام
             </button>
-          ))}
-        </div>
+            {nonEmptyCategories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategoryId(cat.id)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                  activeCategoryId === cat.id
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {cat.name} ({cat.items.length})
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Operational Live Countdown Banner */}
       {branch.operationalStatus === 'BUSY' && secondsLeft > 0 && (
-        <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white p-4.5 rounded-3xl shadow-lg flex items-center justify-between gap-3 animate-fadeIn">
-          <div className="flex items-center gap-3">
+        <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white p-4 rounded-3xl shadow-lg flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
               <Clock className="w-5 h-5 text-amber-200 animate-spin" />
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="font-black text-xs sm:text-sm block">
                 المطعم في فترة إغلاق مؤقتة ({branch.closingReason || 'ضغط طلبات وتجهيز المطبخ'})
               </span>
-              <span className="text-[11px] text-amber-100">
-                يمكنك استعراض المنيو حالياً، وسيعاد استقبال الطلبات تلقائياً فور انتهاء العداد
+              <span className="text-[11px] text-amber-100 block mt-0.5">
+                يمكنك استعراض المنيو، وسيعاد استقبال الطلبات تلقائياً فور انتهاء العداد
               </span>
             </div>
           </div>
-          <div className="text-center shrink-0 bg-black/25 px-3.5 py-2 rounded-2xl border border-amber-300/30 font-mono">
+          <div className="text-center shrink-0 bg-black/25 px-3 py-1.5 rounded-2xl border border-amber-300/30 font-mono">
             <span className="text-[10px] text-amber-200 block font-sans">يعود بعد</span>
-            <span className="text-base sm:text-lg font-black tracking-wider text-white">{formatCountdown(secondsLeft)}</span>
+            <span className="text-sm sm:text-base font-black tracking-wider text-white">{formatCountdown(secondsLeft)}</span>
           </div>
         </div>
       )}
 
       {branch.operationalStatus === 'CLOSED' && (
-        <div className="bg-rose-600 text-white p-4.5 rounded-3xl shadow-lg flex items-center gap-3">
+        <div className="bg-rose-600 text-white p-4 rounded-3xl shadow-lg flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
             <PowerOff className="w-5 h-5 text-rose-200" />
           </div>
           <div>
-            <span className="font-black text-sm block">المطعم مغلق حالياً حتى إشعار آخر</span>
-            <span className="text-xs text-rose-100">لا يستقبل هذا الفرع طلبات جديدة في الوقت الحالي</span>
+            <span className="font-black text-xs sm:text-sm block">المطعم مغلق حالياً حتى إشعار آخر</span>
+            <span className="text-[11px] text-rose-100">لا يستقبل هذا الفرع طلبات جديدة في الوقت الحالي</span>
           </div>
         </div>
       )}
 
       {branch.operationalStatus !== 'CLOSED' && !(branch.operationalStatus === 'BUSY' && secondsLeft > 0) && !isWithinWorkingHours && (
-        <div className="bg-rose-600 text-white p-4.5 rounded-3xl shadow-lg flex items-center gap-3">
+        <div className="bg-rose-600 text-white p-4 rounded-3xl shadow-lg flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
             <Clock className="w-5 h-5 text-rose-200" />
           </div>
-          <div>
-            <span className="font-black text-sm block">
+          <div className="min-w-0">
+            <span className="font-black text-xs sm:text-sm block">
               المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية ({branch.openingTime || '08:00'} - {branch.closingTime || '22:00'})
             </span>
-            <span className="text-xs text-rose-100">
-              يعود المطعم لاستقبال الطلبات في أوقات العمل المحددة ({branch.workingDays || 'يومياً'})
+            <span className="text-[11px] text-rose-100 block mt-0.5">
+              يعود المطعم لاستقبال الطلبات في أوقات العمل المحددة ({formatWorkingDaysArabic(branch.workingDays)})
             </span>
           </div>
         </div>
       )}
 
-      {/* Menu Categories and Items */}
-      <div className="space-y-6">
-        {displayedCategories.map(cat => (
-          <div key={cat.id} className="space-y-3">
-            <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
-              <span>{cat.name}</span>
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {cat.items?.map((item: any) => (
-                <div
-                  key={item.id}
-                  onClick={() => {
-                    if (!isBranchOpen) {
-                      if (branch.operationalStatus === 'BUSY' && secondsLeft > 0) {
-                        alert(`المطعم مغلق مؤقتاً لضغط الطلبات أو التجهيز.\nسيعاد فتح استقبال الطلبات تلقائياً بعد ${formatCountdown(secondsLeft)}.`);
-                      } else if (!isWithinWorkingHours) {
-                        alert(`عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || '08:00'} - ${branch.closingTime || '22:00'}).`);
-                      } else {
-                        alert('عذراً، هذا المطعم مغلق حالياً ولا يستقبل طلبات جديدة.');
-                      }
-                      return;
-                    }
-                    onSelectItem(item);
-                  }}
-                  className={`bg-white rounded-2xl border border-slate-200 p-3.5 shadow-sm hover:shadow-md transition-all cursor-pointer flex gap-3.5 justify-between group ${
-                    !isBranchOpen ? 'opacity-90' : ''
-                  }`}
-                >
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div>
-                      <h4 className="font-black text-sm text-slate-900 group-hover:text-indigo-600 transition-colors">
-                        {item.name}
-                      </h4>
-                      {item.description && (
-                        <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-sm font-black text-indigo-700">
-                        {item.basePrice} ج.م
-                      </span>
-                      <button className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 group-hover:bg-indigo-600 text-indigo-600 group-hover:text-white rounded-xl text-xs font-bold transition-all shadow-sm">
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>اختيار</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Item Image */}
-                  {item.imageUrl ? (
-                    <img
-                      src={getFullImageUrl(item.imageUrl)}
-                      alt={item.name}
-                      className="w-20 h-20 rounded-2xl object-cover border border-slate-100 shrink-0"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                      <ImageIcon className="w-7 h-7" />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Menu Categories and Horizontal Card Carousels */}
+      {displayedCategories.length === 0 ? (
+        <div className="bg-white rounded-3xl p-10 text-center text-slate-400 border border-slate-200 shadow-sm">
+          <UtensilsCrossed className="w-12 h-12 mx-auto mb-2 opacity-30 text-indigo-600" />
+          <h4 className="text-sm font-bold text-slate-700">لا توجد أصناف متاحة حالياً في هذا القسم</h4>
+          <p className="text-xs text-slate-500 mt-1">سيتم عرض الأصناف هنا فور إضافتها من إدارة المطعم</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {displayedCategories.map((cat) => (
+            <CategoryCarousel
+              key={cat.id}
+              category={cat}
+              isBranchOpen={isBranchOpen}
+              onItemClick={handleItemSelection}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Floating Bottom Cart Bar */}
       {cartItemCount > 0 && (
@@ -309,7 +522,11 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
           <button
             onClick={() => {
               if (!isBranchOpen) {
-                alert(branch.operationalStatus === 'BUSY' ? `عذراً، لا يمكن إتمام الطلب الآن لأن الفرع في فترة إغلاق مؤقتة.\nسيعاد الفتح تلقائياً بعد ${formatCountdown(secondsLeft)}.` : 'المطعم مغلق حالياً');
+                alert(
+                  branch.operationalStatus === 'BUSY'
+                    ? `عذراً، لا يمكن إتمام الطلب الآن لأن الفرع في فترة إغلاق مؤقتة.\nسيعاد الفتح تلقائياً بعد ${formatCountdown(secondsLeft)}.`
+                    : 'المطعم مغلق حالياً'
+                );
                 return;
               }
               onOpenCart();
@@ -319,9 +536,11 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             }`}
           >
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-black ${
-                isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
-              }`}>
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-black ${
+                  isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
+                }`}
+              >
                 <ShoppingBag className="w-5 h-5" />
               </div>
               <div className="text-right">
@@ -330,10 +549,12 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
               </div>
             </div>
 
-            <span className={`px-4 py-2 text-white text-xs font-black rounded-xl transition-all ${
-              isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
-            }`}>
-              {isBranchOpen ? 'إتمام الطلب' : `مغلق مؤقتاً (${formatCountdown(secondsLeft)})`}
+            <span
+              className={`px-4 py-2 text-white text-xs font-black rounded-xl transition-all ${
+                isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
+              }`}
+            >
+              {isBranchOpen ? 'إتمام الطلب' : 'المطعم مغلق'}
             </span>
           </button>
         </div>

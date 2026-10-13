@@ -280,45 +280,51 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-100 flex flex-col font-sans">
       {/* Top Mobile/Desktop Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-3 shadow-sm">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-3 sm:px-4 py-2.5 shadow-sm w-full max-w-full overflow-hidden">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-1.5">
           {/* Logo */}
           <div
             onClick={() => setSelectedBranch(null)}
-            className="cursor-pointer"
+            className="cursor-pointer shrink-0"
           >
             <Logo size="sm" />
           </div>
 
           {/* User & Orders Tools */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             {/* Direct Student App Install / APK Button (hidden inside APK) */}
             {!isRunningInNativeApk() && (
               <button
                 type="button"
                 onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk')}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-colors"
+                className="flex items-center gap-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-colors shrink-0 whitespace-nowrap"
                 title="تثبيت تطبيق الطلاب للأندرويد"
               >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">تثبيت التطبيق</span>
+                <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden md:inline">تثبيت التطبيق</span>
               </button>
             )}
 
             {/* Group Cart Button */}
             <button
               onClick={handleOpenGroupCartClick}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-colors shrink-0 whitespace-nowrap ${
                 groupCartCode
                   ? 'bg-purple-600 text-white shadow-sm'
                   : 'bg-purple-50 hover:bg-purple-100 text-purple-700'
               }`}
               title="مشاركة سلة جماعية مع أصحابك (سلة الشلة)"
             >
-              <Users className="w-3.5 h-3.5" />
-              <span>{groupCartCode ? `سلة الشلة (${groupCartCode})` : 'سلة الشلة'}</span>
+              <Users className="w-3.5 h-3.5 shrink-0" />
+              <span>سلة الشلة</span>
+              {groupCartCode && (
+                <span className="hidden sm:inline font-mono text-[10px]">({groupCartCode})</span>
+              )}
+              {groupCartCode && (
+                <span className="sm:hidden w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />
+              )}
             </button>
 
             {/* Quick Cart Button */}
@@ -334,10 +340,10 @@ export function App() {
                     }
                   }
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm transition-all active:scale-95"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 shrink-0 whitespace-nowrap"
                 title="عرض سلة الطلبات"
               >
-                <ShoppingBag className="w-3.5 h-3.5" />
+                <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden sm:inline">السلة</span>
                 <span className="bg-white text-indigo-700 text-[10px] font-black px-1.5 py-0.2 rounded-full">
                   {cart.reduce((s, i) => s + i.quantity, 0)}
@@ -346,23 +352,24 @@ export function App() {
             )}
 
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                 <button
                   onClick={() => setShowMyOrdersModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-colors"
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-colors shrink-0"
+                  title="طلباتي"
                 >
-                  <Clock className="w-3.5 h-3.5" />
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
                   <span className="hidden sm:inline">طلباتي</span>
                 </button>
 
                 <button
                   onClick={() => setShowProfileModal(true)}
-                  className="flex items-center gap-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-3 py-1.5 rounded-xl text-xs text-slate-700 font-bold transition-colors border border-transparent hover:border-indigo-200 cursor-pointer"
+                  className="flex items-center gap-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs text-slate-700 font-bold transition-colors border border-transparent hover:border-indigo-200 cursor-pointer min-w-0"
                   title="حسابي والمحفظة الجامعية ونقاط الولاء"
                 >
-                  <User className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="line-clamp-1 max-w-[80px]">{user.name.split(' ')[0]}</span>
-                  <span className="bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full text-[10px] font-black flex items-center gap-0.5">
+                  <User className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span className="truncate max-w-[56px] sm:max-w-[90px]">{user.name.split(' ')[0]}</span>
+                  <span className="bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full text-[10px] font-black flex items-center gap-0.5 shrink-0">
                     <span>★</span>
                     <span>{user.loyaltyPoints ?? 0}</span>
                   </span>
@@ -370,7 +377,7 @@ export function App() {
 
                 <button
                   onClick={handleLogout}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors"
+                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors shrink-0"
                   title="تسجيل الخروج"
                 >
                   <LogOut className="w-4 h-4" />
@@ -379,9 +386,9 @@ export function App() {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-sm transition-all"
+                className="px-2.5 sm:px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-black rounded-xl shadow-sm transition-all shrink-0 whitespace-nowrap"
               >
-                دخول / حساب جديد
+                دخول / حساب
               </button>
             )}
           </div>
@@ -390,24 +397,24 @@ export function App() {
 
       {/* Active Group Cart Persistent Banner */}
       {groupCartCode && user && (
-        <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 text-white px-4 py-2.5 shadow-md">
+        <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 text-white px-3 sm:px-4 py-2.5 shadow-md w-full">
           <div className="max-w-3xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2 font-bold">
               <Users className="w-4 h-4 text-amber-300 shrink-0" />
               <span>
-                أنت الآن في <strong>سلة الشلة ({groupCartCode})</strong> — أي وجبة تضيفها من المنيو ستنزل في كيسك باسم ({user.name})!
+                أنت الآن في <strong>سلة الشلة ({groupCartCode})</strong> — أي وجبة تضيفها من المنيو ستنزل في كيسك!
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setShowGroupCartModal(true)}
-                className="px-3 py-1 bg-white text-purple-800 hover:bg-purple-50 rounded-lg font-black transition-all"
+                className="px-2.5 py-1 bg-white text-purple-800 hover:bg-purple-50 rounded-lg font-black transition-all whitespace-nowrap"
               >
-                فتح سلة الشلة
+                فتح السلة
               </button>
               <button
                 onClick={() => handleActiveGroupCodeChange(null)}
-                className="px-2.5 py-1 bg-black/25 hover:bg-black/40 text-white rounded-lg font-bold transition-all"
+                className="px-2 py-1 bg-black/25 hover:bg-black/40 text-white rounded-lg font-bold transition-all whitespace-nowrap"
               >
                 مغادرة
               </button>
@@ -417,7 +424,7 @@ export function App() {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 max-w-3xl w-full mx-auto">
+      <main className="flex-1 p-3 sm:p-4 max-w-3xl w-full mx-auto overflow-x-hidden">
         {selectedBranch ? (
           <BranchMenu
             branch={selectedBranch}

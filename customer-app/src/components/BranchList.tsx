@@ -273,7 +273,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         </div>
 
         {/* Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs font-bold scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs font-bold no-scrollbar">
           <button
             onClick={() => setActiveFilter('ALL')}
             className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 text-xs ${
