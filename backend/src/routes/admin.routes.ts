@@ -8,8 +8,10 @@ import {
   awardLoyaltyPointsIfCompleted,
   getWhatsAppAlertSettings,
   updateWhatsAppAlertSettings,
-  sendOrderCancellationWhatsAppAlert
+  sendOrderCancellationWhatsAppAlert,
+  sendBranchShiftWhatsAppReport
 } from "../services/settings.service.js";
+
 
 
 const router = Router();
@@ -1029,5 +1031,118 @@ router.put("/settings/whatsapp-alerts", async (req: AuthRequest, res: Response) 
   }
 });
 
+// 13. إرسال التقرير المالي للشيفت الآن لأي فرع أو لجميع الفروع عبر الواتساب
+router.post("/reports/send-shift-report/:branchId", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.params.branchId as string;
+    const { customPhone } = req.body;
+
+    if (branchId === "ALL") {
+      const branches = await prisma.branch.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
+      });
+
+      let totalSent = 0;
+      for (const b of branches) {
+        const result = await sendBranchShiftWhatsAppReport(b.id, customPhone);
+        if (result.success) totalSent += result.sentCount;
+      }
+
+      res.json({
+        success: true,
+        message: `تم إرسال التقارير المالية لجميع الفروع النشطة بنجاح (${branches.length} فرع)`,
+      });
+      return;
+    }
+
+    const result = await sendBranchShiftWhatsAppReport(branchId, customPhone);
+    if (!result.success) {
+      res.status(400).json({ error: result.message || "فشل إرسال التقرير" });
+      return;
+    }
+
+    res.json({ success: true, message: result.message });
+  } catch (error: any) {
+    console.error("Send shift report error:", error);
+    res.status(500).json({ error: error?.message || "فشل إرسال التقرير المالي" });
+  }
+});
+
+// 14. إعادة ضبط المصنع وتصفير بيانات المنظومة بالكامل (حالة الصفر)
+router.post("/system/factory-reset", async (req: AuthRequest, res: Response) => {
+  try {
+    const adminId = req.user!.userId;
+    const { adminPassword } = req.body;
+
+    if (!adminPassword) {
+      res.status(400).json({ error: "يرجى إدخال كلمة مرور الإدارة لتأكيد عملية التصفير" });
+      return;
+    }
+
+    // التحقق الصارم من هوية السوبر أدمن قبل اتخاذ هذا الإجراء الحساس
+    const admin = await prisma.user.findUnique({
+      where: { id: adminId },
+    });
+
+    if (!admin || admin.role !== "SUPERADMIN") {
+      res.status(403).json({ error: "غير مصرح لك بإجراء عملية إعادة ضبط المصنع" });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(adminPassword, admin.password);
+    if (!isMatch) {
+      res.status(401).json({ error: "كلمة المرور غير صحيحة، تم إلغاء عملية التصفير للحماية" });
+      return;
+    }
+
+    // إحصاء ما سيتم حذفه للتقرير
+    const [ordersCount, customersCount, groupCartsCount] = await Promise.all([
+      prisma.order.count(),
+      prisma.user.count({ where: { role: "CUSTOMER" } }),
+      prisma.groupCart.count(),
+    ]);
+
+    // تنفيذ الحذف الشامل لبيانات التشغيل والاختبار مع الحفاظ التام على هيكل المطاعم والمنيو والسوبر أدمن
+    await prisma.$transaction([
+      // 1. حذف عناصر الطلبات والطلبات بالكامل
+      prisma.orderItem.deleteMany({}),
+      prisma.order.deleteMany({}),
+
+      // 2. حذف السلات الجماعية وعناصرها
+      prisma.groupCartItem.deleteMany({}),
+      prisma.groupCart.deleteMany({}),
+
+      // 3. حذف توكنات التحقق واسترجاع كلمات المرور
+      prisma.passwordResetToken.deleteMany({}),
+      prisma.phoneVerificationToken.deleteMany({}),
+
+      // 4. حذف عناوين وحسابات العملاء والطلاب المسجلين
+      prisma.userAddress.deleteMany({}),
+      prisma.user.deleteMany({ where: { role: "CUSTOMER" } }),
+
+      // 5. تصفير عداد استخدام كوبونات الخصم
+      prisma.promoCode.updateMany({
+        data: { usedCount: 0 },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      message: "تم تصفير المشروع وإعادته إلى حالة الصفر بنجاح ✅",
+      details: {
+        deletedOrders: ordersCount,
+        deletedCustomers: customersCount,
+        deletedGroupCarts: groupCartsCount,
+        timestamp: new Date(),
+      },
+    });
+  } catch (error: any) {
+    console.error("Factory reset error:", error);
+    res.status(500).json({ error: "فشل تنفيذ عملية إعادة ضبط المصنع: " + (error?.message || "") });
+  }
+});
+
 export default router;
+
 

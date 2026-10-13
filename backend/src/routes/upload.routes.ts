@@ -2,7 +2,9 @@ import { Router, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import prisma from "../prisma.js";
 import { authenticateAny, AuthRequest } from "../middleware/auth.js";
+
 
 const router = Router();
 
@@ -65,24 +67,46 @@ router.post("/", authenticateAny, (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "لم يتم اختيار أي صورة للرفع" });
     }
 
+    const filename = req.file.filename;
+    const mimeType = req.file.mimetype || "image/jpeg";
+
     try {
       const fileBuffer = fs.readFileSync(req.file.path);
-      const mimeType = req.file.mimetype || "image/jpeg";
+
+      // حفظ نسخة احتياطية ثنائية (Binary ByteA) في قاعدة البيانات لضمان بقائها حتى لو تم إعادة تشغيل السيرفر أو الاستضافة
+      prisma.uploadedFile.upsert({
+        where: { filename },
+        update: {
+          mimeType,
+          data: fileBuffer,
+          size: fileBuffer.length,
+        },
+        create: {
+          filename,
+          mimeType,
+          data: fileBuffer,
+          size: fileBuffer.length,
+        },
+      }).catch((dbErr) => {
+        console.warn("[Upload] Could not store binary copy in DB:", dbErr);
+      });
+
       const dataUrl = `data:${mimeType};base64,${fileBuffer.toString("base64")}`;
       return res.json({
         success: true,
         url: dataUrl,
-        fileUrl: `/uploads/${req.file.filename}`,
-        filename: req.file.filename,
+        fileUrl: `/uploads/${filename}`,
+        filename,
       });
     } catch {
-      const fileUrl = `/uploads/${req.file.filename}`;
+      const fileUrl = `/uploads/${filename}`;
       return res.json({
         success: true,
         url: fileUrl,
-        filename: req.file.filename,
+        filename,
       });
     }
+
   });
 });
 

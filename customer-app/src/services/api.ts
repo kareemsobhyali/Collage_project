@@ -679,6 +679,8 @@ export const api = {
     unacceptedAlertPhones: string;
     unacceptedAlertEnabled: boolean;
     unacceptedDelayMinutes: number;
+    dailyReportPhones?: string;
+    dailyReportEnabled?: boolean;
   }) {
     const res = await fetch(`${API_BASE_URL}/admin/settings/whatsapp-alerts`, {
       method: 'PUT',
@@ -689,6 +691,31 @@ export const api = {
     if (!res.ok) throw new Error(data.error || 'فشل حفظ إعدادات تنبيهات الواتساب');
     return data;
   },
+
+  // 39. إرسال تقرير الشيفت المالي عبر الواتساب فورياً
+  async sendShiftReportNow(branchId: string = 'ALL', customPhone?: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/reports/send-shift-report/${branchId}`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ customPhone }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إرسال التقرير المالي للشيفت');
+    return data;
+  },
+
+  // 40. إعادة ضبط المصنع وتصفير بيانات المنظومة (حالة الصفر)
+  async factoryReset(adminPassword: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/system/factory-reset`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ adminPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تصفير بيانات المشروع');
+    return data;
+  },
 };
+
 
 

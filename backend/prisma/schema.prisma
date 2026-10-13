@@ -373,4 +373,16 @@ model SystemSetting {
   @@index([key])
 }
 
+model UploadedFile {
+  id        String   @id @default(uuid())
+  filename  String   @unique
+  mimeType  String
+  data      Bytes
+  size      Int
+  createdAt DateTime @default(now())
+
+  @@index([filename])
+}
+
+
 

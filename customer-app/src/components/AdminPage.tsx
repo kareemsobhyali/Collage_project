@@ -43,8 +43,10 @@ import {
   MessageSquare,
   RefreshCw,
   Gift,
-  Sparkles
+  Sparkles,
+  Send
 } from 'lucide-react';
+
 
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { Logo } from './Logo';
@@ -105,16 +107,30 @@ export const AdminPage: React.FC = () => {
     unacceptedAlertPhones: string;
     unacceptedAlertEnabled: boolean;
     unacceptedDelayMinutes: number;
+    dailyReportPhones: string;
+    dailyReportEnabled: boolean;
   }>({
     cancellationAlertPhones: '',
     cancellationAlertEnabled: true,
     unacceptedAlertPhones: '',
     unacceptedAlertEnabled: true,
     unacceptedDelayMinutes: 5,
+    dailyReportPhones: '',
+    dailyReportEnabled: true,
   });
   const [loadingWhatsAppAlerts, setLoadingWhatsAppAlerts] = useState(false);
   const [savingWhatsAppAlerts, setSavingWhatsAppAlerts] = useState(false);
   const [whatsAppAlertsSaveSuccess, setWhatsAppAlertsSaveSuccess] = useState(false);
+  const [testingShiftReport, setTestingShiftReport] = useState(false);
+  const [shiftReportTestMsg, setShiftReportTestMsg] = useState<string | null>(null);
+
+  // Factory Reset states (حالة الصفر)
+  const [showFactoryResetModal, setShowFactoryResetModal] = useState(false);
+  const [factoryResetPassword, setFactoryResetPassword] = useState('');
+  const [factoryResetLoading, setFactoryResetLoading] = useState(false);
+  const [factoryResetError, setFactoryResetError] = useState<string | null>(null);
+  const [factoryResetSuccess, setFactoryResetSuccess] = useState<string | null>(null);
+
 
 
 
@@ -303,11 +319,52 @@ export const AdminPage: React.FC = () => {
       setWhatsAppAlertsSaveSuccess(true);
       setTimeout(() => setWhatsAppAlertsSaveSuccess(false), 3500);
     } catch (err: any) {
-      alert(err.message || 'فشل حفظ إعدادات تنبيهات الواتساب');
-    } finally {
       setSavingWhatsAppAlerts(false);
     }
   };
+
+  const handleTestSendShiftReport = async (branchId: string = 'ALL') => {
+    try {
+      setTestingShiftReport(true);
+      setShiftReportTestMsg(null);
+      const res = await api.sendShiftReportNow(branchId);
+      setShiftReportTestMsg(res.message || 'تم إرسال التقرير المالي للشيفت بنجاح عبر الواتساب ✅');
+      setTimeout(() => setShiftReportTestMsg(null), 6000);
+    } catch (err: any) {
+      alert(err.message || 'فشل إرسال التقرير المالي للشيفت');
+    } finally {
+      setTestingShiftReport(false);
+    }
+  };
+
+  const handleExecuteFactoryReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFactoryResetError(null);
+    setFactoryResetSuccess(null);
+
+    if (!factoryResetPassword) {
+      setFactoryResetError('يرجى إدخال كلمة مرور الإدارة لتأكيد التصفير');
+      return;
+    }
+
+    try {
+      setFactoryResetLoading(true);
+      const res = await api.factoryReset(factoryResetPassword);
+      setFactoryResetSuccess(res.message || 'تم تصفير المشروع بنجاح وإعادته إلى حالة الصفر ✅');
+      setFactoryResetPassword('');
+      // تحديث بيانات الداشبورد فوراً لعكس حالة الصفر
+      fetchDashboardData();
+      setTimeout(() => {
+        setShowFactoryResetModal(false);
+        setFactoryResetSuccess(null);
+      }, 4000);
+    } catch (err: any) {
+      setFactoryResetError(err.message || 'فشل تنفيذ عملية تصفير المشروع');
+    } finally {
+      setFactoryResetLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     if (activeTab === 'WHATSAPP') {
@@ -2170,7 +2227,82 @@ export const AdminPage: React.FC = () => {
                       يقوم السيرفر بفحص دوري تلقائي؛ في حال مرور المدة دون قبول الطلب من شاشة المطعم، يُرسل إنذار عاجل للأرقام أعلاه للتدخل السريع.
                     </p>
                   </div>
+
+                  {/* 3. Shift Closing Daily Financial Report (التقرير المالي اليومي لإغلاق الشيفت) */}
+                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                          <CreditCard className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-black text-slate-200 block">
+                            إرسال التقرير المالي اليومي آلياً عند إغلاق الشيفت
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            يُرسل في موعد إغلاق كل مطعم المحدد في لوحة الفروع
+                          </span>
+                        </div>
+                      </div>
+
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={whatsAppAlertSettings.dailyReportEnabled}
+                          onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, dailyReportEnabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                        أرقام هواتف استقبال التقرير المالي اليومي عبر الواتساب
+                      </label>
+                      <input
+                        type="text"
+                        value={whatsAppAlertSettings.dailyReportPhones}
+                        onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, dailyReportPhones: e.target.value })}
+                        placeholder="أدخل الأرقام مفصولة بفواصل (مثال: 01012345678, 01123456789)"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                      />
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        يتضمن التقرير: إجمالي المبيعات، رسوم التوصيل، المبالغ المحصلة كاش والمحافظ، عدد الطلبات المكتملة والملغاة، وقائمة بأعلى الوجبات مبيعاً.
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => handleTestSendShiftReport('ALL')}
+                        disabled={testingShiftReport || !whatsAppAlertSettings.dailyReportPhones}
+                        className="px-4 py-2 bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-40"
+                      >
+                        {testingShiftReport ? (
+                          <>
+                            <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>جاري الإرسال...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>إرسال تقرير الشيفت الآن (تجربة)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {shiftReportTestMsg && (
+                      <div className="p-2.5 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                        <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>{shiftReportTestMsg}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
+
 
                 {whatsAppAlertsSaveSuccess && (
                   <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
@@ -2500,8 +2632,67 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Card 3: Factory Reset to Zero State (حالة الصفر) */}
+            <div className="bg-rose-950/20 border border-rose-900/50 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rose-900/40 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <span>إعادة ضبط المصنع وتصفير بيانات التشغيل (حالة الصفر)</span>
+                      <span className="px-2 py-0.5 bg-rose-500/20 text-rose-400 text-[10px] font-black rounded-md border border-rose-500/30">
+                        إجراء حساس ومحمي 🔒
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      حذف كافة الطلبات التجريبية وحسابات وسلات الطلاب لبدء التشغيل الفعلي من نقطة الصفر
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFactoryResetPassword('');
+                    setFactoryResetError(null);
+                    setFactoryResetSuccess(null);
+                    setShowFactoryResetModal(true);
+                  }}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 shrink-0"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>تصفير المشروع بحالة الصفر</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1.5">
+                  <span className="font-bold text-rose-300 block">🗑️ البيانات التي سيتم حذفها وتصفيرها:</span>
+                  <ul className="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
+                    <li>كافة الطلبات المسجلة بجميع حالاتها وعناصرها وسجلاتها.</li>
+                    <li>كافة السلات الجماعية (سلة الشلة) المشتركة.</li>
+                    <li>حسابات الطلاب التجريبية مع أرصدة المحافظ ونقاط الولاء والعناوين.</li>
+                    <li>تصفير عداد استخدام كوبونات الخصم لتبدأ من 0.</li>
+                  </ul>
+                </div>
+
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1.5">
+                  <span className="font-bold text-emerald-300 block">🛡️ البيانات المحفوظة والآمنة التي لن تتأثر:</span>
+                  <ul className="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
+                    <li>حساب الإدارة الرئيسية (SuperAdmin) وكلمة المرور.</li>
+                    <li>فروع المطاعم وبيانات الدخول الخاصة بها وإعدادات الدفع والتوصيل.</li>
+                    <li>قوائم الطعام (المنيو) والأصناف والأسعار والإضافات والصور الثابتة.</li>
+                    <li>البانرات الإعلانية وكوبونات الخصم وإعدادات المنظومة والواتساب.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         )}
+
       </main>
 
       {/* 8. MODALS SECTION */}
@@ -3735,6 +3926,108 @@ export const AdminPage: React.FC = () => {
         </div>
       )}
 
+      {/* G. Factory Reset Confirmation Modal (حالة الصفر) */}
+      {showFactoryResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-900 border border-rose-800/80 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-white">تصفير النظام وإعادته لحالة الصفر</h3>
+                  <span className="text-[11px] text-rose-400 font-bold block">تحذير أمني: هذا الإجراء لا يمكن التراجع عنه</span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!factoryResetLoading) {
+                    setShowFactoryResetModal(false);
+                    setFactoryResetError(null);
+                  }
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-rose-950/40 border border-rose-900/60 rounded-2xl space-y-2 text-xs">
+              <p className="text-rose-200 leading-relaxed font-semibold">
+                ⚠️ سيتم حذف جميع الطلبات التجريبية وسلات الشلة وحسابات الطلاب.
+              </p>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                ستبقى فروع المطاعم والمنيو وأسعار الوجبات وحساب الإدارة الرئيسية محفوظاً بالكامل دون أي مساس.
+              </p>
+            </div>
+
+            <form onSubmit={handleExecuteFactoryReset} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-200 block mb-1.5">
+                  أدخل كلمة مرور الإدارة (SuperAdmin) للتأكيد:
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={factoryResetPassword}
+                    onChange={(e) => setFactoryResetPassword(e.target.value)}
+                    placeholder="كلمة مرور الإدارة الحالية..."
+                    required
+                    disabled={factoryResetLoading}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono"
+                  />
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                </div>
+              </div>
+
+              {factoryResetError && (
+                <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{factoryResetError}</span>
+                </div>
+              )}
+
+              {factoryResetSuccess && (
+                <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{factoryResetSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={factoryResetLoading}
+                  onClick={() => setShowFactoryResetModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                >
+                  إلغاء التراجع
+                </button>
+                <button
+                  type="submit"
+                  disabled={factoryResetLoading || !factoryResetPassword}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-rose-600/30 disabled:opacity-40"
+                >
+                  {factoryResetLoading ? (
+                    <>
+                      <RotateCw className="w-4 h-4 animate-spin" />
+                      <span>جاري التصفير والحذف...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>تأكيد تصفير البيانات الآن</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
+

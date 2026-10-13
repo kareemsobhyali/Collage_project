@@ -20,6 +20,8 @@ import customerRoutes from "./routes/customer.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import driverRoutes from "./routes/driver.routes.js";
 import { authLimiter, orderLimiter, generalApiLimiter, uploadLimiter } from "./middleware/rateLimiter.js";
+import prisma from "./prisma.js";
+
 
 const app = express();
 // تفعيل trust proxy ليعمل express-rate-limit بدقة خلف خوادم الاستضافة السحابية (Render / Railway / Cloudflare)
@@ -80,9 +82,45 @@ function resolvePath(...cands: string[]): string {
   return path.resolve(process.cwd(), cands[0]);
 }
 
-// خدمة الصور المرفوعة للمنيو والفروع
+// خدمة الصور المرفوعة للمنيو والفروع مع استرجاع تلقائي من قاعدة البيانات عند إعادة تشغيل السيرفر
 const uploadsPath = resolvePath("uploads", "backend/uploads", "../uploads");
+
+app.get("/uploads/:filename", async (req, res, next) => {
+  const filename = req.params.filename;
+  const localFilePath = path.join(uploadsPath, filename);
+
+  // 1. إذا كانت الصورة موجودة على القرص الصلب، نرسلها مباشرة بسرعة فائقة
+  if (fs.existsSync(localFilePath)) {
+    return res.sendFile(localFilePath);
+  }
+
+  // 2. إذا فُقدت الصورة من القرص الصلب (بسبب إعادة تشغيل سيرفر الاستضافة)، نسترجعها فوراً من قاعدة البيانات PostgreSQL
+  try {
+    const dbFile = await prisma.uploadedFile.findUnique({
+      where: { filename },
+    });
+    if (dbFile && dbFile.data) {
+      // إعادة حفظها في الكاش المحلي لزيادة السرعة في الطلبات القادمة
+      try {
+        if (!fs.existsSync(uploadsPath)) {
+          fs.mkdirSync(uploadsPath, { recursive: true });
+        }
+        fs.writeFileSync(localFilePath, Buffer.from(dbFile.data));
+      } catch (_cacheErr) {}
+
+      res.setHeader("Content-Type", dbFile.mimeType || "image/jpeg");
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      return res.send(Buffer.from(dbFile.data));
+    }
+  } catch (err) {
+    console.error("[Uploads Fallback] Error retrieving file from DB:", err);
+  }
+
+  return res.status(404).json({ error: "Image not found" });
+});
+
 app.use("/uploads", express.static(uploadsPath));
+
 
 // مسارات واجهات البرمجة API
 app.use("/api/auth", authRoutes);
@@ -174,16 +212,62 @@ server.listen(PORT, "0.0.0.0", () => {
 
   // فحص دوري كل 45 ثانية للطلبات المعلقة التي تجاوزت 5 دقائق دون قبول لإرسال إنذار عبر الواتساب
   import("./services/settings.service.js")
-    .then(({ checkAndSendUnacceptedOrdersWhatsAppAlerts }) => {
+    .then(({ checkAndSendUnacceptedOrdersWhatsAppAlerts, checkAndSendShiftClosingReports }) => {
       setInterval(() => {
         checkAndSendUnacceptedOrdersWhatsAppAlerts().catch((err) => {
           console.error("[Scheduler] Unaccepted orders check error:", err);
         });
       }, 45 * 1000);
+
+      // فحص دوري كل دقيقة لمواعيد إغلاق الفروع لإرسال التقرير المالي اليومي لإغلاق الشيفت عبر الواتساب
+      checkAndSendShiftClosingReports().catch(() => {});
+      setInterval(() => {
+        checkAndSendShiftClosingReports().catch((err) => {
+          console.error("[Scheduler] Shift closing reports check error:", err);
+        });
+      }, 60 * 1000);
     })
     .catch((err) => {
-      console.warn("[Scheduler] Could not start unaccepted orders check:", err);
+      console.warn("[Scheduler] Could not start alert schedulers:", err);
     });
+
+  // مزامنة الصور المحلية الموجودة على القرص وحفظها في قاعدة البيانات PostgreSQL لضمان عدم فقدانها عند إعادة تشغيل السيرفر
+  setTimeout(async () => {
+    try {
+      if (fs.existsSync(uploadsPath)) {
+        const files = fs.readdirSync(uploadsPath);
+        for (const file of files) {
+          const filePath = path.join(uploadsPath, file);
+          const stat = fs.statSync(filePath);
+          if (stat.isFile() && stat.size <= 5 * 1024 * 1024) {
+            const ext = path.extname(file).toLowerCase().replace(".", "");
+            if (["jpg", "jpeg", "png", "webp", "gif"].includes(ext)) {
+              const existing = await prisma.uploadedFile.findUnique({
+                where: { filename: file },
+                select: { id: true },
+              });
+              if (!existing) {
+                const buffer = fs.readFileSync(filePath);
+                const mimeType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : ext === "gif" ? "image/gif" : "image/jpeg";
+                await prisma.uploadedFile.create({
+                  data: {
+                    filename: file,
+                    mimeType,
+                    data: buffer,
+                    size: buffer.length,
+                  },
+                });
+                console.log(`[Backup] Synced image ${file} to PostgreSQL database.`);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[Backup] Image auto-sync to DB encountered:", err);
+    }
+  }, 5000);
 });
+
 
 export default app;

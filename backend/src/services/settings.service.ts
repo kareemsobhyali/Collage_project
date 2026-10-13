@@ -92,6 +92,8 @@ export interface WhatsAppAlertSettings {
   unacceptedAlertPhones: string;
   unacceptedAlertEnabled: boolean;
   unacceptedDelayMinutes: number;
+  dailyReportPhones: string;
+  dailyReportEnabled: boolean;
 }
 
 const DEFAULT_WHATSAPP_ALERT_SETTINGS: WhatsAppAlertSettings = {
@@ -100,6 +102,8 @@ const DEFAULT_WHATSAPP_ALERT_SETTINGS: WhatsAppAlertSettings = {
   unacceptedAlertPhones: "",
   unacceptedAlertEnabled: true,
   unacceptedDelayMinutes: 5,
+  dailyReportPhones: "",
+  dailyReportEnabled: true,
 };
 
 export async function getWhatsAppAlertSettings(): Promise<WhatsAppAlertSettings> {
@@ -124,6 +128,8 @@ export async function updateWhatsAppAlertSettings(settings: Partial<WhatsAppAler
     unacceptedAlertPhones: String(settings.unacceptedAlertPhones ?? current.unacceptedAlertPhones).trim(),
     unacceptedAlertEnabled: typeof settings.unacceptedAlertEnabled === "boolean" ? settings.unacceptedAlertEnabled : current.unacceptedAlertEnabled,
     unacceptedDelayMinutes: Math.max(1, Number(settings.unacceptedDelayMinutes ?? current.unacceptedDelayMinutes)),
+    dailyReportPhones: String(settings.dailyReportPhones ?? current.dailyReportPhones).trim(),
+    dailyReportEnabled: typeof settings.dailyReportEnabled === "boolean" ? settings.dailyReportEnabled : current.dailyReportEnabled,
   };
 
   await prisma.systemSetting.upsert({
@@ -134,6 +140,7 @@ export async function updateWhatsAppAlertSettings(settings: Partial<WhatsAppAler
 
   return updated;
 }
+
 
 /**
  * إرسال إشعار فوري عبر الواتساب للمشرفين عند قيام المطعم بإلغاء/رفض أي طلب
@@ -246,4 +253,243 @@ export async function checkAndSendUnacceptedOrdersWhatsAppAlerts(): Promise<void
     console.error("[WhatsApp Alert] Unaccepted orders check error:", err);
   }
 }
+
+/**
+ * الحصول على تاريخ اليوم وتوقيته بتوقيت القاهرة
+ */
+export function getCairoNow(): { dateStr: string; timeStr: string; startOfDay: Date } {
+  const now = new Date();
+  const dateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo" }).format(now); // "YYYY-MM-DD"
+  const timeStr = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Cairo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(now); // "HH:mm"
+
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 3 * 60 * 60 * 1000);
+
+  return { dateStr, timeStr, startOfDay };
+}
+
+/**
+ * توليد نص التقرير المالي لإغلاق الشيفت لأي فرع
+ */
+export async function generateBranchShiftReport(branchId: string): Promise<{
+  branchName: string;
+  message: string;
+  totalOrders: number;
+  completedOrders: number;
+  totalRevenue: number;
+} | null> {
+  const branch = await prisma.branch.findUnique({
+    where: { id: branchId },
+  });
+  if (!branch) return null;
+
+  const { dateStr, timeStr, startOfDay } = getCairoNow();
+
+  // جلب كافة طلبات الفرع لشيفت اليوم
+  const orders = await prisma.order.findMany({
+    where: {
+      branchId,
+      createdAt: { gte: startOfDay },
+    },
+    include: {
+      items: true,
+    },
+  });
+
+  const totalOrders = orders.length;
+  const completedOrders = orders.filter((o) => o.status === "COMPLETED");
+  const rejectedOrders = orders.filter((o) => o.status === "REJECTED");
+  const inProgressOrders = orders.filter((o) =>
+    ["PENDING", "ACCEPTED", "PREPARING", "READY"].includes(o.status)
+  );
+
+  const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const deliveryFeesSum = completedOrders.reduce((sum, o) => sum + (o.deliveryFee || 0), 0);
+  const foodNetSum = totalRevenue - deliveryFeesSum;
+  const walletDiscountsSum = completedOrders.reduce((sum, o) => sum + (o.walletDiscount || 0), 0);
+
+  // إحصائيات طرق الدفع للطلبات المكتملة
+  let cashTotal = 0, cashCount = 0;
+  let vodafoneTotal = 0, vodafoneCount = 0;
+  let instapayTotal = 0, instapayCount = 0;
+  let cardTotal = 0, cardCount = 0;
+
+  for (const o of completedOrders) {
+    if (o.paymentMethod === "CASH") {
+      cashTotal += o.total;
+      cashCount++;
+    } else if (o.paymentMethod === "VODAFONE_CASH") {
+      vodafoneTotal += o.total;
+      vodafoneCount++;
+    } else if (o.paymentMethod === "INSTAPAY") {
+      instapayTotal += o.total;
+      instapayCount++;
+    } else if (o.paymentMethod === "CARD") {
+      cardTotal += o.total;
+      cardCount++;
+    }
+  }
+
+  // حساب أعلى الأصناف مبيعاً
+  const itemCounts: Record<string, { name: string; qty: number; revenue: number }> = {};
+  for (const o of completedOrders) {
+    for (const item of o.items) {
+      if (!itemCounts[item.itemName]) {
+        itemCounts[item.itemName] = { name: item.itemName, qty: 0, revenue: 0 };
+      }
+      itemCounts[item.itemName].qty += item.quantity;
+      itemCounts[item.itemName].revenue += item.totalPrice;
+    }
+  }
+
+  const topItems = Object.values(itemCounts)
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 4);
+
+  const topItemsText =
+    topItems.length > 0
+      ? topItems
+          .map((item, idx) => `  ${idx + 1}. *${item.name}*: ${item.qty} وجبة (${item.revenue} ج.م)`)
+          .join("\n")
+      : "  لا توجد أصناف مكتملة اليوم بعد.";
+
+  const message =
+`📊 *التقرير المالي لإغلاق الشيفت - UniFood* 🧾
+🏪 *المطعم:* ${branch.name}
+📅 *تاريخ اليوم:* ${dateStr}
+⏰ *وقت الإغلاق:* ${timeStr}
+
+━━━━━━━━━━━━━━━━━━━━━
+📈 *ملخص المبيعات والإيرادات:*
+💰 إجمالي المبيعات المحققة: *${totalRevenue.toFixed(1)} ج.م*
+🍲 صافي مبيعات الوجبات: *${foodNetSum.toFixed(1)} ج.م*
+🛵 إجمالي رسوم التوصيل: *${deliveryFeesSum.toFixed(1)} ج.م*
+👛 خصومات المحفظة الجامعية: *${walletDiscountsSum.toFixed(1)} ج.م*
+
+📦 إجمالي الطلبات المسجلة: *${totalOrders} طلب*
+✅ طلبات ناجحة ومكتملة: *${completedOrders.length} طلب*
+❌ طلبات ملغاة أو مرفوضة: *${rejectedOrders.length} طلب*
+⏳ طلبات جارية/معلقة: *${inProgressOrders.length} طلب*
+
+━━━━━━━━━━━━━━━━━━━━━
+💳 *تفصيل طرق التحصيل:*
+💵 كاش (نقداً): *${cashTotal.toFixed(1)} ج.م* (${cashCount} طلب)
+📱 فودافون كاش: *${vodafoneTotal.toFixed(1)} ج.م* (${vodafoneCount} طلب)
+🏦 إنستاباي: *${instapayTotal.toFixed(1)} ج.م* (${instapayCount} طلب)
+💳 فيزا / بطاقات: *${cardTotal.toFixed(1)} ج.م* (${cardCount} طلب)
+
+━━━━━━━━━━━━━━━━━━━━━
+🍽️ *أعلى الأصناف طلباً في هذا الشيفت:*
+${topItemsText}
+
+━━━━━━━━━━━━━━━━━━━━━
+✨ *نظام UniFood لإدارة مطاعم الحرم الجامعي.*`;
+
+  return {
+    branchName: branch.name,
+    message,
+    totalOrders,
+    completedOrders: completedOrders.length,
+    totalRevenue,
+  };
+}
+
+/**
+ * إرسال التقرير المالي للشيفت عبر الواتساب للأرقام المحددة في لوحة التحكم
+ */
+export async function sendBranchShiftWhatsAppReport(branchId: string, customPhone?: string): Promise<{ success: boolean; sentCount: number; message?: string }> {
+  try {
+    const report = await generateBranchShiftReport(branchId);
+    if (!report) {
+      return { success: false, sentCount: 0, message: "الفرع غير موجود" };
+    }
+
+    const settings = await getWhatsAppAlertSettings();
+    const phoneSources = customPhone ? [customPhone] : (settings.dailyReportPhones || "").split(/[\n,;]+/);
+    const phones = phoneSources
+      .map((p) => p.trim())
+      .filter((p) => p.length >= 10);
+
+    if (phones.length === 0) {
+      return { success: false, sentCount: 0, message: "لم يتم تحديد أرقام هواتف لإرسال التقرير إليها" };
+    }
+
+    const { whatsappService } = await import("./whatsapp.service.js");
+    let sentCount = 0;
+    for (const phone of phones) {
+      try {
+        await whatsappService.sendOrderStatusNotification(phone, report.message);
+        sentCount++;
+      } catch (err) {
+        console.warn(`[Shift Report] Failed to send to ${phone}:`, err);
+      }
+    }
+
+    return { success: sentCount > 0, sentCount, message: `تم إرسال التقرير المالي إلى ${sentCount} رقم بنجاح` };
+  } catch (err: any) {
+    console.error("[Shift Report] Error sending shift report:", err);
+    return { success: false, sentCount: 0, message: err?.message || "فشل إرسال التقرير" };
+  }
+}
+
+/**
+ * فحص دوري لمواعيد إغلاق الفروع وإرسال التقارير المالية للشيفت تلقائياً
+ */
+export async function checkAndSendShiftClosingReports(): Promise<void> {
+  try {
+    const settings = await getWhatsAppAlertSettings();
+    if (!settings.dailyReportEnabled || !settings.dailyReportPhones) {
+      return;
+    }
+
+    const { dateStr, timeStr } = getCairoNow();
+
+    // جلب جميع الفروع النشطة التي لها موعد إغلاق محدد
+    const activeBranches = await prisma.branch.findMany({
+      where: {
+        isActive: true,
+        closingTime: { not: null },
+      },
+      select: {
+        id: true,
+        name: true,
+        closingTime: true,
+      },
+    });
+
+    for (const branch of activeBranches) {
+      if (!branch.closingTime) continue;
+
+      // مقارنة موعد إغلاق الفرع مع الوقت الحالي بالقاهرة
+      const cleanBranchClosing = branch.closingTime.trim();
+      if (cleanBranchClosing === timeStr) {
+        // التحقق من عدم إرسال التقرير لهذا الفرع اليوم مسبقاً
+        const sentKey = `shift_report_sent_${branch.id}_${dateStr}`;
+        const alreadySent = await prisma.systemSetting.findUnique({
+          where: { key: sentKey },
+        });
+
+        if (!alreadySent) {
+          console.log(`[Shift Report] Triggering automated shift closing report for ${branch.name} at ${timeStr}...`);
+          await sendBranchShiftWhatsAppReport(branch.id);
+
+          // تسجيل أنه تم الإرسال اليوم
+          await prisma.systemSetting.upsert({
+            where: { key: sentKey },
+            update: { value: "true" },
+            create: { key: sentKey, value: "true" },
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[Shift Report] Periodic check error:", err);
+  }
+}
+
 
