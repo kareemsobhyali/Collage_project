@@ -18,10 +18,11 @@ import {
   ArrowRight,
   ShieldCheck,
   Building2,
-  Clock
+  Clock,
+  Smartphone
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
-import { registerServiceWorker, requestPushPermission, sendWebNotification } from '../services/notifications';
+import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk } from '../services/notifications';
 
 interface DriverPortalProps {
   onClose?: () => void;
@@ -303,7 +304,19 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
             </button>
           </form>
 
-          {onClose && (
+          {!isRunningInNativeApk() && (
+            <a
+              href="https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Driver.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-colors"
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>تحميل تطبيق كابتن التوصيل للأندرويد (APK)</span>
+            </a>
+          )}
+
+          {onClose && !isRunningInNativeApk() && (
             <button
               onClick={onClose}
               className="w-full py-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold text-center block"

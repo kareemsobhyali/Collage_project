@@ -17,7 +17,14 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 }
 
+export function isRunningInNativeApk(): boolean {
+  return typeof window !== 'undefined' && Boolean((window as any).AndroidBridge);
+}
+
 export function getNotificationPermissionState(): NotificationPermission | 'unsupported' {
+  if (isRunningInNativeApk()) {
+    return 'granted';
+  }
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return 'unsupported';
   }
@@ -25,6 +32,9 @@ export function getNotificationPermissionState(): NotificationPermission | 'unsu
 }
 
 export async function requestPushPermission(): Promise<boolean> {
+  if (isRunningInNativeApk()) {
+    return true;
+  }
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return false;
   }
@@ -44,6 +54,15 @@ export async function sendWebNotification(
   body: string,
   url: string = '/'
 ): Promise<void> {
+  if (isRunningInNativeApk()) {
+    try {
+      (window as any).AndroidBridge.showNotification(title, body);
+      return;
+    } catch (_e) {
+      // Fallback to web notifications if bridge fails
+    }
+  }
+
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return;
   }

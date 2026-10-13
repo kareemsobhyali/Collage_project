@@ -13,6 +13,10 @@ dist/
 **/dist/
 dist-ssr/
 build/
+**/build/
+android-app/.gradle/
+*.keystore
+*.apk
 out/
 release/
 *.tsbuildinfo

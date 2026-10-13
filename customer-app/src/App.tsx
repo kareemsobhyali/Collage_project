@@ -12,10 +12,11 @@ import {
   Truck,
   Users,
   Wallet,
-  Sparkles
+  Sparkles,
+  Smartphone
 } from 'lucide-react';
 import { api, API_BASE_URL } from './services/api';
-import { registerServiceWorker } from './services/notifications';
+import { registerServiceWorker, isRunningInNativeApk } from './services/notifications';
 import { BranchList } from './components/BranchList';
 import { BranchMenu } from './components/BranchMenu';
 import { AuthModal } from './components/AuthModal';
@@ -37,6 +38,7 @@ export function App() {
   );
 
   const isDriverRoute = typeof window !== 'undefined' && (
+    (window as any).AndroidBridge?.getFlavor?.() === 'driver' ||
     window.location.pathname.startsWith('/driver') ||
     window.location.pathname.startsWith('/delivery') ||
     window.location.pathname.startsWith('/elviery') ||
@@ -292,6 +294,20 @@ export function App() {
 
           {/* User & Orders Tools */}
           <div className="flex items-center gap-2">
+            {/* Direct Student APK Download Button (hidden inside APK) */}
+            {!isRunningInNativeApk() && (
+              <a
+                href="https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-colors"
+                title="تحميل تطبيق الطلاب للأندرويد (APK)"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">تطبيق الأندرويد</span>
+              </a>
+            )}
+
             {/* Group Cart Button */}
             <button
               onClick={handleOpenGroupCartClick}

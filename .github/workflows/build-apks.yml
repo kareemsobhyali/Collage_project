@@ -1,0 +1,94 @@
+name: Build Android APKs (Student & Driver)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'رابط المنصة على Render'
+        required: false
+        default: 'https://collage-project-5zby.onrender.com'
+
+permissions:
+  contents: write
+
+jobs:
+  build-apks:
+    name: توليد نسخ APK للطلاب والطيارين
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle 8.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.5'
+
+      - name: Prepare App Icon & Signing Keystore
+        run: |
+          mkdir -p android-app/app/src/main/res/drawable
+          cp -f customer-app/public/logo.png android-app/app/src/main/res/drawable/ic_launcher.png
+          if [ ! -f android-app/app/release.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore android-app/app/release.keystore \
+              -alias unifood \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass unifood123 \
+              -keypass unifood123 \
+              -dname "CN=UniFood, OU=Campus, O=UniFood, L=Cairo, ST=Cairo, C=EG"
+          fi
+
+      - name: Build Signed Student & Driver APKs
+        working-directory: android-app
+        run: |
+          SERVER_URL="${{ github.event.inputs.base_url || 'https://collage-project-5zby.onrender.com' }}"
+          gradle assembleRelease -PBASE_URL="$SERVER_URL" --no-daemon
+
+      - name: Collect Built APKs
+        run: |
+          cp android-app/app/build/outputs/apk/student/release/app-student-release.apk ./UniFood-Student.apk
+          cp android-app/app/build/outputs/apk/driver/release/app-driver-release.apk ./UniFood-Driver.apk
+          ls -lh ./UniFood-Student.apk ./UniFood-Driver.apk
+
+      - name: Upload Student APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniFood-Student-APK
+          path: ./UniFood-Student.apk
+          if-no-files-found: error
+
+      - name: Upload Driver APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniFood-Driver-APK
+          path: ./UniFood-Driver.apk
+          if-no-files-found: error
+
+      - name: Publish APKs to GitHub Releases (latest-apk)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-apk
+          name: "📲 تطبيقات UniFood للأندرويد (نسخة الطلاب + نسخة الطيارين)"
+          body: |
+            ### 🎓 تطبيقات منصة يونيفود للأندرويد (تحديث تلقائي)
+            - **نسخة الطلاب (`UniFood-Student.apk`)**: تفتح متجر الطلاب وسلة الشلة مباشرة مع دعم الإشعارات الفورية.
+            - **نسخة كابتن التوصيل (`UniFood-Driver.apk`)**: تفتح بوابة الطيارين مباشرة مع إبقاء الشاشة نشطة والتنبيه الصوتي والإشعارات.
+            *(يمكن تثبيت التطبيقيْن معاً على نفس الهاتف بدون أي تعارض)*
+          files: |
+            ./UniFood-Student.apk
+            ./UniFood-Driver.apk
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

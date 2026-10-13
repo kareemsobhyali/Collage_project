@@ -1,0 +1,73 @@
+plugins {
+    id 'com.android.application'
+}
+
+def baseServerUrl = project.hasProperty('BASE_URL') ? project.property('BASE_URL').toString().replaceAll('/+$', '') : 'https://collage-project-5zby.onrender.com'
+
+android {
+    namespace 'com.unifood.app'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 34
+        versionCode 2
+        versionName "1.1.0"
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("release.keystore")
+            storePassword "unifood123"
+            keyAlias "unifood"
+            keyPassword "unifood123"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+        }
+        debug {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    flavorDimensions = ["role"]
+
+    productFlavors {
+        student {
+            dimension "role"
+            applicationId "com.unifood.student"
+            resValue "string", "app_name", "UniFood | يونيفود"
+            buildConfigField "String", "START_URL", "\"${baseServerUrl}/\""
+            buildConfigField "String", "FLAVOR_TYPE", "\"student\""
+            buildConfigField "boolean", "KEEP_SCREEN_ON", "false"
+            buildConfigField "int", "STATUS_BAR_COLOR", "0xFF4F46E5"
+        }
+        driver {
+            dimension "role"
+            applicationId "com.unifood.driver"
+            resValue "string", "app_name", "UniFood Driver | كابتن التوصيل"
+            buildConfigField "String", "START_URL", "\"${baseServerUrl}/driver\""
+            buildConfigField "String", "FLAVOR_TYPE", "\"driver\""
+            buildConfigField "boolean", "KEEP_SCREEN_ON", "true"
+            buildConfigField "int", "STATUS_BAR_COLOR", "0xFF1E1B4B"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Pure Android SDK for minimal APK size (~1.5MB) and fast builds
+}
