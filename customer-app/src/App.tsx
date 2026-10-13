@@ -13,7 +13,9 @@ import {
   Users,
   Wallet,
   Sparkles,
-  Smartphone
+  Smartphone,
+  X,
+  CheckCircle2
 } from 'lucide-react';
 import { api, API_BASE_URL } from './services/api';
 import { registerServiceWorker, isRunningInNativeApk, triggerInstallApp } from './services/notifications';
@@ -120,6 +122,62 @@ export function App() {
   const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activationToast, setActivationToast] = useState<string | null>(null);
+
+  // فحص روابط التفعيل السريع من الواتساب (WhatsApp Magic Link Auto-Activation)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get('verifyToken');
+    const verifiedParam = params.get('verified');
+    const directJwtToken = params.get('token');
+
+    if (verifyToken) {
+      setLoading(true);
+      api.verifyPhoneLink(verifyToken)
+        .then((res) => {
+          if (res.token && res.user) {
+            localStorage.setItem('customer_token', res.token);
+            localStorage.setItem('customer_user', JSON.stringify(res.user));
+            setUser(res.user);
+            setActivationToast('تم تفعيل حسابك وتأكيد هاتفك بنجاح! مرحباً بك في UniFood 🎉🍔');
+            // إزالة التوكن من الرابط بسلاسة
+            params.delete('verifyToken');
+            const newQuery = params.toString() ? `?${params.toString()}` : window.location.pathname;
+            window.history.replaceState({}, '', newQuery);
+          }
+        })
+        .catch((err) => {
+          alert(err.message || 'رابط التفعيل غير صالح أو انتهت صلاحيته');
+          params.delete('verifyToken');
+          const newQuery = params.toString() ? `?${params.toString()}` : window.location.pathname;
+          window.history.replaceState({}, '', newQuery);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else if (verifiedParam && directJwtToken) {
+      localStorage.setItem('customer_token', directJwtToken);
+      api.getMe()
+        .then((userData) => {
+          localStorage.setItem('customer_user', JSON.stringify(userData));
+          setUser(userData);
+          setActivationToast('تم تفعيل حسابك بنجاح! مرحباً بك في UniFood 🎉🍔');
+          params.delete('verified');
+          params.delete('token');
+          const newQuery = params.toString() ? `?${params.toString()}` : window.location.pathname;
+          window.history.replaceState({}, '', newQuery);
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  // إخفاء إشعار التفعيل التلقائي بعد 6 ثوانٍ
+  useEffect(() => {
+    if (!activationToast) return;
+    const t = setTimeout(() => setActivationToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [activationToast]);
 
   // إذا دخل الطالب برابط دعوة لسلة الشلة: يفتح السلة إن كان مسجلاً، أو يطلب تسجيل الدخول أولاً
   useEffect(() => {
@@ -348,6 +406,22 @@ export function App() {
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-100 flex flex-col font-sans">
+      {/* إشعار التفعيل السريع لحساب الطالب */}
+      {activationToast && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[100] w-11/12 max-w-md bg-emerald-600 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-bounce border border-emerald-400">
+          <div className="flex items-center gap-2.5 text-xs font-black">
+            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-200" />
+            <span>{activationToast}</span>
+          </div>
+          <button
+            onClick={() => setActivationToast(null)}
+            className="p-1 hover:bg-emerald-700 rounded-lg text-white/80 hover:text-white shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Mobile/Desktop Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-3 sm:px-4 py-2.5 shadow-sm w-full">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">

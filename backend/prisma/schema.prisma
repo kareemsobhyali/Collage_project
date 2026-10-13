@@ -16,6 +16,7 @@ model User {
   loyaltyPoints   Int           @default(0)          // نقاط الولاء الجامعية
   walletBalance   Float         @default(0.0)        // رصيد المحفظة بالجنيه
   isBlocked       Boolean       @default(false)      // حظر/إيقاف الحساب من عمل طلبات جديدة
+  isVerified      Boolean       @default(true)       // تفعيل وتأكيد رقم الهاتف عبر الواتساب
   restaurantNotes String?                            // ملاحظات المطعم/الإدارة المسجلة على هذا الرقم
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -332,3 +333,31 @@ model GroupCartItem {
 
   @@index([groupCartId])
 }
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  phone     String
+  token     String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+  @@index([phone, token])
+}
+
+model PhoneVerificationToken {
+  id        String   @id @default(uuid())
+  phone     String
+  code      String   // كود تفعيل 6 أرقام
+  token     String   @unique // معرّف مشفر لرابط التفعيل السريع
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+  @@index([token])
+  @@index([phone, code])
+}
+
+

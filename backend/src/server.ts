@@ -151,6 +151,17 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(` 4. Restaurant POS:      http://localhost:${PORT}/branch/`);
   console.log(` 5. API Health Check:    http://localhost:${PORT}/api/health`);
   console.log(`===============================================`);
+
+  // تشغيل خدمة الواتساب الذاتية لإرسال أكواد الـ OTP والإشعارات
+  import("./services/whatsapp.service.js")
+    .then(({ whatsappService }) => {
+      whatsappService.initWhatsApp().catch((err) => {
+        console.error("[WhatsApp] Startup error:", err);
+      });
+    })
+    .catch((err) => {
+      console.warn("[WhatsApp] Could not load whatsappService:", err);
+    });
 });
 
 export default app;

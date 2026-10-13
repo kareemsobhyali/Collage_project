@@ -39,7 +39,9 @@ import {
   ChefHat,
   Truck,
   Share2,
-  Link as LinkIcon
+  Link as LinkIcon,
+  MessageSquare,
+  RefreshCw
 } from 'lucide-react';
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { Logo } from './Logo';
@@ -63,7 +65,9 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS'>('BRANCHES');
+  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP'>('BRANCHES');
+  const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
+  const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
 
   // Data states
   const [branches, setBranches] = useState<any[]>([]);
@@ -131,6 +135,7 @@ export const AdminPage: React.FC = () => {
   const [editStudentPoints, setEditStudentPoints] = useState('0');
   const [editStudentNotes, setEditStudentNotes] = useState('');
   const [editStudentBlocked, setEditStudentBlocked] = useState(false);
+  const [editStudentPassword, setEditStudentPassword] = useState('');
   const [savingStudentWallet, setSavingStudentWallet] = useState(false);
 
   // Add Branch Form
@@ -200,6 +205,39 @@ export const AdminPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const fetchWhatsAppStatus = async () => {
+    try {
+      setLoadingWhatsApp(true);
+      const data = await api.getWhatsAppStatus();
+      setWhatsAppStatus(data);
+    } catch (err: any) {
+      console.warn('WhatsApp status error:', err);
+    } finally {
+      setLoadingWhatsApp(false);
+    }
+  };
+
+  const handleDisconnectWhatsApp = async () => {
+    if (!window.confirm('هل أنت متأكد من رغبتك في فصل جلسة الواتساب الحالية؟ سيطلب منك مسح رمز QR جديد للربط.')) return;
+    try {
+      setLoadingWhatsApp(true);
+      await api.disconnectWhatsApp();
+      setTimeout(fetchWhatsAppStatus, 1500);
+    } catch (err: any) {
+      alert(err.message || 'فشل فصل الجلسة');
+    } finally {
+      setLoadingWhatsApp(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'WHATSAPP') {
+      fetchWhatsAppStatus();
+      const interval = setInterval(fetchWhatsAppStatus, 8000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
 
   // Banner Handlers
   const handleUploadBannerImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -396,6 +434,7 @@ export const AdminPage: React.FC = () => {
     setEditStudentPoints(String(student.loyaltyPoints ?? 0));
     setEditStudentNotes(student.restaurantNotes || '');
     setEditStudentBlocked(Boolean(student.isBlocked));
+    setEditStudentPassword('');
   };
 
   const handleSaveStudentWallet = async (e: React.FormEvent) => {
@@ -403,6 +442,11 @@ export const AdminPage: React.FC = () => {
     if (!editingStudentWallet) return;
     try {
       setSavingStudentWallet(true);
+
+      if (editStudentPassword.trim()) {
+        await api.adminResetUserPassword(editingStudentWallet.id, editStudentPassword.trim());
+      }
+
       const res = await api.updateAdminUserWallet(editingStudentWallet.id, {
         walletBalance: Math.max(0, parseFloat(editStudentBalance) || 0),
         loyaltyPoints: Math.max(0, parseInt(editStudentPoints) || 0),
@@ -946,6 +990,21 @@ export const AdminPage: React.FC = () => {
           >
             <Tag className="w-4 h-4 shrink-0" />
             <span>كوبونات الخصم ({promos.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('WHATSAPP')}
+            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+              activeTab === 'WHATSAPP'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span>بوت الواتساب و OTP</span>
+            {whatsAppStatus?.isConnected && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+            )}
           </button>
         </div>
 
@@ -1709,6 +1768,126 @@ export const AdminPage: React.FC = () => {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* 7. Tab 6: WhatsApp Bot & Self-Hosted OTP */}
+        {activeTab === 'WHATSAPP' && (
+          <div className="space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5 mb-6">
+                <div>
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-emerald-400" />
+                    <span>بوابة واتساب الذاتية (Self-Hosted WhatsApp Gateway)</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    إرسال أكواد التحقق (OTP) لاستعادة كلمات المرور وإشعارات الطلبات تلقائياً ومجاناً 100% عبر رقمك الخاص
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchWhatsAppStatus}
+                  disabled={loadingWhatsApp}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-2 self-start sm:self-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingWhatsApp ? 'animate-spin' : ''}`} />
+                  <span>تحديث الحالة</span>
+                </button>
+              </div>
+
+              {whatsAppStatus?.isConnected ? (
+                <div className="space-y-5">
+                  <div className="p-5 bg-emerald-950/40 border border-emerald-800/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                        ✅
+                      </div>
+                      <div>
+                        <span className="text-sm font-black text-emerald-300 block">
+                          الواتساب متصل ويعمل بنجاح!
+                        </span>
+                        <span className="text-xs text-slate-300 font-mono block mt-0.5">
+                          الرقم النشط: {whatsAppStatus.botPhoneNumber || 'متصل'}
+                        </span>
+                        <span className="text-[11px] text-slate-400 block mt-0.5">
+                          الخادم جاهز لإرسال أكواد استعادة كلمة المرور وإشعارات الطلبات للطلاب تلقائياً.
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleDisconnectWhatsApp}
+                      className="px-4 py-2.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/80 rounded-xl text-xs font-black transition-all shrink-0"
+                    >
+                      فصل الجلسة / تغيير الرقم 🔌
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl">
+                      <span className="text-xs font-black text-slate-300 block mb-1">🔐 أكواد التحقق (OTP)</span>
+                      <p className="text-[11px] text-slate-400">
+                        ترسل أكواد استعادة كلمة المرور المكونة من 6 أرقام فوراً لأي طالب يطلبها.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl">
+                      <span className="text-xs font-black text-slate-300 block mb-1">⚡ تكلفة تشغيل 0 جنيه</span>
+                      <p className="text-[11px] text-slate-400">
+                        لا توجد أي رسوم أو اشتراكات لشركات وسيطة؛ الرسائل تخرج مباشرة عبر شريحتك الخاصة.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl">
+                      <span className="text-xs font-black text-slate-300 block mb-1">🛡️ حماية الحسابات</span>
+                      <p className="text-[11px] text-slate-400">
+                        تأكيد هوية الطالب بأنه صاحب الرقم الفعلي المسجل في المنظومة.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6 text-center max-w-lg mx-auto py-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/60 text-xs font-black mb-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span>بانتظار مسح رمز QR من هاتفك لربط الخدمة</span>
+                  </div>
+
+                  {whatsAppStatus?.qrCode ? (
+                    <div className="space-y-4">
+                      <div className="bg-white p-4 rounded-3xl inline-block shadow-2xl border-4 border-emerald-500/30">
+                        <img
+                          src={whatsAppStatus.qrCode}
+                          alt="WhatsApp QR Code"
+                          className="w-56 h-56 mx-auto object-contain"
+                        />
+                      </div>
+
+                      <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl text-right text-xs text-slate-300 space-y-2">
+                        <span className="font-black text-emerald-400 block text-sm">خطوات الربط في 10 ثوانٍ:</span>
+                        <p>1. افتح تطبيق واتساب على الهاتف الذي يحمل الشريحة المخصصة للإشعارات.</p>
+                        <p>2. اضغط على القائمة (الثلاث نقاط أو الإعدادات) ➔ <strong>الأجهزة المرتبطة (Linked Devices)</strong>.</p>
+                        <p>3. اضغط على <strong>ربط جهاز (Link a Device)</strong> ووجه الكاميرا لمسح الرمز أعلاه.</p>
+                        <p className="text-[10px] text-slate-400">بمجرد المسح، سيتصل السيرفر فوراً ويبقى نشطاً دون الحاجة لتكرار هذه الخطوة.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-8 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                      <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                      <p className="text-xs text-slate-400">جاري إنشاء رمز الاستجابة السريعة (QR Code)...</p>
+                      <button
+                        type="button"
+                        onClick={fetchWhatsAppStatus}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold"
+                      >
+                        تحديث الرمز
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
@@ -2887,6 +3066,22 @@ export const AdminPage: React.FC = () => {
                   value={editStudentNotes}
                   onChange={e => setEditStudentNotes(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-purple-300">
+                    🔑 تعيين كلمة مرور جديدة للطالب (اختياري)
+                  </label>
+                  <span className="text-[10px] text-slate-500">في حال نسيان الباسورد</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="اتركه فارغاً إذا كنت لا ترغب بتغيير كلمة المرور"
+                  value={editStudentPassword}
+                  onChange={e => setEditStudentPassword(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
                 />
               </div>
 

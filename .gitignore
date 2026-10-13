@@ -74,3 +74,10 @@ Desktop.ini
 *.njsproj
 *.sln
 *.sw?
+
+# ==========================================
+# 7. WhatsApp Session Storage (جلسة الواتساب)
+# ==========================================
+auth_info_baileys/
+**/auth_info_baileys/
+

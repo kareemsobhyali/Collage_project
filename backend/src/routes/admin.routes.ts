@@ -849,4 +849,51 @@ router.delete("/promo-codes/:id", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 5. حالة بوت الواتساب التلقائي (QR Code و حالة الاتصال)
+router.get("/whatsapp/status", async (_req: AuthRequest, res: Response) => {
+  try {
+    const { whatsappService } = await import("../services/whatsapp.service.js");
+    res.json(whatsappService.getStatus());
+  } catch (error) {
+    res.status(500).json({ error: "فشل استرجاع حالة الواتساب" });
+  }
+});
+
+// 6. فصل جلسة الواتساب لإعادة الربط برقم آخر
+router.post("/whatsapp/disconnect", async (_req: AuthRequest, res: Response) => {
+  try {
+    const { whatsappService } = await import("../services/whatsapp.service.js");
+    await whatsappService.disconnect();
+    res.json({ success: true, message: "تم فصل الجلسة، جاري تجهيز رمز QR جديد" });
+  } catch (error) {
+    res.status(500).json({ error: "فشل فصل جلسة الواتساب" });
+  }
+});
+
+// 7. إعادة تعيين كلمة مرور طالب مباشرة من لوحة الأدمن
+router.put("/users/:id/reset-password", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { newPassword } = req.body;
+
+    if (!newPassword || String(newPassword).length < 6) {
+      res.status(400).json({ error: "كلمة المرور يجب ألا تقل عن 6 أحرف أو أرقام" });
+      return;
+    }
+
+    const bcrypt = (await import("bcryptjs")).default;
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { password: hashedPassword },
+    });
+
+    res.json({ success: true, message: `تم تعيين كلمة المرور الجديدة للطالب (${user.name}) بنجاح` });
+  } catch (error) {
+    console.error("Admin reset user password error:", error);
+    res.status(500).json({ error: "فشل تعيين كلمة المرور للطالب" });
+  }
+});
+
 export default router;

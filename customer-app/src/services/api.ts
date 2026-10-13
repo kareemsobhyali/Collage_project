@@ -88,7 +88,13 @@ export const api = {
       body: JSON.stringify({ name, phone, password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل إنشاء الحساب');
+    if (!res.ok) {
+      const err: any = new Error(data.error || 'فشل إنشاء الحساب');
+      err.data = data;
+      err.requireVerification = data.requireVerification;
+      err.phone = data.phone;
+      throw err;
+    }
     return data;
   },
 
@@ -100,7 +106,85 @@ export const api = {
       body: JSON.stringify({ phone, password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل تسجيل الدخول');
+    if (!res.ok) {
+      const err: any = new Error(data.error || 'فشل تسجيل الدخول');
+      err.data = data;
+      err.requireVerification = data.requireVerification;
+      err.phone = data.phone;
+      throw err;
+    }
+    return data;
+  },
+
+  // 2.1 طلب كود استعادة كلمة المرور عبر الواتساب
+  async forgotPassword(phone: string) {
+    const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إرسال كود التحقق');
+    return data;
+  },
+
+  // 2.2 التحقق من صحة كود الواتساب
+  async verifyResetOtp(phone: string, otp: string) {
+    const res = await fetch(`${API_BASE_URL}/auth/verify-reset-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, otp }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'كود التحقق غير صحيح');
+    return data;
+  },
+
+  // 2.3 تعيين كلمة المرور الجديدة بعد التحقق من كود الواتساب
+  async resetPassword(phone: string, otp: string, newPassword: string) {
+    const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, otp, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعيين كلمة المرور الجديدة');
+    return data;
+  },
+
+  // 2.4 تأكيد وتفعيل رقم الهاتف بواسطة كود الواتساب
+  async verifyPhoneCode(phone: string, code: string) {
+    const res = await fetch(`${API_BASE_URL}/auth/verify-phone-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'كود التفعيل غير صحيح');
+    return data;
+  },
+
+  // 2.5 تفعيل رقم الهاتف تلقائياً عبر الرابط السريع (Magic Link)
+  async verifyPhoneLink(token: string) {
+    const res = await fetch(`${API_BASE_URL}/auth/verify-phone-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'رابط التفعيل غير صالح أو انتهت صلاحيته');
+    return data;
+  },
+
+  // 2.6 إعادة إرسال كود ورابط التفعيل عبر الواتساب
+  async resendVerificationOtp(phone: string) {
+    const res = await fetch(`${API_BASE_URL}/auth/resend-verification-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إعادة إرسال كود التفعيل');
     return data;
   },
 
@@ -500,6 +584,43 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'رمز PIN غير صحيح أو فشل إنهاء الطلب');
+    return data;
+  },
+
+  // 35. إدارة بوت الواتساب التلقائي
+  async getWhatsAppStatus() {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/whatsapp/status`, {
+      headers: { Authorization: `Bearer ${token || ''}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب حالة الواتساب');
+    return data;
+  },
+
+  async disconnectWhatsApp() {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/whatsapp/disconnect`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token || ''}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل فصل جلسة الواتساب');
+    return data;
+  },
+
+  async adminResetUserPassword(userId: string, newPassword: string) {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/reset-password`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token || ''}`,
+      },
+      body: JSON.stringify({ newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إعادة تعيين كلمة المرور');
     return data;
   },
 };
