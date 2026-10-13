@@ -780,47 +780,47 @@ export const AdminPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
       {/* 1. Top Enterprise Header Bar */}
-      <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-4 sm:px-8 py-3 shadow-lg">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <header className="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-3 sm:px-8 py-2.5 shadow-lg">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           {/* Identity */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             <Logo size="sm" lightText />
-            <div className="hidden sm:block h-6 w-px bg-slate-800"></div>
-            <div className="hidden sm:flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-950 text-purple-300 border border-purple-800/60">
+            <div className="hidden md:block h-6 w-px bg-slate-800 shrink-0"></div>
+            <div className="hidden md:flex items-center gap-2 min-w-0">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-950 text-purple-300 border border-purple-800/60 whitespace-nowrap shrink-0">
                 لوحة الإدارة المركزية
               </span>
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-slate-400 truncate">
                 مرحباً، <span className="font-bold text-white">{adminUser.name}</span>
               </span>
             </div>
           </div>
 
           {/* Action Tools & Close/Return */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={fetchDashboardData}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-700"
+              className="h-9 flex items-center gap-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-700 whitespace-nowrap shrink-0"
               title="تحديث البيانات"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-400' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 shrink-0 ${loading ? 'animate-spin text-purple-400' : ''}`} />
               <span className="hidden sm:inline">تحديث</span>
             </button>
 
             {/* زر العودة المباشر لمتجر الطلاب */}
             <button
               onClick={handleReturnToStudentStore}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/30 transition-all active:scale-95"
+              className="h-9 flex items-center gap-1.5 px-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/30 transition-all active:scale-95 whitespace-nowrap shrink-0"
               title="إغلاق والرجوع لشاشة الطلاب"
             >
-              <Store className="w-4 h-4 text-white" />
-              <span>العودة لمتجر الطلاب</span>
+              <Store className="w-4 h-4 text-white shrink-0" />
+              <span>متجر الطلاب</span>
             </button>
 
             <button
               onClick={handleLogout}
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors border border-transparent hover:border-rose-900/50"
+              className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors border border-slate-800 hover:border-rose-900/50 shrink-0"
               title="تسجيل الخروج"
             >
               <Power className="w-4 h-4" />
@@ -866,76 +866,76 @@ export const AdminPage: React.FC = () => {
         )}
 
         {/* 3. Navigation Tabs Bar */}
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('BRANCHES')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'BRANCHES'
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <Building className="w-4 h-4" />
+            <Building className="w-4 h-4 shrink-0" />
             <span>الفروع والمطاعم ({branches.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('ORDERS')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'ORDERS'
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <ShoppingBag className="w-4 h-4" />
+            <ShoppingBag className="w-4 h-4 shrink-0" />
             <span>مراقبة طلبات الحرم الجامعي ({orders.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('STUDENTS')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'STUDENTS'
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-4 h-4 shrink-0" />
             <span>دليل الطلاب ({students.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('ANALYTICS')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shrink-0 ${
+            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'ANALYTICS'
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <TrendingUp className="w-4 h-4" />
+            <TrendingUp className="w-4 h-4 shrink-0" />
             <span>التقارير والإحصائيات المالية</span>
           </button>
 
           <button
             onClick={() => setActiveTab('BANNERS')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shrink-0 ${
+            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'BANNERS'
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <ImageIcon className="w-4 h-4" />
+            <ImageIcon className="w-4 h-4 shrink-0" />
             <span>الإعلانات والبانرات ({banners.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('PROMOS')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shrink-0 ${
+            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'PROMOS'
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <Tag className="w-4 h-4" />
+            <Tag className="w-4 h-4 shrink-0" />
             <span>كوبونات الخصم ({promos.length})</span>
           </button>
         </div>

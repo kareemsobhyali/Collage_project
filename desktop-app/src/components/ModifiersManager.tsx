@@ -87,18 +87,18 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
   return (
     <div className="space-y-6">
       {/* Top Bar */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="min-w-0">
           <h3 className="text-base font-black text-slate-800">أقسام ومجموعات الإضافات (Modifiers)</h3>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 mt-0.5">
             أنشئ خيارات وإضافات الأصناف (مثل: الصوصات، أنواع الجبن، الإضافات الجانبية) واربطها بالصنف
           </p>
         </div>
         <button
           onClick={() => setShowGroupModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+          className="h-9 flex items-center gap-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm whitespace-nowrap shrink-0"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 shrink-0" />
           <span>إنشاء قسم إضافات جديد</span>
         </button>
       </div>

@@ -203,200 +203,211 @@ export function App() {
   const pendingCount = orders.filter(o => o.status === 'PENDING').length;
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
-      {/* Top Application Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-3 shadow-sm flex items-center justify-between">
-        {/* Branch identity with UniFood branding */}
-        <div className="flex items-center gap-4">
-          <Logo size="sm" showSubtitle={false} />
-          <div className="h-7 w-px bg-slate-200"></div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-              <Store className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="text-sm font-black text-slate-900 leading-tight">{branch.name}</h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-100 flex flex-col font-sans">
+      {/* Top Application Header (Two-tier responsive layout) */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm w-full">
+        {/* Tier 1: Brand Identity & Quick Operational Actions */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+          {/* Right: Branch identity with UniFood branding */}
+          <div className="flex items-center gap-3 min-w-0">
+            <Logo size="sm" showSubtitle={false} />
+            <div className="h-7 w-px bg-slate-200 shrink-0" />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-bold shrink-0">
+                <Store className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-base font-black text-slate-900 leading-tight truncate">
+                  {branch.name}
+                </h1>
+                <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
                   {socketConnected ? (
-                    <span className="flex items-center gap-1 text-emerald-600">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      متصل بالخادم لحظياً
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span>متصل بالخادم لحظياً</span>
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-rose-500">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                      جاري إعادة الاتصال...
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-rose-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                      <span>جاري إعادة الاتصال...</span>
                     </span>
                   )}
-                </span>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Left: Quick Action Tools (All uniform h-9 sm:h-10 whitespace-nowrap shrink-0) */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Quick Stock Toggle Button */}
+            <button
+              onClick={() => setShowQuickStock(true)}
+              className="h-9 sm:h-10 px-3 sm:px-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              title="إيقاف وتشغيل الأصناف والإضافات فوراً"
+            >
+              <Sliders className="w-3.5 h-3.5 shrink-0" />
+              <span>توفر الأصناف</span>
+              {(() => {
+                const outCount =
+                  categories.reduce((acc, cat) => acc + (cat.items || []).filter((i: any) => !i.isAvailable).length, 0) +
+                  modifierGroups.reduce((acc, g) => acc + (g.options || []).filter((o: any) => !o.isAvailable).length, 0);
+                return outCount > 0 ? (
+                  <span className="font-mono bg-rose-600 text-white px-1.5 py-0.5 rounded-md text-[10px] leading-none">
+                    {outCount} نفد
+                  </span>
+                ) : null;
+              })()}
+            </button>
+
+            {/* Status Badge Button */}
+            <button
+              onClick={() => setShowStatusModal(true)}
+              className={`h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl text-xs font-black transition-all border shadow-sm flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                branch.operationalStatus === 'OPEN' || !branch.operationalStatus
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : branch.operationalStatus === 'BUSY'
+                  ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100 ring-2 ring-amber-400/30'
+                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+              }`}
+              title="انقر لتعديل حالة استقبال الطلبات (مفتوح / مغلق مؤقتاً / مغلق)"
+            >
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  branch.operationalStatus === 'OPEN' || !branch.operationalStatus
+                    ? 'bg-emerald-500 animate-pulse'
+                    : branch.operationalStatus === 'BUSY'
+                    ? 'bg-amber-500 animate-ping'
+                    : 'bg-rose-500'
+                }`}
+              />
+              <span>
+                {branch.operationalStatus === 'OPEN' || !branch.operationalStatus ? 'المطعم مفتوح' : ''}
+                {branch.operationalStatus === 'BUSY' ? `مغلق مؤقتاً (${formatCountdown(secondsLeft)})` : ''}
+                {branch.operationalStatus === 'CLOSED' ? 'المطعم مغلق' : ''}
+              </span>
+            </button>
+
+            {/* Sound Mute/Unmute */}
+            <button
+              onClick={handleToggleMute}
+              className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl border flex items-center justify-center transition-colors shrink-0 ${
+                isMuted
+                  ? 'bg-rose-50 text-rose-600 border-rose-200'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+              title={isMuted ? 'الصوت مكتوم - اضغط للتشغيل' : 'الصوت مفعل - اضغط لكتم التنبيهات'}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+
+            {/* Refresh */}
+            <button
+              onClick={loadData}
+              disabled={loading}
+              className="h-9 w-9 sm:h-10 sm:w-10 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center justify-center transition-colors shrink-0"
+              title="تحديث البيانات"
+            >
+              <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
+            </button>
+
+            {/* Logout */}
+            <button
+              onClick={handleLogout}
+              className="h-9 sm:h-10 px-3 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0"
+              title="تسجيل الخروج من هذا الفرع"
+            >
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              <span>خروج</span>
+            </button>
+          </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
-          <button
-            onClick={() => setActiveTab('ORDERS')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
-              activeTab === 'ORDERS'
-                ? 'bg-white text-indigo-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <span>الطلبات المباشرة</span>
-            {pendingCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500 text-white font-black animate-bounce">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('MENU')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
-              activeTab === 'MENU'
-                ? 'bg-white text-indigo-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <UtensilsCrossed className="w-4 h-4" />
-            <span>إدارة المنيو والأصناف</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('MODIFIERS')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
-              activeTab === 'MODIFIERS'
-                ? 'bg-white text-indigo-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span>أقسام الإضافات</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('DRIVERS')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
-              activeTab === 'DRIVERS'
-                ? 'bg-white text-indigo-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Truck className="w-4 h-4" />
-            <span>كباتن التوصيل (الطيارين)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('PROFILE')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
-              activeTab === 'PROFILE'
-                ? 'bg-white text-indigo-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <UserCheck className="w-4 h-4" />
-            <span>بيانات الفرع والدفع</span>
-          </button>
-        </nav>
-
-        {/* Right Action Tools */}
-        <div className="flex items-center gap-2">
-          {/* Quick Stock Toggle Button */}
-          <button
-            onClick={() => setShowQuickStock(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-sm transition-all active:scale-95"
-            title="إيقاف وتشغيل الأصناف والإضافات فوراً"
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>توفر الأصناف</span>
-            {(() => {
-              const outCount =
-                categories.reduce((acc, cat) => acc + (cat.items || []).filter((i: any) => !i.isAvailable).length, 0) +
-                modifierGroups.reduce((acc, g) => acc + (g.options || []).filter((o: any) => !o.isAvailable).length, 0);
-              return outCount > 0 ? (
-                <span className="font-mono bg-rose-600 text-white px-1.5 py-0.5 rounded-md text-[10px]">
-                  {outCount} نفد
+        {/* Tier 2: Navigation Tabs Bar */}
+        <div className="border-t border-slate-100 bg-slate-50/70 px-4 sm:px-6 py-2">
+          <nav className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setActiveTab('ORDERS')}
+              className={`h-9 sm:h-10 px-4 rounded-xl text-xs font-black flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'ORDERS'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                  : 'bg-white text-slate-600 hover:text-indigo-700 border border-slate-200/80'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4 shrink-0" />
+              <span>الطلبات المباشرة</span>
+              {pendingCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500 text-white font-black animate-bounce leading-none">
+                  {pendingCount}
                 </span>
-              ) : null;
-            })()}
-          </button>
-          {/* Status Badge Button */}
-          <button
-            onClick={() => setShowStatusModal(true)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition-all border shadow-sm ${
-              branch.operationalStatus === 'OPEN' || !branch.operationalStatus
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                : branch.operationalStatus === 'BUSY'
-                ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100 ring-2 ring-amber-400/30'
-                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-            }`}
-            title="انقر لتعديل حالة استقبال الطلبات (مفتوح / مغلق مؤقتاً / مغلق)"
-          >
-            <span className={`w-2 h-2 rounded-full ${
-              branch.operationalStatus === 'OPEN' || !branch.operationalStatus ? 'bg-emerald-500 animate-pulse' :
-              branch.operationalStatus === 'BUSY' ? 'bg-amber-500 animate-ping' : 'bg-rose-500'
-            }`}></span>
-            <span>
-              {branch.operationalStatus === 'OPEN' || !branch.operationalStatus ? 'المطعم مفتوح' : ''}
-              {branch.operationalStatus === 'BUSY' ? `مغلق مؤقتاً (${formatCountdown(secondsLeft)})` : ''}
-              {branch.operationalStatus === 'CLOSED' ? 'المطعم مغلق' : ''}
-            </span>
-          </button>
+              )}
+            </button>
 
-          {/* Sound Mute/Unmute */}
-          <button
-            onClick={handleToggleMute}
-            className={`p-2.5 rounded-xl border transition-colors ${
-              isMuted
-                ? 'bg-rose-50 text-rose-600 border-rose-200'
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-            }`}
-            title={isMuted ? 'الصوت مكتوم - اضغط للتشغيل' : 'الصوت مفعل - اضغط لكتم التنبيهات'}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
+            <button
+              onClick={() => setActiveTab('MENU')}
+              className={`h-9 sm:h-10 px-4 rounded-xl text-xs font-black flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'MENU'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                  : 'bg-white text-slate-600 hover:text-indigo-700 border border-slate-200/80'
+              }`}
+            >
+              <UtensilsCrossed className="w-4 h-4 shrink-0" />
+              <span>إدارة المنيو والأصناف</span>
+            </button>
 
-          {/* Refresh */}
-          <button
-            onClick={loadData}
-            disabled={loading}
-            className="p-2.5 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
-            title="تحديث البيانات"
-          >
-            <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
-          </button>
+            <button
+              onClick={() => setActiveTab('MODIFIERS')}
+              className={`h-9 sm:h-10 px-4 rounded-xl text-xs font-black flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'MODIFIERS'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                  : 'bg-white text-slate-600 hover:text-indigo-700 border border-slate-200/80'
+              }`}
+            >
+              <Sliders className="w-4 h-4 shrink-0" />
+              <span>أقسام الإضافات</span>
+            </button>
 
-          {/* Logout */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-bold transition-all"
-            title="تسجيل الخروج من هذا الفرع"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>خروج</span>
-          </button>
+            <button
+              onClick={() => setActiveTab('DRIVERS')}
+              className={`h-9 sm:h-10 px-4 rounded-xl text-xs font-black flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'DRIVERS'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                  : 'bg-white text-slate-600 hover:text-indigo-700 border border-slate-200/80'
+              }`}
+            >
+              <Truck className="w-4 h-4 shrink-0" />
+              <span>كباتن التوصيل (الطيارين)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('PROFILE')}
+              className={`h-9 sm:h-10 px-4 rounded-xl text-xs font-black flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'PROFILE'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                  : 'bg-white text-slate-600 hover:text-indigo-700 border border-slate-200/80'
+              }`}
+            >
+              <UserCheck className="w-4 h-4 shrink-0" />
+              <span>بيانات الفرع والدفع</span>
+            </button>
+          </nav>
         </div>
       </header>
 
       {/* Operational Status Alerts */}
       {branch.operationalStatus === 'BUSY' && (
-        <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white px-6 py-2.5 flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-3 text-xs font-bold">
-            <Clock className="w-4 h-4 animate-spin text-amber-200" />
+        <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-md">
+          <div className="flex items-center gap-2.5 text-xs font-bold">
+            <Clock className="w-4 h-4 animate-spin text-amber-200 shrink-0" />
             <span>
               المطعم في فترة إغلاق مؤقتة ({branch.closingReason || 'ضغط طلبات وتجهيز'}) • سيعاد الفتح تلقائياً بعد:
             </span>
-            <span className="font-mono text-sm font-black bg-black/20 px-3 py-0.5 rounded-lg border border-amber-300/40">
+            <span className="font-mono text-sm font-black bg-black/20 px-3 py-0.5 rounded-lg border border-amber-300/40 whitespace-nowrap">
               {formatCountdown(secondsLeft)}
             </span>
           </div>
           <button
             onClick={handleQuickReopen}
-            className="px-3.5 py-1 bg-white hover:bg-amber-50 text-amber-900 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95"
+            className="px-3.5 py-1.5 bg-white hover:bg-amber-50 text-amber-900 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 whitespace-nowrap shrink-0"
           >
             إلغاء الإغلاق والفتح فوراً
           </button>
@@ -404,14 +415,14 @@ export function App() {
       )}
 
       {branch.operationalStatus === 'CLOSED' && (
-        <div className="bg-rose-600 text-white px-6 py-2.5 flex items-center justify-between shadow-md">
+        <div className="bg-rose-600 text-white px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-md">
           <div className="flex items-center gap-2 text-xs font-bold">
-            <PowerOff className="w-4 h-4" />
+            <PowerOff className="w-4 h-4 shrink-0" />
             <span>المطعم مغلق حالياً حتى إشعار آخر ولا يستقبل أي طلبات جديدة</span>
           </div>
           <button
             onClick={handleQuickReopen}
-            className="px-3.5 py-1 bg-white hover:bg-rose-50 text-rose-900 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95"
+            className="px-3.5 py-1.5 bg-white hover:bg-rose-50 text-rose-900 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 whitespace-nowrap shrink-0"
           >
             فتح المطعم الآن
           </button>
@@ -419,7 +430,7 @@ export function App() {
       )}
 
       {/* Main Workspace Body */}
-      <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
+      <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
         {activeTab === 'ORDERS' && (
           <OrdersView
             orders={orders}

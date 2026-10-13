@@ -137,33 +137,33 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onClose }) => {
     <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
-            <Truck className="w-6 h-6" />
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
+            <Truck className="w-5 h-5" />
           </div>
-          <div>
-            <h2 className="text-xl font-black text-slate-800">فريق كباتن التوصيل (الطيارين)</h2>
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-xl font-black text-slate-800 truncate">فريق كباتن التوصيل (الطيارين)</h2>
             <p className="text-xs text-slate-500">إدارة حسابات الطيارين وإسناد طلبات التوصيل الجامعية لهم</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
           {!isAdding && (
             <button
               onClick={() => {
                 resetForm();
                 setIsAdding(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-sm"
+              className="h-9 flex items-center gap-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-sm whitespace-nowrap shrink-0"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 shrink-0" />
               <span>إضافة كابتن توصيل جديد</span>
             </button>
           )}
 
           <button
             onClick={fetchDrivers}
-            className="p-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl transition-colors"
+            className="w-9 h-9 flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl transition-colors shrink-0"
             title="تحديث"
           >
             <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -172,7 +172,7 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onClose }) => {
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl transition-colors"
+              className="w-9 h-9 flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl transition-colors shrink-0"
             >
               <X className="w-4 h-4" />
             </button>

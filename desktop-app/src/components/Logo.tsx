@@ -26,7 +26,7 @@ export const Logo: React.FC<LogoProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2.5 select-none">
+    <div className="flex items-center gap-2.5 select-none shrink-0">
       <div className={`overflow-hidden shadow-md shrink-0 border border-indigo-100 ${iconSizes[size]}`}>
         <img
           src="/logo.png"
@@ -35,13 +35,13 @@ export const Logo: React.FC<LogoProps> = ({
         />
       </div>
 
-      <div className="flex flex-col">
-        <div className={`font-black tracking-tight leading-none ${textSizes[size]}`}>
+      <div className="flex flex-col shrink-0">
+        <div className={`font-black tracking-tight leading-none whitespace-nowrap ${textSizes[size]}`}>
           <span className={lightText ? 'text-white' : 'text-indigo-950'}>Uni</span>
           <span className="text-amber-500">Food</span>
         </div>
         {showSubtitle && (
-          <span className={`text-[10px] font-bold mt-0.5 leading-tight ${lightText ? 'text-indigo-200' : 'text-slate-400'}`}>
+          <span className={`text-[10px] font-bold mt-0.5 leading-tight whitespace-nowrap ${lightText ? 'text-indigo-200' : 'text-slate-400'}`}>
             لوحة تحكم فروع المطاعم
           </span>
         )}

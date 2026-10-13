@@ -331,59 +331,63 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans" dir="rtl">
       {/* Top Driver Header */}
-      <header className="bg-indigo-900 text-white sticky top-0 z-40 px-4 py-3 shadow-md flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-700 flex items-center justify-center font-black">
-            <Truck className="w-5 h-5 text-indigo-200" />
+      <header className="bg-indigo-900 text-white sticky top-0 z-40 px-3.5 sm:px-6 py-2.5 shadow-md">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-700 flex items-center justify-center font-black shrink-0 shadow-inner">
+              <Truck className="w-5 h-5 text-indigo-200" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm font-black leading-tight truncate">كابتن: {driver.name}</h1>
+              <span className="text-[11px] text-indigo-300 font-mono block truncate" dir="ltr">
+                @{driver.username} • {driver.phone}
+              </span>
+            </div>
           </div>
-          <div>
-            <h1 className="text-sm font-black leading-tight">كابتن: {driver.name}</h1>
-            <span className="text-[11px] text-indigo-300 font-mono">@{driver.username} • {driver.phone}</span>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {/* Audio toggle */}
-          <button
-            onClick={() => {
-              setIsMuted(!isMuted);
-              stopAlarm();
-            }}
-            className={`p-2 rounded-xl transition-colors ${
-              isMuted ? 'bg-rose-500/20 text-rose-300' : 'bg-indigo-800 text-indigo-200'
-            }`}
-            title={isMuted ? 'الصوت مكتوم' : 'الصوت مفعل'}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
-
-          {/* Refresh */}
-          <button
-            onClick={loadDriverData}
-            disabled={loadingOrders}
-            className="p-2 bg-indigo-800 hover:bg-indigo-700 rounded-xl transition-colors"
-            title="تحديث"
-          >
-            <RotateCw className={`w-4 h-4 ${loadingOrders ? 'animate-spin' : ''}`} />
-          </button>
-
-          {/* Logout */}
-          <button
-            onClick={handleLogout}
-            className="p-2 bg-rose-600/30 hover:bg-rose-600 text-rose-200 rounded-xl transition-colors"
-            title="تسجيل خروج"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-
-          {onClose && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Audio toggle */}
             <button
-              onClick={onClose}
-              className="p-2 bg-indigo-800 rounded-xl text-indigo-300 text-xs font-bold"
+              onClick={() => {
+                setIsMuted(!isMuted);
+                stopAlarm();
+              }}
+              className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors shrink-0 ${
+                isMuted ? 'bg-rose-500/20 text-rose-300' : 'bg-indigo-800 text-indigo-200 hover:bg-indigo-700'
+              }`}
+              title={isMuted ? 'الصوت مكتوم' : 'الصوت مفعل'}
             >
-              إغلاق
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
-          )}
+
+            {/* Refresh */}
+            <button
+              onClick={loadDriverData}
+              disabled={loadingOrders}
+              className="w-9 h-9 flex items-center justify-center bg-indigo-800 hover:bg-indigo-700 rounded-xl transition-colors shrink-0"
+              title="تحديث"
+            >
+              <RotateCw className={`w-4 h-4 ${loadingOrders ? 'animate-spin' : ''}`} />
+            </button>
+
+            {/* Logout */}
+            <button
+              onClick={handleLogout}
+              className="w-9 h-9 flex items-center justify-center bg-rose-600/30 hover:bg-rose-600 text-rose-200 rounded-xl transition-colors shrink-0"
+              title="تسجيل خروج"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="h-9 px-3 bg-indigo-800 hover:bg-indigo-700 rounded-xl text-indigo-200 text-xs font-bold whitespace-nowrap shrink-0 flex items-center justify-center"
+              >
+                إغلاق
+              </button>
+            )}
+          </div>
         </div>
       </header>
 

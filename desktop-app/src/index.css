@@ -4,14 +4,45 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+html,
+body,
+#root {
   font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   direction: rtl;
   margin: 0;
   padding: 0;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   background-color: #f8fafc;
   color: #1e293b;
   user-select: none;
+}
+
+/* إخفاء شريط التمرير الرمادي في القوائم الأفقية مع بقاء السحب سلساً */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* تحسين شكل شريط التمرير العمودي */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 /* نمط خاص للطباعة الحرارية 80mm */

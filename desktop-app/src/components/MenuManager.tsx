@@ -207,11 +207,11 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   return (
     <div className="space-y-6">
       {/* Top Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-2xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 flex-1 min-w-0">
           <button
             onClick={() => setActiveCategoryId('ALL')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`h-9 px-4 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center justify-center ${
               activeCategoryId === 'ALL'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -219,42 +219,55 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
           >
             كافة الأقسام
           </button>
-          {categories.map(cat => (
-            <div key={cat.id} className="flex items-center">
-              <button
-                onClick={() => setActiveCategoryId(cat.id)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                  activeCategoryId === cat.id
+          {categories.map(cat => {
+            const isActive = activeCategoryId === cat.id;
+            return (
+              <div
+                key={cat.id}
+                className={`h-9 flex items-center shrink-0 rounded-xl transition-all ${
+                  isActive
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {cat.name} ({cat.items?.length || 0})
-              </button>
-              <button
-                onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                className="p-1 text-slate-400 hover:text-rose-600 transition-colors ml-1"
-                title="حذف هذا القسم"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
+                <button
+                  onClick={() => setActiveCategoryId(cat.id)}
+                  className="h-full px-3 text-xs font-bold whitespace-nowrap flex items-center gap-1"
+                >
+                  <span>{cat.name}</span>
+                  <span className={`text-[11px] ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>
+                    ({cat.items?.length || 0})
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                  className={`h-full pl-2.5 pr-1.5 flex items-center justify-center transition-colors border-r ${
+                    isActive
+                      ? 'border-indigo-500/50 text-indigo-200 hover:text-white'
+                      : 'border-slate-200/80 text-slate-400 hover:text-rose-600'
+                  }`}
+                  title="حذف هذا القسم"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 self-end lg:self-auto">
           <button
             onClick={() => setShowCategoryModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+            className="h-9 flex items-center gap-1.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0"
           >
-            <FolderPlus className="w-4 h-4 text-indigo-600" />
+            <FolderPlus className="w-4 h-4 text-indigo-600 shrink-0" />
             <span>إضافة قسم منيو</span>
           </button>
           <button
             onClick={handleOpenAddItem}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+            className="h-9 flex items-center gap-1.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm whitespace-nowrap shrink-0"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
             <span>إضافة صنف جديد</span>
           </button>
         </div>

@@ -246,14 +246,14 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
       )}
 
       {/* Tabs & Sort Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
-        <div className="flex items-center gap-2 overflow-x-auto">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pb-2.5 border-b border-slate-200">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 flex-1 min-w-0">
           <button
             onClick={() => setSelectedTab('ALL')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            className={`h-10 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               selectedTab === 'ALL'
                 ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:bg-slate-100'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/70'
             }`}
           >
             <span>كافة الطلبات</span>
@@ -264,13 +264,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
 
           <button
             onClick={() => setSelectedTab('PENDING')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            className={`h-10 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               selectedTab === 'PENDING'
                 ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300'
-                : 'bg-white text-amber-700 hover:bg-amber-50'
+                : 'bg-white text-amber-700 hover:bg-amber-50 border border-slate-200/70'
             }`}
           >
-            <Clock className="w-4 h-4" />
+            <Clock className="w-4 h-4 shrink-0" />
             <span>طلبات جديدة</span>
             <span className="px-2 py-0.5 rounded-full text-xs bg-amber-600 text-white font-black">
               {pendingOrders.length}
@@ -279,13 +279,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
 
           <button
             onClick={() => setSelectedTab('SCHEDULED')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            className={`h-10 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               selectedTab === 'SCHEDULED'
                 ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-300'
-                : 'bg-white text-indigo-700 hover:bg-indigo-50'
+                : 'bg-white text-indigo-700 hover:bg-indigo-50 border border-slate-200/70'
             }`}
           >
-            <Calendar className="w-4 h-4" />
+            <Calendar className="w-4 h-4 shrink-0" />
             <span>طلبات محجوزة مسبقاً</span>
             <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800 font-black">
               {scheduledOrders.length}
@@ -294,10 +294,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
 
           <button
             onClick={() => setSelectedTab('PREPARING')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            className={`h-10 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               selectedTab === 'PREPARING'
                 ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white text-blue-700 hover:bg-blue-50'
+                : 'bg-white text-blue-700 hover:bg-blue-50 border border-slate-200/70'
             }`}
           >
             <span>جاري التحضير</span>
@@ -308,13 +308,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
 
           <button
             onClick={() => setSelectedTab('READY')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            className={`h-10 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               selectedTab === 'READY'
                 ? 'bg-purple-600 text-white shadow-sm'
-                : 'bg-white text-purple-700 hover:bg-purple-50'
+                : 'bg-white text-purple-700 hover:bg-purple-50 border border-slate-200/70'
             }`}
           >
-            <Truck className="w-4 h-4" />
+            <Truck className="w-4 h-4 shrink-0" />
             <span>جاهز للتسليم / التوصيل</span>
             <span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">
               {readyOrders.length}
@@ -323,13 +323,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
 
           <button
             onClick={() => setSelectedTab('COMPLETED')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            className={`h-10 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               selectedTab === 'COMPLETED'
                 ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-white text-emerald-700 hover:bg-emerald-50'
+                : 'bg-white text-emerald-700 hover:bg-emerald-50 border border-slate-200/70'
             }`}
           >
-            <CheckCircle className="w-4 h-4" />
+            <CheckCircle className="w-4 h-4 shrink-0" />
             <span>مكتملة</span>
             <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-800">
               {completedOrders.length}
@@ -338,13 +338,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
         </div>
 
         {/* Sort Controls (FIFO vs Newest) */}
-        <div className="flex items-center gap-1.5 self-end sm:self-auto bg-white p-1 rounded-xl border border-slate-200 text-xs shadow-sm">
-          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 mr-1" />
+        <div className="flex items-center gap-1.5 self-end lg:self-auto bg-white p-1 rounded-xl border border-slate-200 text-xs shadow-sm shrink-0 whitespace-nowrap">
+          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 mr-1 shrink-0" />
           <span className="text-slate-500 font-bold ml-1">ترتيب:</span>
           <button
             type="button"
             onClick={() => setSortBy('NEWEST')}
-            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap ${
               sortBy === 'NEWEST'
                 ? 'bg-indigo-600 text-white shadow-xs'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -355,7 +355,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
           <button
             type="button"
             onClick={() => setSortBy('OLDEST')}
-            className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap ${
               sortBy === 'OLDEST'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:bg-slate-100'
