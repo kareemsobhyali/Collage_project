@@ -68,7 +68,7 @@ public class MainActivity extends Activity {
         createNotificationChannel();
 
         FrameLayout rootLayout = new FrameLayout(this);
-        rootLayout.setBackgroundColor(Color.parseColor("#F8FAFC"));
+        rootLayout.setBackgroundColor(Color.parseColor("#0B0F19"));
 
         // 1. WebView
         webView = new WebView(this);
@@ -98,10 +98,10 @@ public class MainActivity extends Activity {
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(Gravity.CENTER);
 
-        // خلفية أنيقة متدرجة بتناغم كامل مع ألوان وهوية التطبيق
+        // خلفية أنيقة داكنة متطابقة مع شاشة البداية لتلاشي فوري بدون وميض
         GradientDrawable bg = new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.parseColor("#FFFFFF"), Color.parseColor("#F8FAFC")}
+                new int[]{Color.parseColor("#0B0F19"), Color.parseColor("#0F172A")}
         );
         layout.setBackground(bg);
         layout.setPadding(dpToPx(32), dpToPx(32), dpToPx(32), dpToPx(32));
@@ -115,7 +115,7 @@ public class MainActivity extends Activity {
         GradientDrawable iconBg = new GradientDrawable();
         iconBg.setColor(Color.WHITE);
         iconBg.setCornerRadius(dpToPx(28));
-        iconBg.setStroke(dpToPx(1), Color.parseColor("#E2E8F0"));
+        iconBg.setStroke(dpToPx(1), Color.parseColor("#312E81"));
         iconWrapper.setBackground(iconBg);
         iconWrapper.setElevation(dpToPx(10));
         iconWrapper.setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10));
@@ -150,7 +150,7 @@ public class MainActivity extends Activity {
                 : "UniFood");
         title.setTextSize(26);
         title.setTypeface(Typeface.DEFAULT_BOLD);
-        title.setTextColor(Color.parseColor("#1E1B4B"));
+        title.setTextColor(Color.WHITE);
         title.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -166,7 +166,7 @@ public class MainActivity extends Activity {
                 : "مطاعم الحرم الجامعي بين يديك 🎓🍔");
         slogan.setTextSize(13);
         slogan.setTypeface(Typeface.DEFAULT_BOLD);
-        slogan.setTextColor(Color.parseColor("#64748B"));
+        slogan.setTextColor(Color.parseColor("#A5B4FC"));
         slogan.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams sloganParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,

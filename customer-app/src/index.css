@@ -51,3 +51,40 @@ button, a, input, select, textarea {
 .pb-safe {
   padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
 }
+
+/* مؤثرات حركة الشاشة الافتتاحية: دوران مجرة المطاعم (Orbiting Logos Carousel) */
+@keyframes orbit-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orbit-counter-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes splash-progress {
+  0% { width: 5%; }
+  60% { width: 75%; }
+  100% { width: 100%; }
+}
+
+.animate-spin-orbit {
+  animation: orbit-rotate 18s linear infinite;
+}
+
+.animate-counter-spin {
+  animation: orbit-counter-rotate 18s linear infinite;
+}
+
+.animate-splash-bar {
+  animation: splash-progress 2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}

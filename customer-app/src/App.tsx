@@ -29,8 +29,15 @@ import { AdminPage } from './components/AdminPage';
 import { DriverPortal } from './components/DriverPortal';
 import { GroupCartModal } from './components/GroupCartModal';
 import { Logo } from './components/Logo';
+import { SplashScreen } from './components/SplashScreen';
 
 export function App() {
+  const isMobileAppExperience = typeof window !== 'undefined' && (
+    isRunningInNativeApk() ||
+    window.location.search.includes('splash') ||
+    window.location.search.includes('app')
+  );
+  const [showSplash, setShowSplash] = useState(isMobileAppExperience);
   const isAdminRoute = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/admin') ||
     window.location.search.includes('admin') ||
@@ -559,6 +566,15 @@ export function App() {
             setShowAuthModal(false);
             setPendingOpenGroupCart(false);
           }}
+        />
+      )}
+
+      {/* Orbiting Restaurant Logos & Food Rain Mobile Splash Screen */}
+      {showSplash && (
+        <SplashScreen
+          branches={branches}
+          isReady={!loading || branches.length > 0}
+          onFinish={() => setShowSplash(false)}
         />
       )}
     </div>
