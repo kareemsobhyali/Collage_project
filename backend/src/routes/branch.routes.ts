@@ -276,6 +276,32 @@ router.put("/payment-methods", async (req: AuthRequest, res: Response) => {
 router.get("/menu", async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
+    const now = new Date();
+
+    // إعادة تفعيل الأصناف والإضافات التي انتهت مدة نفادها المؤقت تلقائياً
+    await prisma.menuItem.updateMany({
+      where: {
+        branchId,
+        isAvailable: false,
+        unavailableUntil: { not: null, lte: now },
+      },
+      data: {
+        isAvailable: true,
+        unavailableUntil: null,
+      },
+    });
+
+    await prisma.modifierOption.updateMany({
+      where: {
+        group: { branchId },
+        isAvailable: false,
+        unavailableUntil: { not: null, lte: now },
+      },
+      data: {
+        isAvailable: true,
+        unavailableUntil: null,
+      },
+    });
 
     const categories = await prisma.menuCategory.findMany({
       where: { branchId },
@@ -480,12 +506,12 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 9. تغيير حالة توفر الصنف (زر سريع: متوفر / غير متوفر)
+// 9. تغيير حالة توفر الصنف (زر سريع: متوفر / غير متوفر / نفد لفترة)
 router.put("/items/:id/availability", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const branchId = req.branch!.branchId;
-    const { isAvailable } = req.body;
+    const { isAvailable, durationMinutes } = req.body;
 
     const existing = await prisma.menuItem.findFirst({
       where: { id, branchId },
@@ -495,9 +521,17 @@ router.put("/items/:id/availability", async (req: AuthRequest, res: Response) =>
       return;
     }
 
+    const avail = Boolean(isAvailable);
+    const unavailableUntil = !avail && durationMinutes && Number(durationMinutes) > 0
+      ? new Date(Date.now() + Number(durationMinutes) * 60 * 1000)
+      : null;
+
     const updated = await prisma.menuItem.update({
       where: { id },
-      data: { isAvailable: Boolean(isAvailable) },
+      data: {
+        isAvailable: avail,
+        unavailableUntil,
+      },
     });
 
     res.json({ success: true, item: updated });
@@ -1077,13 +1111,18 @@ router.put("/settings/working-hours", async (req: AuthRequest, res: Response) =>
   }
 });
 
-// 25. إيقاف / تشغيل سريع لتوفر الأصناف أو الإضافات (Quick 86 Stock Toggle)
+// 25. إيقاف / تشغيل سريع لتوفر الأصناف أو الإضافات (مع دعم النفاد المؤقت لفترة محددة)
 router.put("/quick-toggle-stock", async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
-    const { type, id, isAvailable } = req.body; // type: "ITEM" | "MODIFIER"
+    const { type, id, isAvailable, durationMinutes } = req.body;
+    const normalizedType = String(type || "").toUpperCase();
+    const avail = Boolean(isAvailable);
+    const unavailableUntil = !avail && durationMinutes && Number(durationMinutes) > 0
+      ? new Date(Date.now() + Number(durationMinutes) * 60 * 1000)
+      : null;
 
-    if (type === "ITEM") {
+    if (normalizedType === "ITEM") {
       const item = await prisma.menuItem.findFirst({
         where: { id, branchId },
       });
@@ -1093,10 +1132,13 @@ router.put("/quick-toggle-stock", async (req: AuthRequest, res: Response) => {
       }
       const updated = await prisma.menuItem.update({
         where: { id },
-        data: { isAvailable: Boolean(isAvailable) },
+        data: {
+          isAvailable: avail,
+          unavailableUntil,
+        },
       });
       res.json({ success: true, item: updated });
-    } else if (type === "MODIFIER") {
+    } else if (normalizedType === "MODIFIER") {
       const option = await prisma.modifierOption.findFirst({
         where: { id, group: { branchId } },
       });
@@ -1106,7 +1148,10 @@ router.put("/quick-toggle-stock", async (req: AuthRequest, res: Response) => {
       }
       const updated = await prisma.modifierOption.update({
         where: { id },
-        data: { isAvailable: Boolean(isAvailable) },
+        data: {
+          isAvailable: avail,
+          unavailableUntil,
+        },
       });
       res.json({ success: true, modifierOption: updated });
     } else {

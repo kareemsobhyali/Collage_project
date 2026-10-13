@@ -65,9 +65,9 @@ export const BranchStatusModal: React.FC<BranchStatusModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200">
+      <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-slate-50 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20">
               <Clock className="w-5 h-5" />
@@ -85,7 +85,7 @@ export const BranchStatusModal: React.FC<BranchStatusModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
           {/* Status Choice Cards */}
           <div className="space-y-2.5">
             <label className="block text-xs font-bold text-slate-700 mb-1">اختر الحالة المطلوبة:</label>
@@ -242,8 +242,8 @@ export const BranchStatusModal: React.FC<BranchStatusModalProps> = ({
             </div>
           )}
 
-          {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          {/* Sticky Footer Actions */}
+          <div className="sticky bottom-0 -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 p-4 bg-white/95 backdrop-blur-sm flex items-center justify-end gap-3 border-t border-slate-200 mt-4">
             <button
               type="button"
               onClick={onClose}

@@ -11,7 +11,7 @@ import {
   Clock,
   PowerOff
 } from 'lucide-react';
-import { getFullImageUrl } from '../services/api';
+import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
 
 interface BranchMenuProps {
   branch: any;
@@ -70,7 +70,17 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const isBranchOpen = branch?.operationalStatus === 'OPEN' || !branch?.operationalStatus || (branch?.operationalStatus === 'BUSY' && secondsLeft <= 0);
+  const isWithinWorkingHours = isBranchOpenByHours(
+    branch?.openingTime,
+    branch?.closingTime,
+    branch?.isWithinWorkingHours
+  );
+
+  const isBranchOpen =
+    (branch?.operationalStatus === 'OPEN' ||
+      !branch?.operationalStatus ||
+      (branch?.operationalStatus === 'BUSY' && secondsLeft <= 0)) &&
+    isWithinWorkingHours;
 
   const displayedCategories = activeCategoryId === 'ALL'
     ? categories
@@ -121,6 +131,10 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             ) : branch.operationalStatus === 'BUSY' && secondsLeft > 0 ? (
               <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 inline-block animate-pulse">
                 مغلق مؤقتاً
+              </span>
+            ) : !isWithinWorkingHours ? (
+              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 inline-block">
+                مغلق (خارج مواعيد العمل)
               </span>
             ) : (
               <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 inline-block">
@@ -201,6 +215,22 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         </div>
       )}
 
+      {branch.operationalStatus !== 'CLOSED' && !(branch.operationalStatus === 'BUSY' && secondsLeft > 0) && !isWithinWorkingHours && (
+        <div className="bg-rose-600 text-white p-4.5 rounded-3xl shadow-lg flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5 text-rose-200" />
+          </div>
+          <div>
+            <span className="font-black text-sm block">
+              المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية ({branch.openingTime || '08:00'} - {branch.closingTime || '22:00'})
+            </span>
+            <span className="text-xs text-rose-100">
+              يعود المطعم لاستقبال الطلبات في أوقات العمل المحددة ({branch.workingDays || 'يومياً'})
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Menu Categories and Items */}
       <div className="space-y-6">
         {displayedCategories.map(cat => (
@@ -216,8 +246,10 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                   key={item.id}
                   onClick={() => {
                     if (!isBranchOpen) {
-                      if (branch.operationalStatus === 'BUSY') {
+                      if (branch.operationalStatus === 'BUSY' && secondsLeft > 0) {
                         alert(`المطعم مغلق مؤقتاً لضغط الطلبات أو التجهيز.\nسيعاد فتح استقبال الطلبات تلقائياً بعد ${formatCountdown(secondsLeft)}.`);
+                      } else if (!isWithinWorkingHours) {
+                        alert(`عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || '08:00'} - ${branch.closingTime || '22:00'}).`);
                       } else {
                         alert('عذراً، هذا المطعم مغلق حالياً ولا يستقبل طلبات جديدة.');
                       }

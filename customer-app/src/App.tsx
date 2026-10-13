@@ -51,8 +51,15 @@ export function App() {
   const groupParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('group') : null;
 
   const [showDriverPortal, setShowDriverPortal] = useState(isDriverRoute);
-  const [showGroupCartModal, setShowGroupCartModal] = useState(Boolean(groupParam));
-  const [groupCartCode, setGroupCartCode] = useState<string | null>(groupParam);
+  const [groupCartCode, setGroupCartCode] = useState<string | null>(() => {
+    if (groupParam) {
+      localStorage.setItem('active_group_cart_code', groupParam.toUpperCase());
+      return groupParam.toUpperCase();
+    }
+    return localStorage.getItem('active_group_cart_code') || null;
+  });
+  const [showGroupCartModal, setShowGroupCartModal] = useState(false);
+  const [pendingOpenGroupCart, setPendingOpenGroupCart] = useState(Boolean(groupParam));
   const [groupCartDetailsForCheckout, setGroupCartDetailsForCheckout] = useState<any | null>(null);
 
   if (isAdminRoute) {
@@ -64,8 +71,20 @@ export function App() {
   }
 
   const [user, setUser] = useState<any | null>(() => {
-    const saved = localStorage.getItem('customer_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('customer_user');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // منع تسرب حساب المدير العام (SUPERADMIN) إلى واجهة الطلاب نهائياً
+      if (parsed.role === 'SUPERADMIN' || parsed.phone === 'admin') {
+        localStorage.removeItem('customer_user');
+        localStorage.removeItem('customer_token');
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
   });
 
   const [branches, setBranches] = useState<any[]>([]);
@@ -81,6 +100,18 @@ export function App() {
   const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // إذا دخل الطالب برابط دعوة لسلة الشلة: يفتح السلة إن كان مسجلاً، أو يطلب تسجيل الدخول أولاً
+  useEffect(() => {
+    if (pendingOpenGroupCart) {
+      if (user) {
+        setShowGroupCartModal(true);
+        setPendingOpenGroupCart(false);
+      } else {
+        setShowAuthModal(true);
+      }
+    }
+  }, [pendingOpenGroupCart, user]);
 
   // تحميل قائمة الفروع عند بدء التطبيق
   const loadBranches = async () => {
@@ -157,7 +188,45 @@ export function App() {
     setUser(null);
   };
 
-  const handleAddToCart = (itemToAdd: any) => {
+  const handleOpenGroupCartClick = () => {
+    if (!user) {
+      setPendingOpenGroupCart(true);
+      setShowAuthModal(true);
+      return;
+    }
+    setShowGroupCartModal(true);
+  };
+
+  const handleActiveGroupCodeChange = (code: string | null) => {
+    if (code) {
+      localStorage.setItem('active_group_cart_code', code);
+      setGroupCartCode(code);
+    } else {
+      localStorage.removeItem('active_group_cart_code');
+      setGroupCartCode(null);
+    }
+  };
+
+  const handleAddToCart = async (itemToAdd: any) => {
+    // إذا كان الطالب مشتركاً حالياً في "سلة الشلة"، نضيف الصنف مباشرة لكيسه في سلة الشلة!
+    if (groupCartCode && user) {
+      try {
+        await api.addGroupCartItem(groupCartCode, {
+          studentName: user.name,
+          menuItemId: itemToAdd.menuItemId || itemToAdd.id,
+          itemName: itemToAdd.itemName || itemToAdd.name,
+          sizeName: itemToAdd.sizeName,
+          unitPrice: itemToAdd.unitPrice,
+          quantity: itemToAdd.quantity || 1,
+          notes: itemToAdd.notes,
+          selectedModifiers: itemToAdd.selectedModifiers,
+        });
+        setShowGroupCartModal(true);
+        return;
+      } catch (err: any) {
+        alert(err.message || 'فشل إضافة الصنف لسلة الشلة');
+      }
+    }
     setCart([...cart, { ...itemToAdd, branchId: selectedBranch.id }]);
   };
 
@@ -225,22 +294,16 @@ export function App() {
           <div className="flex items-center gap-2">
             {/* Group Cart Button */}
             <button
-              onClick={() => setShowGroupCartModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold transition-colors"
+              onClick={handleOpenGroupCartClick}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                groupCartCode
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-purple-50 hover:bg-purple-100 text-purple-700'
+              }`}
               title="مشاركة سلة جماعية مع أصحابك (سلة الشلة)"
             >
               <Users className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">سلة الشلة</span>
-            </button>
-
-            {/* Driver Portal Shortcut */}
-            <button
-              onClick={() => setShowDriverPortal(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
-              title="بوابة كباتن التوصيل (الطيارين)"
-            >
-              <Truck className="w-3.5 h-3.5 text-indigo-600" />
-              <span className="hidden sm:inline">الطيارين</span>
+              <span>{groupCartCode ? `سلة الشلة (${groupCartCode})` : 'سلة الشلة'}</span>
             </button>
 
             {/* Quick Cart Button */}
@@ -310,6 +373,34 @@ export function App() {
         </div>
       </header>
 
+      {/* Active Group Cart Persistent Banner */}
+      {groupCartCode && user && (
+        <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 text-white px-4 py-2.5 shadow-md">
+          <div className="max-w-3xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 font-bold">
+              <Users className="w-4 h-4 text-amber-300 shrink-0" />
+              <span>
+                أنت الآن في <strong>سلة الشلة ({groupCartCode})</strong> — أي وجبة تضيفها من المنيو ستنزل في كيسك باسم ({user.name})!
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowGroupCartModal(true)}
+                className="px-3 py-1 bg-white text-purple-800 hover:bg-purple-50 rounded-lg font-black transition-all"
+              >
+                فتح سلة الشلة
+              </button>
+              <button
+                onClick={() => handleActiveGroupCodeChange(null)}
+                className="px-2.5 py-1 bg-black/25 hover:bg-black/40 text-white rounded-lg font-bold transition-all"
+              >
+                مغادرة
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Area */}
       <main className="flex-1 p-4 max-w-3xl w-full mx-auto">
         {selectedBranch ? (
@@ -349,6 +440,7 @@ export function App() {
           onOrderSuccess={(createdOrder) => {
             setTrackingOrder(createdOrder);
             setGroupCartDetailsForCheckout(null);
+            handleActiveGroupCodeChange(null);
             try {
               const saved = localStorage.getItem('customer_user');
               if (saved) setUser(JSON.parse(saved));
@@ -361,18 +453,38 @@ export function App() {
         />
       )}
 
-      {showGroupCartModal && (
+      {showGroupCartModal && user && (
         <GroupCartModal
           branchId={selectedBranch?.id || branches[0]?.id || ''}
           branchName={selectedBranch?.name || branches[0]?.name || 'مطعم الجامعة'}
+          branches={branches}
+          user={user}
           initialCode={groupCartCode}
           onClose={() => {
             setShowGroupCartModal(false);
-            setGroupCartCode(null);
           }}
-          onCheckoutGroupCart={(groupData) => {
-            const target = branches.find((b: any) => b.id === groupData.branchId) || selectedBranch;
-            if (target) setSelectedBranch(target);
+          onActiveCodeChange={(code) => handleActiveGroupCodeChange(code)}
+          onBrowseBranchMenu={(targetBranchId) => {
+            setShowGroupCartModal(false);
+            const target = branches.find((b: any) => b.id === targetBranchId) || selectedBranch || branches[0];
+            if (target) {
+              handleSelectBranch(target);
+            }
+          }}
+          onCheckoutGroupCart={async (groupData) => {
+            let target = branches.find((b: any) => b.id === groupData.branchId) || selectedBranch;
+            if (!target || target.id !== groupData.branchId) {
+              try {
+                const menuRes = await api.getBranchMenu(groupData.branchId);
+                if (menuRes?.branch) {
+                  target = menuRes.branch;
+                  setSelectedBranch(menuRes.branch);
+                  setBranchCategories(menuRes.categories || []);
+                }
+              } catch {}
+            } else {
+              setSelectedBranch(target);
+            }
             setCart(groupData.items);
             setGroupCartDetailsForCheckout(groupData.groupCartDetails);
             setShowGroupCartModal(false);
@@ -421,8 +533,17 @@ export function App() {
 
       {showAuthModal && (
         <AuthModal
-          onSuccess={(u) => setUser(u)}
-          onClose={() => setShowAuthModal(false)}
+          onSuccess={(u) => {
+            setUser(u);
+            if (pendingOpenGroupCart) {
+              setPendingOpenGroupCart(false);
+              setShowGroupCartModal(true);
+            }
+          }}
+          onClose={() => {
+            setShowAuthModal(false);
+            setPendingOpenGroupCart(false);
+          }}
         />
       )}
     </div>

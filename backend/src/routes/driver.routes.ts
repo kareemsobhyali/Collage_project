@@ -147,7 +147,21 @@ router.put("/orders/:id/reject", async (req: AuthRequest, res: Response) => {
         driverId: null,
         driverAssignedAt: null,
       },
-      include: { branch: true },
+      include: {
+        branch: true,
+        items: true,
+        driver: { select: { id: true, name: true, phone: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            isBlocked: true,
+            restaurantNotes: true,
+            _count: { select: { orders: true } },
+          },
+        },
+      },
     });
 
     // إشعار الفرع فوراً لإعادة إسناد الطلب لكابتن آخر
@@ -186,7 +200,21 @@ router.put("/orders/:id/pickup", async (req: AuthRequest, res: Response) => {
         status: "READY", // في الطريق للتوصيل
         readyAt: order.readyAt || new Date(),
       },
-      include: { branch: true, items: true },
+      include: {
+        branch: true,
+        items: true,
+        driver: { select: { id: true, name: true, phone: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            isBlocked: true,
+            restaurantNotes: true,
+            _count: { select: { orders: true } },
+          },
+        },
+      },
     });
 
     // إشعار الطالب والفرع أن الوجبة استلمها الطيار وخرج بها
@@ -236,7 +264,21 @@ router.put("/orders/:id/deliver", async (req: AuthRequest, res: Response) => {
         status: "COMPLETED",
         completedAt: new Date(),
       },
-      include: { branch: true, items: true },
+      include: {
+        branch: true,
+        items: true,
+        driver: { select: { id: true, name: true, phone: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            isBlocked: true,
+            restaurantNotes: true,
+            _count: { select: { orders: true } },
+          },
+        },
+      },
     });
 
     // إشعار الطالب والفرع باكتمال التسليم

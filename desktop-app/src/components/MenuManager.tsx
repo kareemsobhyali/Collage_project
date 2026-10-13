@@ -11,7 +11,7 @@ import {
   FolderPlus,
   X
 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, getFullImageUrl } from '../services/api';
 
 interface MenuManagerProps {
   categories: any[];
@@ -73,8 +73,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     try {
       setUploadingImage(true);
       const res = await api.uploadImage(file);
-      const host = window.location.hostname || 'localhost';
-      setItemImageUrl(`http://${host}:5000${res.url}`);
+      setItemImageUrl(res.url);
     } catch (err: any) {
       alert(err.message || 'فشل رفع الصورة');
     } finally {
@@ -144,10 +143,10 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     }
   };
 
-  // تبديل حالة توفر الصنف (زر سريع: متوفر / غير متوفر)
-  const handleToggleAvailability = async (item: any) => {
+  // تبديل حالة توفر الصنف (زر سريع: متوفر / غير متوفر / نفد لفترة)
+  const handleToggleAvailability = async (item: any, durationMinutes?: number) => {
     try {
-      await api.toggleItemAvailability(item.id, !item.isAvailable);
+      await api.toggleItemAvailability(item.id, !item.isAvailable, durationMinutes);
       onRefresh();
     } catch (err: any) {
       alert(err.message || 'فشل تحديث حالة الصنف');
@@ -259,7 +258,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                       <div className="flex gap-3 mb-3">
                         {item.imageUrl ? (
                           <img
-                            src={item.imageUrl}
+                            src={getFullImageUrl(item.imageUrl)}
                             alt={item.name}
                             className="w-16 h-16 rounded-xl object-cover border border-slate-100 shrink-0"
                           />
@@ -303,46 +302,72 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                     </div>
 
                     {/* Bottom Actions */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                      {/* Availability Toggle */}
-                      <button
-                        onClick={() => handleToggleAvailability(item)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-colors ${
-                          item.isAvailable
-                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                            : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
-                        }`}
-                        title="تبديل حالة التوفر"
-                      >
-                        {item.isAvailable ? (
-                          <>
-                            <ToggleRight className="w-4 h-4 text-emerald-600" />
-                            <span>متوفر</span>
-                          </>
-                        ) : (
-                          <>
-                            <ToggleLeft className="w-4 h-4 text-rose-600" />
-                            <span>غير متوفر اليوم</span>
-                          </>
-                        )}
-                      </button>
+                    <div className="pt-3 border-t border-slate-100 space-y-2">
+                      <div className="flex items-center justify-between">
+                        {/* Availability Toggle */}
+                        <button
+                          onClick={() => handleToggleAvailability(item)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-colors ${
+                            item.isAvailable
+                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                              : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+                          }`}
+                          title="تبديل حالة التوفر"
+                        >
+                          {item.isAvailable ? (
+                            <>
+                              <ToggleRight className="w-4 h-4 text-emerald-600" />
+                              <span>متوفر</span>
+                            </>
+                          ) : (
+                            <>
+                              <ToggleLeft className="w-4 h-4 text-rose-600" />
+                              <span>
+                                {item.unavailableUntil
+                                  ? `نفد مؤقتاً (يعود ${new Date(item.unavailableUntil).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })})`
+                                  : 'غير متوفر (نفد)'}
+                              </span>
+                            </>
+                          )}
+                        </button>
 
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleOpenEditItem(item)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
-                          title="تعديل الصنف"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteItem(item.id, item.name)}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors"
-                          title="حذف الصنف"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenEditItem(item)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
+                            title="تعديل الصنف"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteItem(item.id, item.name)}
+                            className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors"
+                            title="حذف الصنف"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
+
+                      {item.isAvailable && (
+                        <div className="flex items-center gap-1 flex-wrap pt-1">
+                          <span className="text-[10px] font-bold text-slate-400">نفد لفترة:</span>
+                          {[
+                            { label: '30 د', mins: 30 },
+                            { label: '1 س', mins: 60 },
+                            { label: '2 س', mins: 120 },
+                          ].map((p) => (
+                            <button
+                              key={p.mins}
+                              type="button"
+                              onClick={() => handleToggleAvailability(item, p.mins)}
+                              className="text-[10px] px-2 py-0.5 rounded-lg font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -464,9 +489,16 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                     onChange={handleImageFileChange}
                     className="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                   />
-                  {uploadingImage && <span className="text-[11px] text-indigo-600">جاري الرفع...</span>}
+                  {uploadingImage && <span className="text-[11px] text-indigo-600 block mt-1">جاري الرفع...</span>}
                   {itemImageUrl && (
-                    <span className="text-[11px] text-emerald-600 block mt-1">✓ تم اختيار الصورة</span>
+                    <div className="flex items-center gap-2 mt-2">
+                      <img
+                        src={getFullImageUrl(itemImageUrl)}
+                        alt="معاينة"
+                        className="w-10 h-10 rounded-lg object-cover border border-emerald-200"
+                      />
+                      <span className="text-[11px] text-emerald-600 font-bold">✓ تم رفع الصورة بنجاح</span>
+                    </div>
                   )}
                 </div>
               </div>

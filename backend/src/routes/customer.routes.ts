@@ -99,6 +99,30 @@ router.post("/promo-codes/validate", async (req: Request, res: Response) => {
   }
 });
 
+// دالة مساعدة للتحقق من وقوع التوقيت الحالي (بتوقيت مصر) داخل مواعيد العمل الرسمية للفرع
+function isBranchWithinWorkingHours(openingTime?: string | null, closingTime?: string | null): boolean {
+  if (!openingTime || !closingTime) return true;
+  const openParts = openingTime.split(":").map(Number);
+  const closeParts = closingTime.split(":").map(Number);
+  if (openParts.length < 2 || closeParts.length < 2 || isNaN(openParts[0]) || isNaN(closeParts[0])) {
+    return true;
+  }
+  const openMins = openParts[0] * 60 + (openParts[1] || 0);
+  const closeMins = closeParts[0] * 60 + (closeParts[1] || 0);
+  if (openMins === closeMins) return true;
+
+  // الحصول على التوقيت الحالي في مصر (Africa/Cairo)
+  const cairoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
+  const currentMins = cairoNow.getHours() * 60 + cairoNow.getMinutes();
+
+  if (closeMins > openMins) {
+    return currentMins >= openMins && currentMins <= closeMins;
+  } else {
+    // في حال امتداد الدوام لما بعد منتصف الليل (مثال: 10:00 صباحاً حتى 02:00 فجراً)
+    return currentMins >= openMins || currentMins <= closeMins;
+  }
+}
+
 // 1. استعراض الفروع النشطة للطلاب
 router.get("/branches", async (_req: Request, res: Response) => {
   try {
@@ -116,10 +140,25 @@ router.get("/branches", async (_req: Request, res: Response) => {
 
     const now = new Date();
     const formattedBranches = branches.map(b => {
-      if (b.operationalStatus === "BUSY" && b.closedUntil && now >= new Date(b.closedUntil)) {
-        return { ...b, operationalStatus: "OPEN", closedUntil: null, closingReason: null };
+      let currentStatus = b.operationalStatus;
+      let currentClosedUntil = b.closedUntil;
+      let currentReason = b.closingReason;
+
+      if (currentStatus === "BUSY" && currentClosedUntil && now >= new Date(currentClosedUntil)) {
+        currentStatus = "OPEN";
+        currentClosedUntil = null;
+        currentReason = null;
       }
-      return b;
+
+      const isWithinWorkingHours = isBranchWithinWorkingHours(b.openingTime, b.closingTime);
+
+      return {
+        ...b,
+        operationalStatus: currentStatus,
+        closedUntil: currentClosedUntil,
+        closingReason: currentReason,
+        isWithinWorkingHours,
+      };
     });
 
     res.json(formattedBranches);
@@ -133,6 +172,7 @@ router.get("/branches", async (_req: Request, res: Response) => {
 router.get("/branches/:id/menu", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const now = new Date();
 
     const branch = await prisma.branch.findFirst({
       where: { id, isActive: true },
@@ -146,6 +186,31 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       res.status(404).json({ error: "الفرع غير متاح أو غير موجود" });
       return;
     }
+
+    // إعادة تفعيل الأصناف والإضافات التي انتهت مدة نفادها المؤقت تلقائياً
+    await prisma.menuItem.updateMany({
+      where: {
+        branchId: id,
+        isAvailable: false,
+        unavailableUntil: { not: null, lte: now },
+      },
+      data: {
+        isAvailable: true,
+        unavailableUntil: null,
+      },
+    });
+
+    await prisma.modifierOption.updateMany({
+      where: {
+        group: { branchId: id },
+        isAvailable: false,
+        unavailableUntil: { not: null, lte: now },
+      },
+      data: {
+        isAvailable: true,
+        unavailableUntil: null,
+      },
+    });
 
     const categories = await prisma.menuCategory.findMany({
       where: { branchId: id },
@@ -171,14 +236,26 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       orderBy: { displayOrder: "asc" },
     });
 
-    const now = new Date();
-    let currentBranch: any = branch;
-    if (branch.operationalStatus === "BUSY" && branch.closedUntil && now >= new Date(branch.closedUntil)) {
-      currentBranch = { ...branch, operationalStatus: "OPEN", closedUntil: null, closingReason: null };
+    let currentStatus = branch.operationalStatus;
+    let currentClosedUntil = branch.closedUntil;
+    let currentReason = branch.closingReason;
+
+    if (currentStatus === "BUSY" && currentClosedUntil && now >= new Date(currentClosedUntil)) {
+      currentStatus = "OPEN";
+      currentClosedUntil = null;
+      currentReason = null;
     }
 
+    const isWithinWorkingHours = isBranchWithinWorkingHours(branch.openingTime, branch.closingTime);
+
     res.json({
-      branch: currentBranch,
+      branch: {
+        ...branch,
+        operationalStatus: currentStatus,
+        closedUntil: currentClosedUntil,
+        closingReason: currentReason,
+        isWithinWorkingHours,
+      },
       categories,
     });
   } catch (error) {
@@ -394,7 +471,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // التحقق من حالة استقبال الطلبات (مغلق مؤقتاً أو مغلق تماماً)
+    // التحقق من حالة استقبال الطلبات (مغلق مؤقتاً أو مغلق تماماً أو خارج مواعيد العمل الرسمية)
     const currentTime = new Date();
     if (branch.operationalStatus === "CLOSED") {
       res.status(400).json({ error: "عذراً، هذا المطعم مغلق حالياً ولا يستقبل طلبات جديدة." });
@@ -405,6 +482,13 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       const remainingMinutes = Math.ceil((new Date(branch.closedUntil).getTime() - currentTime.getTime()) / (60 * 1000));
       res.status(400).json({ 
         error: `المطعم في فترة استراحة/تجهيز مؤقتة. سيعود لاستقبال الطلبات بعد ${remainingMinutes} دقيقة تقريباً.` 
+      });
+      return;
+    }
+
+    if (!isScheduled && !isBranchWithinWorkingHours(branch.openingTime, branch.closingTime)) {
+      res.status(400).json({
+        error: `عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || "08:00"} - ${branch.closingTime || "22:00"}). يمكنك اختيار "حجز مسبق" لوقت العمل.`,
       });
       return;
     }
@@ -457,8 +541,15 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       }
 
       if (!dbItem.isAvailable) {
-        res.status(400).json({ error: `عذراً، الصنف "${dbItem.name}" نفد للتو وغير متاح حالياً` });
-        return;
+        if (dbItem.unavailableUntil && currentTime >= new Date(dbItem.unavailableUntil)) {
+          await prisma.menuItem.update({
+            where: { id: dbItem.id },
+            data: { isAvailable: true, unavailableUntil: null },
+          });
+        } else {
+          res.status(400).json({ error: `عذراً، الصنف "${dbItem.name}" نفد للتو وغير متاح حالياً` });
+          return;
+        }
       }
 
       let unitPrice = dbItem.basePrice;

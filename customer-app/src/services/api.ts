@@ -12,7 +12,14 @@ export const API_BASE_URL = getApiBaseUrl();
 
 export const getFullImageUrl = (url?: string | null) => {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (typeof window !== 'undefined' && window.location.port !== '5173' && window.location.port !== '5174' && url.includes(':5000/uploads/')) {
+      const idx = url.indexOf('/uploads/');
+      return `${window.location.origin}${url.substring(idx)}`;
+    }
+    return url;
+  }
   if (typeof window !== 'undefined') {
     if (window.location.port === '5173' || window.location.port === '5174') {
       return `http://${window.location.hostname}:5000${url.startsWith('/') ? '' : '/'}${url}`;
@@ -22,8 +29,46 @@ export const getFullImageUrl = (url?: string | null) => {
   return `http://localhost:5000${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
+export const isBranchOpenByHours = (
+  openingTime?: string | null,
+  closingTime?: string | null,
+  serverIsWithinWorkingHours?: boolean
+): boolean => {
+  if (typeof serverIsWithinWorkingHours === 'boolean') return serverIsWithinWorkingHours;
+  if (!openingTime || !closingTime) return true;
+  const openParts = openingTime.split(':').map(Number);
+  const closeParts = closingTime.split(':').map(Number);
+  if (openParts.length < 2 || closeParts.length < 2 || isNaN(openParts[0]) || isNaN(closeParts[0])) {
+    return true;
+  }
+  const openMins = openParts[0] * 60 + (openParts[1] || 0);
+  const closeMins = closeParts[0] * 60 + (closeParts[1] || 0);
+  if (openMins === closeMins) return true;
+
+  const now = new Date();
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+
+  if (closeMins > openMins) {
+    return currentMins >= openMins && currentMins <= closeMins;
+  } else {
+    return currentMins >= openMins || currentMins <= closeMins;
+  }
+};
+
 function getHeaders(isFormData: boolean = false): HeadersInit {
   const token = localStorage.getItem('customer_token');
+  const headers: Record<string, string> = {};
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+function getAdminHeaders(isFormData: boolean = false): HeadersInit {
+  const token = localStorage.getItem('admin_token') || localStorage.getItem('customer_token');
   const headers: Record<string, string> = {};
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
@@ -220,7 +265,7 @@ export const api = {
   // 12. لوحة الإدارة (Banners & Promo Codes)
   async getAdminBanners() {
     const res = await fetch(`${API_BASE_URL}/admin/banners`, {
-      headers: getHeaders(),
+      headers: getAdminHeaders(),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل جلب البانرات');
@@ -230,7 +275,7 @@ export const api = {
   async createAdminBanner(bannerData: any) {
     const res = await fetch(`${API_BASE_URL}/admin/banners`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getAdminHeaders(),
       body: JSON.stringify(bannerData),
     });
     const data = await res.json();
@@ -241,7 +286,7 @@ export const api = {
   async updateAdminBanner(id: string, bannerData: any) {
     const res = await fetch(`${API_BASE_URL}/admin/banners/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getAdminHeaders(),
       body: JSON.stringify(bannerData),
     });
     const data = await res.json();
@@ -252,7 +297,7 @@ export const api = {
   async deleteAdminBanner(id: string) {
     const res = await fetch(`${API_BASE_URL}/admin/banners/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getAdminHeaders(),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل حذف البانر');
@@ -261,7 +306,7 @@ export const api = {
 
   async getAdminPromoCodes() {
     const res = await fetch(`${API_BASE_URL}/admin/promo-codes`, {
-      headers: getHeaders(),
+      headers: getAdminHeaders(),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل جلب كوبونات الخصم');
@@ -271,7 +316,7 @@ export const api = {
   async createAdminPromoCode(promoData: any) {
     const res = await fetch(`${API_BASE_URL}/admin/promo-codes`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getAdminHeaders(),
       body: JSON.stringify(promoData),
     });
     const data = await res.json();
@@ -282,7 +327,7 @@ export const api = {
   async updateAdminPromoCode(id: string, promoData: any) {
     const res = await fetch(`${API_BASE_URL}/admin/promo-codes/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getAdminHeaders(),
       body: JSON.stringify(promoData),
     });
     const data = await res.json();
@@ -293,7 +338,7 @@ export const api = {
   async deleteAdminPromoCode(id: string) {
     const res = await fetch(`${API_BASE_URL}/admin/promo-codes/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getAdminHeaders(),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل حذف كود الخصم');
@@ -306,7 +351,7 @@ export const api = {
   ) {
     const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/wallet`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getAdminHeaders(),
       body: JSON.stringify(walletData),
     });
     const data = await res.json();

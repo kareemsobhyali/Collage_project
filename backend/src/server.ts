@@ -22,6 +22,8 @@ import driverRoutes from "./routes/driver.routes.js";
 import { authLimiter, orderLimiter, generalApiLimiter } from "./middleware/rateLimiter.js";
 
 const app = express();
+// تفعيل trust proxy ليعمل express-rate-limit بدقة خلف خوادم الاستضافة السحابية (Render / Railway / Cloudflare)
+app.set("trust proxy", 1);
 const server = http.createServer(app);
 
 // تهيئة Socket.io للتنبيهات اللحظية والأصوات

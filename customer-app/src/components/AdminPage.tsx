@@ -44,8 +44,8 @@ import { Logo } from './Logo';
 
 export const AdminPage: React.FC = () => {
   const [adminUser, setAdminUser] = useState<any | null>(() => {
-    const saved = localStorage.getItem('customer_user');
-    const token = localStorage.getItem('customer_token');
+    const saved = localStorage.getItem('admin_user');
+    const token = localStorage.getItem('admin_token');
     if (saved && token) {
       try {
         const u = JSON.parse(saved);
@@ -163,11 +163,11 @@ export const AdminPage: React.FC = () => {
   const [credUsername, setCredUsername] = useState('');
   const [credPassword, setCredPassword] = useState('');
 
-  const token = localStorage.getItem('customer_token');
+  const token = localStorage.getItem('admin_token');
 
   const getAdminHeaders = () => ({
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${localStorage.getItem('customer_token')}`,
+    'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
   });
 
   // Fetch all dashboard data
@@ -441,8 +441,8 @@ export const AdminPage: React.FC = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل تسجيل الدخول');
 
-      localStorage.setItem('customer_token', data.token);
-      localStorage.setItem('customer_user', JSON.stringify(data.user));
+      localStorage.setItem('admin_token', data.token);
+      localStorage.setItem('admin_user', JSON.stringify(data.user));
       setAdminUser(data.user);
     } catch (err: any) {
       setLoginError(err.message || 'بيانات دخول الأدمن غير صحيحة');
@@ -452,8 +452,8 @@ export const AdminPage: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('customer_token');
-    localStorage.removeItem('customer_user');
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
     setAdminUser(null);
   };
 

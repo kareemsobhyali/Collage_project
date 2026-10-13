@@ -305,14 +305,24 @@ export function App() {
 
         {/* Right Action Tools */}
         <div className="flex items-center gap-2">
-          {/* Quick 86 Stock Toggle Button */}
+          {/* Quick Stock Toggle Button */}
           <button
             onClick={() => setShowQuickStock(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-sm transition-all active:scale-95"
-            title="إيقاف وتشغيل الأصناف والإضافات فوراً (86 Stock)"
+            title="إيقاف وتشغيل الأصناف والإضافات فوراً"
           >
-            <span className="font-mono bg-amber-600 px-1 rounded text-[10px]">86</span>
+            <Sliders className="w-3.5 h-3.5" />
             <span>توفر الأصناف</span>
+            {(() => {
+              const outCount =
+                categories.reduce((acc, cat) => acc + (cat.items || []).filter((i: any) => !i.isAvailable).length, 0) +
+                modifierGroups.reduce((acc, g) => acc + (g.options || []).filter((o: any) => !o.isAvailable).length, 0);
+              return outCount > 0 ? (
+                <span className="font-mono bg-rose-600 text-white px-1.5 py-0.5 rounded-md text-[10px]">
+                  {outCount} نفد
+                </span>
+              ) : null;
+            })()}
           </button>
           {/* Status Badge Button */}
           <button

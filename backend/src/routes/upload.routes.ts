@@ -63,12 +63,24 @@ router.post("/", (req: Request, res: Response) => {
       return res.status(400).json({ error: "لم يتم اختيار أي صورة للرفع" });
     }
 
-    const fileUrl = `/uploads/${req.file.filename}`;
-    return res.json({
-      success: true,
-      url: fileUrl,
-      filename: req.file.filename,
-    });
+    try {
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const mimeType = req.file.mimetype || "image/jpeg";
+      const dataUrl = `data:${mimeType};base64,${fileBuffer.toString("base64")}`;
+      return res.json({
+        success: true,
+        url: dataUrl,
+        fileUrl: `/uploads/${req.file.filename}`,
+        filename: req.file.filename,
+      });
+    } catch {
+      const fileUrl = `/uploads/${req.file.filename}`;
+      return res.json({
+        success: true,
+        url: fileUrl,
+        filename: req.file.filename,
+      });
+    }
   });
 });
 

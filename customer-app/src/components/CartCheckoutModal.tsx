@@ -26,7 +26,7 @@ import {
   Wallet,
   Gift
 } from 'lucide-react';
-import { api, getFullImageUrl } from '../services/api';
+import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { requestPushPermission } from '../services/notifications';
 
 interface CartCheckoutModalProps {
@@ -283,6 +283,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       return;
     }
 
+    if (!isScheduled && !isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours)) {
+      setError(`عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || '08:00'} - ${branch.closingTime || '22:00'}). يمكنك اختيار "حجز مسبق" لوقت العمل.`);
+      return;
+    }
+
     try {
       setLoading(true);
       requestPushPermission().catch(() => {});
@@ -343,6 +348,23 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-fadeIn">
+      {/* Floating Error Toast Notification at Top of Screen */}
+      {error && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[120] w-[92%] max-w-md bg-rose-600 text-white p-3.5 rounded-2xl shadow-2xl border border-rose-400 flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-2.5 text-xs font-black">
+            <AlertCircle className="w-5 h-5 shrink-0 text-white" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="p-1 rounded-lg hover:bg-rose-700 text-white/90 shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden relative">
         {/* Mobile drag handle */}
         <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto my-2 sm:hidden shrink-0 z-20" />
@@ -975,6 +997,17 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
         {/* Footer Checkout Button */}
         <div className="p-4 border-t bg-slate-50 pb-safe space-y-2.5">
+          {error && (
+            <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center justify-between gap-2 animate-fadeIn">
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{error}</span>
+              </div>
+              <button type="button" onClick={() => setError(null)} className="text-rose-400 hover:text-rose-700">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           {!user && (
             <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900 font-bold">
               <div className="flex items-center gap-1.5">

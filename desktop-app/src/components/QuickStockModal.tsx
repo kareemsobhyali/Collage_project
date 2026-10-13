@@ -55,13 +55,14 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
     (opt.groupTitle && opt.groupTitle.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const handleToggleItem = async (item: any) => {
+  const handleToggleItem = async (item: any, durationMinutes?: number) => {
     try {
       setUpdatingId(item.id);
       await api.quickToggleStock({
         type: 'item',
         id: item.id,
         isAvailable: !item.isAvailable,
+        durationMinutes,
       });
       onRefreshMenu();
     } catch (err: any) {
@@ -71,13 +72,14 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
     }
   };
 
-  const handleToggleOption = async (option: any) => {
+  const handleToggleOption = async (option: any, durationMinutes?: number) => {
     try {
       setUpdatingId(option.id);
       await api.quickToggleStock({
         type: 'modifier',
         id: option.id,
         isAvailable: !option.isAvailable,
+        durationMinutes,
       });
       onRefreshMenu();
     } catch (err: any) {
@@ -93,12 +95,12 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
         {/* Header */}
         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black">
-              86
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-md shadow-amber-500/20">
+              <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-800 text-base">إدارة توفر الأصناف والإضافات (86 Stock)</h3>
-              <p className="text-xs text-slate-500">إيقاف وتشغيل الأصناف والإضافات بنقرة واحدة عند نفاد الكمية</p>
+              <h3 className="font-black text-slate-800 text-base">إدارة توفر الأصناف والإضافات</h3>
+              <p className="text-xs text-slate-500">إيقاف الأصناف عند نفاد الكمية (نهائياً أو لفترة مؤقتة ويعود تلقائياً)</p>
             </div>
           </div>
           <button
@@ -165,7 +167,7 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
         </div>
 
         {/* Content List */}
-        <div className="p-4 flex-1 overflow-y-auto space-y-2">
+        <div className="p-4 flex-1 overflow-y-auto space-y-2.5">
           {activeTab === 'ITEMS' ? (
             filteredItems.length === 0 ? (
               <div className="py-12 text-center text-slate-400 text-xs">
@@ -175,7 +177,7 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
               filteredItems.map((item) => (
                 <div
                   key={item.id}
-                  className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
                     item.isAvailable
                       ? 'bg-white border-slate-200 hover:border-slate-300'
                       : 'bg-rose-50/40 border-rose-200'
@@ -185,7 +187,7 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
                     <button
                       onClick={() => handleToggleItem(item)}
                       disabled={updatingId === item.id}
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all shrink-0 ${
                         item.isAvailable
                           ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                           : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
@@ -200,7 +202,23 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
                     </button>
 
                     <div>
-                      <h4 className="font-bold text-slate-800 text-xs">{item.name}</h4>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-slate-800 text-xs">{item.name}</h4>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                            item.isAvailable
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-rose-600 text-white shadow-xs'
+                          }`}
+                        >
+                          {item.isAvailable ? 'متوفر' : 'نفد'}
+                        </span>
+                        {!item.isAvailable && item.unavailableUntil && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            ⏳ يعود تلقائياً {new Date(item.unavailableUntil).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
                         <span className="font-mono">{item.basePrice} ج.م</span>
                         {item.categoryName && (
@@ -213,29 +231,46 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[11px] font-black ${
-                        item.isAvailable
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-rose-600 text-white shadow-xs'
-                      }`}
-                    >
-                      {item.isAvailable ? 'متوفر للطلب' : 'غير متوفر (نفد)'}
-                    </span>
-
-                    <button
-                      type="button"
-                      disabled={updatingId === item.id}
-                      onClick={() => handleToggleItem(item)}
-                      className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all ${
-                        item.isAvailable
-                          ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                      }`}
-                    >
-                      {item.isAvailable ? 'تعيين كـ نفد' : 'إعادة للتوفر'}
-                    </button>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    {item.isAvailable ? (
+                      <>
+                        <span className="text-[10px] font-bold text-slate-400 ml-1">نفد لفترة:</span>
+                        {[
+                          { label: '30 د', mins: 30 },
+                          { label: '1 س', mins: 60 },
+                          { label: '2 س', mins: 120 },
+                          { label: '4 س', mins: 240 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.mins}
+                            type="button"
+                            disabled={updatingId === item.id}
+                            onClick={() => handleToggleItem(item, preset.mins)}
+                            className="text-[11px] px-2.5 py-1.5 rounded-xl font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-all"
+                            title={`إيقاف لمدة ${preset.label} ثم يعود متاحاً تلقائياً`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          disabled={updatingId === item.id}
+                          onClick={() => handleToggleItem(item)}
+                          className="text-xs px-3 py-1.5 rounded-xl font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-all"
+                        >
+                          نفد تماماً
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={updatingId === item.id}
+                        onClick={() => handleToggleItem(item)}
+                        className="text-xs px-4 py-1.5 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all"
+                      >
+                        إعادة للتوفر الآن
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -249,7 +284,7 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
               filteredOptions.map((opt) => (
                 <div
                   key={opt.id}
-                  className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
                     opt.isAvailable
                       ? 'bg-white border-slate-200 hover:border-slate-300'
                       : 'bg-rose-50/40 border-rose-200'
@@ -259,7 +294,7 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
                     <button
                       onClick={() => handleToggleOption(opt)}
                       disabled={updatingId === opt.id}
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all shrink-0 ${
                         opt.isAvailable
                           ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                           : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
@@ -273,7 +308,23 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
                     </button>
 
                     <div>
-                      <h4 className="font-bold text-slate-800 text-xs">{opt.name}</h4>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-slate-800 text-xs">{opt.name}</h4>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                            opt.isAvailable
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-rose-600 text-white shadow-xs'
+                          }`}
+                        >
+                          {opt.isAvailable ? 'متوفر' : 'نفد'}
+                        </span>
+                        {!opt.isAvailable && opt.unavailableUntil && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            ⏳ يعود تلقائياً {new Date(opt.unavailableUntil).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
                         <span className="font-mono">+{opt.price} ج.م</span>
                         {opt.groupTitle && (
@@ -286,29 +337,45 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[11px] font-black ${
-                        opt.isAvailable
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-rose-600 text-white shadow-xs'
-                      }`}
-                    >
-                      {opt.isAvailable ? 'متوفر' : 'غير متوفر'}
-                    </span>
-
-                    <button
-                      type="button"
-                      disabled={updatingId === opt.id}
-                      onClick={() => handleToggleOption(opt)}
-                      className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all ${
-                        opt.isAvailable
-                          ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                      }`}
-                    >
-                      {opt.isAvailable ? 'تعيين كـ نفد' : 'إعادة للتوفر'}
-                    </button>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    {opt.isAvailable ? (
+                      <>
+                        <span className="text-[10px] font-bold text-slate-400 ml-1">نفد لفترة:</span>
+                        {[
+                          { label: '30 د', mins: 30 },
+                          { label: '1 س', mins: 60 },
+                          { label: '2 س', mins: 120 },
+                          { label: '4 س', mins: 240 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.mins}
+                            type="button"
+                            disabled={updatingId === opt.id}
+                            onClick={() => handleToggleOption(opt, preset.mins)}
+                            className="text-[11px] px-2.5 py-1.5 rounded-xl font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-all"
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          disabled={updatingId === opt.id}
+                          onClick={() => handleToggleOption(opt)}
+                          className="text-xs px-3 py-1.5 rounded-xl font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-all"
+                        >
+                          نفد تماماً
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={updatingId === opt.id}
+                        onClick={() => handleToggleOption(opt)}
+                        className="text-xs px-4 py-1.5 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all"
+                      >
+                        إعادة للتوفر الآن
+                      </button>
+                    )}
                   </div>
                 </div>
               ))

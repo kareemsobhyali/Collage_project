@@ -104,6 +104,7 @@ model MenuItem {
   basePrice          Float
   imageUrl           String?
   isAvailable        Boolean                 @default(true)
+  unavailableUntil   DateTime?               // موعد إعادة التفعيل التلقائي في حال النفاد المؤقت
   comboItems         String?                 // JSON: عروض كومبو أو مكملات مقترحة
   sizes              ItemSize[]
   modifierGroupLinks ItemModifierGroupLink[]
@@ -139,12 +140,13 @@ model ModifierGroup {
 }
 
 model ModifierOption {
-  id          String        @id @default(uuid())
-  groupId     String
-  group       ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  name        String
-  price       Float         @default(0)
-  isAvailable Boolean       @default(true)
+  id               String        @id @default(uuid())
+  groupId          String
+  group            ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name             String
+  price            Float         @default(0)
+  isAvailable      Boolean       @default(true)
+  unavailableUntil DateTime?     // موعد إعادة التفعيل التلقائي في حال النفاد المؤقت
 
   @@index([groupId])
 }

@@ -12,7 +12,14 @@ export const API_BASE_URL = getApiBaseUrl();
 
 export const getFullImageUrl = (url?: string | null) => {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (typeof window !== 'undefined' && window.location.port !== '5173' && window.location.port !== '5174' && url.includes(':5000/uploads/')) {
+      const idx = url.indexOf('/uploads/');
+      return `${window.location.origin}${url.substring(idx)}`;
+    }
+    return url;
+  }
   if (typeof window !== 'undefined') {
     if (window.location.port === '5173' || window.location.port === '5174') {
       return `http://${window.location.hostname}:5000${url.startsWith('/') ? '' : '/'}${url}`;
@@ -228,11 +235,11 @@ export const api = {
     return data;
   },
 
-  async toggleItemAvailability(id: string, isAvailable: boolean) {
+  async toggleItemAvailability(id: string, isAvailable: boolean, durationMinutes?: number) {
     const res = await fetch(`${API_BASE_URL}/branch/items/${id}/availability`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ isAvailable }),
+      body: JSON.stringify({ isAvailable, durationMinutes }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل تحديث حالة الصنف');
@@ -371,8 +378,8 @@ export const api = {
     return data;
   },
 
-  // تبديل التوفر السريع (86 Mode للأصناف والإضافات)
-  async quickToggleStock(payload: { type: 'item' | 'modifier'; id: string; isAvailable: boolean }) {
+  // تبديل التوفر السريع (مع دعم النفاد المؤقت لفترة للأصناف والإضافات)
+  async quickToggleStock(payload: { type: 'item' | 'modifier'; id: string; isAvailable: boolean; durationMinutes?: number }) {
     const res = await fetch(`${API_BASE_URL}/branch/quick-toggle-stock`, {
       method: 'PUT',
       headers: getHeaders(),

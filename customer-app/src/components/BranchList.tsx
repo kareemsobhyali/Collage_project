@@ -14,7 +14,7 @@ import {
   ExternalLink,
   X
 } from 'lucide-react';
-import { api, getFullImageUrl } from '../services/api';
+import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 
 interface BranchListProps {
   branches: any[];
@@ -78,6 +78,15 @@ const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
     );
   }
 
+  if (!isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours)) {
+    return (
+      <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-600 text-white backdrop-blur-md shadow-sm border border-white/20 shrink-0 flex items-center gap-1">
+        <Clock className="w-3 h-3" />
+        <span>مغلق (خارج مواعيد العمل)</span>
+      </span>
+    );
+  }
+
   return (
     <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-emerald-600 text-white backdrop-blur-md shadow-sm border border-white/20 shrink-0 flex items-center gap-1.5">
       <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
@@ -111,14 +120,19 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   }, [banners.length]);
 
   const filteredBranches = branches.filter(b => {
-    const matchesSearch = 
-      b.name.toLowerCase().includes(search.toLowerCase()) ||
-      (b.address && b.address.toLowerCase().includes(search.toLowerCase()));
+    const q = search.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      (b.name && b.name.toLowerCase().includes(q)) ||
+      (b.address && b.address.toLowerCase().includes(q));
 
     if (!matchesSearch) return false;
 
     if (activeFilter === 'OPEN') {
-      return b.operationalStatus === 'OPEN';
+      return (
+        b.operationalStatus === 'OPEN' &&
+        isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
+      );
     }
     if (activeFilter === 'DELIVERY') {
       return b.allowDelivery === true;
@@ -127,6 +141,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
       return b.allowPickup === true;
     }
 
+    return true;
   });
 
   const currentBanner = banners.length > 0 ? banners[activeBannerIdx] : null;
@@ -420,6 +435,13 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                         <div className="p-2 bg-rose-50 rounded-xl border border-rose-200 text-[11px] text-rose-900 flex items-center gap-1.5 font-bold">
                           <PowerOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           <span>المطعم مغلق حالياً حتى إشعار آخر</span>
+                        </div>
+                      )}
+
+                      {!isClosed && !isBusy && !isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours) && (
+                        <div className="p-2 bg-rose-50 rounded-xl border border-rose-200 text-[11px] text-rose-900 flex items-center gap-1.5 font-bold">
+                          <Clock className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span>مغلق لانتهاء مواعيد العمل ({branch.openingTime || '08:00'} - {branch.closingTime || '22:00'})</span>
                         </div>
                       )}
 

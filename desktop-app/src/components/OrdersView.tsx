@@ -731,64 +731,58 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
                     </div>
                   )}
 
-                  {/* Pickup Security PIN */}
-                  {order.pickupPin && (
-                    <div className="flex items-center justify-between bg-emerald-50 text-emerald-800 p-2 rounded-xl border border-emerald-200 font-bold">
-                      <span className="flex items-center gap-1 text-[11px]">
-                        <KeyRound className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>رمز أمان التسليم (PIN للطيار):</span>
-                      </span>
-                      <span className="font-mono text-xs tracking-widest bg-white px-2 py-0.5 rounded-md border border-emerald-300 font-black">
-                        {order.pickupPin}
-                      </span>
-                    </div>
-                  )}
-
                   {/* Delivery Driver Assignment Section */}
-                  {order.orderType === 'DELIVERY' && (
-                    <div className="p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                          <Truck className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>كابتن التوصيل:</span>
-                        </span>
-                        {order.driver ? (
-                          <span className="font-black text-indigo-800 bg-white px-2 py-0.5 rounded-lg border border-indigo-200">
-                            {order.driver.name} ({order.driver.phone})
+                  {order.orderType === 'DELIVERY' && (() => {
+                    const assignedDriver = order.driver || drivers.find((d: any) => d.id === order.driverId);
+                    return (
+                      <div className="p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                            <Truck className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>{order.status === 'COMPLETED' ? 'الطيار المسلم:' : 'كابتن التوصيل:'}</span>
                           </span>
-                        ) : (
-                          <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded font-bold">
-                            بانتظار إسناد طيار
-                          </span>
+                          {assignedDriver ? (
+                            <span className="font-black text-indigo-800 bg-white px-2 py-0.5 rounded-lg border border-indigo-200">
+                              {order.status === 'COMPLETED' ? '✅ ' : ''}{assignedDriver.name} ({assignedDriver.phone})
+                            </span>
+                          ) : order.status === 'COMPLETED' ? (
+                            <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-bold">
+                              تم التسليم عبر الفرع
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded font-bold">
+                              بانتظار إسناد طيار
+                            </span>
+                          )}
+                        </div>
+
+                        {order.status !== 'COMPLETED' && order.status !== 'REJECTED' && (
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <select
+                              value={selectedDriverMap[order.id] !== undefined ? selectedDriverMap[order.id] : (order.driverId || '')}
+                              onChange={(e) => setSelectedDriverMap({ ...selectedDriverMap, [order.id]: e.target.value })}
+                              className="flex-1 bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] font-bold text-slate-700"
+                            >
+                              <option value="">-- اختر طيار لتوصيل الطلب --</option>
+                              {drivers.map((d: any) => (
+                                <option key={d.id} value={d.id} disabled={!d.isActive}>
+                                  {d.name} {d.isActive ? '' : '(غير متاح)'}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              disabled={assigningDriverOrderId === order.id}
+                              onClick={() => handleAssignDriver(order.id, selectedDriverMap[order.id] ?? order.driverId ?? '')}
+                              className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shrink-0"
+                            >
+                              {assigningDriverOrderId === order.id ? '...' : 'إسناد'}
+                            </button>
+                          </div>
                         )}
                       </div>
-
-                      {order.status !== 'COMPLETED' && order.status !== 'REJECTED' && (
-                        <div className="flex items-center gap-1.5 pt-1">
-                          <select
-                            value={selectedDriverMap[order.id] !== undefined ? selectedDriverMap[order.id] : (order.driverId || '')}
-                            onChange={(e) => setSelectedDriverMap({ ...selectedDriverMap, [order.id]: e.target.value })}
-                            className="flex-1 bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] font-bold text-slate-700"
-                          >
-                            <option value="">-- اختر طيار لتوصيل الطلب --</option>
-                            {drivers.map((d: any) => (
-                              <option key={d.id} value={d.id} disabled={!d.isActive}>
-                                {d.name} {d.isActive ? '' : '(غير متاح)'}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            disabled={assigningDriverOrderId === order.id}
-                            onClick={() => handleAssignDriver(order.id, selectedDriverMap[order.id] ?? order.driverId ?? '')}
-                            className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shrink-0"
-                          >
-                            {assigningDriverOrderId === order.id ? '...' : 'إسناد'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* Group Cart Bags Partition (سلة الشلة) */}
