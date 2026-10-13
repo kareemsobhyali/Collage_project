@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
 import { authenticateUser, AuthRequest } from "../middleware/auth.js";
 import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated } from "../sockets/socketManager.js";
+import { getLoyaltySettings, awardLoyaltyPointsIfCompleted } from "../services/settings.service.js";
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-campus-delivery-2026";
@@ -99,8 +100,8 @@ router.post("/promo-codes/validate", async (req: Request, res: Response) => {
   }
 });
 
-// دالة مساعدة للتحقق من وقوع التوقيت الحالي (بتوقيت مصر) داخل مواعيد العمل الرسمية للفرع
-function isBranchWithinWorkingHours(openingTime?: string | null, closingTime?: string | null): boolean {
+// دالة مساعدة للتحقق من وقوع التوقيت (بتوقيت مصر) داخل مواعيد العمل الرسمية للفرع
+function isBranchWithinWorkingHours(openingTime?: string | null, closingTime?: string | null, targetDate?: Date): boolean {
   if (!openingTime || !closingTime) return true;
   const openParts = openingTime.split(":").map(Number);
   const closeParts = closingTime.split(":").map(Number);
@@ -111,9 +112,10 @@ function isBranchWithinWorkingHours(openingTime?: string | null, closingTime?: s
   const closeMins = closeParts[0] * 60 + (closeParts[1] || 0);
   if (openMins === closeMins) return true;
 
-  // الحصول على التوقيت الحالي في مصر (Africa/Cairo)
-  const cairoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
-  const currentMins = cairoNow.getHours() * 60 + cairoNow.getMinutes();
+  // الحصول على التوقيت في مصر (Africa/Cairo)
+  const base = targetDate || new Date();
+  const cairoDate = new Date(base.toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
+  const currentMins = cairoDate.getHours() * 60 + cairoDate.getMinutes();
 
   if (closeMins > openMins) {
     return currentMins >= openMins && currentMins <= closeMins;
@@ -498,23 +500,34 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     // التحقق من حالة استقبال الطلبات (مغلق مؤقتاً أو مغلق تماماً أو خارج مواعيد العمل الرسمية)
     const currentTime = new Date();
     if (branch.operationalStatus === "CLOSED") {
-      res.status(400).json({ error: "عذراً، هذا المطعم مغلق حالياً ولا يستقبل طلبات جديدة." });
+      res.status(400).json({ error: "عذراً، هذا المطعم مغلق حالياً ولا يستقبل أي طلبات فورية أو حجز مسبق." });
       return;
     }
 
     if (branch.operationalStatus === "BUSY" && branch.closedUntil && currentTime < new Date(branch.closedUntil)) {
       const remainingMinutes = Math.ceil((new Date(branch.closedUntil).getTime() - currentTime.getTime()) / (60 * 1000));
       res.status(400).json({ 
-        error: `المطعم في فترة استراحة/تجهيز مؤقتة. سيعود لاستقبال الطلبات بعد ${remainingMinutes} دقيقة تقريباً.` 
+        error: `المطعم في فترة استراحة/تجهيز مؤقتة (${remainingMinutes} دقيقة تقريباً). لا يمكن استقبال الطلبات أو الحجز المسبق حالياً حتى عودة الفرع للعمل.` 
       });
       return;
     }
 
-    if (!isScheduled && !isBranchWithinWorkingHours(branch.openingTime, branch.closingTime)) {
+    if (!isBranchWithinWorkingHours(branch.openingTime, branch.closingTime)) {
       res.status(400).json({
-        error: `عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || "08:00"} - ${branch.closingTime || "22:00"}). يمكنك اختيار "حجز مسبق" لوقت العمل.`,
+        error: `عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || "08:00"} - ${branch.closingTime || "22:00"}). غير متاح عمل طلبات أو حجز مسبق طالما الفرع مغلق.`,
       });
       return;
+    }
+
+    // إذا كان الطلب محجوزاً مسبقاً، يجب أن يكون موعد الحجز نفسه واقعاً ضمن ساعات عمل المطعم الرسمية
+    if (isScheduled && scheduledFor) {
+      const scheduledDate = new Date(scheduledFor);
+      if (!isBranchWithinWorkingHours(branch.openingTime, branch.closingTime, scheduledDate)) {
+        res.status(400).json({
+          error: `موعد الحجز المسبق المختار (${scheduledDate.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}) يقع خارج ساعات عمل المطعم (${branch.openingTime || "08:00"} - ${branch.closingTime || "22:00"}). يرجى اختيار موعد ضمن فترة العمل.`,
+        });
+        return;
+      }
     }
 
     // التحقق من تفعيل خيار الطلب (توصيل أو استلام)
@@ -584,12 +597,39 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         }
       }
 
-      // إضافة أسعار الإضافات المختارة (مع منع القيم السالبة)
+      // جلب والتحقق الفعلي من أسعار الإضافات المختارة من قاعدة البيانات لمنع أي تلاعب بالسعر من العميل
       let modifiersExtra = 0;
+      const verifiedModifiers: any[] = [];
       if (itemInput.selectedModifiers && Array.isArray(itemInput.selectedModifiers)) {
         for (const mod of itemInput.selectedModifiers) {
-          const modPrice = Math.max(0, parseFloat(mod.price || 0));
-          modifiersExtra += modPrice;
+          let realModPrice = 0;
+          let optionName = String(mod.optionName || mod.name || "").trim();
+          if (mod.optionId) {
+            const dbOption = await prisma.modifierOption.findUnique({
+              where: { id: mod.optionId },
+            });
+            if (dbOption && dbOption.isAvailable) {
+              realModPrice = Math.max(0, dbOption.price);
+              optionName = dbOption.name;
+            }
+          } else if (optionName) {
+            const dbOption = await prisma.modifierOption.findFirst({
+              where: {
+                name: optionName,
+                group: { branchId },
+                isAvailable: true,
+              },
+            });
+            if (dbOption) {
+              realModPrice = Math.max(0, dbOption.price);
+            }
+          }
+          modifiersExtra += realModPrice;
+          verifiedModifiers.push({
+            optionId: mod.optionId,
+            optionName: optionName || "إضافة",
+            price: realModPrice,
+          });
         }
       }
 
@@ -607,7 +647,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         quantity,
         totalPrice: itemTotalPrice,
         notes: itemInput.notes ? String(itemInput.notes).trim() : null,
-        selectedModifiers: itemInput.selectedModifiers ? JSON.stringify(itemInput.selectedModifiers) : null,
+        selectedModifiers: verifiedModifiers.length > 0 ? JSON.stringify(verifiedModifiers) : null,
       });
     }
 
@@ -690,8 +730,11 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
 
     const total = Math.max(0, preWalletTotal - walletDiscount);
 
-    // حساب نقاط الولاء المكتسبة من الطلب (نقطة واحدة لكل 10 ج.م من قيمة الأصناف)
-    const pointsEarned = Math.max(1, Math.floor(subtotal / 10));
+    // حساب نقاط الولاء المحسوبة لهذا الطلب حسب إعدادات المنظومة (لا تُودع في المحفظة إلا بعد اكتمال الطلب والتسليم)
+    const loyaltySettings = await getLoyaltySettings();
+    const pointsEarned = loyaltySettings.enabled 
+      ? Math.max(0, Math.floor(subtotal * loyaltySettings.pointsPerPound)) 
+      : 0;
 
     // توليد رقم طلب عشوائي وسهل القراءة
     const orderCount = await prisma.order.count();
@@ -716,6 +759,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         discount,
         walletDiscount,
         pointsEarned,
+        pointsAwarded: false,
         customerPhone: finalPhone,
         customerName: customerName ? customerName.trim() : "طالب",
         notes: notes ? notes.trim() : null,
@@ -762,13 +806,14 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       }).catch(() => {});
     }
 
-    // تحديث رصيد محفظة الطالب وإضافة نقاط الولاء المكتسبة
+    // خصم رصيد المحفظة المستخدم فقط إن وُجد (النقاط لن تودع إلا بعد اكتمال الطلب والتسليم الفعلي)
+    const updateUserData: any = {};
+    if (walletDiscount > 0) {
+      updateUserData.walletBalance = { decrement: walletDiscount };
+    }
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: {
-        walletBalance: { decrement: walletDiscount },
-        loyaltyPoints: { increment: pointsEarned },
-      },
+      data: updateUserData,
       select: {
         id: true,
         name: true,
@@ -1077,17 +1122,20 @@ router.get("/wallet", async (req: AuthRequest, res: Response) => {
       take: 15,
     });
 
+    const loyaltySettings = await getLoyaltySettings();
+
     res.json({
       loyaltyPoints: user.loyaltyPoints,
       walletBalance: user.walletBalance,
       history: rewardHistory,
+      settings: loyaltySettings,
     });
   } catch (error) {
     res.status(500).json({ error: "فشل جلب بيانات المحفظة ونقاط الولاء" });
   }
 });
 
-// 12. تحويل نقاط الولاء إلى رصيد نقدي في المحفظة الجامعية (1 نقطة = 1 ج.م)
+// 12. تحويل نقاط الولاء إلى رصيد نقدي في المحفظة الجامعية حسب نسبة الاستبدال المحددة من الإدارة
 router.post("/wallet/convert-points", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.userId;
@@ -1100,15 +1148,31 @@ router.post("/wallet/convert-points", async (req: AuthRequest, res: Response) =>
       return;
     }
 
-    const pointsToConvert = req.body.points ? Math.min(user.loyaltyPoints, Math.max(0, parseInt(req.body.points) || 0)) : user.loyaltyPoints;
-
-    if (pointsToConvert <= 0) {
-      res.status(400).json({ error: "لا توجد نقاط ولاء كافية للتحويل حالياً" });
+    const loyaltySettings = await getLoyaltySettings();
+    if (!loyaltySettings.enabled) {
+      res.status(400).json({ error: "نظام استبدال نقاط الولاء غير مفعّل حالياً من قِبل إدارة المنظومة" });
       return;
     }
 
-    // كل 1 نقطة ولاء تساوي 1 ج.م في المحفظة الجامعية
-    const cashAdded = pointsToConvert;
+    if (user.loyaltyPoints < loyaltySettings.minPointsToRedeem) {
+      res.status(400).json({ 
+        error: `الحد الأدنى لاستبدال النقاط هو ${loyaltySettings.minPointsToRedeem} نقطة (رصيدك الحالي: ${user.loyaltyPoints} نقطة)` 
+      });
+      return;
+    }
+
+    const requestedPoints = req.body.points ? parseInt(req.body.points) : user.loyaltyPoints;
+    const pointsToConvert = Math.min(user.loyaltyPoints, Math.max(0, requestedPoints || 0));
+
+    if (pointsToConvert < loyaltySettings.minPointsToRedeem) {
+      res.status(400).json({ 
+        error: `يجب استبدال ${loyaltySettings.minPointsToRedeem} نقطة كحد أدنى في العملية الواحدة` 
+      });
+      return;
+    }
+
+    // حساب المبلغ المضاف بدقة بالجنيه حسب نسبة الاستبدال المحددة في لوحة الإدارة
+    const cashAdded = Math.round(pointsToConvert * loyaltySettings.pointsRedemptionRate * 100) / 100;
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },

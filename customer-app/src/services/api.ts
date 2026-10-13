@@ -56,7 +56,7 @@ export const isBranchOpenByHours = (
 };
 
 function getHeaders(isFormData: boolean = false): HeadersInit {
-  const token = localStorage.getItem('customer_token');
+  const token = localStorage.getItem('customer_token') || localStorage.getItem('admin_token') || localStorage.getItem('driver_token');
   const headers: Record<string, string> = {};
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
@@ -623,4 +623,72 @@ export const api = {
     if (!res.ok) throw new Error(data.error || 'فشل إعادة تعيين كلمة المرور');
     return data;
   },
+
+  // 36. تغيير كلمة مرور الإدارة
+  async changeAdminPassword(currentPassword: string, newPassword: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/change-password`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تغيير كلمة مرور الإدارة');
+    return data;
+  },
+
+  // 37. إعدادات نظام نقاط الولاء
+  async getLoyaltySettings() {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/loyalty`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب إعدادات نظام النقاط');
+    return data;
+  },
+
+  async updateLoyaltySettings(settings: {
+    enabled: boolean;
+    pointsPerPound: number;
+    pointsRedemptionRate: number;
+    minPointsToRedeem: number;
+    welcomePoints: number;
+  }) {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/loyalty`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(settings),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ إعدادات نظام النقاط');
+    return data;
+  },
+
+  // 38. إعدادات تنبيهات وإشعارات الواتساب
+  async getWhatsAppAlertSettings() {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/whatsapp-alerts`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب إعدادات تنبيهات الواتساب');
+    return data;
+  },
+
+  async updateWhatsAppAlertSettings(settings: {
+    cancellationAlertPhones: string;
+    cancellationAlertEnabled: boolean;
+    unacceptedAlertPhones: string;
+    unacceptedAlertEnabled: boolean;
+    unacceptedDelayMinutes: number;
+  }) {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/whatsapp-alerts`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(settings),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ إعدادات تنبيهات الواتساب');
+    return data;
+  },
 };
+
+

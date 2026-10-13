@@ -108,3 +108,33 @@ export function authenticateDriver(req: AuthRequest, res: Response, next: NextFu
     res.status(401).json({ error: "جلسة دخول الطيار منتهية، يرجى إعادة تسجيل الدخول" });
   }
 }
+
+// التحقق من أي حساب معتمد في النظام (عميل، إدارة، فرع، طيار)
+export function authenticateAny(req: AuthRequest, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "غير مصرح، يرجى تسجيل الدخول أولاً" });
+    return;
+  }
+
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    if (decoded.userId) {
+      req.user = decoded;
+      return next();
+    }
+    if (decoded.branchUserId && decoded.branchId) {
+      req.branch = decoded;
+      return next();
+    }
+    if (decoded.driverId) {
+      req.driver = decoded;
+      return next();
+    }
+    res.status(403).json({ error: "رمز الدخول غير صالح" });
+  } catch (error) {
+    res.status(401).json({ error: "رمز الدخول غير صالح أو منتهي الصلاحية" });
+  }
+}
+

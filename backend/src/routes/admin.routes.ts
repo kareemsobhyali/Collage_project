@@ -2,6 +2,15 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import prisma from "../prisma.js";
 import { generateToken, requireSuperAdmin, AuthRequest } from "../middleware/auth.js";
+import { 
+  getLoyaltySettings, 
+  updateLoyaltySettings, 
+  awardLoyaltyPointsIfCompleted,
+  getWhatsAppAlertSettings,
+  updateWhatsAppAlertSettings,
+  sendOrderCancellationWhatsAppAlert
+} from "../services/settings.service.js";
+
 
 const router = Router();
 
@@ -563,18 +572,23 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
       include: { branch: true },
     });
 
-    // استرداد تلقائي لرصيد المحفظة ونقاط الولاء عند الإلغاء لأول مرة
+    // إيداع نقاط الولاء في محفظة الطالب فقط عند اكتمال الطلب والتسليم الفعلي
+    if (status === "COMPLETED") {
+      await awardLoyaltyPointsIfCompleted(id);
+    }
+
+    // استرداد تلقائي لرصيد المحفظة عند الإلغاء لأول مرة
     if (status === "REJECTED" && existingOrder.status !== "REJECTED") {
       const targetUser = await prisma.user.findUnique({ where: { id: existingOrder.userId } });
       if (targetUser) {
         const refundedWallet = (targetUser.walletBalance || 0) + (existingOrder.walletDiscount || 0);
-        const revertedPoints = Math.max(0, (targetUser.loyaltyPoints || 0) - (existingOrder.pointsEarned || 0));
+        const updateUserData: any = { walletBalance: refundedWallet };
+        if (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0) {
+          updateUserData.loyaltyPoints = Math.max(0, (targetUser.loyaltyPoints || 0) - existingOrder.pointsEarned);
+        }
         await prisma.user.update({
           where: { id: existingOrder.userId },
-          data: {
-            walletBalance: refundedWallet,
-            loyaltyPoints: revertedPoints,
-          },
+          data: updateUserData,
         }).catch(() => {});
       }
 
@@ -587,6 +601,9 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
           }).catch(() => {});
         }
       }
+
+      // إشعار واتساب للمشرفين بإلغاء الطلب
+      sendOrderCancellationWhatsAppAlert(id, "إلغاء بواسطة إدارة المنظومة").catch(() => {});
     }
 
     // إشعار الفرع والعميل عبر WebSockets لحظياً
@@ -896,4 +913,121 @@ router.put("/users/:id/reset-password", async (req: AuthRequest, res: Response) 
   }
 });
 
+// 8. تغيير كلمة مرور السوبر أدمن
+router.put("/change-password", async (req: AuthRequest, res: Response) => {
+  try {
+    const adminId = req.user!.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: "يرجى إدخال كلمة المرور الحالية وكلمة المرور الجديدة" });
+      return;
+    }
+
+    if (String(newPassword).length < 6) {
+      res.status(400).json({ error: "كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف أو أرقام" });
+      return;
+    }
+
+    const admin = await prisma.user.findUnique({
+      where: { id: adminId },
+    });
+
+    if (!admin || admin.role !== "SUPERADMIN") {
+      res.status(403).json({ error: "غير مصرح لك بتغيير كلمة مرور الإدارة" });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, admin.password);
+    if (!isMatch) {
+      res.status(400).json({ error: "كلمة المرور الحالية غير صحيحة" });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: adminId },
+      data: { password: hashedPassword },
+    });
+
+    res.json({ success: true, message: "تم تغيير كلمة مرور لوحة الإدارة بنجاح 🔒" });
+  } catch (error) {
+    console.error("Change admin password error:", error);
+    res.status(500).json({ error: "فشل تغيير كلمة المرور" });
+  }
+});
+
+// 9. استرجاع إعدادات نظام نقاط الولاء والمكافآت
+router.get("/settings/loyalty", async (_req: AuthRequest, res: Response) => {
+  try {
+    const settings = await getLoyaltySettings();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: "فشل جلب إعدادات نقاط الولاء" });
+  }
+});
+
+// 10. تحديث وتفعيل/تعطيل نظام نقاط الولاء والمكافآت
+router.put("/settings/loyalty", async (req: AuthRequest, res: Response) => {
+  try {
+    const { enabled, pointsPerPound, pointsRedemptionRate, minPointsToRedeem, welcomePoints } = req.body;
+    const updated = await updateLoyaltySettings({
+      enabled,
+      pointsPerPound,
+      pointsRedemptionRate,
+      minPointsToRedeem,
+      welcomePoints,
+    });
+    res.json({
+      success: true,
+      message: "تم حفظ وتحديث إعدادات نقاط الولاء بنجاح ✅",
+      settings: updated,
+    });
+  } catch (error) {
+    console.error("Update loyalty settings error:", error);
+    res.status(500).json({ error: "فشل تحديث إعدادات نقاط الولاء" });
+  }
+});
+
+// 11. استرجاع إعدادات تنبيهات وإشعارات الواتساب
+router.get("/settings/whatsapp-alerts", async (_req: AuthRequest, res: Response) => {
+  try {
+    const settings = await getWhatsAppAlertSettings();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: "فشل جلب إعدادات تنبيهات الواتساب" });
+  }
+});
+
+// 12. تحديث إعدادات تنبيهات وإشعارات الواتساب
+router.put("/settings/whatsapp-alerts", async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      cancellationAlertPhones,
+      cancellationAlertEnabled,
+      unacceptedAlertPhones,
+      unacceptedAlertEnabled,
+      unacceptedDelayMinutes,
+    } = req.body;
+
+    const updated = await updateWhatsAppAlertSettings({
+      cancellationAlertPhones,
+      cancellationAlertEnabled,
+      unacceptedAlertPhones,
+      unacceptedAlertEnabled,
+      unacceptedDelayMinutes,
+    });
+
+    res.json({
+      success: true,
+      message: "تم حفظ وتحديث إعدادات تنبيهات الواتساب بنجاح ✅",
+      settings: updated,
+    });
+  } catch (error) {
+    console.error("Update whatsapp alert settings error:", error);
+    res.status(500).json({ error: "فشل حفظ إعدادات تنبيهات الواتساب" });
+  }
+});
+
 export default router;
+

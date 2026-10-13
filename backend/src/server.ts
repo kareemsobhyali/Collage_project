@@ -19,7 +19,7 @@ import branchRoutes from "./routes/branch.routes.js";
 import customerRoutes from "./routes/customer.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import driverRoutes from "./routes/driver.routes.js";
-import { authLimiter, orderLimiter, generalApiLimiter } from "./middleware/rateLimiter.js";
+import { authLimiter, orderLimiter, generalApiLimiter, uploadLimiter } from "./middleware/rateLimiter.js";
 
 const app = express();
 // تفعيل trust proxy ليعمل express-rate-limit بدقة خلف خوادم الاستضافة السحابية (Render / Railway / Cloudflare)
@@ -45,14 +45,23 @@ app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 // حماية عامة من هجمات الإغراق (Rate Limiting)
 app.use("/api", generalApiLimiter);
 
-// حماية مسارات تسجيل الدخول من محاولات التخمين (Brute Force)
+// حماية مسارات تسجيل الدخول والتحقق واسترجاع كلمة المرور من محاولات التخمين (Brute Force / OTP Abuse)
 app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api/auth/forgot-password", authLimiter);
+app.use("/api/auth/verify-reset-otp", authLimiter);
+app.use("/api/auth/reset-password", authLimiter);
+app.use("/api/auth/verify-phone", authLimiter);
+app.use("/api/auth/resend-verification-otp", authLimiter);
 app.use("/api/admin/login", authLimiter);
 app.use("/api/branch/login", authLimiter);
 app.use("/api/driver/login", authLimiter);
 
 // حماية مسار إنشاء الطلبات من السبام
 app.use("/api/customer/orders", orderLimiter);
+
+// حماية مسار رفع الملفات
+app.use("/api/upload", uploadLimiter);
 
 // دالة مساعدة لتحديد مسارات الملفات والمجلدات بدقة على السيرفر
 function resolvePath(...cands: string[]): string {
@@ -161,6 +170,19 @@ server.listen(PORT, "0.0.0.0", () => {
     })
     .catch((err) => {
       console.warn("[WhatsApp] Could not load whatsappService:", err);
+    });
+
+  // فحص دوري كل 45 ثانية للطلبات المعلقة التي تجاوزت 5 دقائق دون قبول لإرسال إنذار عبر الواتساب
+  import("./services/settings.service.js")
+    .then(({ checkAndSendUnacceptedOrdersWhatsAppAlerts }) => {
+      setInterval(() => {
+        checkAndSendUnacceptedOrdersWhatsAppAlerts().catch((err) => {
+          console.error("[Scheduler] Unaccepted orders check error:", err);
+        });
+      }, 45 * 1000);
+    })
+    .catch((err) => {
+      console.warn("[Scheduler] Could not start unaccepted orders check:", err);
     });
 });
 

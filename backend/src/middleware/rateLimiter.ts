@@ -32,3 +32,15 @@ export const generalApiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// حماية مسار رفع الملفات من هجمات إغراق السيرفر
+export const uploadLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 دقائق
+  max: 30, // حد أقصى 30 صورة لكل 5 دقائق
+  message: {
+    error: "تم تجاوز الحد المسموح به لرفع الملفات مؤقتاً، يرجى المحاولة بعد قليل.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+

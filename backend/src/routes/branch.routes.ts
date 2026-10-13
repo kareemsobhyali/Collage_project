@@ -4,6 +4,8 @@ import { exec } from "child_process";
 import prisma from "../prisma.js";
 import { generateToken, authenticateBranch, AuthRequest } from "../middleware/auth.js";
 import { notifyOrderStatusChanged, notifyBranchStatusChanged, notifyDriverAssigned } from "../sockets/socketManager.js";
+import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert } from "../services/settings.service.js";
+
 
 const router = Router();
 
@@ -909,18 +911,23 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // إذا تم رفض/إلغاء الطلب للمرة الأولى، نسترد رصيد المحفظة الجامعية للطالب ونسحب النقاط المضافة
+    // إيداع نقاط الولاء في محفظة الطالب فقط عند اكتمال الطلب والتسليم الفعلي
+    if (status === "COMPLETED") {
+      await awardLoyaltyPointsIfCompleted(id);
+    }
+
+    // إذا تم رفض/إلغاء الطلب للمرة الأولى، نسترد رصيد المحفظة الجامعية للطالب
     if (status === "REJECTED" && existingOrder.status !== "REJECTED") {
       const targetUser = await prisma.user.findUnique({ where: { id: existingOrder.userId } });
       if (targetUser) {
         const refundedWallet = (targetUser.walletBalance || 0) + (existingOrder.walletDiscount || 0);
-        const revertedPoints = Math.max(0, (targetUser.loyaltyPoints || 0) - (existingOrder.pointsEarned || 0));
+        const updateUserData: any = { walletBalance: refundedWallet };
+        if (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0) {
+          updateUserData.loyaltyPoints = Math.max(0, (targetUser.loyaltyPoints || 0) - existingOrder.pointsEarned);
+        }
         await prisma.user.update({
           where: { id: existingOrder.userId },
-          data: {
-            walletBalance: refundedWallet,
-            loyaltyPoints: revertedPoints,
-          },
+          data: updateUserData,
         }).catch(() => {});
       }
 
@@ -933,6 +940,9 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
           }).catch(() => {});
         }
       }
+
+      // إرسال تنبيه واتساب فوري لمشرفي المنظومة بأن المطعم كنسل هذا الطلب
+      sendOrderCancellationWhatsAppAlert(id, (req.body.reason || req.body.notes || "").trim()).catch(() => {});
     }
 
     // إشعار لحظي عبر Socket.io للعميل والديسكتوب والطيار

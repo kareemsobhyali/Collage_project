@@ -58,7 +58,28 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduledTime, setScheduledTime] = useState('12:30');
 
+  // فحص حالة عمل الفرع بدقة (سواء مغلق مؤقتاً أو تماماً أو خارج مواعيد العمل الرسمية)
+  const isBranchClosedByHours = !isBranchOpenByHours(
+    branch.openingTime,
+    branch.closingTime,
+    branch.isWithinWorkingHours
+  );
+  const isBranchBusy =
+    branch.operationalStatus === 'BUSY' &&
+    branch.closedUntil &&
+    new Date() < new Date(branch.closedUntil);
+  const isBranchFullyClosed = branch.operationalStatus === 'CLOSED';
+  const isBranchClosed = isBranchFullyClosed || isBranchBusy || isBranchClosedByHours;
+
+  // إذا كان الفرع مغلقاً بأي شكل، نمنع تفعيل الحجز المسبق تلقائياً
+  useEffect(() => {
+    if (isBranchClosed && isScheduled) {
+      setIsScheduled(false);
+    }
+  }, [isBranchClosed, isScheduled]);
+
   const paymentConfig = branch.paymentConfig;
+
 
   // تحديد طريقة الدفع الافتراضية بناءً على المتاح للفرع
   const defaultPayment = paymentConfig?.cashEnabled
@@ -272,19 +293,19 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       return;
     }
 
-    if (branch.operationalStatus === 'CLOSED') {
-      setError('عذراً، هذا المطعم مغلق حالياً ولا يستقبل أي طلبات جديدة.');
+    if (isBranchFullyClosed) {
+      setError('عذراً، هذا المطعم مغلق حالياً ولا يستقبل أي طلبات فورية أو حجز مسبق.');
       return;
     }
 
-    if (branch.operationalStatus === 'BUSY' && branch.closedUntil && new Date() < new Date(branch.closedUntil)) {
+    if (isBranchBusy) {
       const remainingMinutes = Math.ceil((new Date(branch.closedUntil).getTime() - Date.now()) / (60 * 1000));
-      setError(`عذراً، المطعم مغلق مؤقتاً لضغط الطلبات أو التجهيز. سيعاد استقبال الطلبات بعد ${remainingMinutes} دقيقة تقريباً.`);
+      setError(`عذراً، المطعم مغلق مؤقتاً لضغط الطلبات أو التجهيز (${remainingMinutes} دقيقة متبقية). لا يمكن الحجز أو الطلب حالياً حتى يعود الفرع للعمل.`);
       return;
     }
 
-    if (!isScheduled && !isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours)) {
-      setError(`عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || '08:00'} - ${branch.closingTime || '22:00'}). يمكنك اختيار "حجز مسبق" لوقت العمل.`);
+    if (isBranchClosedByHours) {
+      setError(`عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || '08:00'} - ${branch.closingTime || '22:00'}). غير متاح عمل طلبات أو حجز مسبق طالما الفرع مغلق.`);
       return;
     }
 
@@ -513,35 +534,66 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black text-slate-700">توقيت استلام الطلب</h4>
-              <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full">
-                بريك المحاضرات
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                isBranchClosed 
+                  ? 'bg-rose-50 text-rose-600 border border-rose-200' 
+                  : 'bg-indigo-50 text-indigo-600'
+              }`}>
+                {isBranchClosed ? 'الفرع مغلق' : 'بريك المحاضرات'}
               </span>
             </div>
+
+            {isBranchClosed && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5 text-xs text-rose-700 font-bold animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>
+                  {isBranchFullyClosed
+                    ? 'عذراً، هذا المطعم مغلق حالياً. لا يمكن استقبال أي طلبات فورية أو حجز مسبق.'
+                    : isBranchBusy
+                    ? 'عذراً، المطعم مغلق مؤقتاً لضغط الطلبات أو التجهيز. غير متاح الحجز المسبق حتى فتح الفرع.'
+                    : `عذراً، المطعم خارج مواعيد العمل الرسمية (${branch.openingTime || '08:00'} - ${branch.closingTime || '22:00'}). غير متاح الحجز المسبق طالما الفرع مغلق.`}
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
+                disabled={isBranchClosed}
                 onClick={() => setIsScheduled(false)}
                 className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1 ${
-                  !isScheduled
+                  isBranchClosed
+                    ? 'border-slate-200 bg-slate-100/70 text-slate-400 opacity-60 cursor-not-allowed'
+                    : !isScheduled
                     ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 font-black ring-2 ring-indigo-200'
                     : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <span className="text-xs">⚡ طلب فوري (الآن)</span>
-                <span className="text-[10px] text-slate-400">يبدأ التجهيز فوراً</span>
+                <span className="text-[10px] text-slate-400">
+                  {isBranchClosed ? 'غير متاح حالياً' : 'يبدأ التجهيز فوراً'}
+                </span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setIsScheduled(true)}
+                disabled={isBranchClosed}
+                onClick={() => {
+                  if (isBranchClosed) return;
+                  setIsScheduled(true);
+                }}
                 className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1 ${
-                  isScheduled
+                  isBranchClosed
+                    ? 'border-slate-200 bg-slate-100/70 text-slate-400 opacity-60 cursor-not-allowed'
+                    : isScheduled
                     ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 font-black ring-2 ring-indigo-200'
                     : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <span className="text-xs">🕒 حجز مسبق (موعد البريك)</span>
-                <span className="text-[10px] text-slate-400">حدد وقت خروجك</span>
+                <span className="text-[10px] text-slate-400">
+                  {isBranchClosed ? 'غير متاح (الفرع مغلق)' : 'حدد وقت خروجك'}
+                </span>
               </button>
             </div>
 
@@ -1025,10 +1077,22 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           )}
           <button
             onClick={handleCheckout}
-            disabled={loading}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black shadow-lg shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+            disabled={loading || isBranchClosed}
+            className={`w-full py-3.5 rounded-2xl text-xs font-black shadow-lg transition-all flex items-center justify-center gap-2 ${
+              isBranchClosed
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-indigo-600/20'
+            }`}
           >
-            <span>{loading ? 'جاري إرسال الطلب...' : !user ? 'تسجيل الدخول لإتمام الطلب' : 'تأكيد الطلب الآن'}</span>
+            <span>
+              {loading
+                ? 'جاري إرسال الطلب...'
+                : isBranchClosed
+                ? 'المطعم مغلق حالياً (غير متاح الطلب أو الحجز)'
+                : !user
+                ? 'تسجيل الدخول لإتمام الطلب'
+                : 'تأكيد الطلب الآن'}
+            </span>
             <ArrowLeft className="w-4 h-4" />
           </button>
         </div>

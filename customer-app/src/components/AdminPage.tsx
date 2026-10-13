@@ -41,8 +41,11 @@ import {
   Share2,
   Link as LinkIcon,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  Gift,
+  Sparkles
 } from 'lucide-react';
+
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { Logo } from './Logo';
 
@@ -65,9 +68,55 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP'>('BRANCHES');
+  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
   const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
+
+  // System Settings & Loyalty states
+  const [loyaltySettings, setLoyaltySettings] = useState<{
+    enabled: boolean;
+    pointsPerPound: number;
+    pointsRedemptionRate: number;
+    minPointsToRedeem: number;
+    welcomePoints: number;
+  }>({
+    enabled: true,
+    pointsPerPound: 1,
+    pointsRedemptionRate: 0.05,
+    minPointsToRedeem: 50,
+    welcomePoints: 0,
+  });
+  const [loadingLoyaltySettings, setLoadingLoyaltySettings] = useState(false);
+  const [savingLoyaltySettings, setSavingLoyaltySettings] = useState(false);
+  const [loyaltySaveSuccess, setLoyaltySaveSuccess] = useState(false);
+
+  // SuperAdmin Change Password states
+  const [currentAdminPassword, setCurrentAdminPassword] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState<string | null>(null);
+
+  // WhatsApp Alert Settings states
+  const [whatsAppAlertSettings, setWhatsAppAlertSettings] = useState<{
+    cancellationAlertPhones: string;
+    cancellationAlertEnabled: boolean;
+    unacceptedAlertPhones: string;
+    unacceptedAlertEnabled: boolean;
+    unacceptedDelayMinutes: number;
+  }>({
+    cancellationAlertPhones: '',
+    cancellationAlertEnabled: true,
+    unacceptedAlertPhones: '',
+    unacceptedAlertEnabled: true,
+    unacceptedDelayMinutes: 5,
+  });
+  const [loadingWhatsAppAlerts, setLoadingWhatsAppAlerts] = useState(false);
+  const [savingWhatsAppAlerts, setSavingWhatsAppAlerts] = useState(false);
+  const [whatsAppAlertsSaveSuccess, setWhatsAppAlertsSaveSuccess] = useState(false);
+
+
 
   // Data states
   const [branches, setBranches] = useState<any[]>([]);
@@ -231,13 +280,114 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const fetchWhatsAppAlertSettings = async () => {
+    try {
+      setLoadingWhatsAppAlerts(true);
+      const data = await api.getWhatsAppAlertSettings();
+      if (data) {
+        setWhatsAppAlertSettings(data);
+      }
+    } catch (err: any) {
+      console.error('فشل جلب إعدادات تنبيهات الواتساب:', err);
+    } finally {
+      setLoadingWhatsAppAlerts(false);
+    }
+  };
+
+  const handleSaveWhatsAppAlertSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSavingWhatsAppAlerts(true);
+      setWhatsAppAlertsSaveSuccess(false);
+      await api.updateWhatsAppAlertSettings(whatsAppAlertSettings);
+      setWhatsAppAlertsSaveSuccess(true);
+      setTimeout(() => setWhatsAppAlertsSaveSuccess(false), 3500);
+    } catch (err: any) {
+      alert(err.message || 'فشل حفظ إعدادات تنبيهات الواتساب');
+    } finally {
+      setSavingWhatsAppAlerts(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'WHATSAPP') {
       fetchWhatsAppStatus();
+      fetchWhatsAppAlertSettings();
       const interval = setInterval(fetchWhatsAppStatus, 8000);
       return () => clearInterval(interval);
     }
   }, [activeTab]);
+
+
+  // System Settings & Loyalty Handlers
+  const fetchLoyaltySettings = async () => {
+    try {
+      setLoadingLoyaltySettings(true);
+      const data = await api.getLoyaltySettings();
+      if (data && data.settings) {
+        setLoyaltySettings(data.settings);
+      }
+    } catch (err: any) {
+      console.error('فشل جلب إعدادات النقاط:', err);
+    } finally {
+      setLoadingLoyaltySettings(false);
+    }
+  };
+
+  const handleSaveLoyaltySettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSavingLoyaltySettings(true);
+      setLoyaltySaveSuccess(false);
+      await api.updateLoyaltySettings(loyaltySettings);
+      setLoyaltySaveSuccess(true);
+      setTimeout(() => setLoyaltySaveSuccess(false), 3500);
+    } catch (err: any) {
+      alert(err.message || 'فشل حفظ إعدادات نظام النقاط');
+    } finally {
+      setSavingLoyaltySettings(false);
+    }
+  };
+
+  const handleChangeAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordChangeError(null);
+    setPasswordChangeSuccess(null);
+
+    if (!currentAdminPassword) {
+      setPasswordChangeError('يرجى إدخال كلمة المرور الحالية');
+      return;
+    }
+    if (newAdminPassword.length < 6) {
+      setPasswordChangeError('كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف أو أرقام');
+      return;
+    }
+    if (newAdminPassword !== confirmAdminPassword) {
+      setPasswordChangeError('كلمة المرور الجديدة وتأكيدها غير متطابقين');
+      return;
+    }
+
+    try {
+      setPasswordChangeLoading(true);
+      const res = await api.changeAdminPassword(currentAdminPassword, newAdminPassword);
+      setPasswordChangeSuccess(res.message || 'تم تحديث كلمة مرور الإدارة بنجاح');
+      setCurrentAdminPassword('');
+      setNewAdminPassword('');
+      setConfirmAdminPassword('');
+      setTimeout(() => setPasswordChangeSuccess(null), 4000);
+    } catch (err: any) {
+      setPasswordChangeError(err.message || 'فشل تغيير كلمة المرور');
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'SETTINGS') {
+      fetchLoyaltySettings();
+    }
+  }, [activeTab]);
+
 
   // Banner Handlers
   const handleUploadBannerImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1006,7 +1156,20 @@ export const AdminPage: React.FC = () => {
               <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
             )}
           </button>
+
+          <button
+            onClick={() => setActiveTab('SETTINGS')}
+            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+              activeTab === 'SETTINGS'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Settings className="w-4 h-4 shrink-0 text-purple-400" />
+            <span>إعدادات النظام والأمان</span>
+          </button>
         </div>
+
 
         {/* 4. Tab 1: Branches Management */}
         {activeTab === 'BRANCHES' && (
@@ -1887,6 +2050,455 @@ export const AdminPage: React.FC = () => {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* WhatsApp Alerts Configuration Card */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                <div>
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-amber-400" />
+                    <span>تنبيهات وإشعارات الواتساب للمشرفين والإدارة</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    إرسال رسائل واتساب تلقائية لأرقام الهواتف المحددة عند كنسلة أي مطعم لطلب، أو عند تأخر قبول أي طلب عن 5 دقائق
+                  </p>
+                </div>
+
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30 shrink-0 self-start sm:self-auto">
+                  تنبيهات لحظية ⚡
+                </span>
+              </div>
+
+              <form onSubmit={handleSaveWhatsAppAlertSettings} className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Alert 1: Restaurant Order Cancellation */}
+                  <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-sm">
+                          🚨
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-200">إشعار عند كنسلة/إلغاء الطلب من المطعم</h4>
+                          <span className="text-[10px] text-slate-400">تنبيه فوري عند رفض أي مطعم لطلب طالب</span>
+                        </div>
+                      </div>
+
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={whatsAppAlertSettings.cancellationAlertEnabled}
+                          onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, cancellationAlertEnabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                        أرقام هواتف المشرفين لاستقبال تنبيه الإلغاء
+                      </label>
+                      <input
+                        type="text"
+                        value={whatsAppAlertSettings.cancellationAlertPhones}
+                        onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, cancellationAlertPhones: e.target.value })}
+                        placeholder="مثال: 01012345678, 01123456789"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500 transition-colors font-mono"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1.5">
+                        يمكنك كتابة رقم واحد أو عدة أرقام مفصولة بفاصلة (، أو ,). ستصلهم رسالة فورا تفيد بأن (المطعم كذا كنسل الطلب رقم كذا بقيمة كذا).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Alert 2: Unaccepted / Delayed Orders (5+ minutes) */}
+                  <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
+                          ⏳
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-200">إنذار عند تأخر قبول الطلب عن 5 دقائق</h4>
+                          <span className="text-[10px] text-slate-400">تنبيه المشرفين إذا تأخر المطعم في الرد</span>
+                        </div>
+                      </div>
+
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={whatsAppAlertSettings.unacceptedAlertEnabled}
+                          onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, unacceptedAlertEnabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                          أرقام هواتف المشرفين لمتابعة التأخر
+                        </label>
+                        <input
+                          type="text"
+                          value={whatsAppAlertSettings.unacceptedAlertPhones}
+                          onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, unacceptedAlertPhones: e.target.value })}
+                          placeholder="مثال: 01012345678, 01123456789"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                          الحد الزمني (دقائق)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="60"
+                          value={whatsAppAlertSettings.unacceptedDelayMinutes}
+                          onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, unacceptedDelayMinutes: parseInt(e.target.value) || 5 })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors text-center font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-400">
+                      يقوم السيرفر بفحص دوري تلقائي؛ في حال مرور المدة دون قبول الطلب من شاشة المطعم، يُرسل إنذار عاجل للأرقام أعلاه للتدخل السريع.
+                    </p>
+                  </div>
+                </div>
+
+                {whatsAppAlertsSaveSuccess && (
+                  <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>تم حفظ وتحديث إعدادات تنبيهات وأرقام الواتساب بنجاح!</span>
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={savingWhatsAppAlerts || loadingWhatsAppAlerts}
+                    className="px-6 h-11 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+                  >
+                    {savingWhatsAppAlerts ? (
+                      <>
+                        <RotateCw className="w-4 h-4 animate-spin" />
+                        <span>جاري الحفظ...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>حفظ إعدادات التنبيهات</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+
+        {/* 4.8 Tab: System & Security Settings */}
+        {activeTab === 'SETTINGS' && (
+          <div className="space-y-6">
+            {/* Header info banner */}
+            <div className="bg-gradient-to-r from-purple-900/40 via-slate-900 to-indigo-900/40 border border-purple-500/30 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+                  <Settings className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                    إعدادات النظام وأمان المنظومة
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    التحكم في نظام نقاط الولاء والمكافآت، وتغيير كلمة مرور حساب الإدارة الرئيسية (SuperAdmin)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              {/* Card 1: Loyalty Points Settings */}
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                      <Gift className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white">نظام نقاط الولاء والمكافآت</h4>
+                      <p className="text-[11px] text-slate-400">إدارة تفعيل النقاط ونسب التحويل والاستبدال</p>
+                    </div>
+                  </div>
+
+                  <span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${
+                    loyaltySettings.enabled 
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                      : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                  }`}>
+                    {loyaltySettings.enabled ? '● النظام مفعّل' : '○ النظام معطّل'}
+                  </span>
+                </div>
+
+                <form onSubmit={handleSaveLoyaltySettings} className="space-y-5">
+                  {/* Master Toggle */}
+                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-black text-slate-200 block">تشغيل نظام النقاط للطلاب</span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5">
+                        عند الإلغاء، لن يتمكن الطلاب من جمع أو استبدال أي نقاط في التطبيق
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={loyaltySettings.enabled}
+                        onChange={(e) => setLoyaltySettings({ ...loyaltySettings, enabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Settings Inputs */}
+                  <div className="space-y-4">
+                    {/* Points Redemption Rate */}
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                        سعر استبدال النقطة بالجنيه (EGP لكل نقطة)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.001"
+                          value={loyaltySettings.pointsRedemptionRate}
+                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsRedemptionRate: parseFloat(e.target.value) || 0 })}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                          required
+                        />
+                        <span className="absolute left-3.5 top-2.5 text-xs text-slate-400 font-mono">ج.م / نقطة</span>
+                      </div>
+                      <div className="mt-2 p-2.5 bg-purple-950/40 border border-purple-800/40 rounded-xl text-[11px] text-purple-300 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+                        <span>
+                          مثال عملي: كل <strong>100 نقطة</strong> تعادل حالياً <strong>{(100 * loyaltySettings.pointsRedemptionRate).toFixed(1)} جنيه</strong> في محفظة الطالب.
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Min Points to Redeem */}
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                        الحد الأدنى للنقاط المطلوب للاستبدال
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={loyaltySettings.minPointsToRedeem}
+                        onChange={(e) => setLoyaltySettings({ ...loyaltySettings, minPointsToRedeem: parseInt(e.target.value) || 0 })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        required
+                      />
+                      <span className="text-[10px] text-slate-400 block mt-1">
+                        أقل رصيد نقاط يجب أن يمتلكه الطالب حتى يتاح له زر تحويل النقاط لرصيد بالمحفظة (مثلاً 50 أو 100).
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Points per pound spent */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                          النقاط المكتسبة لكل جنيه مصروف
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={loyaltySettings.pointsPerPound}
+                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsPerPound: parseInt(e.target.value) || 0 })}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                          required
+                        />
+                        <span className="text-[10px] text-slate-400 block mt-1">
+                          كم نقطة يكسب الطالب عن كل 1 جنيه يدفعه بالطلب.
+                        </span>
+                      </div>
+
+                      {/* Welcome Points */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                          نقاط ترحيبية عند التسجيل
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={loyaltySettings.welcomePoints}
+                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, welcomePoints: parseInt(e.target.value) || 0 })}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                          required
+                        />
+                        <span className="text-[10px] text-slate-400 block mt-1">
+                          هدية ترحيبية فورية في حساب الطالب الجديد (0 لإلغائها).
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fraud prevention callout */}
+                  <div className="p-3 bg-emerald-950/30 border border-emerald-800/40 rounded-xl flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-emerald-300/90 leading-relaxed">
+                      <strong>أمان النقاط مفعل برمجياً:</strong> يتم احتساب وإضافة النقاط إلى حساب الطالب فقط وفور تحويل حالة الطلب إلى <strong>(تم التسليم بنجاح / COMPLETED)</strong>، مما يمنع نهائياً أي تحايل عبر إنشاء طلبات وهمية أو ملغاة.
+                    </p>
+                  </div>
+
+                  {loyaltySaveSuccess && (
+                    <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>تم حفظ إعدادات نظام النقاط بنجاح ويسري مفعولها الآن!</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={savingLoyaltySettings || loadingLoyaltySettings}
+                    className="w-full h-11 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 disabled:opacity-50"
+                  >
+                    {savingLoyaltySettings ? (
+                      <>
+                        <RotateCw className="w-4 h-4 animate-spin" />
+                        <span>جاري الحفظ...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>حفظ إعدادات النقاط</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* Card 2: Change Admin Password */}
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+                <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white">تغيير كلمة مرور الإدارة (SuperAdmin)</h4>
+                    <p className="text-[11px] text-slate-400">تحديث كلمة السر للدخول إلى لوحة التحكم الرئيسية</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleChangeAdminPassword} className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                      كلمة المرور الحالية
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={currentAdminPassword}
+                        onChange={(e) => setCurrentAdminPassword(e.target.value)}
+                        placeholder="أدخل كلمة المرور الحالية للتحقق"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        required
+                      />
+                      <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                      كلمة المرور الجديدة
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={newAdminPassword}
+                        onChange={(e) => setNewAdminPassword(e.target.value)}
+                        placeholder="كلمة مرور جديدة (6 خانات على الأقل)"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        required
+                        minLength={6}
+                      />
+                      <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                      تأكيد كلمة المرور الجديدة
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={confirmAdminPassword}
+                        onChange={(e) => setConfirmAdminPassword(e.target.value)}
+                        placeholder="أعد إدخال كلمة المرور الجديدة"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        required
+                        minLength={6}
+                      />
+                      <Check className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    </div>
+                  </div>
+
+                  {passwordChangeError && (
+                    <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                      <span>{passwordChangeError}</span>
+                    </div>
+                  )}
+
+                  {passwordChangeSuccess && (
+                    <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>{passwordChangeSuccess}</span>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={passwordChangeLoading}
+                      className="w-full h-11 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white border border-slate-700 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {passwordChangeLoading ? (
+                        <>
+                          <RotateCw className="w-4 h-4 animate-spin" />
+                          <span>جاري التحديث...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4 text-purple-400" />
+                          <span>تحديث كلمة مرور الإدارة</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+
+                <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2">
+                  <span className="text-xs font-black text-slate-300 block">💡 نصائح أمنية</span>
+                  <ul className="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
+                    <li>استخدم مزيجاً من الحروف والأرقام لزيادة قوة كلمة المرور.</li>
+                    <li>لا تشارك كلمة المرور مع مدراء الفروع؛ لكل فرع حسابه المستقل.</li>
+                    <li>يتم تشفير كلمة المرور فوراً باستخدام تقنية Bcrypt مع Salt عالي الأمان.</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         )}

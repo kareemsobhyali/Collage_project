@@ -2,8 +2,10 @@ import { Router, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { authenticateAny, AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
+
 
 // التأكد من وجود مجلد الرفع وتحديده بدقة
 function getUploadDir(): string {
@@ -47,8 +49,8 @@ const upload = multer({
   },
 }).single("image");
 
-// نقطة نهاية رفع الصور مع معالجة آمنة للأخطاء
-router.post("/", (req: Request, res: Response) => {
+// نقطة نهاية رفع الصور مع التحقق من الهوية ومعالجة آمنة للأخطاء
+router.post("/", authenticateAny, (req: AuthRequest, res: Response) => {
   upload(req, res, (err: any) => {
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {

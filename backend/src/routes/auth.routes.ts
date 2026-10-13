@@ -80,6 +80,10 @@ router.post("/register", async (req: Request, res: Response) => {
       return;
     }
 
+    const { getLoyaltySettings } = await import("../services/settings.service.js");
+    const loyaltySettings = await getLoyaltySettings();
+    const initialPoints = loyaltySettings.enabled ? loyaltySettings.welcomePoints : 0;
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
@@ -88,7 +92,7 @@ router.post("/register", async (req: Request, res: Response) => {
         password: hashedPassword,
         role: "CUSTOMER",
         isVerified: false, // يحتاج لتأكيد رقم الهاتف عبر الواتساب
-        loyaltyPoints: 10, // مكافأة ترحيبية 10 نقاط ولاء عند التسجيل
+        loyaltyPoints: initialPoints, // حسب إعدادات المنظومة المحددة من الإدارة
         walletBalance: 0,
       },
     });

@@ -189,7 +189,8 @@ model Order {
   promoCode          String?
   discount           Float       @default(0)
   walletDiscount     Float       @default(0.0)   // قيمة الخصم المسحوب من المحفظة الجامعية
-  pointsEarned       Int         @default(0)     // نقاط الولاء المكتسبة من هذا الطلب
+  pointsEarned       Int         @default(0)     // نقاط الولاء المحسوبة من هذا الطلب
+  pointsAwarded      Boolean     @default(false) // هل تم إيداع النقاط في محفظة العميل عند التسليم الفعلي
   customerPhone      String
   customerName       String
   notes              String?
@@ -207,6 +208,7 @@ model Order {
   driverAssignedAt   DateTime?
   driverPickedUpAt   DateTime?
   groupCartDetails   String?         // JSON: تفاصيل تقسيم الأكياس بأسماء الطلاب (كيس أحمد، كيس محمد..)
+  unacceptedAlertSent Boolean        @default(false) // تم إرسال تنبيه بالواتساب عند التأخر في القبول
   items              OrderItem[]
 
   @@index([branchId])
@@ -215,6 +217,7 @@ model Order {
   @@index([isScheduled])
   @@index([status])
   @@index([createdAt])
+  @@index([unacceptedAlertSent])
 }
 
 model OrderItem {
@@ -358,6 +361,16 @@ model PhoneVerificationToken {
   @@index([phone])
   @@index([token])
   @@index([phone, code])
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
 }
 
 

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import prisma from "../prisma.js";
 import { generateToken, authenticateDriver, AuthRequest } from "../middleware/auth.js";
 import { notifyOrderStatusChanged } from "../sockets/socketManager.js";
+import { awardLoyaltyPointsIfCompleted } from "../services/settings.service.js";
 
 const router = Router();
 
@@ -280,6 +281,9 @@ router.put("/orders/:id/deliver", async (req: AuthRequest, res: Response) => {
         },
       },
     });
+
+    // إيداع نقاط الولاء في حساب الطالب عند اكتمال واستلام الطلب
+    await awardLoyaltyPointsIfCompleted(orderId);
 
     // إشعار الطالب والفرع باكتمال التسليم
     notifyOrderStatusChanged(order.id, order.branchId, updated, driverId);
