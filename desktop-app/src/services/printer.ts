@@ -116,10 +116,10 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
   });
 
   const is58 = paperWidth === '58mm';
-  const pageWidth = is58 ? '58mm' : '80mm';
-  const bodyWidth = is58 ? '50mm' : '72mm';
+  // عرض آمن جداً لمنع قص الأرقام والأسعار من الحافة اليسرى لورق الطابعة
+  const bodyWidth = is58 ? '46mm' : '62mm';
   const fontSize = is58 ? '11px' : '12px';
-  const titleSize = is58 ? '15px' : '18px';
+  const titleSize = is58 ? '16px' : '19px';
 
   const itemsHtml = (order.items || []).map((item: any) => {
     let modifiersList: any[] = [];
@@ -131,13 +131,13 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
       } catch (e) {}
     }
     const modsText = modifiersList && modifiersList.length > 0 
-      ? `<div style="font-size: 10px; color: #555; padding-right: 8px; margin-top: 2px;">+ ${modifiersList.map((m: any) => `${m.optionName} (${m.price} ج.م)`).join('، ')}</div>`
+      ? `<div style="font-size: 11px; font-weight: 700; color: #000; padding-right: 8px; margin-top: 2px;">+ ${modifiersList.map((m: any) => `${m.optionName} (${m.price} ج.م)`).join('، ')}</div>`
       : '';
     return `
-      <div style="border-bottom: 1px dotted #ccc; padding: 5px 0;">
-        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: ${is58 ? '12px' : '13px'};">
-          <span>${item.quantity} × ${item.itemName} ${item.sizeName ? `(${item.sizeName})` : ''}</span>
-          <span>${item.totalPrice} ج.م</span>
+      <div style="border-bottom: 1px dashed #000; padding: 5px 0;">
+        <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: ${is58 ? '12px' : '13px'}; color: #000;">
+          <span style="text-align: right;">${item.quantity} × ${item.itemName} ${item.sizeName ? `(${item.sizeName})` : ''}</span>
+          <span style="direction: ltr; font-weight: 900; padding-left: 4px; white-space: nowrap;">${item.totalPrice} ج.م</span>
         </div>
         ${modsText}
       </div>
@@ -146,9 +146,9 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
 
   const paymentLabel = 
     order.paymentMethod === 'CASH' ? 'كاش عند الاستلام' :
-    order.paymentMethod === 'VODAFONE_CASH' ? 'محفظة كاش (فودافون كاش)' :
-    order.paymentMethod === 'INSTAPAY' ? 'إنستاباي InstaPay' :
-    order.paymentMethod === 'CARD' ? 'بطاقة دفع إلكتروني' : (order.paymentMethod || 'نقدي');
+    order.paymentMethod === 'VODAFONE_CASH' ? 'محفظة كاش' :
+    order.paymentMethod === 'INSTAPAY' ? 'إنستاباي' :
+    order.paymentMethod === 'CARD' ? 'بطاقة دفع' : (order.paymentMethod || 'نقدي');
 
   return `
     <!DOCTYPE html>
@@ -157,53 +157,67 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
         <meta charset="utf-8" />
         <title>بون طلب #${order.orderNumber || ''} - ${branchName}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap');
           @page {
-            margin: 2mm;
-            size: ${pageWidth} auto;
+            margin: 0 !important;
+            size: auto;
           }
           * {
-            box-sizing: border-box;
+            box-sizing: border-box !important;
             margin: 0;
             padding: 0;
+            color: #000000 !important; /* أسود داكن نقي لمنع أي بهتان في رؤوس الطابعات الحرارية */
           }
           body {
-            font-family: 'Cairo', monospace, sans-serif;
+            font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
             direction: rtl;
-            color: #000;
-            background: #fff;
+            color: #000000 !important;
+            background: #ffffff !important;
             font-size: ${fontSize};
-            line-height: 1.4;
-            width: ${bodyWidth};
-            margin: 0 auto;
-            padding: 6px 2px;
+            font-weight: 700;
+            line-height: 1.35;
+            width: ${bodyWidth} !important;
+            max-width: ${bodyWidth} !important;
+            margin: 0 auto !important;
+            padding: 4px 2px 8px 6px !important; /* هامش أمان إضافي في اليسار 6mm لمنع قص الأرقام */
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
           .center { text-align: center; }
           .right { text-align: right; }
-          .font-bold { font-weight: 700; }
+          .font-bold { font-weight: 800; }
           .font-black { font-weight: 900; }
           .dashed {
-            border-bottom: 1px dashed #777;
-            margin: 6px 0;
+            border-bottom: 1.5px dashed #000000;
+            margin: 5px 0;
           }
           .solid {
-            border-bottom: 1.5px solid #000;
-            margin: 6px 0;
+            border-bottom: 2px solid #000000;
+            margin: 5px 0;
           }
           .row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin: 3px 0;
+            padding: 0 1px;
+          }
+          .price-val {
+            direction: ltr;
+            text-align: left;
+            font-weight: 900;
+            padding-left: 4px;
+            white-space: nowrap;
           }
           .customer-card {
-            background: #f8f8f8;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 6px;
-            margin: 6px 0;
+            background: #ffffff;
+            border: 1.5px solid #000000;
+            border-radius: 4px;
+            padding: 5px;
+            margin: 5px 0;
             text-align: right;
             font-size: 11px;
+            font-weight: 800;
           }
           .customer-card div {
             margin-bottom: 2px;
@@ -215,18 +229,18 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
       </head>
       <body>
         <div class="center">
-          <div style="font-size: 10px; font-weight: 800; color: #333; letter-spacing: 1px;">UNIFOOD • يونيفود</div>
-          <div style="font-size: ${titleSize}; font-weight: 900; margin: 3px 0;">${branchName}</div>
-          <div style="font-size: 10px; color: #666;">منظومة توصيل طلبات الحرم الجامعي</div>
+          <div style="font-size: 11px; font-weight: 900; letter-spacing: 0.5px;">UNIFOOD • يونيفود للجامعات</div>
+          <div style="font-size: ${titleSize}; font-weight: 900; margin: 2px 0;">${branchName}</div>
+          <div style="font-size: 11px; font-weight: 800;">منظومة توصيل طلبات الحرم الجامعي</div>
           <div class="dashed"></div>
 
           <div class="row">
             <span class="font-bold">رقم الطلب:</span>
-            <span class="font-black" style="font-size: 16px;">#${order.orderNumber || '—'}</span>
+            <span class="price-val" style="font-size: 17px; font-weight: 900;">#${order.orderNumber || '—'}</span>
           </div>
           <div class="row">
             <span>الوقت:</span>
-            <span>${formattedDate}</span>
+            <span style="font-size: 11px; font-weight: 800;">${formattedDate}</span>
           </div>
           <div class="row">
             <span>نوع الطلب:</span>
@@ -237,55 +251,55 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
             <span class="font-bold">${paymentLabel}</span>
           </div>
           ${order.estimatedMinutes ? `
-          <div class="row" style="color: #2563eb; font-weight: bold;">
+          <div class="row" style="font-weight: 900;">
             <span>الوقت المقدر:</span>
             <span>${order.estimatedMinutes} دقيقة</span>
           </div>` : ''}
 
           <div class="customer-card">
-            <div><strong>العميل:</strong> ${order.customerName || 'غير مسجل'}</div>
+            <div><strong>العميل:</strong> ${order.customerName || 'طالب'}</div>
             <div><strong>الهاتف:</strong> ${order.customerPhone || '—'}</div>
             ${order.orderType === 'DELIVERY' && order.deliveryZoneName ? `<div><strong>منطقة التوصيل:</strong> ${order.deliveryZoneName}</div>` : ''}
             ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${order.addressText}</div>` : ''}
             ${order.paymentSenderPhone ? `<div><strong>رقم المحول منه:</strong> ${order.paymentSenderPhone}</div>` : ''}
-            ${order.notes ? `<div style="color: #b45309; margin-top: 3px;"><strong>ملاحظات:</strong> ${order.notes}</div>` : ''}
+            ${order.notes ? `<div style="font-weight: 900; margin-top: 2px;"><strong>ملاحظات:</strong> ${order.notes}</div>` : ''}
           </div>
 
           <div class="solid"></div>
 
           <div style="width: 100%; text-align: right;">
-            <div class="row font-bold" style="border-bottom: 1px solid #000; padding-bottom: 4px; font-size: 11px;">
+            <div class="row font-bold" style="border-bottom: 1.5px solid #000; padding-bottom: 3px; font-size: 12px;">
               <span>الصنف / التفاصيل</span>
-              <span>المبلغ</span>
+              <span class="price-val">المبلغ</span>
             </div>
             ${itemsHtml}
           </div>
 
           <div class="dashed"></div>
 
-          <div style="margin: 5px 0;">
+          <div style="margin: 4px 0;">
             <div class="row">
               <span>المجموع الفرعي:</span>
-              <span>${order.subtotal || 0} ج.م</span>
+              <span class="price-val">${order.subtotal || 0} ج.م</span>
             </div>
             ${order.orderType === 'DELIVERY' ? `
             <div class="row">
-              <span>رسوم التوصيل${order.deliveryZoneName ? ` (${order.deliveryZoneName})` : ''}:</span>
-              <span>${order.deliveryFee || 0} ج.م</span>
+              <span>رسوم التوصيل:</span>
+              <span class="price-val">${order.deliveryFee || 0} ج.م</span>
             </div>` : ''}
             ${order.discount && order.discount > 0 ? `
-            <div class="row" style="color: #16a34a; font-weight: bold;">
+            <div class="row" style="font-weight: 900;">
               <span>خصم الكوبون${order.promoCode ? ` (${order.promoCode})` : ''}:</span>
-              <span>-${order.discount} ج.م</span>
+              <span class="price-val">-${order.discount} ج.م</span>
             </div>` : ''}
-            <div class="row font-black" style="border-top: 1.5px solid #000; padding-top: 5px; margin-top: 5px; font-size: 14px;">
+            <div class="row font-black" style="border-top: 2px solid #000; padding-top: 4px; margin-top: 4px; font-size: 15px;">
               <span>الإجمالي المطلوب:</span>
-              <span>${order.total || 0} ج.م</span>
+              <span class="price-val" style="font-size: 16px;">${order.total || 0} ج.م</span>
             </div>
           </div>
 
           <div class="dashed"></div>
-          <div style="font-size: 10px; color: #444; font-weight: bold; margin-top: 6px;">
+          <div style="font-size: 11px; font-weight: 800; margin-top: 4px;">
             شكراً لطلبكم عبر UniFood • وجبتك لحد عندك 🎓
           </div>
         </div>

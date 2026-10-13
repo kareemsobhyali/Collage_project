@@ -50,7 +50,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({ bran
   const [printingTest, setPrintingTest] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [isElectronEnv] = useState<boolean>(isElectron());
-  const [showKioskHelp, setShowKioskHelp] = useState<boolean>(false);
+  const [showKioskHelp, setShowKioskHelp] = useState<boolean>(!isElectron());
 
   const loadPrinters = async () => {
     setLoadingPrinters(true);
@@ -336,8 +336,8 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({ bran
               {/* Receipt Paper Width */}
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
                 <div className="pr-1">
-                  <span className="font-black text-xs text-slate-800 block">عرض ورق الطابعة</span>
-                  <span className="text-[11px] text-slate-500">حجم ورق البون الحراري المستخدم</span>
+                  <span className="font-black text-xs text-slate-800 block">عرض ورق الطابعة ومحيط الأمان</span>
+                  <span className="text-[11px] text-slate-500">حجم ورق البون (يمنع قص الأرقام من جهة اليسار)</span>
                 </div>
                 <div className="flex bg-white rounded-xl p-1 border border-slate-200 shrink-0">
                   <button
@@ -347,7 +347,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({ bran
                       paperWidth === '80mm' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
-                    80 مم (قياسي)
+                    80 مم (آمن ضد القص) ⭐
                   </button>
                   <button
                     type="button"
@@ -356,7 +356,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({ bran
                       paperWidth === '58mm' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
-                    58 مم (صغير)
+                    58 مم (رول صغير)
                   </button>
                 </div>
               </div>
