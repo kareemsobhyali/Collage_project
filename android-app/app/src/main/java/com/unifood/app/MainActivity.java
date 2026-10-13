@@ -20,10 +20,6 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.animation.AccelerateDecelerateInterpolator;
-import android.view.animation.AlphaAnimation;
-import android.view.animation.Animation;
-import android.view.animation.ScaleAnimation;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
@@ -35,9 +31,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
@@ -47,7 +41,6 @@ public class MainActivity extends Activity {
     private static final String CHANNEL_ID = "unifood_alerts_channel";
 
     private WebView webView;
-    private LinearLayout loadingOverlay;
     private LinearLayout errorOverlay;
     private ValueCallback<Uri[]> filePathCallback;
     private boolean hasLoadError = false;
@@ -70,19 +63,16 @@ public class MainActivity extends Activity {
         FrameLayout rootLayout = new FrameLayout(this);
         rootLayout.setBackgroundColor(Color.parseColor("#0B0F19"));
 
-        // 1. WebView
+        // 1. WebView (loads the app directly so React Splash Screen displays immediately)
         webView = new WebView(this);
+        webView.setBackgroundColor(Color.parseColor("#0B0F19"));
         FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         );
         rootLayout.addView(webView, webParams);
 
-        // 2. Loading Overlay
-        loadingOverlay = createLoadingOverlay();
-        rootLayout.addView(loadingOverlay, webParams);
-
-        // 3. Offline / Error Overlay
+        // 2. Offline / Error Overlay
         errorOverlay = createErrorOverlay();
         errorOverlay.setVisibility(View.GONE);
         rootLayout.addView(errorOverlay, webParams);
@@ -91,99 +81,6 @@ public class MainActivity extends Activity {
 
         configureWebView();
         webView.loadUrl(BuildConfig.START_URL);
-    }
-
-    private LinearLayout createLoadingOverlay() {
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setGravity(Gravity.CENTER);
-
-        // خلفية أنيقة داكنة متطابقة مع شاشة البداية لتلاشي فوري بدون وميض
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.parseColor("#0B0F19"), Color.parseColor("#0F172A")}
-        );
-        layout.setBackground(bg);
-        layout.setPadding(dpToPx(32), dpToPx(32), dpToPx(32), dpToPx(32));
-
-        // حاوية الشعار مع تأثير زوايا دائرية وظل أنيق
-        FrameLayout iconWrapper = new FrameLayout(this);
-        int iconSize = dpToPx(104);
-        LinearLayout.LayoutParams iconWrapParams = new LinearLayout.LayoutParams(iconSize, iconSize);
-        iconWrapParams.gravity = Gravity.CENTER_HORIZONTAL;
-
-        GradientDrawable iconBg = new GradientDrawable();
-        iconBg.setColor(Color.WHITE);
-        iconBg.setCornerRadius(dpToPx(28));
-        iconBg.setStroke(dpToPx(1), Color.parseColor("#312E81"));
-        iconWrapper.setBackground(iconBg);
-        iconWrapper.setElevation(dpToPx(10));
-        iconWrapper.setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10));
-
-        ImageView logo = new ImageView(this);
-        logo.setImageResource(R.drawable.ic_launcher);
-        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        FrameLayout.LayoutParams logoParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-        );
-        iconWrapper.addView(logo, logoParams);
-
-        // حركة نبض مستمرة وحيوية للشعار (Pulse Animation)
-        ScaleAnimation pulse = new ScaleAnimation(
-                0.95f, 1.05f, 0.95f, 1.05f,
-                Animation.RELATIVE_TO_SELF, 0.5f,
-                Animation.RELATIVE_TO_SELF, 0.5f
-        );
-        pulse.setDuration(950);
-        pulse.setRepeatMode(Animation.REVERSE);
-        pulse.setRepeatCount(Animation.INFINITE);
-        pulse.setInterpolator(new AccelerateDecelerateInterpolator());
-        iconWrapper.startAnimation(pulse);
-
-        layout.addView(iconWrapper, iconWrapParams);
-
-        // اسم التطبيق UniFood
-        TextView title = new TextView(this);
-        title.setText("driver".equals(BuildConfig.FLAVOR_TYPE)
-                ? "UniFood Driver"
-                : "UniFood");
-        title.setTextSize(26);
-        title.setTypeface(Typeface.DEFAULT_BOLD);
-        title.setTextColor(Color.WHITE);
-        title.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        titleParams.topMargin = dpToPx(22);
-        layout.addView(title, titleParams);
-
-        // السلوجان والرسالة الترحيبية
-        TextView slogan = new TextView(this);
-        slogan.setText("driver".equals(BuildConfig.FLAVOR_TYPE)
-                ? "بوابة كباتن توصيل الحرم الجامعي 🛵"
-                : "مطاعم الحرم الجامعي بين يديك 🎓🍔");
-        slogan.setTextSize(13);
-        slogan.setTypeface(Typeface.DEFAULT_BOLD);
-        slogan.setTextColor(Color.parseColor("#A5B4FC"));
-        slogan.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams sloganParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        sloganParams.topMargin = dpToPx(8);
-        layout.addView(slogan, sloganParams);
-
-        // شريط تقدم خطي ناعم أنيق
-        ProgressBar progressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        progressBar.setIndeterminate(true);
-        LinearLayout.LayoutParams pbParams = new LinearLayout.LayoutParams(dpToPx(140), dpToPx(4));
-        pbParams.topMargin = dpToPx(34);
-        pbParams.gravity = Gravity.CENTER_HORIZONTAL;
-        layout.addView(progressBar, pbParams);
-
-        return layout;
     }
 
     private int dpToPx(int dp) {
@@ -195,21 +92,21 @@ public class MainActivity extends Activity {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(Gravity.CENTER);
-        layout.setBackgroundColor(Color.parseColor("#F8FAFC"));
+        layout.setBackgroundColor(Color.parseColor("#0B0F19"));
         layout.setPadding(64, 64, 64, 64);
 
         TextView title = new TextView(this);
         title.setText("تعذر الاتصال بالشبكة");
         title.setTextSize(20);
         title.setTypeface(Typeface.DEFAULT_BOLD);
-        title.setTextColor(Color.parseColor("#0F172A"));
+        title.setTextColor(Color.WHITE);
         title.setGravity(Gravity.CENTER);
         layout.addView(title);
 
         TextView desc = new TextView(this);
         desc.setText("يرجى التأكد من اتصالك بالإنترنت ثم الضغط على إعادة المحاولة.");
         desc.setTextSize(14);
-        desc.setTextColor(Color.parseColor("#64748B"));
+        desc.setTextColor(Color.parseColor("#94A3B8"));
         desc.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams descParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -234,7 +131,6 @@ public class MainActivity extends Activity {
         retryBtn.setOnClickListener(v -> {
             hasLoadError = false;
             errorOverlay.setVisibility(View.GONE);
-            loadingOverlay.setVisibility(View.VISIBLE);
             webView.reload();
         });
 
@@ -288,23 +184,8 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 CookieManager.getInstance().flush();
-                if (!hasLoadError && loadingOverlay != null && loadingOverlay.getVisibility() == View.VISIBLE) {
-                    AlphaAnimation fadeOut = new AlphaAnimation(1.0f, 0.0f);
-                    fadeOut.setDuration(320);
-                    fadeOut.setAnimationListener(new Animation.AnimationListener() {
-                        @Override
-                        public void onAnimationStart(Animation animation) {}
-
-                        @Override
-                        public void onAnimationEnd(Animation animation) {
-                            loadingOverlay.setVisibility(View.GONE);
-                            errorOverlay.setVisibility(View.GONE);
-                        }
-
-                        @Override
-                        public void onAnimationRepeat(Animation animation) {}
-                    });
-                    loadingOverlay.startAnimation(fadeOut);
+                if (!hasLoadError && errorOverlay != null && errorOverlay.getVisibility() == View.VISIBLE) {
+                    errorOverlay.setVisibility(View.GONE);
                 }
             }
 
@@ -313,7 +194,6 @@ public class MainActivity extends Activity {
                 super.onReceivedError(view, request, error);
                 if (request.isForMainFrame()) {
                     hasLoadError = true;
-                    loadingOverlay.setVisibility(View.GONE);
                     errorOverlay.setVisibility(View.VISIBLE);
                 }
             }

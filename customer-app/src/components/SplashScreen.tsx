@@ -27,20 +27,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const [visible, setVisible] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Minimum duration: 2 seconds so user can enjoy the orbit & food rain
+  // Minimum duration: 2.2 seconds so user can enjoy the orbit & food rain, then smooth fade
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isReady) {
-        setFadingOut(true);
-        setTimeout(() => {
-          setVisible(false);
-          onFinish?.();
-        }, 550);
-      }
-    }, 2000);
+    const minTimer = setTimeout(() => {
+      setFadingOut(true);
+      const finishTimer = setTimeout(() => {
+        setVisible(false);
+        onFinish?.();
+      }, 500);
+      return () => clearTimeout(finishTimer);
+    }, 2200);
 
-    return () => clearTimeout(timer);
-  }, [isReady, onFinish]);
+    return () => clearTimeout(minTimer);
+  }, [onFinish]);
 
   // 1. Food Rain Animation (Canvas-based 60fps)
   useEffect(() => {

@@ -38,6 +38,7 @@ export function App() {
     window.location.search.includes('app')
   );
   const [showSplash, setShowSplash] = useState(isMobileAppExperience);
+  const [branches, setBranches] = useState<any[]>([]);
   const isAdminRoute = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/admin') ||
     window.location.search.includes('admin') ||
@@ -76,7 +77,18 @@ export function App() {
   }
 
   if (showDriverPortal) {
-    return <DriverPortal onClose={() => setShowDriverPortal(false)} />;
+    return (
+      <>
+        <DriverPortal onClose={() => setShowDriverPortal(false)} />
+        {showSplash && (
+          <SplashScreen
+            branches={branches}
+            isReady={true}
+            onFinish={() => setShowSplash(false)}
+          />
+        )}
+      </>
+    );
   }
 
   const [user, setUser] = useState<any | null>(() => {
@@ -96,7 +108,6 @@ export function App() {
     }
   });
 
-  const [branches, setBranches] = useState<any[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<any | null>(null);
   const [branchCategories, setBranchCategories] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);

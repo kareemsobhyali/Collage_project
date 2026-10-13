@@ -6,13 +6,55 @@
     <link rel="apple-touch-icon" href="/logo.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content="#0B0F19" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>UniFood | يونيفود - مطاعم الحرم الجامعي</title>
   </head>
-  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
-    <div id="root"></div>
+  <body class="bg-[#0B0F19] text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
+    <div id="root">
+      <div id="native-splash-placeholder" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background-color:#0B0F19;color:#ffffff;font-family:system-ui,-apple-system,sans-serif;direction:rtl;user-select:none;">
+        <div style="position:relative;width:96px;height:96px;margin-bottom:20px;display:flex;align-items:center;justify-content:center;">
+          <div style="position:absolute;inset:-6px;border-radius:28px;background:linear-gradient(135deg,rgba(99,102,241,0.4),rgba(245,158,11,0.3));filter:blur(8px);"></div>
+          <div style="position:relative;width:84px;height:84px;border-radius:24px;background:#ffffff;padding:8px;box-shadow:0 15px 30px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+            <img src="/logo.png" alt="UniFood" style="width:100%;height:100%;object-fit:cover;border-radius:16px;" />
+          </div>
+        </div>
+        <div style="text-align:center;">
+          <h1 style="font-size:26px;font-weight:900;margin:0;letter-spacing:-0.5px;">
+            <span>Uni</span><span style="color:#fbbf24;">Food</span>
+          </h1>
+          <p style="font-size:12px;color:#a5b4fc;margin-top:6px;font-weight:700;">
+            مطاعم الحرم الجامعي بين يديك 🎓🍔
+          </p>
+        </div>
+        <div style="margin-top:32px;width:140px;height:4px;background:rgba(255,255,255,0.15);border-radius:999px;overflow:hidden;">
+          <div style="width:50%;height:100%;background:linear-gradient(90deg,#fbbf24,#818cf8);border-radius:999px;animation:nativeSplashBar 1.2s infinite ease-in-out;"></div>
+        </div>
+        <style>
+          @keyframes nativeSplashBar {
+            0% { transform: translateX(120%); }
+            50% { transform: translateX(0%); }
+            100% { transform: translateX(-120%); }
+          }
+        </style>
+      </div>
+      <script>
+        (function() {
+          try {
+            var isMobile = Boolean(window.AndroidBridge) ||
+              (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+              window.navigator.standalone === true ||
+              window.location.search.indexOf('splash') !== -1 ||
+              window.location.search.indexOf('app') !== -1;
+            if (!isMobile) {
+              var el = document.getElementById('native-splash-placeholder');
+              if (el) el.style.display = 'none';
+            }
+          } catch(e) {}
+        })();
+      </script>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
