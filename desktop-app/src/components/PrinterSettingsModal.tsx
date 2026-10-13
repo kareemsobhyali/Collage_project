@@ -410,13 +410,13 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({ bran
               {showKioskHelp && (
                 <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600 space-y-2 leading-relaxed">
                   <p>
-                    في متصفحات الويب العادية (مثل Chrome و Edge)، يفرض المتصفح ظهور نافذة اختيار الطابعة لحماية الأمان. 
-                    لإلغاء هذه النافذة وجعل المتصفح يطبع <strong>مباشرة في صمت تام (Silent Print)</strong>:
+                    في متصفحات الويب العادية (مثل Chrome و Edge)، يفرض المتصفح ظهور نافذة اختيار الطابعة. 
+                    لإلغاء هذه النافذة تماماً وجعل الطابعة تطبع <strong>مباشرة بدون أي شاشات (Silent Kiosk Printing)</strong>:
                   </p>
-                  <ol className="list-decimal list-inside space-y-1 text-slate-700 font-medium pr-2">
-                    <li>اضغط على الزر بالأسفل لتحميل ملف التشغيل السريع <code>UniFood-POS-SilentPrint.bat</code>.</li>
-                    <li>ضعه على سطح مكتب جهاز الكاشير وافتحه في بداية كل يوم.</li>
-                    <li>سيفتح شاشة الكاشير في وضع <strong>Kiosk Printing</strong> وستطبع كل الطلبات فوراً بدون ظهور أي شيء!</li>
+                  <ol className="list-decimal list-inside space-y-1.5 text-slate-700 font-medium pr-2">
+                    <li>تأكد من تعيين طابعتك الحرارية كـ <strong>طابعة افتراضية (Default Printer)</strong> في ويندوز (من Settings ثم Printers).</li>
+                    <li>اضغط على الزر بالأسفل لتحميل ملف التشغيل السريع <code>UniFood-POS-SilentPrint.bat</code> (أو استخدم الملف المنشأ على سطح مكتبك).</li>
+                    <li>افتح الملف وسيفتح شاشة الكاشير في بيئة مخصصة ومستقلة تماماً تطبع فورياً وبصمت تام!</li>
                   </ol>
                   <div className="pt-2">
                     <button

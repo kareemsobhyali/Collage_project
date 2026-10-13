@@ -29,7 +29,7 @@ import {
 import { api, getFullImageUrl } from '../services/api';
 import { ReceiptModal } from './ReceiptModal';
 import { soundNotifier } from '../services/audioAlert';
-import { getAutoPrintEnabled, printOrderReceipt } from '../services/printer';
+import { getAutoPrintEnabled, getAutoPrintOnAccept, printOrderReceipt } from '../services/printer';
 
 interface OrdersViewProps {
   orders: any[];
@@ -206,6 +206,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
     const driverToAssign = acceptDriverId;
     setAcceptingOrder(null);
 
+    // إيقاف صوت التنبيه فور قبول الطلب
+    soundNotifier.stopRepeatingAlarm();
+
     // إذا اختار المطعم طياراً فورياً عند القبول
     if (driverToAssign) {
       try {
@@ -215,9 +218,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
 
     await handleUpdateStatus(orderToAccept.id, 'PREPARING', minutes);
 
-    // Auto-print receipt if enabled in settings
-    if (getAutoPrintEnabled()) {
-      printOrderReceipt({ ...orderToAccept, estimatedMinutes: minutes }, branchName);
+    // طباعة البون تلقائياً عند قبول الطلب
+    if (getAutoPrintOnAccept() || getAutoPrintEnabled()) {
+      try {
+        await printOrderReceipt({ ...orderToAccept, estimatedMinutes: minutes }, branchName);
+      } catch (err) {
+        console.error('Auto-print on accept error:', err);
+      }
     }
   };
 

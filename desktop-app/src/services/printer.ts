@@ -60,7 +60,7 @@ export const fetchSystemPrinters = async (): Promise<DetectedPrinter[]> => {
 // 2. إعدادات الطباعة التلقائية والصامتة
 export const getAutoPrintOnNewOrder = (): boolean => {
   const val = localStorage.getItem('unifood_autoprint_new_order');
-  return val === null ? true : val === 'true';
+  return val === 'true'; // الافتراضي false: لا يطبع قبل مراجعة وقبول الكاشير للطلب
 };
 
 export const setAutoPrintOnNewOrder = (enabled: boolean): void => {
@@ -69,7 +69,7 @@ export const setAutoPrintOnNewOrder = (enabled: boolean): void => {
 
 export const getAutoPrintOnAccept = (): boolean => {
   const val = localStorage.getItem('unifood_autoprint_on_accept');
-  return val === null ? true : val === 'true';
+  return val === null ? true : val === 'true'; // الافتراضي true: طباعة البون فورياً عند قبول وبدء تجهيز الطلب
 };
 
 export const setAutoPrintOnAccept = (enabled: boolean): void => {
@@ -338,9 +338,12 @@ export const printOrderReceipt = async (order: any, branchName: string): Promise
       iframe.style.position = 'fixed';
       iframe.style.right = '0';
       iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
+      iframe.style.width = '100px';
+      iframe.style.height = '100px';
       iframe.style.border = '0';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+      iframe.style.zIndex = '-9999';
       document.body.appendChild(iframe);
 
       const doc = iframe.contentWindow?.document;
@@ -354,16 +357,31 @@ export const printOrderReceipt = async (order: any, branchName: string): Promise
       doc.write(html);
       doc.close();
 
-      setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
+      let printed = false;
+      const triggerPrint = () => {
+        if (printed) return;
+        printed = true;
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (e) {
+          console.warn('Iframe print call error:', e);
+        }
         setTimeout(() => {
           if (document.body.contains(iframe)) {
             document.body.removeChild(iframe);
           }
           resolve(true);
-        }, 1500);
-      }, 300);
+        }, 2000);
+      };
+
+      if (iframe.contentWindow) {
+        iframe.contentWindow.onload = () => {
+          setTimeout(triggerPrint, 100);
+        };
+      }
+      // مهلة احتياطية في حال لم يُطلق المتصفح onload
+      setTimeout(triggerPrint, 400);
     } catch (e) {
       console.error('Print receipt error:', e);
       resolve(false);
@@ -409,24 +427,35 @@ export const downloadKioskPrintingShortcut = (appUrl: string = window.location.h
   const batContent = `@echo off
 chcp 65001 > nul
 title تشغيل كاشير UniFood بالطباعة الصامتة
-echo جاري تشغيل شاشة المطعم بوضع الطباعة الحرارية الصامتة...
+echo ======================================================================
+echo    UniFood POS - تشغيل شاشة الكاشير بالطباعة الحرارية التلقائية الصامتة
+echo ======================================================================
 
-:: محاولة فتح مايكروسوفت إيدج أولاً
-where msedge >nul 2>nul
-if %ERRORLEVEL% EQU 0 (
-    start msedge --app="${appUrl}" --kiosk-printing
+set PROFILE_DIR="%LOCALAPPDATA%\\UniFoodPOSProfile"
+
+:: التحقق من وجود مسار جوجل كروم
+if exist "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" (
+    start "" "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
     exit
 )
 
-:: إن لم يتوفر إيدج، فتح جوجل كروم
-where chrome >nul 2>nul
-if %ERRORLEVEL% EQU 0 (
-    start chrome --app="${appUrl}" --kiosk-printing
+if exist "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" (
+    start "" "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
     exit
 )
 
-:: المتصفح الافتراضي
-start "" "${appUrl}"
+if exist "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe" (
+    start "" "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
+    exit
+)
+
+:: إن لم يتوفر كروم، استخدام إيدج
+if exist "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" (
+    start "" "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
+    exit
+)
+
+start chrome --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
 exit
 `;
 
