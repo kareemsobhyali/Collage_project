@@ -1,6 +1,43 @@
 // إدارة إشعارات الويب في الخلفية والـ PWA Service Worker
 
 let swRegistration: ServiceWorkerRegistration | null = null;
+let deferredInstallPrompt: any = null;
+
+if (typeof window !== 'undefined') {
+  const isDriverUrl =
+    window.location.pathname.startsWith('/driver') ||
+    window.location.pathname.startsWith('/delivery') ||
+    window.location.search.includes('driver');
+
+  if (isDriverUrl) {
+    const manifestLink = document.querySelector('link[rel="manifest"]');
+    if (manifestLink) {
+      manifestLink.setAttribute('href', '/manifest-driver.json');
+    }
+    document.title = 'UniFood Driver | كابتن التوصيل';
+  }
+
+  window.addEventListener('beforeinstallprompt', (e: any) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+  });
+}
+
+export async function triggerInstallApp(fallbackApkUrl: string): Promise<void> {
+  if (deferredInstallPrompt) {
+    try {
+      deferredInstallPrompt.prompt();
+      const choiceResult = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      if (choiceResult?.outcome === 'accepted') {
+        return;
+      }
+    } catch (_e) {
+      // Fallback to APK download
+    }
+  }
+  window.open(fallbackApkUrl, '_blank', 'noopener,noreferrer');
+}
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -18,7 +55,11 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 }
 
 export function isRunningInNativeApk(): boolean {
-  return typeof window !== 'undefined' && Boolean((window as any).AndroidBridge);
+  if (typeof window === 'undefined') return false;
+  if (Boolean((window as any).AndroidBridge)) return true;
+  if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+  if ((window.navigator as any).standalone === true) return true;
+  return false;
 }
 
 export function getNotificationPermissionState(): NotificationPermission | 'unsupported' {

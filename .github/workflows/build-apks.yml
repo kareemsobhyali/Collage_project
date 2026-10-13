@@ -34,10 +34,16 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Prepare App Icon & Signing Keystore
+      - name: Prepare App Icon & Persistent Signing Keystore
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p android-app/app/src/main/res/drawable
           cp -f customer-app/public/logo.png android-app/app/src/main/res/drawable/ic_launcher.png
+
+          # محاولة استرجاع شهادة التوقيع الثابتة من الإصدار السابق حتى يظل توقيع المطور ثابتاً لدى Google Play Protect
+          gh release download latest-apk -p "release.keystore" -D android-app/app --clobber || true
+
           if [ ! -f android-app/app/release.keystore ]; then
             keytool -genkeypair -v \
               -keystore android-app/app/release.keystore \
@@ -85,12 +91,13 @@ jobs:
           name: "📲 تطبيقات UniFood للأندرويد (نسخة الطلاب + نسخة الطيارين)"
           body: |
             ### 🎓 تطبيقات منصة يونيفود للأندرويد (تحديث تلقائي)
-            - **نسخة الطلاب (`UniFood-Student.apk`)**: تفتح متجر الطلاب وسلة الشلة مباشرة مع دعم الإشعارات الفورية.
-            - **نسخة كابتن التوصيل (`UniFood-Driver.apk`)**: تفتح بوابة الطيارين مباشرة مع إبقاء الشاشة نشطة والتنبيه الصوتي والإشعارات.
+            - **نسخة الطلاب (`UniFood-Student.apk`)**: تفتح متجر الطلاب وسلة الشلة مباشرة.
+            - **نسخة كابتن التوصيل (`UniFood-Driver.apk`)**: تفتح بوابة الطيارين مباشرة مع إبقاء الشاشة نشطة والتنبيه الصوتي.
             *(يمكن تثبيت التطبيقيْن معاً على نفس الهاتف بدون أي تعارض)*
           files: |
             ./UniFood-Student.apk
             ./UniFood-Driver.apk
+            android-app/app/release.keystore
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

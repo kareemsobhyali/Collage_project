@@ -9,6 +9,14 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// مطلوب لتفعيل التثبيت الفوري الموثق من جوجل كروم (WebAPK) بدون تحذيرات Play Protect
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
+  );
+});
+
 // استقبال إشعارات الدفع في الخلفية
 self.addEventListener('push', (event) => {
   let payload = {
