@@ -95,7 +95,15 @@ export async function sendWebNotification(
   body: string,
   url: string = '/'
 ): Promise<void> {
-  if (isRunningInNativeApk()) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('unifood-inapp-notify', {
+        detail: { title, message: body },
+      })
+    );
+  }
+
+  if (isRunningInNativeApk() && Boolean((window as any).AndroidBridge?.showNotification)) {
     try {
       (window as any).AndroidBridge.showNotification(title, body);
       return;

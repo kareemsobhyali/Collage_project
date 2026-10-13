@@ -61,6 +61,22 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [activeIndex, setActiveIndex] = useState<number>(() => (items.length >= 3 ? 1 : 0));
 
+  const centerCardInContainer = (index: number, smooth: boolean) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const bounded = Math.max(0, Math.min(items.length - 1, index));
+    const cards = container.querySelectorAll('[data-carousel-card="true"]');
+    const target = cards[bounded] as HTMLElement | undefined;
+    if (target) {
+      target.scrollIntoView({
+        behavior: smooth ? 'smooth' : ('instant' as ScrollBehavior),
+        inline: 'center',
+        block: 'nearest',
+      });
+      setActiveIndex(bounded);
+    }
+  };
+
   useEffect(() => {
     const container = scrollRef.current;
     if (!container || items.length < 3) {
@@ -70,13 +86,10 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
     // عند وجود 3 أصناف أو أكثر، نبدأ بالكارت الأوسط ليظهر الكارت الأيمن والأيسر بجانبه فوراً
     const initialIdx = 1;
     setActiveIndex(initialIdx);
-    requestAnimationFrame(() => {
-      const cards = container.querySelectorAll('[data-carousel-card="true"]');
-      const targetCard = cards[initialIdx] as HTMLElement | undefined;
-      if (targetCard) {
-        targetCard.scrollIntoView({ behavior: 'instant' as ScrollBehavior, inline: 'center', block: 'nearest' });
-      }
-    });
+    const timer = setTimeout(() => {
+      centerCardInContainer(initialIdx, false);
+    }, 80);
+    return () => clearTimeout(timer);
   }, [category.id, items.length]);
 
   const handleScroll = () => {
@@ -105,15 +118,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   };
 
   const scrollToCard = (index: number) => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const bounded = Math.max(0, Math.min(items.length - 1, index));
-    const cards = container.querySelectorAll('[data-carousel-card="true"]');
-    const target = cards[bounded] as HTMLElement | undefined;
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-      setActiveIndex(bounded);
-    }
+    centerCardInContainer(index, true);
   };
 
   return (
@@ -388,10 +393,10 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
               <img
                 src={getFullImageUrl(branch.logoUrl)}
                 alt={branch.name}
-                className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl object-cover border border-slate-100 shrink-0"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-slate-100 shrink-0"
               />
             ) : (
-              <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
                 <Store className="w-6 h-6" />
               </div>
             )}
