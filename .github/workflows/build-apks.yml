@@ -58,8 +58,10 @@ jobs:
 
       - name: Collect Built APKs
         run: |
-          cp android-app/app/build/outputs/apk/student/release/app-student-release.apk ./UniFood-Student.apk
-          cp android-app/app/build/outputs/apk/driver/release/app-driver-release.apk ./UniFood-Driver.apk
+          STUDENT_APK=$(find android-app/app/build/outputs/apk/student/release -name "*.apk" | head -n 1)
+          DRIVER_APK=$(find android-app/app/build/outputs/apk/driver/release -name "*.apk" | head -n 1)
+          cp "$STUDENT_APK" ./UniFood-Student.apk
+          cp "$DRIVER_APK" ./UniFood-Driver.apk
           ls -lh ./UniFood-Student.apk ./UniFood-Driver.apk
 
       - name: Upload Student APK Artifact
