@@ -1080,7 +1080,18 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
       },
       include: {
         items: true,
-        user: { select: { name: true, phone: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            isBlocked: true,
+            restaurantNotes: true,
+            _count: {
+              select: { orders: true },
+            },
+          },
+        },
         driver: { select: { id: true, name: true, phone: true } },
       },
     });

@@ -410,8 +410,9 @@ export const api = {
     return data;
   },
 
-  async removeGroupCartItem(code: string, itemId: string) {
-    const res = await fetch(`${API_BASE_URL}/customer/group-cart/${code}/items/${itemId}`, {
+  async removeGroupCartItem(code: string, itemId: string, studentName?: string) {
+    const query = studentName ? `?studentName=${encodeURIComponent(studentName)}` : '';
+    const res = await fetch(`${API_BASE_URL}/customer/group-cart/${code}/items/${itemId}${query}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });

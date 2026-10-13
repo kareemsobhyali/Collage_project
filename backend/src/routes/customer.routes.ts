@@ -390,11 +390,12 @@ router.post("/group-cart/:code/items", async (req: Request, res: Response) => {
   }
 });
 
-// حذف صنف من سلة الشلة
+// حذف صنف من سلة الشلة (يسمح فقط لصاحب الصنف أو منشئ السلة)
 router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Response) => {
   try {
     const code = (req.params.code as string).toUpperCase();
     const itemId = req.params.itemId as string;
+    const studentName = (req.query.studentName as string)?.trim();
 
     const cart = await prisma.groupCart.findUnique({
       where: { shareCode: code },
@@ -405,8 +406,23 @@ router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Respo
       return;
     }
 
-    await prisma.groupCartItem.deleteMany({
-      where: { id: itemId, groupCartId: cart.id },
+    const item = await prisma.groupCartItem.findUnique({
+      where: { id: itemId },
+    });
+
+    if (!item || item.groupCartId !== cart.id) {
+      res.status(404).json({ error: "الصنف غير موجود بالسلة" });
+      return;
+    }
+
+    // التحقق من الصلاحية: صاحب الصنف فقط أو منشئ السلة هو المخول بالحذف
+    if (studentName && studentName !== item.studentName && studentName !== cart.hostName) {
+      res.status(403).json({ error: "لا يمكنك حذف أصناف طالب آخر! يمكنك فقط حذف أو تعديل أصنافك الخاصة." });
+      return;
+    }
+
+    await prisma.groupCartItem.delete({
+      where: { id: itemId },
     });
 
     const updatedCart = await prisma.groupCart.findUnique({

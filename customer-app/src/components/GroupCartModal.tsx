@@ -57,6 +57,12 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [copiedCodeOnly, setCopiedCodeOnly] = useState(false);
 
+  // Host detection
+  const isHost = Boolean(
+    (cart?.hostName && studentName && cart.hostName === studentName) ||
+    (cart?.shareCode && localStorage.getItem(`group_host_${cart.shareCode}`) === 'true')
+  );
+
   const fetchCart = async (code: string) => {
     try {
       setLoading(true);
@@ -120,6 +126,9 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
       setLoading(true);
       setError(null);
       const newCart = await api.createGroupCart(targetBranchId, studentName);
+      if (newCart?.shareCode) {
+        localStorage.setItem(`group_host_${newCart.shareCode}`, 'true');
+      }
       setCart(newCart);
       setShareCode(newCart.shareCode);
       onActiveCodeChange(newCart.shareCode, targetBranchId);
@@ -142,6 +151,9 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
 
   // Leave / Clear active group cart
   const handleLeaveGroupCart = () => {
+    if (isHost) {
+      if (!window.confirm('تنبيه: أنت منشئ هذه السلة ومسؤولها. هل أنت متأكد من مغادرتها؟')) return;
+    }
     setCart(null);
     setShareCode(null);
     onActiveCodeChange(null);
@@ -184,11 +196,15 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
     setTimeout(() => setCopiedCodeOnly(false), 2500);
   };
 
-  // Remove item
-  const handleRemoveItem = async (itemId: string) => {
+  // Remove item with owner verification
+  const handleRemoveItem = async (itemId: string, itemStudentName: string) => {
     if (!shareCode) return;
+    if (!isHost && itemStudentName !== studentName) {
+      setError('لا يمكنك حذف أصناف طالب آخر! يمكنك فقط تعديل وحذف أصنافك الخاصة.');
+      return;
+    }
     try {
-      await api.removeGroupCartItem(shareCode, itemId);
+      await api.removeGroupCartItem(shareCode, itemId, studentName);
       await fetchCart(shareCode);
     } catch (err: any) {
       setError(err.message || 'فشل حذف الصنف');
@@ -209,8 +225,13 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
     });
   }
 
-  // Handle final checkout
+  // Handle final checkout (host only)
   const handleProceedToCheckout = () => {
+    if (!isHost) {
+      setError(`عذراً، منشئ ومسؤول السلة فقط (${cart?.hostName || 'المسؤول'}) هو المخول بإتمام الطلب وإرساله للمطعم.`);
+      return;
+    }
+
     if (!cart?.items || cart.items.length === 0) {
       setError('سلة الشلة فارغة! أضف أصنافاً أولاً قبل إتمام الطلب.');
       return;
@@ -268,7 +289,7 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
             <div>
               <h3 className="font-black text-slate-800 text-base">سلة الشلة (الطلب الجماعي)</h3>
               <p className="text-xs text-slate-500">
-                حسابك المسجل: <span className="font-bold text-indigo-700">{studentName}</span> (تُحفظ السلة تلقائياً حتى لو أغلقت النافذة)
+                حسابك المسجل: <span className="font-bold text-indigo-700">{studentName}</span> (تُحفظ السلة تلقائياً عند إغلاق النافذة)
               </p>
             </div>
           </div>
@@ -298,7 +319,7 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
                 <span>إنشاء سلة شلة جديدة</span>
               </h4>
               <p className="text-xs text-slate-500 leading-relaxed">
-                أنشئ سلة جماعية وشارك الكود مع أصحابك، وكل طالب يفتح حسابه ويدخل الكود ليضيف وجباته في كيسه الخاص!
+                أنشئ سلة جماعية وشارك رمز الدعوة مع أصدقائك، ليتمكن كل طالب من الانضمام بحسابه وإضافة وجباته في كيس منفصل!
               </p>
 
               {branches.length > 1 && (
@@ -319,7 +340,7 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
               )}
 
               <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between text-xs">
-                <span className="text-slate-500 font-bold">اسم صاحب السلة:</span>
+                <span className="text-slate-500 font-bold">منشئ ومسؤول السلة:</span>
                 <span className="font-black text-indigo-700">{studentName}</span>
               </div>
 
@@ -329,7 +350,7 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
               >
                 {loading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-                <span>إنشاء سلة الشلة الآن</span>
+                <span>إنشاء سلة الشلة</span>
               </button>
             </form>
 
@@ -337,8 +358,8 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
 
             {/* Join Existing Cart */}
             <form onSubmit={handleJoin} className="bg-slate-50 p-5 rounded-3xl border border-slate-200 space-y-3">
-              <h4 className="font-black text-sm text-slate-800">الانضمام لسلة شلة بكود الدعوة</h4>
-              <p className="text-xs text-slate-500">أدخل الكود المكون من 6 حروف/أرقام الذي أرسله لك صديقك لتضيف طلبك معه:</p>
+              <h4 className="font-black text-sm text-slate-800">الانضمام لسلة شلة برمز المشاركة</h4>
+              <p className="text-xs text-slate-500">أدخل رمز الانضمام المكون من 6 خانات الذي أرسله لك صديقك لتضيف وجبتك معه:</p>
 
               <div className="flex gap-2">
                 <input
@@ -367,7 +388,7 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 rounded-3xl shadow-md space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] opacity-85 block font-bold">كود دعوة أصحابك للسلة:</span>
+                  <span className="text-[11px] opacity-85 block font-bold">رمز دعوة الأصدقاء للسلة:</span>
                   <span className="font-mono text-2xl font-black tracking-widest">{cart.shareCode}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -377,7 +398,7 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
                     className="px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1"
                   >
                     {copiedCodeOnly ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedCodeOnly ? 'تم نسخ الكود' : 'نسخ الكود'}</span>
+                    <span>{copiedCodeOnly ? 'تم نسخ الرمز' : 'نسخ الرمز'}</span>
                   </button>
                   <button
                     type="button"
@@ -395,16 +416,16 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
                   <Store className="w-3.5 h-3.5" />
                   <span>مطعم: {cart.branch?.name || branchName}</span>
                 </span>
-                <span>مؤسس السلة: {cart.hostName}</span>
+                <span>منشئ ومسؤول السلة: {cart.hostName}</span>
               </div>
             </div>
 
             {/* Action Bar: Add My Items from Menu */}
             <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h4 className="font-black text-xs text-purple-950">أضف وجبتك في كيس ({studentName})</h4>
+                <h4 className="font-black text-xs text-purple-950">أضف وجبتك لكيسك الخاص ({studentName})</h4>
                 <p className="text-[11px] text-purple-700 mt-0.5">
-                  افتح منيو المطعم واختر الأصناف والأحجام والإضافات، وستنزل تلقائياً في سلة الشلة باسمك!
+                  تصفح قائمة طعام المطعم واختر الأصناف والإضافات، وستُضاف تلقائياً إلى كيسك في سلة الشلة!
                 </p>
               </div>
               <button
@@ -420,7 +441,7 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
             {/* Quick Add Strip right inside modal */}
             {allQuickMenuItems.length > 0 && (
               <div className="space-y-2">
-                <span className="text-xs font-black text-slate-700 block">⚡ أو إضافة سريعة مباشرة لكيس ({studentName}):</span>
+                <span className="text-xs font-black text-slate-700 block">⚡ إضافة سريعة مباشرة لكيس ({studentName}):</span>
                 <div className="flex items-center gap-2 overflow-x-auto pb-1.5">
                   {allQuickMenuItems.map((item: any) => (
                     <div
@@ -457,7 +478,7 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                <h4 className="text-xs font-black text-slate-700">الأكياس المضافة في السلة ({Object.keys(itemsByStudent).length} طلاب):</h4>
+                <h4 className="text-xs font-black text-slate-700">الأكياس المضافة بالسلة ({Object.keys(itemsByStudent).length} طلاب):</h4>
                 {Object.keys(itemsByStudent).map((student) => {
                   const studentItems = itemsByStudent[student];
                   const studentSubtotal = studentItems.reduce((acc, it) => acc + it.totalPrice, 0);
@@ -470,36 +491,58 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
                           <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs">
                             {student.substring(0, 1)}
                           </div>
-                          <span className="font-black text-slate-800 text-xs">كيس الطالب: {student}</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-black text-slate-800 text-xs">كيس الطالب: {student}</span>
+                            {student === cart.hostName && (
+                              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-black rounded-md">
+                                منشئ ومسؤول السلة 👑
+                              </span>
+                            )}
+                            {student === studentName && (
+                              <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[9px] font-black rounded-md">
+                                أنت
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <span className="font-mono text-xs font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200">
-                          الحساب: {studentSubtotal} ج.م
+                          المجموع: {studentSubtotal} ج.م
                         </span>
                       </div>
 
                       {/* Items */}
                       <div className="space-y-1.5 text-xs">
-                        {studentItems.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-100">
-                            <div>
-                              <div className="font-bold text-slate-800">
-                                {item.quantity} × {item.itemName} {item.sizeName ? `(${item.sizeName})` : ''}
-                              </div>
-                              {item.notes && <div className="text-[10px] text-slate-400">📝 {item.notes}</div>}
-                            </div>
+                        {studentItems.map((item) => {
+                          const canDeleteThisItem = isHost || item.studentName === studentName;
 
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-slate-700">{item.totalPrice} ج.م</span>
-                              <button
-                                onClick={() => handleRemoveItem(item.id)}
-                                className="p-1 text-rose-400 hover:text-rose-600 rounded-lg transition-colors"
-                                title="حذف الصنف"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                          return (
+                            <div key={item.id} className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-100">
+                              <div>
+                                <div className="font-bold text-slate-800">
+                                  {item.quantity} × {item.itemName} {item.sizeName ? `(${item.sizeName})` : ''}
+                                </div>
+                                {item.notes && <div className="text-[10px] text-slate-400">📝 {item.notes}</div>}
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-slate-700">{item.totalPrice} ج.م</span>
+                                {canDeleteThisItem ? (
+                                  <button
+                                    onClick={() => handleRemoveItem(item.id, item.studentName)}
+                                    className="p-1 text-rose-400 hover:text-rose-600 rounded-lg transition-colors"
+                                    title="حذف الصنف من الكيس"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-slate-300 select-none" title="لا يمكنك حذف أصناف طالب آخر">
+                                    🔒
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -514,7 +557,7 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
           <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-2.5 shrink-0">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-xs text-slate-400 block">إجمالي سلة الشلة:</span>
+                <span className="text-xs text-slate-400 block">إجمالي طلب الشلة:</span>
                 <span className="text-xs font-bold text-slate-600">
                   {Object.keys(itemsByStudent).length} طلاب • {cart?.items?.length || 0} صنف
                 </span>
@@ -527,21 +570,28 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
                 type="button"
                 onClick={handleLeaveGroupCart}
                 className="px-3.5 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-2xl font-bold text-xs transition-all flex items-center gap-1.5 shrink-0"
-                title="مغادرة وإغلاق سلة الشلة"
+                title="مغادرة سلة الشلة"
               >
                 <LogOut className="w-4 h-4" />
                 <span>مغادرة السلة</span>
               </button>
 
-              <button
-                type="button"
-                disabled={!cart?.items || cart.items.length === 0}
-                onClick={handleProceedToCheckout}
-                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                <span>إتمام طلب الشلة وتأكيد الأكياس</span>
-              </button>
+              {isHost ? (
+                <button
+                  type="button"
+                  disabled={!cart?.items || cart.items.length === 0}
+                  onClick={handleProceedToCheckout}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>إتمام طلب الشلة وإرساله للمطعم</span>
+                </button>
+              ) : (
+                <div className="flex-1 py-2.5 px-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 text-center">
+                  <span className="text-sm">🔒</span>
+                  <span>بانتظار منشئ السلة ({cart.hostName}) لإنهاء الطلب وتأكيده للمطعم</span>
+                </div>
+              )}
             </div>
           </div>
         )}

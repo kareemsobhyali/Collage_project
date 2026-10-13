@@ -101,7 +101,7 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
       where: {
         driverId,
         status: {
-          in: ["ACCEPTED", "PREPARING", "READY", "COMPLETED"],
+          in: ["PENDING", "ACCEPTED", "PREPARING", "READY", "COMPLETED"],
         },
       },
       include: {

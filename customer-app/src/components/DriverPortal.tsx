@@ -213,9 +213,15 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   };
 
   // Pickup order from branch
-  const handlePickup = async (orderId: string) => {
+  const handlePickup = async (order: any) => {
+    if (order.status !== 'READY') {
+      const confirmEarly = window.confirm(
+        'تنبيه: الأوردر ما زال قيد التجهيز بالمطبخ ولم يحدد المطعم بعد أنه جاهز للاستلام.\nهل استلمت الوجبة بالفعل من الفرع وتريد بدء التوصيل للعميل؟'
+      );
+      if (!confirmEarly) return;
+    }
     try {
-      await api.driverPickupOrder(orderId);
+      await api.driverPickupOrder(order.id);
       stopAlarm();
       loadDriverData();
     } catch (err: any) {
@@ -431,6 +437,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
             {activeOrders.map((order) => {
               const isPickedUp = Boolean(order.driverPickedUpAt);
               const isScheduled = order.isScheduled;
+              const isReady = order.status === 'READY';
 
               return (
                 <div
@@ -438,20 +445,26 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   className={`bg-white rounded-3xl border overflow-hidden shadow-sm transition-all ${
                     isPickedUp
                       ? 'border-indigo-300 ring-2 ring-indigo-100'
-                      : 'border-amber-300 ring-2 ring-amber-100'
+                      : isReady
+                        ? 'border-emerald-300 ring-2 ring-emerald-100'
+                        : 'border-amber-300 ring-2 ring-amber-100'
                   }`}
                 >
                   {/* Card Top */}
                   <div className={`p-4 flex items-center justify-between border-b ${
-                    isPickedUp ? 'bg-indigo-50' : 'bg-amber-50'
+                    isPickedUp ? 'bg-indigo-50' : isReady ? 'bg-emerald-50' : 'bg-amber-50'
                   }`}>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-black text-base text-slate-900">طلب #{order.orderNumber}</span>
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                          isPickedUp ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white animate-pulse'
+                          isPickedUp
+                            ? 'bg-indigo-600 text-white'
+                            : isReady
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-amber-500 text-white animate-pulse'
                         }`}>
-                          {isPickedUp ? '🛵 جاري التوصيل للعميل' : '⏳ بانتظار استلامك من الفرع'}
+                          {isPickedUp ? '🛵 جاري التوصيل للعميل' : isReady ? '✅ جاهز للاستلام من الفرع' : '🍳 قيد التجهيز بالمطبخ'}
                         </span>
                       </div>
                       <span className="text-[11px] text-slate-500 font-mono">
@@ -461,6 +474,40 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
                     <span className="text-base font-black text-slate-900">{order.total} ج.م</span>
                   </div>
+
+                  {/* Kitchen Status Alert (Before Pickup) */}
+                  {!isPickedUp && (
+                    isReady ? (
+                      <div className="mx-4 mt-3 p-3 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center justify-between text-xs text-emerald-900 shadow-2xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">✅</span>
+                          <div>
+                            <h4 className="font-black text-xs text-emerald-950">الوجبة جاهزة للاستلام الآن من الفرع!</h4>
+                            <p className="text-[11px] text-emerald-700">انتهى المطبخ من تجهيز الأوردر، توجه للكاونتر واستلم الوجبة.</p>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-1 bg-emerald-600 text-white font-black text-[10px] rounded-lg shrink-0 animate-pulse">
+                          جاهز الآن
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="mx-4 mt-3 p-3 bg-amber-50 border border-amber-300 rounded-2xl flex items-center justify-between text-xs text-amber-900 shadow-2xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl animate-pulse">🍳</span>
+                          <div>
+                            <h4 className="font-black text-xs text-amber-950">
+                              الوجبة قيد التجهيز في المطبخ حالياً
+                              {order.estimatedPrepTime ? ` (${order.estimatedPrepTime} دقيقة)` : ''}
+                            </h4>
+                            <p className="text-[11px] text-amber-700">المطعم يقوم بتحضير الطعام الآن، يرجى الانتظار حتى تصبح الوجبة جاهزة للاستلام.</p>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-1 bg-amber-500 text-white font-black text-[10px] rounded-lg shrink-0">
+                          قيد التحضير
+                        </span>
+                      </div>
+                    )
+                  )}
 
                   {/* Scheduled Notice if any */}
                   {isScheduled && (
@@ -561,11 +608,15 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                         {/* Pickup from branch button */}
                         <button
                           type="button"
-                          onClick={() => handlePickup(order.id)}
-                          className="py-3 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-1.5"
+                          onClick={() => handlePickup(order)}
+                          className={`py-3 px-3 text-white rounded-2xl font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5 ${
+                            isReady
+                              ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20 ring-2 ring-emerald-300'
+                              : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+                          }`}
                         >
                           <CheckCircle className="w-4 h-4" />
-                          <span>استلام من الفرع</span>
+                          <span>{isReady ? 'استلام الوجبة (جاهزة الآن)' : 'استلام من الفرع'}</span>
                         </button>
                       </div>
                     ) : (

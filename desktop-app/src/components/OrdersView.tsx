@@ -136,6 +136,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
     }
   };
 
+  const [acceptDriverId, setAcceptDriverId] = useState<string>('');
+
   const fetchDrivers = async () => {
     try {
       const data = await api.getDrivers();
@@ -145,9 +147,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
 
   useEffect(() => {
     fetchDrivers();
-  }, []);
+  }, [orders.length]);
 
-  const handleAssignDriver = async (orderId: string, driverId: string) => {
+  const handleAssignDriver = async (orderId: string, driverId: string | null) => {
+    if (driverId === '') {
+      alert('يرجى اختيار كابتن التوصيل (الطيار) من القائمة أولاً');
+      return;
+    }
     try {
       setAssigningDriverOrderId(orderId);
       await api.assignDriver(orderId, driverId || null);
@@ -197,7 +203,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
     if (!acceptingOrder) return;
     const orderToAccept = acceptingOrder;
     const minutes = prepMinutes || 15;
+    const driverToAssign = acceptDriverId;
     setAcceptingOrder(null);
+
+    // إذا اختار المطعم طياراً فورياً عند القبول
+    if (driverToAssign) {
+      try {
+        await api.assignDriver(orderToAccept.id, driverToAssign);
+      } catch (_err) {}
+    }
 
     await handleUpdateStatus(orderToAccept.id, 'PREPARING', minutes);
 
@@ -731,52 +745,88 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
                     </div>
                   )}
 
-                  {/* Delivery Driver Assignment Section */}
-                  {order.orderType === 'DELIVERY' && (() => {
+                  {/* Delivery Driver Assignment Section (متاح لجميع الطلبات في مراحل استلام، تجهيز، أو جاهز) */}
+                  {(() => {
                     const assignedDriver = order.driver || drivers.find((d: any) => d.id === order.driverId);
+                    const isPickedUp = Boolean(order.driverPickedUpAt);
+
                     return (
-                      <div className="p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                            <Truck className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>{order.status === 'COMPLETED' ? 'الطيار المسلم:' : 'كابتن التوصيل:'}</span>
+                      <div className="p-3 bg-indigo-50/80 border border-indigo-200/80 rounded-2xl space-y-2.5">
+                        <div className="flex items-center justify-between text-xs flex-wrap gap-1.5">
+                          <span className="font-black text-slate-800 flex items-center gap-1.5">
+                            <Truck className="w-4 h-4 text-indigo-600 shrink-0" />
+                            <span>كابتن التوصيل (الطيار):</span>
                           </span>
+
                           {assignedDriver ? (
-                            <span className="font-black text-indigo-800 bg-white px-2 py-0.5 rounded-lg border border-indigo-200">
-                              {order.status === 'COMPLETED' ? '✅ ' : ''}{assignedDriver.name} ({assignedDriver.phone})
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-indigo-900 bg-white px-2.5 py-1 rounded-xl border border-indigo-200 shadow-2xs">
+                                🛵 {assignedDriver.name} ({assignedDriver.phone})
+                              </span>
+                              {order.status !== 'COMPLETED' && order.status !== 'REJECTED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAssignDriver(order.id, null)}
+                                  className="text-[11px] text-rose-600 hover:text-rose-800 font-bold hover:underline px-1.5 py-0.5 rounded-lg bg-white border border-rose-200 shadow-2xs"
+                                  title="إلغاء إسناد الطيار لهذا الطلب"
+                                >
+                                  إلغاء التعيين
+                                </button>
+                              )}
+                            </div>
                           ) : order.status === 'COMPLETED' ? (
-                            <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-bold">
-                              تم التسليم عبر الفرع
+                            <span className="text-[11px] text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-xl font-bold">
+                              تم التسليم المباشر عبر الفرع
                             </span>
                           ) : (
-                            <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded font-bold">
-                              بانتظار إسناد طيار
+                            <span className="text-[11px] text-amber-800 bg-amber-100 px-2.5 py-1 rounded-xl font-bold border border-amber-200">
+                              لم يتم تعيين طيار حتى الآن
                             </span>
                           )}
                         </div>
 
+                        {/* حالة استلام الطيار للطلب من الفرع */}
+                        {assignedDriver && (
+                          <div className="text-xs">
+                            {isPickedUp ? (
+                              <div className="p-2 bg-emerald-100 text-emerald-900 rounded-xl border border-emerald-300 font-bold flex items-center gap-1.5">
+                                <CheckCircle className="w-4 h-4 text-emerald-700 shrink-0" />
+                                <span>استلم الطيار الوجبة من الفرع وخرج للتوصيل في الساعة {formatTimeOnly(order.driverPickedUpAt)}</span>
+                              </div>
+                            ) : (
+                              <div className="p-2 bg-amber-100 text-amber-900 rounded-xl border border-amber-300 font-bold flex items-center gap-1.5">
+                                <Clock className="w-4 h-4 text-amber-700 shrink-0 animate-pulse" />
+                                <span>مسند للطيار • بانتظار استلامه للوجبة من الفرع</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Dropdown to assign or change driver */}
                         {order.status !== 'COMPLETED' && order.status !== 'REJECTED' && (
                           <div className="flex items-center gap-1.5 pt-1">
                             <select
                               value={selectedDriverMap[order.id] !== undefined ? selectedDriverMap[order.id] : (order.driverId || '')}
                               onChange={(e) => setSelectedDriverMap({ ...selectedDriverMap, [order.id]: e.target.value })}
-                              className="flex-1 bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] font-bold text-slate-700"
+                              className="flex-1 bg-white border border-slate-300 rounded-xl p-2 text-xs font-bold text-slate-800 shadow-2xs"
                             >
-                              <option value="">-- اختر طيار لتوصيل الطلب --</option>
+                              <option value="">{assignedDriver ? '-- تغيير الطيار المعين --' : '-- اختر كابتن توصيل (طيار) --'}</option>
                               {drivers.map((d: any) => (
                                 <option key={d.id} value={d.id} disabled={!d.isActive}>
-                                  {d.name} {d.isActive ? '' : '(غير متاح)'}
+                                  {d.name} ({d.phone}) {d.isActive ? '' : '(غير متاح)'}
                                 </option>
                               ))}
                             </select>
                             <button
                               type="button"
                               disabled={assigningDriverOrderId === order.id}
-                              onClick={() => handleAssignDriver(order.id, selectedDriverMap[order.id] ?? order.driverId ?? '')}
-                              className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shrink-0"
+                              onClick={() => {
+                                const chosen = selectedDriverMap[order.id] ?? order.driverId ?? '';
+                                handleAssignDriver(order.id, chosen);
+                              }}
+                              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-sm shrink-0 active:scale-95 disabled:opacity-50"
                             >
-                              {assigningDriverOrderId === order.id ? '...' : 'إسناد'}
+                              {assigningDriverOrderId === order.id ? '...' : (assignedDriver ? 'تغيير الطيار' : 'إسناد للطيار')}
                             </button>
                           </div>
                         )}
@@ -900,6 +950,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
                           onClick={() => {
                             setAcceptingOrder(order);
                             setPrepMinutes(15);
+                            setAcceptDriverId(order.driverId || '');
                           }}
                           className="col-span-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all active:scale-95"
                         >
@@ -922,20 +973,51 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
                         className="col-span-2 py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
                       >
                         <CheckCircle className="w-4 h-4" />
-                        <span>جاهز للاستلام / خرج للتوصيل</span>
+                        <span>جاهز للاستلام / تم انتهاء التحضير</span>
                       </button>
                     )}
 
-                    {isReady && (
-                      <button
-                        disabled={updatingId === order.id}
-                        onClick={() => handleUpdateStatus(order.id, 'COMPLETED')}
-                        className="col-span-2 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        <span>تأكيد استلام الطالب (اكتمل)</span>
-                      </button>
-                    )}
+                    {isReady && (() => {
+                      const hasAssignedDriver = Boolean(order.driverId || order.driver);
+                      const isPickedUpByDriver = Boolean(order.driverPickedUpAt);
+
+                      if (!hasAssignedDriver) {
+                        return (
+                          <button
+                            disabled={updatingId === order.id}
+                            onClick={() => handleUpdateStatus(order.id, 'COMPLETED')}
+                            className="col-span-2 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            title="الطلب غير مسند لطيار - انقر لتسليمه مباشرة للطالب وإكماله"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span>تأكيد تسليم الطلب (مكتمل بدون طيار)</span>
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <div className="col-span-2 space-y-1.5">
+                          {isPickedUpByDriver ? (
+                            <div className="text-center py-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 rounded-lg border border-indigo-100">
+                              🛵 خرج للتوصيل مع الطيار • بانتظار تأكيد العميل
+                            </div>
+                          ) : (
+                            <div className="text-center py-1 text-[11px] font-bold text-amber-700 bg-amber-50 rounded-lg border border-amber-200 animate-pulse">
+                              ⏳ الوجبة جاهزة بالمطعم • بانتظار استلام الطيار
+                            </div>
+                          )}
+                          <button
+                            disabled={updatingId === order.id}
+                            onClick={() => handleUpdateStatus(order.id, 'COMPLETED')}
+                            className="w-full py-2 px-3 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                            title="إنهاء وتسليم يدوي من الفرع إذا لم يؤكد الطيار بالـ PIN أو استلم الطالب مباشرة"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>تسليم يدوي كـ مكتمل (إنهاء من الفرع)</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -951,7 +1033,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
                 <Timer className="w-5 h-5 text-indigo-600" />
-                <h4 className="font-black text-slate-800 text-sm">تحديد وقت التجهيز والتوصيل</h4>
+                <h4 className="font-black text-slate-800 text-sm">تحديد وقت التجهيز والطيار</h4>
               </div>
               <button onClick={() => setAcceptingOrder(null)} className="p-1 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -989,6 +1071,26 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
                 onChange={e => setPrepMinutes(parseInt(e.target.value) || 15)}
                 className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
               />
+            </div>
+
+            {/* Optional immediate driver assignment on acceptance */}
+            <div className="pt-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5 text-indigo-600" />
+                <span>إسناد كابتن توصيل فوراً (اختياري):</span>
+              </label>
+              <select
+                value={acceptDriverId}
+                onChange={e => setAcceptDriverId(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              >
+                <option value="">-- بدون تعيين طيار الآن (يمكن التعيين لاحقاً) --</option>
+                {drivers.map(d => (
+                  <option key={d.id} value={d.id} disabled={!d.isActive}>
+                    {d.name} ({d.phone}) {d.isActive ? '' : '(غير متاح)'}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="pt-2 flex gap-2">
