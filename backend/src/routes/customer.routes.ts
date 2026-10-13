@@ -175,7 +175,13 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
     const now = new Date();
 
     const branch = await prisma.branch.findFirst({
-      where: { id, isActive: true },
+      where: {
+        OR: [
+          { id },
+          { slug: id }
+        ],
+        isActive: true,
+      },
       include: {
         paymentConfig: true,
         deliveryZones: true,
@@ -187,10 +193,12 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       return;
     }
 
+    const actualBranchId = branch.id;
+
     // إعادة تفعيل الأصناف والإضافات التي انتهت مدة نفادها المؤقت تلقائياً
     await prisma.menuItem.updateMany({
       where: {
-        branchId: id,
+        branchId: actualBranchId,
         isAvailable: false,
         unavailableUntil: { not: null, lte: now },
       },
@@ -202,7 +210,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
 
     await prisma.modifierOption.updateMany({
       where: {
-        group: { branchId: id },
+        group: { branchId: actualBranchId },
         isAvailable: false,
         unavailableUntil: { not: null, lte: now },
       },
@@ -213,7 +221,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
     });
 
     const categories = await prisma.menuCategory.findMany({
-      where: { branchId: id },
+      where: { branchId: actualBranchId },
       include: {
         items: {
           where: { isAvailable: true },

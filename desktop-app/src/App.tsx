@@ -444,6 +444,7 @@ export function App() {
             categories={categories}
             modifierGroups={modifierGroups}
             onRefresh={loadData}
+            branch={branch}
           />
         )}
 

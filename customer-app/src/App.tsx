@@ -133,59 +133,8 @@ export function App() {
     }
   }, [pendingOpenGroupCart, user]);
 
-  // تحميل قائمة الفروع عند بدء التطبيق
-  const loadBranches = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getBranches();
-      setBranches(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadBranches();
-    registerServiceWorker();
-
-    const socketHost = API_BASE_URL.replace('/api', '');
-    const socket = io(socketHost);
-
-    socket.on('branch_status_updated', (data: any) => {
-      setBranches(prev => prev.map(b => {
-        if (b.id === data.branchId) {
-          return {
-            ...b,
-            operationalStatus: data.operationalStatus,
-            closedUntil: data.closedUntil,
-            closingReason: data.closingReason,
-          };
-        }
-        return b;
-      }));
-
-      setSelectedBranch((prev: any) => {
-        if (prev && prev.id === data.branchId) {
-          return {
-            ...prev,
-            operationalStatus: data.operationalStatus,
-            closedUntil: data.closedUntil,
-            closingReason: data.closingReason,
-          };
-        }
-        return prev;
-      });
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
-
-  // عند اختيار فرع، جلب المنيو الخاص به
-  const handleSelectBranch = async (branch: any) => {
+  // عند اختيار فرع، جلب المنيو الخاص به مع إمكانية فتح صنف/عرض محدد تلقائياً
+  const handleSelectBranch = async (branch: any, autoOpenItemId?: string | null) => {
     try {
       setLoading(true);
       const data = await api.getBranchMenu(branch.id);
@@ -195,8 +144,70 @@ export function App() {
       if (cart.length > 0 && cart[0].branchId !== branch.id) {
         setCart([]);
       }
+      // إذا كان الرابط أو البانر يوجه لصنف/عرض محدد داخل المنيو
+      if (autoOpenItemId && Array.isArray(data.categories)) {
+        for (const cat of data.categories) {
+          const found = (cat.items || []).find((it: any) => it.id === autoOpenItemId);
+          if (found) {
+            setCustomizingItem(found);
+            break;
+          }
+        }
+      }
     } catch (err: any) {
       alert(err.message || 'فشل فتح منيو المطعم');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // تحميل قائمة الفروع عند بدء التطبيق والتحقق من الروابط المباشرة (Direct Links / QR / Banners)
+  const loadBranches = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getBranches();
+      const loadedBranches = data || [];
+      setBranches(loadedBranches);
+
+      // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const branchParam = params.get('branch') || params.get('r');
+        const itemParam = params.get('item') || params.get('offer');
+
+        if (branchParam) {
+          const normalized = branchParam.trim().toLowerCase();
+          const target = loadedBranches.find(
+            (b: any) =>
+              b.id === branchParam ||
+              (b.slug && b.slug.toLowerCase() === normalized)
+          );
+          if (target) {
+            handleSelectBranch(target, itemParam);
+          } else {
+            // محاولة جلب الفرع مباشرة من الـ Backend عبر الـ slug أو الـ id
+            api.getBranchMenu(branchParam)
+              .then((menuData) => {
+                if (menuData && menuData.branch) {
+                  setSelectedBranch(menuData.branch);
+                  setBranchCategories(menuData.categories || []);
+                  if (itemParam && Array.isArray(menuData.categories)) {
+                    for (const cat of menuData.categories) {
+                      const found = (cat.items || []).find((it: any) => it.id === itemParam);
+                      if (found) {
+                        setCustomizingItem(found);
+                        break;
+                      }
+                    }
+                  }
+                }
+              })
+              .catch((err) => console.warn('Could not auto-open branch:', err));
+          }
+        }
+      }
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }

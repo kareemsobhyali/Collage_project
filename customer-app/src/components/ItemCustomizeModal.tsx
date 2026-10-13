@@ -28,8 +28,8 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
 
   // الإضافات المختارة: Record<groupId, option[]>
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, any[]>>({});
-  // عروض الكومبو المخصصة للصنف من إدارة المطعم
-  const [selectedComboIds, setSelectedComboIds] = useState<string[]>([]);
+  // كميات عروض الكومبو / Upsells المحددة بشكل مستقل عن كمية الصنف الأساسي
+  const [comboQuantities, setComboQuantities] = useState<Record<string, number>>({});
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
 
@@ -53,7 +53,7 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
     }
   }, [item.comboItems]);
 
-  // حساب سعر الوحدة
+  // حساب سعر الوحدة والكمية
   const basePrice = selectedSize ? selectedSize.price : item.basePrice;
   let modifiersExtra = 0;
   Object.values(selectedModifiers).forEach((opts) => {
@@ -62,12 +62,14 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
     });
   });
 
-  const combosExtra = comboOffers
-    .filter((c) => selectedComboIds.includes(c.id))
-    .reduce((sum, c) => sum + (c.price || 0), 0);
+  // إجمالي تكلفة عروض الـ Upsells تحسب بناءً على الكمية التي اختارها العميل لكل عرض دون إجباره على مضاعفتها مع الصنف الأساسي
+  const totalCombosPrice = comboOffers.reduce((sum, c) => {
+    const qty = comboQuantities[c.id] || 0;
+    return sum + (c.price || 0) * qty;
+  }, 0);
 
-  const unitPrice = basePrice + modifiersExtra + combosExtra;
-  const totalPrice = unitPrice * quantity;
+  const unitPrice = basePrice + modifiersExtra;
+  const totalPrice = (unitPrice * quantity) + totalCombosPrice;
 
   // تبديل اختيار إضافة
   const handleToggleOption = (group: any, option: any) => {
@@ -94,10 +96,17 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
     }
   };
 
-  const handleToggleCombo = (comboId: string) => {
-    setSelectedComboIds((prev) =>
-      prev.includes(comboId) ? prev.filter((id) => id !== comboId) : [...prev, comboId]
-    );
+  const handleUpdateComboQty = (comboId: string, delta: number) => {
+    setComboQuantities((prev) => {
+      const current = prev[comboId] || 0;
+      const next = Math.max(0, current + delta);
+      if (next === 0) {
+        const copy = { ...prev };
+        delete copy[comboId];
+        return copy;
+      }
+      return { ...prev, [comboId]: next };
+    });
   };
 
   const linkedGroups = item.modifierGroupLinks?.map((l: any) => l.group).filter(Boolean) || [];
@@ -131,18 +140,20 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
       });
     });
 
-    // إضافة عروض الكومبو المختارة
-    comboOffers
-      .filter((c) => selectedComboIds.includes(c.id))
-      .forEach((c) => {
+    // إضافة عروض الكومبو المختارة مع كميتها المستقلة المحددة
+    comboOffers.forEach((c) => {
+      const qty = comboQuantities[c.id] || 0;
+      if (qty > 0) {
         flatModifiers.push({
           groupId: 'combo',
-          groupTitle: 'عروض الكومبو',
+          groupTitle: 'عروض إضافية (Upsell)',
           optionId: c.id,
-          optionName: c.title,
-          price: c.price,
+          optionName: `${c.title} (×${qty})`,
+          price: c.price * qty,
+          quantity: qty,
         });
-      });
+      }
+    });
 
     onAddToCart({
       menuItemId: item.id,
@@ -294,26 +305,30 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
           {/* Dynamic Restaurant-Controlled Combo / Upsell Offers */}
           {comboOffers.length > 0 && (
             <div className="space-y-2.5 pt-4 border-t border-slate-100">
-              <div className="flex items-center gap-1.5 text-xs font-black text-amber-800">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <span>عروض خاصة مع هذه الوجبة</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-black text-amber-800">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>عروض وتكملات خاصة مع هذه الوجبة (Upsell)</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-bold">اختر الكمية التي تريدها بحرية</span>
               </div>
 
               {comboOffers.map((combo) => {
-                const isSelected = selectedComboIds.includes(combo.id);
+                const qty = comboQuantities[combo.id] || 0;
+                const isSelected = qty > 0;
                 return (
                   <div
                     key={combo.id}
-                    onClick={() => handleToggleCombo(combo.id)}
-                    className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-start justify-between gap-3 ${
+                    className={`p-3.5 rounded-2xl border-2 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                       isSelected
                         ? 'bg-amber-50/90 border-amber-500 shadow-sm'
-                        : 'bg-gradient-to-r from-amber-50/40 to-orange-50/40 border-amber-200 hover:border-amber-300'
+                        : 'bg-gradient-to-r from-amber-50/40 to-orange-50/40 border-amber-200'
                     }`}
                   >
                     <div className="flex items-start gap-2.5 min-w-0 flex-1">
                       <div
-                        className={`w-5 h-5 mt-0.5 rounded-lg flex items-center justify-center border shrink-0 transition-all ${
+                        onClick={() => handleUpdateComboQty(combo.id, isSelected ? -qty : 1)}
+                        className={`w-5 h-5 mt-0.5 rounded-lg flex items-center justify-center border shrink-0 transition-all cursor-pointer ${
                           isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 bg-white'
                         }`}
                       >
@@ -336,12 +351,50 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
                             {combo.description}
                           </span>
                         )}
+                        <span className="text-[11px] font-bold text-amber-800 mt-1 inline-block">
+                          {combo.price > 0 ? `+${combo.price} ج.م للقطعة` : 'مجاناً'}
+                        </span>
                       </div>
                     </div>
 
-                    <span className="font-black text-amber-900 bg-amber-100/80 border border-amber-200 px-2.5 py-1 rounded-xl text-xs whitespace-nowrap shrink-0">
-                      {combo.price > 0 ? `+${combo.price} ج.م` : 'مجاناً'}
-                    </span>
+                    {/* Quantity Selector for this Upsell */}
+                    <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-amber-100">
+                      {isSelected ? (
+                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl border border-amber-300 shadow-2xs">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateComboQty(combo.id, -1)}
+                            className="w-6 h-6 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 flex items-center justify-center font-black transition-colors"
+                            title="تقليل كمية العرض"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="font-mono font-black text-xs text-slate-900 min-w-[1.25rem] text-center">
+                            {qty}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateComboQty(combo.id, 1)}
+                            className="w-6 h-6 rounded-lg bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center font-black transition-colors"
+                            title="زيادة كمية العرض"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                          <span className="font-mono font-black text-xs text-amber-900 pr-1">
+                            ({qty * combo.price} ج.م)
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateComboQty(combo.id, 1)}
+                          className="px-3 py-1.5 bg-white hover:bg-amber-500 hover:text-white text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>إضافة للعرض</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

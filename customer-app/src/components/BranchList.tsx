@@ -18,7 +18,7 @@ import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 
 interface BranchListProps {
   branches: any[];
-  onSelectBranch: (branch: any) => void;
+  onSelectBranch: (branch: any, autoOpenItemId?: string | null) => void;
 }
 
 // Preset vibrant banner gradients for appetizing restaurant cards
@@ -150,6 +150,28 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     if (!currentBanner?.linkUrl) return;
     const url = currentBanner.linkUrl.trim();
     if (!url) return;
+
+    // فحص ما إذا كان الرابط يوجه داخلياً لفرع معين أو لصنف/عرض مباشر
+    if (url.includes('branch=') || url.includes('/r/') || url.startsWith('?') || url.includes('offer=') || url.includes('item=')) {
+      try {
+        const queryPart = url.includes('?') ? url.split('?')[1] : url;
+        const params = new URLSearchParams(queryPart);
+        const branchParam = params.get('branch') || params.get('r');
+        const itemParam = params.get('item') || params.get('offer');
+
+        if (branchParam) {
+          const normalized = branchParam.trim().toLowerCase();
+          const target = branches.find(
+            (b) => b.id === branchParam || (b.slug && b.slug.toLowerCase() === normalized)
+          );
+          if (target) {
+            onSelectBranch(target, itemParam);
+            return;
+          }
+        }
+      } catch (_e) {}
+    }
+
     if (url.startsWith('http://') || url.startsWith('https://')) {
       window.open(url, '_blank', 'noopener,noreferrer');
     } else if (url.startsWith('/')) {

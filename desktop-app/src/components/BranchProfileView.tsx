@@ -23,7 +23,9 @@ import {
   Trash2,
   Settings2,
   Clock,
-  Calendar
+  Calendar,
+  Link2,
+  Copy
 } from 'lucide-react';
 import { api, getFullImageUrl } from '../services/api';
 import { 
@@ -56,6 +58,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsSuccess, setDetailsSuccess] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [copiedBranchLink, setCopiedBranchLink] = useState(false);
 
   // Delivery Zones Management
   const [deliveryZones, setDeliveryZones] = useState<any[]>(branch?.deliveryZones || []);
@@ -329,13 +332,40 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
           </div>
         </div>
 
-        <div className="bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200 text-xs text-slate-600">
-          <span className="text-[11px] text-slate-400 block font-bold">حالة استقبال الطلبات:</span>
-          <span className="font-black text-slate-900">
-            {branch?.operationalStatus === 'OPEN' && '🟢 مفتوح للطلب'}
-            {branch?.operationalStatus === 'BUSY' && '🟡 مغلق مؤقتاً'}
-            {branch?.operationalStatus === 'CLOSED' && '🔴 مغلق حالياً'}
-          </span>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-200 text-xs text-slate-600">
+            <span className="text-[10px] text-slate-400 block font-bold">حالة الاستقبال:</span>
+            <span className="font-black text-slate-900 text-xs">
+              {branch?.operationalStatus === 'OPEN' && '🟢 مفتوح'}
+              {branch?.operationalStatus === 'BUSY' && '🟡 مغلق مؤقتاً'}
+              {branch?.operationalStatus === 'CLOSED' && '🔴 مغلق'}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const identifier = branch?.slug || branch?.id || '';
+              const url = `https://collage-project-5zby.onrender.com/?branch=${encodeURIComponent(identifier)}`;
+              navigator.clipboard.writeText(url);
+              setCopiedBranchLink(true);
+              setTimeout(() => setCopiedBranchLink(false), 2500);
+            }}
+            className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+            title="نسخ رابط المطعم المباشر للمشاركة"
+          >
+            {copiedBranchLink ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-700">تم نسخ الرابط!</span>
+              </>
+            ) : (
+              <>
+                <Link2 className="w-4 h-4 text-indigo-600" />
+                <span>نسخ رابط المطعم 🔗</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 

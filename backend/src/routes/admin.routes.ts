@@ -108,6 +108,7 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
       deliveryFee,
       allowDelivery,
       allowPickup,
+      slug,
       username,
       password,
     } = req.body;
@@ -115,6 +116,18 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
     if (!name) {
       res.status(400).json({ error: "اسم الفرع مطلوب" });
       return;
+    }
+
+    let formattedSlug: string | null = null;
+    if (slug && typeof slug === 'string' && slug.trim()) {
+      formattedSlug = slug.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
+      const existingSlug = await prisma.branch.findFirst({
+        where: { slug: formattedSlug },
+      });
+      if (existingSlug) {
+        res.status(400).json({ error: "معرف الرابط المباشر (Slug) مستخدم بالفعل لفرع آخر، يرجى اختيار اسم آخر" });
+        return;
+      }
     }
 
     // إذا تم تمرير اسم مستخدم، نتحقق من عدم تكراره
@@ -131,6 +144,7 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
     const branch = await prisma.branch.create({
       data: {
         name: name.trim(),
+        slug: formattedSlug,
         phone: phone ? phone.trim() : null,
         logoUrl: logoUrl || null,
         address: address ? address.trim() : null,
@@ -207,12 +221,29 @@ router.put("/branches/:id/status", async (req: AuthRequest, res: Response) => {
 router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { name, phone, address, deliveryFee, allowDelivery, allowPickup, logoUrl } = req.body;
+    const { name, phone, address, deliveryFee, allowDelivery, allowPickup, logoUrl, slug } = req.body;
+
+    let formattedSlug: string | null | undefined = undefined;
+    if (slug !== undefined) {
+      if (slug && typeof slug === 'string' && slug.trim()) {
+        formattedSlug = slug.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
+        const existingSlug = await prisma.branch.findFirst({
+          where: { slug: formattedSlug, id: { not: id } },
+        });
+        if (existingSlug) {
+          res.status(400).json({ error: "معرف الرابط المباشر (Slug) مستخدم بالفعل لفرع آخر، اختر اسماً آخر" });
+          return;
+        }
+      } else {
+        formattedSlug = null;
+      }
+    }
 
     const updated = await prisma.branch.update({
       where: { id },
       data: {
         name: name ? name.trim() : undefined,
+        slug: formattedSlug !== undefined ? formattedSlug : undefined,
         phone: phone !== undefined ? (phone ? phone.trim() : null) : undefined,
         address: address !== undefined ? (address ? address.trim() : null) : undefined,
         logoUrl: logoUrl !== undefined ? (logoUrl ? logoUrl.trim() : null) : undefined,

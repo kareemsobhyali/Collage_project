@@ -37,7 +37,9 @@ import {
   Tag,
   Timer,
   ChefHat,
-  Truck
+  Truck,
+  Share2,
+  Link as LinkIcon
 } from 'lucide-react';
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { Logo } from './Logo';
@@ -133,6 +135,7 @@ export const AdminPage: React.FC = () => {
 
   // Add Branch Form
   const [newName, setNewName] = useState('');
+  const [newSlug, setNewSlug] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newLogoUrl, setNewLogoUrl] = useState('');
@@ -143,6 +146,7 @@ export const AdminPage: React.FC = () => {
 
   // Edit Branch Form
   const [editName, setEditName] = useState('');
+  const [editSlug, setEditSlug] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editLogoUrl, setEditLogoUrl] = useState('');
@@ -515,6 +519,7 @@ export const AdminPage: React.FC = () => {
         headers: getAdminHeaders(),
         body: JSON.stringify({
           name: newName.trim(),
+          slug: newSlug.trim() || undefined,
           phone: newPhone.trim() || undefined,
           logoUrl: newLogoUrl.trim() || undefined,
           address: newAddress.trim() || undefined,
@@ -527,6 +532,7 @@ export const AdminPage: React.FC = () => {
       if (!res.ok) throw new Error(data.error || 'فشل إضافة الفرع');
 
       setNewName('');
+      setNewSlug('');
       setNewPhone('');
       setNewAddress('');
       setNewLogoUrl('');
@@ -542,6 +548,7 @@ export const AdminPage: React.FC = () => {
   const handleOpenEditBranch = (branch: any) => {
     setEditingBranch(branch);
     setEditName(branch.name || '');
+    setEditSlug(branch.slug || '');
     setEditPhone(branch.phone || '');
     setEditAddress(branch.address || '');
     setEditLogoUrl(branch.logoUrl || '');
@@ -560,6 +567,7 @@ export const AdminPage: React.FC = () => {
         headers: getAdminHeaders(),
         body: JSON.stringify({
           name: editName.trim(),
+          slug: editSlug.trim() || null,
           phone: editPhone.trim() || null,
           address: editAddress.trim() || null,
           logoUrl: editLogoUrl.trim() || null,
@@ -568,7 +576,8 @@ export const AdminPage: React.FC = () => {
           allowPickup: editAllowPickup,
         }),
       });
-      if (!res.ok) throw new Error('فشل تحديث بيانات الفرع');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل تحديث بيانات الفرع');
       setEditingBranch(null);
       fetchDashboardData();
     } catch (err: any) {
@@ -1004,6 +1013,11 @@ export const AdminPage: React.FC = () => {
                                 معطل
                               </span>
                             )}
+                            {branch.slug && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-purple-950/80 text-purple-300 border border-purple-800" dir="ltr">
+                                ?branch={branch.slug}
+                              </span>
+                            )}
                           </div>
                         <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
                           {branch.address && (
@@ -1101,6 +1115,20 @@ export const AdminPage: React.FC = () => {
                         >
                           <Key className="w-3.5 h-3.5 text-purple-400" />
                           <span>دخول الديسكتوب</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                            const link = `${origin}/?branch=${branch.slug || branch.id}`;
+                            navigator.clipboard.writeText(link);
+                            alert(`تم نسخ رابط الطلب المباشر لمطعم (${branch.name}) بنجاح:\n${link}`);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-purple-950/70 hover:bg-purple-900/80 text-purple-300 border border-purple-800/80 rounded-lg text-xs font-bold transition-colors"
+                          title="نسخ الرابط المباشر للمطعم لمشاركته على السوشيال ميديا أو وضعه في بانر"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>رابط مباشر</span>
                         </button>
                       </div>
 
@@ -1744,6 +1772,24 @@ export const AdminPage: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  معرف الرابط المباشر للمطعم (Slug / Endpoint)
+                </label>
+                <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-purple-500">
+                  <span className="text-xs font-mono text-purple-400 select-none" dir="ltr">?branch=</span>
+                  <input
+                    type="text"
+                    value={newSlug}
+                    onChange={e => setNewSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, ''))}
+                    placeholder="مثال: shawarma-elreem"
+                    className="w-full bg-transparent text-xs text-white focus:outline-none font-mono"
+                    dir="ltr"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">يسمح بمشاركة رابط مباشر للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">موقع المبنى بالجامعة</label>
@@ -1875,6 +1921,24 @@ export const AdminPage: React.FC = () => {
                   onChange={e => setEditName(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  معرف الرابط المباشر للمطعم (Slug / Endpoint)
+                </label>
+                <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-purple-500">
+                  <span className="text-xs font-mono text-purple-400 select-none" dir="ltr">?branch=</span>
+                  <input
+                    type="text"
+                    value={editSlug}
+                    onChange={e => setEditSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, ''))}
+                    placeholder="مثال: shawarma-elreem"
+                    className="w-full bg-transparent text-xs text-white focus:outline-none font-mono"
+                    dir="ltr"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">يسمح بمشاركة رابط مباشر للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -2314,14 +2378,33 @@ export const AdminPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">رابط أو مطعم محدد (اختياري)</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">رابط التوجيه أو المطعم (اختياري)</label>
                   <input
                     type="text"
                     value={newBannerLink}
                     onChange={e => setNewBannerLink(e.target.value)}
-                    placeholder="رابط صفحة أو مطعم"
+                    placeholder="مثال: ?branch=shawarma&item=item_id"
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                    dir="ltr"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    يمكنك وضع رابط مباشر لمطعم أو صنف محدد ليفتح شاشة الطلب مباشرة عند النقر!
+                  </p>
+                  {branches.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                      <span className="text-[10px] text-slate-400 ml-1">ربط سريع بمطعم:</span>
+                      {branches.slice(0, 5).map(b => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setNewBannerLink(`?branch=${b.slug || b.id}`)}
+                          className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-purple-900/50 text-purple-300 border border-slate-700 transition-colors"
+                        >
+                          {b.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2425,14 +2508,33 @@ export const AdminPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">رابط أو مطعم محدد (اختياري)</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">رابط التوجيه أو المطعم (اختياري)</label>
                   <input
                     type="text"
                     value={editBannerLink}
                     onChange={e => setEditBannerLink(e.target.value)}
-                    placeholder="رابط صفحة أو مطعم"
+                    placeholder="مثال: ?branch=shawarma&item=item_id"
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                    dir="ltr"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    يمكنك وضع رابط مباشر لمطعم أو صنف محدد ليفتح شاشة الطلب مباشرة عند النقر!
+                  </p>
+                  {branches.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                      <span className="text-[10px] text-slate-400 ml-1">ربط سريع بمطعم:</span>
+                      {branches.slice(0, 5).map(b => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setEditBannerLink(`?branch=${b.slug || b.id}`)}
+                          className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-purple-900/50 text-purple-300 border border-slate-700 transition-colors"
+                        >
+                          {b.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

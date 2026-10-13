@@ -25,6 +25,7 @@ model User {
 
 model Branch {
   id                String                @id @default(uuid())
+  slug              String?               @unique // معرف الرابط المباشر للمطعم (مثال: kfc-campus)
   name              String
   phone             String?
   logoUrl           String?

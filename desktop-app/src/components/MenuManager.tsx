@@ -9,7 +9,8 @@ import {
   ToggleRight, 
   Layers, 
   FolderPlus,
-  X
+  X,
+  Link2
 } from 'lucide-react';
 import { api, getFullImageUrl } from '../services/api';
 
@@ -17,10 +18,12 @@ interface MenuManagerProps {
   categories: any[];
   modifierGroups: any[];
   onRefresh: () => void;
+  branch?: any;
 }
 
-export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGroups, onRefresh }) => {
+export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGroups, onRefresh, branch }) => {
   const [activeCategoryId, setActiveCategoryId] = useState<string>('ALL');
+  const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
   
   // Category Form Modal
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -197,6 +200,18 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     } catch (err: any) {
       alert(err.message || 'فشل حذف الصنف');
     }
+  };
+
+  // نسخ رابط الصنف المباشر
+  const handleCopyItemLink = (item: any) => {
+    const branchIdentifier = branch?.slug || branch?.id || '';
+    const baseUrl = typeof window !== 'undefined' && window.location.origin.includes('onrender.com')
+      ? window.location.origin
+      : 'https://collage-project-5zby.onrender.com';
+    const link = `${baseUrl}/?branch=${encodeURIComponent(branchIdentifier)}&item=${encodeURIComponent(item.id)}`;
+    navigator.clipboard.writeText(link);
+    setCopiedItemId(item.id);
+    setTimeout(() => setCopiedItemId(null), 2500);
   };
 
   // تصفية الأصناف حسب القسم المختار
@@ -380,6 +395,22 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                         </button>
 
                         <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyItemLink(item)}
+                            className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                              copiedItemId === item.id
+                                ? 'text-emerald-600 bg-emerald-50'
+                                : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
+                            }`}
+                            title="نسخ رابط العرض / الصنف المباشر"
+                          >
+                            {copiedItemId === item.id ? (
+                              <Check className="w-4 h-4 text-emerald-600" />
+                            ) : (
+                              <Link2 className="w-4 h-4" />
+                            )}
+                          </button>
                           <button
                             onClick={() => handleOpenEditItem(item)}
                             className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
