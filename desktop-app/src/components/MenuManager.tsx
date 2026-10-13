@@ -36,6 +36,9 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   const [itemImageUrl, setItemImageUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [itemSizes, setItemSizes] = useState<{ name: string; price: string }[]>([]);
+  const [itemCombos, setItemCombos] = useState<
+    { id: string; title: string; description: string; price: string; badge: string }[]
+  >([]);
   const [selectedModifierGroupIds, setSelectedModifierGroupIds] = useState<string[]>([]);
 
   // فتح نافذة إضافة صنف
@@ -47,6 +50,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     setItemBasePrice('');
     setItemImageUrl('');
     setItemSizes([]);
+    setItemCombos([]);
     setSelectedModifierGroupIds([]);
     setShowItemModal(true);
   };
@@ -60,6 +64,26 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     setItemBasePrice(item.basePrice.toString());
     setItemImageUrl(item.imageUrl || '');
     setItemSizes(item.sizes ? item.sizes.map((s: any) => ({ name: s.name, price: s.price.toString() })) : []);
+
+    let parsedCombos: any[] = [];
+    if (item.comboItems) {
+      try {
+        const raw = typeof item.comboItems === 'string' ? JSON.parse(item.comboItems) : item.comboItems;
+        if (Array.isArray(raw)) {
+          parsedCombos = raw.map((c: any, idx: number) => ({
+            id: c.id || `combo-${idx}`,
+            title: c.title || '',
+            description: c.description || '',
+            price: c.price !== undefined ? String(c.price) : '',
+            badge: c.badge || '',
+          }));
+        }
+      } catch (_e) {
+        parsedCombos = [];
+      }
+    }
+    setItemCombos(parsedCombos);
+
     const linkedIds = item.modifierGroupLinks ? item.modifierGroupLinks.map((link: any) => link.groupId) : [];
     setSelectedModifierGroupIds(linkedIds);
     setShowItemModal(true);
@@ -115,12 +139,23 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     }
 
     try {
+      const validCombos = itemCombos
+        .filter(c => c.title.trim() && c.price !== '')
+        .map((c, idx) => ({
+          id: c.id || `combo-${Date.now()}-${idx}`,
+          title: c.title.trim(),
+          description: c.description.trim(),
+          price: parseFloat(c.price) || 0,
+          badge: c.badge.trim(),
+        }));
+
       const payload: any = {
         categoryId: itemCategoryId,
         name: itemName.trim(),
         description: itemDescription.trim() || undefined,
         basePrice: parseFloat(itemBasePrice),
         imageUrl: itemImageUrl || undefined,
+        comboItems: validCombos.length > 0 ? JSON.stringify(validCombos) : null,
         sizes: itemSizes.filter(s => s.name.trim() && s.price).map(s => ({
           name: s.name.trim(),
           price: parseFloat(s.price),
@@ -548,6 +583,128 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                     </button>
                   </div>
                 ))}
+              </div>
+
+              {/* Combo / Upsell Offers Section */}
+              <div className="border border-amber-200 p-3 rounded-xl bg-amber-50/40">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 block">
+                      🍟 عروض الكومبو والمكملات المقترحة عند طلب الصنف (اختياري)
+                    </label>
+                    <span className="text-[11px] text-slate-500">
+                      تحكم في العروض التي تظهر للطالب داخل نافذة طلب هذا الصنف (إذا تركتها فارغة لن يظهر أي عرض)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setItemCombos([
+                          ...itemCombos,
+                          {
+                            id: `combo-${Date.now()}`,
+                            title: '🍟 + 🥤 عرض كومبو التوفير الجامعي',
+                            description: 'أضف بطاطس مقلية ذهبية وكانز بيبسي مثلج مع وجبتك',
+                            price: '25',
+                            badge: 'توفير 20%',
+                          },
+                        ])
+                      }
+                      className="text-[11px] bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1 rounded-lg font-bold transition-colors"
+                    >
+                      ⚡ قالب كومبو سريع
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setItemCombos([
+                          ...itemCombos,
+                          {
+                            id: `combo-${Date.now()}`,
+                            title: '',
+                            description: '',
+                            price: '',
+                            badge: '',
+                          },
+                        ])
+                      }
+                      className="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-bold transition-colors"
+                    >
+                      + إضافة عرض جديد
+                    </button>
+                  </div>
+                </div>
+
+                {itemCombos.length === 0 ? (
+                  <p className="text-[11px] text-slate-400">
+                    لا توجد عروض مضافة لهذا الصنف حالياً. اضغط "+ إضافة عرض جديد" لإظهار عرض خاص للعميل عند اختيار الصنف.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5 mt-2">
+                    {itemCombos.map((combo, cIdx) => (
+                      <div
+                        key={combo.id || cIdx}
+                        className="p-2.5 bg-white border border-amber-200 rounded-xl space-y-2 shadow-sm"
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="اسم العرض (مثال: 🍟 + 🥤 عرض كومبو بطاطس وكانز)"
+                            value={combo.title}
+                            onChange={e => {
+                              const copy = [...itemCombos];
+                              copy[cIdx].title = e.target.value;
+                              setItemCombos(copy);
+                            }}
+                            className="flex-1 px-2.5 py-1.5 border rounded-lg text-xs font-bold"
+                          />
+                          <input
+                            type="number"
+                            placeholder="السعر (+ج.م)"
+                            value={combo.price}
+                            onChange={e => {
+                              const copy = [...itemCombos];
+                              copy[cIdx].price = e.target.value;
+                              setItemCombos(copy);
+                            }}
+                            className="w-24 px-2.5 py-1.5 border rounded-lg text-xs font-bold text-amber-800"
+                          />
+                          <input
+                            type="text"
+                            placeholder="شارة (مثال: توفير 20%)"
+                            value={combo.badge}
+                            onChange={e => {
+                              const copy = [...itemCombos];
+                              copy[cIdx].badge = e.target.value;
+                              setItemCombos(copy);
+                            }}
+                            className="w-28 px-2.5 py-1.5 border rounded-lg text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setItemCombos(itemCombos.filter((_, i) => i !== cIdx))}
+                            className="text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg"
+                            title="حذف هذا العرض"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="وصف العرض للعميل (مثال: أضف بطاطس مقلية ذهبية وكانز بيبسي مثلج مع وجبتك)"
+                          value={combo.description}
+                          onChange={e => {
+                            const copy = [...itemCombos];
+                            copy[cIdx].description = e.target.value;
+                            setItemCombos(copy);
+                          }}
+                          className="w-full px-2.5 py-1.5 border rounded-lg text-xs text-slate-600"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Linking Modifier Groups directly to the Item */}

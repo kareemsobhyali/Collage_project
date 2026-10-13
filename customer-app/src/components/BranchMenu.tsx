@@ -359,7 +359,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     <div className="space-y-5 pb-36 w-full max-w-full overflow-x-hidden">
       {/* Top Navigation & Branch Info */}
       <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3.5">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
           <button
             onClick={onBack}
             className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
@@ -387,37 +387,48 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {branch.logoUrl ? (
-              <img
-                src={getFullImageUrl(branch.logoUrl)}
-                alt={branch.name}
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-slate-100 shrink-0"
-              />
-            ) : (
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-                <Store className="w-6 h-6" />
-              </div>
-            )}
-            <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-black text-slate-900 truncate">{branch.name}</h2>
-              <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+        <div className="flex items-start gap-3.5">
+          {branch.logoUrl ? (
+            <img
+              src={getFullImageUrl(branch.logoUrl)}
+              alt={branch.name}
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-200 shadow-sm shrink-0 bg-slate-50"
+            />
+          ) : (
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+              <Store className="w-7 h-7" />
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0 space-y-2">
+            <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+              {branch.name}
+            </h2>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+              <span className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-xl font-bold text-[11px] text-slate-700">
                 <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span className="truncate">{branch.address || 'داخل الحرم الجامعي'}</span>
-              </div>
+                <span>{branch.address || 'داخل الحرم الجامعي'}</span>
+              </span>
+
+              {branch.phone && (
+                <a
+                  href={`tel:${branch.phone}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 text-[11px] font-mono font-bold transition-colors"
+                >
+                  <Phone className="w-3 h-3 shrink-0" />
+                  <span>{branch.phone}</span>
+                </a>
+              )}
+
+              {(branch.openingTime || branch.closingTime) && (
+                <span className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-xl font-bold text-[11px] text-slate-600">
+                  <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
+                  <span>{branch.openingTime || '08:00'} - {branch.closingTime || '22:00'}</span>
+                </span>
+              )}
             </div>
           </div>
-
-          {branch.phone && (
-            <a
-              href={`tel:${branch.phone}`}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-indigo-50 text-indigo-600 border border-slate-200 text-[11px] font-mono font-bold shrink-0"
-            >
-              <Phone className="w-3 h-3" />
-              <span>{branch.phone}</span>
-            </a>
-          )}
         </div>
 
         {/* Categories selector pills (Only non-empty categories) */}

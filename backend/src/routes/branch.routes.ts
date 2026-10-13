@@ -416,6 +416,7 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
       description,
       basePrice,
       imageUrl,
+      comboItems,
       sizes, // [{ name: "كبير", price: 50 }]
       modifierGroupIds, // ["group-uuid-1", "group-uuid-2"]
     } = req.body;
@@ -425,6 +426,13 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    const serializedCombos =
+      comboItems !== undefined
+        ? typeof comboItems === "string"
+          ? comboItems
+          : JSON.stringify(comboItems)
+        : null;
+
     const item = await prisma.menuItem.create({
       data: {
         branchId,
@@ -433,6 +441,7 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
         description: description ? description.trim() : null,
         basePrice: parseFloat(basePrice),
         imageUrl: imageUrl || null,
+        comboItems: serializedCombos,
         isAvailable: true,
         sizes: sizes && Array.isArray(sizes) && sizes.length > 0 ? {
           create: sizes.map((s: any) => ({
@@ -470,7 +479,7 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const branchId = req.branch!.branchId;
-    const { categoryId, name, description, basePrice, imageUrl, isAvailable } = req.body;
+    const { categoryId, name, description, basePrice, imageUrl, isAvailable, comboItems, sizes } = req.body;
 
     const existing = await prisma.menuItem.findFirst({
       where: { id, branchId },
@@ -478,6 +487,28 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
     if (!existing) {
       res.status(404).json({ error: "الصنف غير موجود أو لا يتبع هذا الفرع" });
       return;
+    }
+
+    const serializedCombos =
+      comboItems !== undefined
+        ? comboItems === null
+          ? null
+          : typeof comboItems === "string"
+          ? comboItems
+          : JSON.stringify(comboItems)
+        : undefined;
+
+    if (sizes && Array.isArray(sizes)) {
+      await prisma.itemSize.deleteMany({ where: { itemId: id } });
+      if (sizes.length > 0) {
+        await prisma.itemSize.createMany({
+          data: sizes.map((s: any) => ({
+            itemId: id,
+            name: s.name.trim(),
+            price: parseFloat(s.price),
+          })),
+        });
+      }
     }
 
     const item = await prisma.menuItem.update({
@@ -488,6 +519,7 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
         description: description !== undefined ? description : undefined,
         basePrice: basePrice !== undefined ? parseFloat(basePrice) : undefined,
         imageUrl: imageUrl !== undefined ? imageUrl : undefined,
+        comboItems: serializedCombos,
         isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : undefined,
       },
       include: {
