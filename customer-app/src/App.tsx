@@ -213,6 +213,44 @@ export function App() {
     }
   };
 
+  useEffect(() => {
+    loadBranches();
+    registerServiceWorker();
+
+    const socketHost = API_BASE_URL.replace('/api', '');
+    const socket = io(socketHost);
+
+    socket.on('branch_status_updated', (data: any) => {
+      setBranches(prev => prev.map(b => {
+        if (b.id === data.branchId) {
+          return {
+            ...b,
+            operationalStatus: data.operationalStatus,
+            closedUntil: data.closedUntil,
+            closingReason: data.closingReason,
+          };
+        }
+        return b;
+      }));
+
+      setSelectedBranch((prev: any) => {
+        if (prev && prev.id === data.branchId) {
+          return {
+            ...prev,
+            operationalStatus: data.operationalStatus,
+            closedUntil: data.closedUntil,
+            closingReason: data.closingReason,
+          };
+        }
+        return prev;
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('customer_token');
     localStorage.removeItem('customer_user');
