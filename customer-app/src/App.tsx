@@ -29,8 +29,10 @@ import { AdminPage } from './components/AdminPage';
 import { DriverPortal } from './components/DriverPortal';
 import { GroupCartModal } from './components/GroupCartModal';
 import { Logo } from './components/Logo';
+import { SplashScreen } from './components/SplashScreen';
 
 export function App() {
+  const [showSplash, setShowSplash] = useState(true);
   const isAdminRoute = typeof window !== 'undefined' && (
     window.location.pathname.startsWith('/admin') ||
     window.location.search.includes('admin') ||
@@ -559,6 +561,14 @@ export function App() {
             setShowAuthModal(false);
             setPendingOpenGroupCart(false);
           }}
+        />
+      )}
+
+      {/* Modern Splash Screen Animation */}
+      {showSplash && (
+        <SplashScreen
+          isReady={!loading || branches.length > 0}
+          onFinish={() => setShowSplash(false)}
         />
       )}
     </div>
