@@ -367,21 +367,33 @@ export const printOrderReceipt = async (order: any, branchName: string): Promise
         } catch (e) {
           console.warn('Iframe print call error:', e);
         }
-        setTimeout(() => {
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-          }
-          resolve(true);
-        }, 2000);
       };
 
       if (iframe.contentWindow) {
+        iframe.contentWindow.onafterprint = () => {
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+          }, 300);
+          resolve(true);
+        };
+
         iframe.contentWindow.onload = () => {
-          setTimeout(triggerPrint, 100);
+          setTimeout(triggerPrint, 150);
         };
       }
+
       // مهلة احتياطية في حال لم يُطلق المتصفح onload
-      setTimeout(triggerPrint, 400);
+      setTimeout(triggerPrint, 450);
+
+      // مهلة أمان قصوى لتنظيف الـ DOM وحل الـ Promise
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+        resolve(true);
+      }, 10000);
     } catch (e) {
       console.error('Print receipt error:', e);
       resolve(false);

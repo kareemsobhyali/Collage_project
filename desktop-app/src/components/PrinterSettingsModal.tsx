@@ -281,93 +281,112 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({ bran
               <label className="text-sm font-black text-slate-800">إعدادات الطباعة التلقائية والصامتة</label>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Auto print on new order */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
-                <div className="pr-1">
+            {/* 3 Toggle Cards in a clean responsive grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {/* Auto print on accept */}
+              <div 
+                onClick={() => handleToggleAutoPrintAccept(!autoPrintAccept)}
+                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
+                  autoPrintAccept ? 'border-emerald-500 bg-emerald-50/40 shadow-xs' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 font-black text-xs text-slate-800">
-                    <Zap className="w-4 h-4 text-amber-500" />
-                    <span>طباعة فورية عند وصول الطلب</span>
+                    <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>عند قبول الطلب</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">يطبع البون في المطبخ لحظة طلب الطالب مباشرة</p>
+                  <input
+                    type="checkbox"
+                    checked={autoPrintAccept}
+                    onChange={e => handleToggleAutoPrintAccept(e.target.checked)}
+                    className="w-4 h-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+                    onClick={e => e.stopPropagation()}
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  checked={autoPrintNewOrder}
-                  onChange={e => handleToggleAutoPrintNewOrder(e.target.checked)}
-                  className="w-5 h-5 accent-indigo-600 rounded cursor-pointer shrink-0 mr-2"
-                />
+                <p className="text-[11px] text-slate-500 leading-relaxed">يطبع فور الضغط على تأكيد القبول وتحديد الدقائق (موصى به ⭐)</p>
               </div>
 
-              {/* Auto print on accept */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
-                <div className="pr-1">
+              {/* Auto print on new order */}
+              <div 
+                onClick={() => handleToggleAutoPrintNewOrder(!autoPrintNewOrder)}
+                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
+                  autoPrintNewOrder ? 'border-indigo-500 bg-indigo-50/40 shadow-xs' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 font-black text-xs text-slate-800">
-                    <FileText className="w-4 h-4 text-indigo-500" />
-                    <span>طباعة عند قبول الطلب</span>
+                    <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>عند وصول الطلب</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">يطبع البون عند ضغط "قبول" وتحديد دقائق التجهيز</p>
+                  <input
+                    type="checkbox"
+                    checked={autoPrintNewOrder}
+                    onChange={e => handleToggleAutoPrintNewOrder(e.target.checked)}
+                    className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0"
+                    onClick={e => e.stopPropagation()}
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  checked={autoPrintAccept}
-                  onChange={e => handleToggleAutoPrintAccept(e.target.checked)}
-                  className="w-5 h-5 accent-indigo-600 rounded cursor-pointer shrink-0 mr-2"
-                />
+                <p className="text-[11px] text-slate-500 leading-relaxed">يطبع لحظة طلب الطالب مباشرة قبل مراجعة الكاشير</p>
               </div>
 
               {/* Silent Printing Mode */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
-                <div className="pr-1">
+              <div 
+                onClick={() => handleToggleSilentPrint(!silentPrint)}
+                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-2.5 sm:col-span-2 md:col-span-1 ${
+                  silentPrint ? 'border-indigo-500 bg-indigo-50/40 shadow-xs' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 font-black text-xs text-slate-800">
-                    <VolumeX className="w-4 h-4 text-emerald-600" />
-                    <span>الطباعة الصامتة المباشرة</span>
+                    <VolumeX className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span>الطباعة الصامتة</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">بدون إظهار نافذة اختيار الطابعة نهائياً</p>
+                  <input
+                    type="checkbox"
+                    checked={silentPrint}
+                    onChange={e => handleToggleSilentPrint(e.target.checked)}
+                    className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0"
+                    onClick={e => e.stopPropagation()}
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  checked={silentPrint}
-                  onChange={e => handleToggleSilentPrint(e.target.checked)}
-                  className="w-5 h-5 accent-emerald-600 rounded cursor-pointer shrink-0 mr-2"
-                />
+                <p className="text-[11px] text-slate-500 leading-relaxed">إرسال البون فوراً إلى الطابعة دون أي شاشات وسيطة</p>
               </div>
+            </div>
 
-              {/* Receipt Paper Width */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
-                <div className="pr-1">
-                  <span className="font-black text-xs text-slate-800 block">عرض ورق الطابعة ومحيط الأمان</span>
-                  <span className="text-[11px] text-slate-500">حجم ورق البون (يمنع قص الأرقام من جهة اليسار)</span>
-                </div>
-                <div className="flex bg-white rounded-xl p-1 border border-slate-200 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPaperWidth('80mm')}
-                    className={`px-2.5 py-1 text-xs font-black rounded-lg transition-all ${
-                      paperWidth === '80mm' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    80 مم (آمن ضد القص) ⭐
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPaperWidth('58mm')}
-                    className={`px-2.5 py-1 text-xs font-black rounded-lg transition-all ${
-                      paperWidth === '58mm' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    58 مم (رول صغير)
-                  </button>
-                </div>
+            {/* Receipt Paper Width Card - Full Width Responsive Layout */}
+            <div className="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0 pr-1">
+                <span className="font-black text-xs text-slate-800 block">عرض ورق الطابعة الحرارية ومحيط الأمان</span>
+                <p className="text-[11px] text-slate-500 mt-0.5">اختر حجم رول الورق المستخدم لمنع قص الأسعار والأرقام من جهة اليسار</p>
+              </div>
+              <div className="flex bg-white rounded-xl p-1 border border-slate-200 shrink-0 self-start sm:self-auto shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => handleSelectPaperWidth('80mm')}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all ${
+                    paperWidth === '80mm' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  80 مم (الرول العريض) ⭐
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPaperWidth('58mm')}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all ${
+                    paperWidth === '58mm' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  58 مم (رول صغير)
+                </button>
               </div>
             </div>
           </div>
 
           {/* 3. Test Printing & Status Banner */}
-          <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-right">
+          <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-right min-w-0">
               <span className="text-xs font-black text-indigo-950 block">تجربة الطابعة وتأكيد الإعدادات</span>
-              <span className="text-[11px] text-indigo-700">
+              <span className="text-[11px] text-indigo-700 block truncate mt-0.5">
                 الطابعة الحالية المعتمدة: <strong>{selectedPrinter || 'طابعة النظام الافتراضية'}</strong>
               </span>
             </div>
@@ -375,9 +394,9 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({ bran
               type="button"
               onClick={handlePrintTest}
               disabled={printingTest}
-              className="w-full sm:w-auto px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap shrink-0 self-stretch sm:self-auto"
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-4 h-4 shrink-0" />
               <span>{printingTest ? 'جاري إرسال البون...' : 'طباعة بون تجريبي فوري 🧾'}</span>
             </button>
           </div>
