@@ -52,6 +52,7 @@ import {
 
 
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
+import { isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
 import { Logo } from './Logo';
 
 export const AdminPage: React.FC = () => {
@@ -2761,6 +2762,62 @@ export const AdminPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Card: Android Admin App (APK) */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <span>تطبيق لوحة التحكم للأندرويد (Admin Android APK)</span>
+                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-md border border-emerald-500/30">
+                        متاح الآن 📲
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      تطبيق أندرويد مستقل ومباشر للوحة الإدارة لمتابعة الطلبات، إدارة الفروع، وتلقي الإشعارات الفورية
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
+                  }}
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 shrink-0"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span>تحميل وتثبيت التطبيق (APK)</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-slate-200 block">🚀 تشغيل سريع وتلقائي</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    يفتح شاشة الإدارة المركزية فوراً بدون الحاجة لكتابة روابط أو البحث في المتصفح.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-slate-200 block">📦 حزمة مخصصة (com.unifood.admin)</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    يعمل بجانب تطبيق الطلاب وتطبيق الطيارين على نفس الهاتف بدون أي تعارض.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-slate-200 block">🔔 دعم التنبيهات والإشعارات</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    استقبال إشعارات فورية بالطلبات الجديدة والتنبيهات الحساسة للمطاعم على الهاتف.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Card 3: Factory Reset to Zero State (حالة الصفر) */}
             <div className="bg-rose-950/20 border border-rose-900/50 rounded-3xl p-6 shadow-xl space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rose-900/40 pb-4">
@@ -3089,6 +3146,28 @@ export const AdminPage: React.FC = () => {
                 </div>
               </button>
             </div>
+
+            {/* Quick Install Admin APK banner for mobile browser */}
+            {!isRunningInNativeApk() && (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
+                }}
+                className="w-full p-3 bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/70 border border-purple-700/60 rounded-2xl flex items-center justify-between gap-3 text-white transition-all active:scale-98 shadow-md"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-base shrink-0">
+                    📲
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-black block">تحميل تطبيق الإدارة (APK)</span>
+                    <span className="text-[10px] text-purple-300 block">تثبيت لوحة التحكم كتطبيق أندرويد مستقل</span>
+                  </div>
+                </div>
+                <span className="text-xs font-bold px-2.5 py-1 bg-purple-600 hover:bg-purple-500 rounded-xl shrink-0">تثبيت</span>
+              </button>
+            )}
 
             {/* Quick Actions Row */}
             <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">

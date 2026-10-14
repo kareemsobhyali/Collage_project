@@ -42,6 +42,7 @@ export function App() {
   const [showSplash, setShowSplash] = useState(isMobileAppExperience);
   const [branches, setBranches] = useState<any[]>([]);
   const isAdminRoute = typeof window !== 'undefined' && (
+    (window as any).AndroidBridge?.getFlavor?.() === 'admin' ||
     window.location.pathname.startsWith('/admin') ||
     window.location.search.includes('admin') ||
     window.location.hash.includes('admin')

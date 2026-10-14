@@ -4,12 +4,25 @@ let swRegistration: ServiceWorkerRegistration | null = null;
 let deferredInstallPrompt: any = null;
 
 if (typeof window !== 'undefined') {
+  const isAdminUrl =
+    (window as any).AndroidBridge?.getFlavor?.() === 'admin' ||
+    window.location.pathname.startsWith('/admin') ||
+    window.location.search.includes('admin') ||
+    window.location.hash.includes('admin');
+
   const isDriverUrl =
+    (window as any).AndroidBridge?.getFlavor?.() === 'driver' ||
     window.location.pathname.startsWith('/driver') ||
     window.location.pathname.startsWith('/delivery') ||
     window.location.search.includes('driver');
 
-  if (isDriverUrl) {
+  if (isAdminUrl) {
+    const manifestLink = document.querySelector('link[rel="manifest"]');
+    if (manifestLink) {
+      manifestLink.setAttribute('href', '/manifest-admin.json');
+    }
+    document.title = 'UniFood Admin | لوحة الإدارة المركزية';
+  } else if (isDriverUrl) {
     const manifestLink = document.querySelector('link[rel="manifest"]');
     if (manifestLink) {
       manifestLink.setAttribute('href', '/manifest-driver.json');

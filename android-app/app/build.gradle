@@ -67,6 +67,15 @@ android {
             buildConfigField "boolean", "KEEP_SCREEN_ON", "true"
             buildConfigField "int", "STATUS_BAR_COLOR", "0xFF1E1B4B"
         }
+        admin {
+            dimension "role"
+            applicationId "com.unifood.admin"
+            resValue "string", "app_name", "UniFood Admin | إدارة يونيفود"
+            buildConfigField "String", "START_URL", "\"${baseServerUrl}/admin\""
+            buildConfigField "String", "FLAVOR_TYPE", "\"admin\""
+            buildConfigField "boolean", "KEEP_SCREEN_ON", "false"
+            buildConfigField "int", "STATUS_BAR_COLOR", "0xFF0F172A"
+        }
     }
 
     compileOptions {

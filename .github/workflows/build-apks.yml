@@ -1,4 +1,4 @@
-name: Build Android APKs (Student & Driver)
+name: Build Android APKs (Student, Driver & Admin)
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-apks:
-    name: توليد نسخ APK للطلاب والطيارين
+    name: توليد نسخ APK للطلاب والطيارين والإدارة
     runs-on: ubuntu-latest
 
     steps:
@@ -60,7 +60,7 @@ jobs:
               -dname "CN=UniFood, OU=Campus, O=UniFood, L=Cairo, ST=Cairo, C=EG"
           fi
 
-      - name: Build Signed Student & Driver APKs
+      - name: Build Signed Student, Driver & Admin APKs
         working-directory: android-app
         run: |
           SERVER_URL="${{ github.event.inputs.base_url || 'https://collage-project-5zby.onrender.com' }}"
@@ -70,9 +70,11 @@ jobs:
         run: |
           STUDENT_APK=$(find android-app/app/build/outputs/apk/student/release -name "*.apk" | head -n 1)
           DRIVER_APK=$(find android-app/app/build/outputs/apk/driver/release -name "*.apk" | head -n 1)
+          ADMIN_APK=$(find android-app/app/build/outputs/apk/admin/release -name "*.apk" | head -n 1)
           cp "$STUDENT_APK" ./UniFood-Student.apk
           cp "$DRIVER_APK" ./UniFood-Driver.apk
-          ls -lh ./UniFood-Student.apk ./UniFood-Driver.apk
+          cp "$ADMIN_APK" ./UniFood-Admin.apk
+          ls -lh ./UniFood-Student.apk ./UniFood-Driver.apk ./UniFood-Admin.apk
 
       - name: Upload Student APK Artifact
         uses: actions/upload-artifact@v4
@@ -88,19 +90,28 @@ jobs:
           path: ./UniFood-Driver.apk
           if-no-files-found: error
 
+      - name: Upload Admin APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniFood-Admin-APK
+          path: ./UniFood-Admin.apk
+          if-no-files-found: error
+
       - name: Publish APKs to GitHub Releases (latest-apk)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-apk
-          name: "📲 تطبيقات UniFood للأندرويد (نسخة الطلاب + نسخة الطيارين)"
+          name: "📲 تطبيقات UniFood للأندرويد (الطلاب + الطيارين + الإدارة)"
           body: |
             ### 🎓 تطبيقات منصة يونيفود للأندرويد (تحديث تلقائي)
+            - **نسخة لوحة التحكم المركزية (`UniFood-Admin.apk`)**: تفتح لوحة تحكم الإدارة المركزية والطلبات والفروع مباشرة.
             - **نسخة الطلاب (`UniFood-Student.apk`)**: تفتح متجر الطلاب وسلة الشلة مباشرة.
             - **نسخة كابتن التوصيل (`UniFood-Driver.apk`)**: تفتح بوابة الطيارين مباشرة مع إبقاء الشاشة نشطة والتنبيه الصوتي.
-            *(يمكن تثبيت التطبيقيْن معاً على نفس الهاتف بدون أي تعارض)*
+            *(يمكن تثبيت التطبيقات الثلاثة معاً على نفس الهاتف بدون أي تعارض لأن لكل تطبيق Package Name مستقل)*
           files: |
             ./UniFood-Student.apk
             ./UniFood-Driver.apk
+            ./UniFood-Admin.apk
           prerelease: false
 
         env:
