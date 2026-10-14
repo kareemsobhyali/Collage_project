@@ -279,11 +279,11 @@ export const api = {
   },
 
   // 8.8 التحقق من كود الخصم (برومو كود)
-  async validatePromoCode(code: string, subtotal: number) {
+  async validatePromoCode(code: string, subtotal: number, branchId?: string) {
     const res = await fetch(`${API_BASE_URL}/customer/promo-codes/validate`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ code, subtotal }),
+      body: JSON.stringify({ code, subtotal, branchId }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'كوبون الخصم غير صالح');

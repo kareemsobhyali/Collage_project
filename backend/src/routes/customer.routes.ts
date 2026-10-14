@@ -24,7 +24,7 @@ router.get("/banners", async (_req: Request, res: Response) => {
 // 0.5 التحقق من صلاحية كود الخصم للطلاب (شامل عدد مرات الاستخدام وشرط المرة الواحدة)
 router.post("/promo-codes/validate", async (req: Request, res: Response) => {
   try {
-    const { code, subtotal } = req.body;
+    const { code, subtotal, branchId } = req.body;
     if (!code || !code.trim()) {
       res.status(400).json({ error: "يرجى إدخال كود الخصم" });
       return;
@@ -47,6 +47,25 @@ router.post("/promo-codes/validate", async (req: Request, res: Response) => {
     if (promo.maxUses && promo.usedCount >= promo.maxUses) {
       res.status(400).json({ error: "عذراً، تم استنفاد الحد الأقصى لعدد مرات استخدام هذا الكوبون" });
       return;
+    }
+
+    // التحقق من نطاق الفروع المسموح بها لهذا الكوبون (فروع معينة أو الكل)
+    if (promo.applicableBranchIds) {
+      try {
+        const allowedBranches: string[] = JSON.parse(promo.applicableBranchIds);
+        if (Array.isArray(allowedBranches) && allowedBranches.length > 0) {
+          if (!branchId || !allowedBranches.includes(String(branchId).trim())) {
+            res.status(400).json({ error: "كود الخصم هذا مخصص لمطاعم وفروع محددة فقط ولا ينطبق على هذا المطعم" });
+            return;
+          }
+        }
+      } catch (_e) {
+        const allowedBranches = promo.applicableBranchIds.split(',').map(s => s.trim()).filter(Boolean);
+        if (allowedBranches.length > 0 && (!branchId || !allowedBranches.includes(String(branchId).trim()))) {
+          res.status(400).json({ error: "كود الخصم هذا مخصص لمطاعم وفروع محددة فقط ولا ينطبق على هذا المطعم" });
+          return;
+        }
+      }
     }
 
     // التحقق من شرط الاستخدام لمرة واحدة لكل طالب إذا كان مسجلاً للدخول
@@ -682,13 +701,29 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         if (previousUses > 0) allowedForUser = false;
       }
 
+      let allowedForBranch = true;
+      if (promo?.applicableBranchIds) {
+        try {
+          const allowedBranches: string[] = JSON.parse(promo.applicableBranchIds);
+          if (Array.isArray(allowedBranches) && allowedBranches.length > 0) {
+            allowedForBranch = allowedBranches.includes(branchId);
+          }
+        } catch {
+          const allowedBranches = promo.applicableBranchIds.split(',').map(s => s.trim()).filter(Boolean);
+          if (allowedBranches.length > 0) {
+            allowedForBranch = allowedBranches.includes(branchId);
+          }
+        }
+      }
+
       if (
         promo &&
         promo.isActive &&
         (!promo.expiresAt || new Date() <= promo.expiresAt) &&
         subtotal >= promo.minOrder &&
         isUnderLimit &&
-        allowedForUser
+        allowedForUser &&
+        allowedForBranch
       ) {
         verifiedPromoCode = promo.code;
         verifiedPromoId = promo.id;

@@ -173,6 +173,8 @@ export const AdminPage: React.FC = () => {
   const [newPromoMinOrder, setNewPromoMinOrder] = useState('50');
   const [newPromoMaxUses, setNewPromoMaxUses] = useState('');
   const [newPromoOncePerUser, setNewPromoOncePerUser] = useState(false);
+  const [newPromoScope, setNewPromoScope] = useState<'ALL' | 'SPECIFIC'>('ALL');
+  const [newPromoBranchIds, setNewPromoBranchIds] = useState<string[]>([]);
 
   // Edit Promo Form
   const [editPromoCode, setEditPromoCode] = useState('');
@@ -182,6 +184,8 @@ export const AdminPage: React.FC = () => {
   const [editPromoMaxUses, setEditPromoMaxUses] = useState('');
   const [editPromoOncePerUser, setEditPromoOncePerUser] = useState(false);
   const [editPromoActive, setEditPromoActive] = useState(true);
+  const [editPromoScope, setEditPromoScope] = useState<'ALL' | 'SPECIFIC'>('ALL');
+  const [editPromoBranchIds, setEditPromoBranchIds] = useState<string[]>([]);
 
   // Filters & Search
   const [branchSearch, setBranchSearch] = useState('');
@@ -565,6 +569,7 @@ export const AdminPage: React.FC = () => {
         minOrder: parseFloat(newPromoMinOrder) || 0,
         maxUses: newPromoMaxUses.trim() ? parseInt(newPromoMaxUses) : null,
         oncePerUser: newPromoOncePerUser,
+        applicableBranchIds: newPromoScope === 'SPECIFIC' && newPromoBranchIds.length > 0 ? newPromoBranchIds : null,
       });
       if (res.promoCode) {
         setPromos([res.promoCode, ...promos]);
@@ -574,6 +579,8 @@ export const AdminPage: React.FC = () => {
         setNewPromoMinOrder('50');
         setNewPromoMaxUses('');
         setNewPromoOncePerUser(false);
+        setNewPromoScope('ALL');
+        setNewPromoBranchIds([]);
       }
     } catch (err: any) {
       alert(err.message || 'فشل إنشاء كود الخصم');
@@ -589,6 +596,23 @@ export const AdminPage: React.FC = () => {
     setEditPromoMaxUses(promo.maxUses ? String(promo.maxUses) : '');
     setEditPromoOncePerUser(Boolean(promo.oncePerUser));
     setEditPromoActive(promo.isActive !== false);
+
+    let parsedBranchIds: string[] = [];
+    if (promo.applicableBranchIds) {
+      try {
+        const parsed = JSON.parse(promo.applicableBranchIds);
+        if (Array.isArray(parsed)) parsedBranchIds = parsed;
+      } catch {
+        parsedBranchIds = promo.applicableBranchIds.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+    if (parsedBranchIds.length > 0) {
+      setEditPromoScope('SPECIFIC');
+      setEditPromoBranchIds(parsedBranchIds);
+    } else {
+      setEditPromoScope('ALL');
+      setEditPromoBranchIds([]);
+    }
   };
 
   const handleSaveEditPromo = async (e: React.FormEvent) => {
@@ -603,6 +627,7 @@ export const AdminPage: React.FC = () => {
         maxUses: editPromoMaxUses.trim() ? parseInt(editPromoMaxUses) : null,
         oncePerUser: editPromoOncePerUser,
         isActive: editPromoActive,
+        applicableBranchIds: editPromoScope === 'SPECIFIC' ? editPromoBranchIds : null,
       });
       if (res.promoCode) {
         setPromos(promos.map(p => p.id === editingPromo.id ? res.promoCode : p));
@@ -1965,6 +1990,34 @@ export const AdminPage: React.FC = () => {
                             <span>• حد أدنى: {p.minOrder} ج.م</span>
                           )}
                         </div>
+
+                        {(() => {
+                          let branchNames: string[] = [];
+                          if (p.applicableBranchIds) {
+                            try {
+                              const ids: string[] = typeof p.applicableBranchIds === 'string' ? JSON.parse(p.applicableBranchIds) : p.applicableBranchIds;
+                              if (Array.isArray(ids) && ids.length > 0) {
+                                branchNames = ids.map((id: string) => branches.find(b => b.id === id)?.name || id);
+                              }
+                            } catch {
+                              branchNames = String(p.applicableBranchIds).split(',').map(s => s.trim()).filter(Boolean);
+                            }
+                          }
+                          if (branchNames.length > 0) {
+                            return (
+                              <div className="flex items-center gap-1.5 text-[11px] text-purple-300 bg-purple-950/40 border border-purple-800/50 px-2 py-0.5 rounded-lg w-fit mt-1">
+                                <span>🏪</span>
+                                <span className="font-medium">مخصص لـ: {branchNames.join('، ')}</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 px-2 py-0.5 rounded-lg w-fit mt-1">
+                              <span>🌐</span>
+                              <span className="font-medium">متاح لكافة الفروع والمطاعم</span>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
@@ -3642,6 +3695,80 @@ export const AdminPage: React.FC = () => {
                 </div>
               </label>
 
+              {/* Branch Applicability Scope */}
+              <div className="p-3 bg-slate-800/80 rounded-xl space-y-2 border border-slate-700/60">
+                <label className="block text-xs font-bold text-slate-200 mb-1">
+                  نطاق صلاحية الكوبون (الفروع والمطاعم)
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewPromoScope('ALL');
+                      setNewPromoBranchIds([]);
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                      newPromoScope === 'ALL'
+                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    <span>🌐</span>
+                    <span>كافة الفروع</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewPromoScope('SPECIFIC')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                      newPromoScope === 'SPECIFIC'
+                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    <span>🏪</span>
+                    <span>فروع محددة</span>
+                  </button>
+                </div>
+
+                {newPromoScope === 'SPECIFIC' && (
+                  <div className="pt-2 border-t border-slate-700/60 mt-2 space-y-1.5">
+                    <p className="text-[11px] text-slate-400 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
+                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                      {branches.map(b => {
+                        const isChecked = newPromoBranchIds.includes(b.id);
+                        return (
+                          <label
+                            key={b.id}
+                            className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-xs transition-colors border ${
+                              isChecked
+                                ? 'bg-purple-950/50 border-purple-800 text-purple-200 font-bold'
+                                : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewPromoBranchIds(prev => [...prev, b.id]);
+                                } else {
+                                  setNewPromoBranchIds(prev => prev.filter(id => id !== b.id));
+                                }
+                              }}
+                              className="rounded text-purple-600 focus:ring-0"
+                            />
+                            <span>{b.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {newPromoBranchIds.length === 0 && (
+                      <p className="text-[10px] text-amber-400 font-bold">⚠️ يرجى تحديد فرع واحد على الأقل، أو اختيار "كافة الفروع"</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-3">
                 <button
                   type="button"
@@ -3762,6 +3889,80 @@ export const AdminPage: React.FC = () => {
                 />
                 <span className="text-xs font-bold text-slate-200">تفعيل الكوبون للطلاب</span>
               </label>
+
+              {/* Branch Applicability Scope */}
+              <div className="p-3 bg-slate-800/80 rounded-xl space-y-2 border border-slate-700/60">
+                <label className="block text-xs font-bold text-slate-200 mb-1">
+                  نطاق صلاحية الكوبون (الفروع والمطاعم)
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditPromoScope('ALL');
+                      setEditPromoBranchIds([]);
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                      editPromoScope === 'ALL'
+                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    <span>🌐</span>
+                    <span>كافة الفروع</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditPromoScope('SPECIFIC')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                      editPromoScope === 'SPECIFIC'
+                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    <span>🏪</span>
+                    <span>فروع محددة</span>
+                  </button>
+                </div>
+
+                {editPromoScope === 'SPECIFIC' && (
+                  <div className="pt-2 border-t border-slate-700/60 mt-2 space-y-1.5">
+                    <p className="text-[11px] text-slate-400 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
+                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                      {branches.map(b => {
+                        const isChecked = editPromoBranchIds.includes(b.id);
+                        return (
+                          <label
+                            key={b.id}
+                            className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-xs transition-colors border ${
+                              isChecked
+                                ? 'bg-purple-950/50 border-purple-800 text-purple-200 font-bold'
+                                : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setEditPromoBranchIds(prev => [...prev, b.id]);
+                                } else {
+                                  setEditPromoBranchIds(prev => prev.filter(id => id !== b.id));
+                                }
+                              }}
+                              className="rounded text-purple-600 focus:ring-0"
+                            />
+                            <span>{b.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {editPromoBranchIds.length === 0 && (
+                      <p className="text-[10px] text-amber-400 font-bold">⚠️ يرجى تحديد فرع واحد على الأقل، أو اختيار "كافة الفروع"</p>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center justify-end gap-2 pt-3">
                 <button

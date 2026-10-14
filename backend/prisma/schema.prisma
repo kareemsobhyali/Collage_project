@@ -268,11 +268,12 @@ model PromoCode {
   value        Float     @default(10.0)
   minOrder     Float     @default(0.0)
   maxUses      Int?      // الحد الأقصى لعدد مرات الاستخدام الكلي (null = غير محدود)
-  usedCount    Int       @default(0) // عدد مرات الاستخدام الفعلية حتى الآن
-  oncePerUser  Boolean   @default(false) // هل يُسمح باستخدامه مرة واحدة لكل طالب؟
-  isActive     Boolean   @default(true)
-  expiresAt    DateTime?
-  createdAt    DateTime  @default(now())
+  usedCount           Int       @default(0) // عدد مرات الاستخدام الفعلية حتى الآن
+  oncePerUser         Boolean   @default(false) // هل يُسمح باستخدامه مرة واحدة لكل طالب؟
+  applicableBranchIds String?   // JSON: قائمة معرّفات الفروع المسموح بها أو null للكل
+  isActive            Boolean   @default(true)
+  expiresAt           DateTime?
+  createdAt           DateTime  @default(now())
 }
 
 model Banner {

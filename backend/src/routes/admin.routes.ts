@@ -794,7 +794,7 @@ router.get("/promo-codes", async (_req: AuthRequest, res: Response) => {
 // 2. إنشاء كوبون خصم جديد
 router.post("/promo-codes", async (req: AuthRequest, res: Response) => {
   try {
-    const { code, discountType, value, minOrder, maxUses, oncePerUser, expiresAt, isActive } = req.body;
+    const { code, discountType, value, minOrder, maxUses, oncePerUser, expiresAt, isActive, applicableBranchIds } = req.body;
     if (!code || value === undefined) {
       res.status(400).json({ error: "كود الخصم وقيمة الخصم مطلوبان" });
       return;
@@ -804,6 +804,21 @@ router.post("/promo-codes", async (req: AuthRequest, res: Response) => {
       ? Math.max(1, parseInt(maxUses))
       : null;
 
+    let formattedBranchIds: string | null = null;
+    if (applicableBranchIds && Array.isArray(applicableBranchIds) && applicableBranchIds.length > 0) {
+      formattedBranchIds = JSON.stringify(applicableBranchIds);
+    } else if (typeof applicableBranchIds === 'string' && applicableBranchIds.trim() && applicableBranchIds !== 'ALL') {
+      try {
+        const parsed = JSON.parse(applicableBranchIds);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          formattedBranchIds = JSON.stringify(parsed);
+        }
+      } catch {
+        const arr = applicableBranchIds.split(',').map(s => s.trim()).filter(Boolean);
+        if (arr.length > 0) formattedBranchIds = JSON.stringify(arr);
+      }
+    }
+
     const created = await prisma.promoCode.create({
       data: {
         code: code.trim().toUpperCase(),
@@ -812,6 +827,7 @@ router.post("/promo-codes", async (req: AuthRequest, res: Response) => {
         minOrder: parseFloat(minOrder) || 0,
         maxUses: parsedMaxUses,
         oncePerUser: Boolean(oncePerUser),
+        applicableBranchIds: formattedBranchIds,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
       },
@@ -824,11 +840,11 @@ router.post("/promo-codes", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 3. تعديل كوبون خصم (الكود، القيمة، الحد الأقصى للاستخدام، التفعيل، إلخ)
+// 3. تعديل كوبون خصم (الكود، القيمة، الحد الأقصى للاستخدام، الفروع المحددة، التفعيل، إلخ)
 router.put("/promo-codes/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { code, discountType, value, minOrder, maxUses, oncePerUser, expiresAt, isActive } = req.body;
+    const { code, discountType, value, minOrder, maxUses, oncePerUser, expiresAt, isActive, applicableBranchIds } = req.body;
 
     const updateData: any = {};
     if (code !== undefined && String(code).trim()) {
@@ -856,6 +872,21 @@ router.put("/promo-codes/:id", async (req: AuthRequest, res: Response) => {
     }
     if (isActive !== undefined) {
       updateData.isActive = Boolean(isActive);
+    }
+    if (applicableBranchIds !== undefined) {
+      if (applicableBranchIds && Array.isArray(applicableBranchIds) && applicableBranchIds.length > 0) {
+        updateData.applicableBranchIds = JSON.stringify(applicableBranchIds);
+      } else if (typeof applicableBranchIds === 'string' && applicableBranchIds.trim() && applicableBranchIds !== 'ALL') {
+        try {
+          const parsed = JSON.parse(applicableBranchIds);
+          updateData.applicableBranchIds = Array.isArray(parsed) && parsed.length > 0 ? JSON.stringify(parsed) : null;
+        } catch {
+          const arr = applicableBranchIds.split(',').map(s => s.trim()).filter(Boolean);
+          updateData.applicableBranchIds = arr.length > 0 ? JSON.stringify(arr) : null;
+        }
+      } else {
+        updateData.applicableBranchIds = null;
+      }
     }
 
     const updated = await prisma.promoCode.update({

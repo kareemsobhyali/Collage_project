@@ -230,7 +230,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     setPromoError(null);
     try {
       setPromoLoading(true);
-      const res = await api.validatePromoCode(promoCodeInput.trim().toUpperCase(), subtotal);
+      const res = await api.validatePromoCode(promoCodeInput.trim().toUpperCase(), subtotal, branch?.id);
       if (res.valid || res.success) {
         setAppliedPromo({
           code: res.code,
