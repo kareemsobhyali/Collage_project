@@ -94,6 +94,8 @@ export interface WhatsAppAlertSettings {
   unacceptedDelayMinutes: number;
   dailyReportPhones: string;
   dailyReportEnabled: boolean;
+  driverUnacceptedAlertEnabled: boolean;
+  driverUnacceptedDelayMinutes: number;
 }
 
 const DEFAULT_WHATSAPP_ALERT_SETTINGS: WhatsAppAlertSettings = {
@@ -104,6 +106,8 @@ const DEFAULT_WHATSAPP_ALERT_SETTINGS: WhatsAppAlertSettings = {
   unacceptedDelayMinutes: 5,
   dailyReportPhones: "",
   dailyReportEnabled: true,
+  driverUnacceptedAlertEnabled: true,
+  driverUnacceptedDelayMinutes: 3,
 };
 
 export async function getWhatsAppAlertSettings(): Promise<WhatsAppAlertSettings> {
@@ -130,6 +134,8 @@ export async function updateWhatsAppAlertSettings(settings: Partial<WhatsAppAler
     unacceptedDelayMinutes: Math.max(1, Number(settings.unacceptedDelayMinutes ?? current.unacceptedDelayMinutes)),
     dailyReportPhones: String(settings.dailyReportPhones ?? current.dailyReportPhones).trim(),
     dailyReportEnabled: typeof settings.dailyReportEnabled === "boolean" ? settings.dailyReportEnabled : current.dailyReportEnabled,
+    driverUnacceptedAlertEnabled: typeof settings.driverUnacceptedAlertEnabled === "boolean" ? settings.driverUnacceptedAlertEnabled : current.driverUnacceptedAlertEnabled ?? true,
+    driverUnacceptedDelayMinutes: Math.max(1, Number(settings.driverUnacceptedDelayMinutes ?? current.driverUnacceptedDelayMinutes ?? 3)),
   };
 
   await prisma.systemSetting.upsert({
@@ -261,6 +267,81 @@ export async function checkAndSendUnacceptedOrdersWhatsAppAlerts(): Promise<void
     }
   } catch (err) {
     console.error("[WhatsApp Alert] Unaccepted orders check error:", err);
+  }
+}
+
+/**
+ * فحص دوري للطلبات المسندة للطيارين ولم يتم قبولها أو استلامها خلال المهلة المحددة
+ * وإرسال رسالة واتساب للطيار لتنبيهه فوراً بمطعم وعنوان الطلب
+ */
+export async function checkAndSendDriverUnacceptedOrdersAlerts(): Promise<void> {
+  try {
+    const settings = await getWhatsAppAlertSettings();
+    if (!settings.driverUnacceptedAlertEnabled) {
+      return;
+    }
+
+    const delayMinutes = settings.driverUnacceptedDelayMinutes || 3;
+    const cutoffTime = new Date(Date.now() - delayMinutes * 60 * 1000);
+
+    // البحث عن الطلبات المسندة لكابتن توصيل منذ أكثر من مهلة الانتظار ولم يتم تسليمها أو استلامها
+    const pendingDriverOrders = await prisma.order.findMany({
+      where: {
+        driverId: { not: null },
+        driverAssignedAt: { lte: cutoffTime },
+        driverPickedUpAt: null,
+        status: { in: ["PENDING", "ACCEPTED", "PREPARING", "READY"] },
+      },
+      include: {
+        branch: { select: { id: true, name: true, phone: true, address: true } },
+        driver: { select: { id: true, name: true, phone: true, username: true } },
+      },
+      take: 20,
+    });
+
+    if (pendingDriverOrders.length === 0) return;
+
+    const { isOrderAcceptedByDriver, isDriverWhatsAppAlertSent, markDriverWhatsAppAlertSent } = await import("./driver.service.js");
+    const { whatsappService } = await import("./whatsapp.service.js");
+
+    for (const order of pendingDriverOrders) {
+      if (!order.driver || !order.driver.phone) continue;
+
+      // هل قام الطيار بقبول الطلب بالفعل؟
+      const isAccepted = await isOrderAcceptedByDriver(order.id);
+      if (isAccepted) continue;
+
+      // هل أرسلنا له تنبيهاً بالواتساب مسبقاً لهذا الطلب لمنع التكرار؟
+      const isSent = await isDriverWhatsAppAlertSent(order.id);
+      if (isSent) continue;
+
+      const waitMinutes = Math.max(1, Math.floor((Date.now() - new Date(order.driverAssignedAt!).getTime()) / (60 * 1000)));
+      const addressDisplay = [order.deliveryZoneName, order.addressText].filter(Boolean).join(" - ") || "الحرم الجامعي";
+      const paymentDisplay = order.paymentMethod === "CASH" ? "💵 تحصيل كاش" : "💳 مدفوع إلكترونياً (أونلاين)";
+
+      const message =
+`🛵 *تنبيه أوردر توصيل جديد بانتظارك - UniFood* ⏳
+
+يا كابتن *${order.driver.name}*، يوجد أوردر بانتظار قبولك ومراجعته!
+
+🏪 *المطعم:* ${order.branch.name}
+📍 *عنوان التوصيل:* ${addressDisplay}
+🔢 *رقم الطلب:* #${order.orderNumber}
+👤 *العميل:* ${order.customerName}
+📞 *هاتف العميل:* ${order.customerPhone}
+💰 *المطلوب تحصيله:* ${order.total} ج.م (${paymentDisplay})
+
+⏱️ *مرت ${waitMinutes} دقائق* منذ إسناد الأوردر لك.
+يرجى فتح تطبيق كابتن التوصيل وقبول الطلب للتوجه للمطعم فوراً! 🚀`;
+
+      whatsappService.sendOrderStatusNotification(order.driver.phone, message).catch((err) => {
+        console.warn(`[WhatsApp Alert] Failed to send driver unaccepted alert to ${order.driver!.phone}:`, err);
+      });
+
+      await markDriverWhatsAppAlertSent(order.id);
+    }
+  } catch (err) {
+    console.error("[WhatsApp Alert] Driver unaccepted orders check error:", err);
   }
 }
 
@@ -747,5 +828,57 @@ export async function checkAndSendShiftClosingReports(): Promise<void> {
     console.error("[Shift Report] Periodic check error:", err);
   }
 }
+
+// -------------------------------------------------------------
+// إعدادات الصوت المخصص للتنبيهات والإشعارات (Notification Sound Settings)
+// -------------------------------------------------------------
+export interface NotificationSoundSettings {
+  enabled: boolean;
+  soundUrl: string;     // رابط الملف المرفوع مثل /uploads/1728987.mp3 أو فارغ للنغمة الافتراضية
+  soundName: string;    // اسم ملف الصوت الأصلي لسهولة التعرف عليه
+  volume: number;       // مستوى الصوت من 0.1 إلى 1.0
+  updatedAt?: string;
+}
+
+export const DEFAULT_SOUND_SETTINGS: NotificationSoundSettings = {
+  enabled: true,
+  soundUrl: "",
+  soundName: "النغمة الافتراضية للنظام (Synthetic Chime)",
+  volume: 1.0,
+};
+
+export async function getNotificationSoundSettings(): Promise<NotificationSoundSettings> {
+  try {
+    const record = await prisma.systemSetting.findUnique({
+      where: { key: "notification_sound_settings" },
+    });
+    if (record && record.value) {
+      return { ...DEFAULT_SOUND_SETTINGS, ...JSON.parse(record.value) };
+    }
+  } catch (_e) {}
+  return DEFAULT_SOUND_SETTINGS;
+}
+
+export async function updateNotificationSoundSettings(settings: Partial<NotificationSoundSettings>): Promise<NotificationSoundSettings> {
+  const current = await getNotificationSoundSettings();
+  const updated: NotificationSoundSettings = {
+    ...current,
+    ...settings,
+    enabled: typeof settings.enabled === "boolean" ? settings.enabled : current.enabled,
+    soundUrl: settings.soundUrl !== undefined ? String(settings.soundUrl) : current.soundUrl,
+    soundName: settings.soundName !== undefined ? String(settings.soundName) : current.soundName,
+    volume: typeof settings.volume === "number" ? Math.min(1, Math.max(0.1, settings.volume)) : current.volume,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await prisma.systemSetting.upsert({
+    where: { key: "notification_sound_settings" },
+    update: { value: JSON.stringify(updated) },
+    create: { key: "notification_sound_settings", value: JSON.stringify(updated) },
+  });
+
+  return updated;
+}
+
 
 

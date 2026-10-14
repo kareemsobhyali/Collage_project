@@ -51,7 +51,11 @@ import {
   Star,
   ChevronDown,
   Award,
-  ThumbsUp
+  ThumbsUp,
+  Volume2,
+  VolumeX,
+  Music,
+  BellRing
 } from 'lucide-react';
 
 
@@ -78,7 +82,7 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
+  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
   const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
   const [showMobileMoreMenu, setShowMobileMoreMenu] = useState(false);
@@ -117,6 +121,26 @@ export const AdminPage: React.FC = () => {
   const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState<string | null>(null);
 
+  // Notification Sound Customization Settings
+  const [soundSettings, setSoundSettings] = useState<{
+    enabled: boolean;
+    soundUrl: string;
+    soundName: string;
+    volume: number;
+  }>({
+    enabled: true,
+    soundUrl: '',
+    soundName: 'النغمة الافتراضية للنظام (Synthetic Chime)',
+    volume: 1.0,
+  });
+  const [loadingSoundSettings, setLoadingSoundSettings] = useState(false);
+  const [savingSoundSettings, setSavingSoundSettings] = useState(false);
+  const [soundSaveSuccess, setSoundSaveSuccess] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [audioUploadError, setAudioUploadError] = useState<string | null>(null);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+
   // WhatsApp Alert Settings states
   const [whatsAppAlertSettings, setWhatsAppAlertSettings] = useState<{
     cancellationAlertPhones: string;
@@ -124,6 +148,8 @@ export const AdminPage: React.FC = () => {
     unacceptedAlertPhones: string;
     unacceptedAlertEnabled: boolean;
     unacceptedDelayMinutes: number;
+    driverUnacceptedAlertEnabled: boolean;
+    driverUnacceptedDelayMinutes: number;
     dailyReportPhones: string;
     dailyReportEnabled: boolean;
   }>({
@@ -132,6 +158,8 @@ export const AdminPage: React.FC = () => {
     unacceptedAlertPhones: '',
     unacceptedAlertEnabled: true,
     unacceptedDelayMinutes: 5,
+    driverUnacceptedAlertEnabled: true,
+    driverUnacceptedDelayMinutes: 3,
     dailyReportPhones: '',
     dailyReportEnabled: true,
   });
@@ -224,6 +252,27 @@ export const AdminPage: React.FC = () => {
   const [orderBranchFilter, setOrderBranchFilter] = useState('ALL');
   const [studentSearch, setStudentSearch] = useState('');
 
+  // Delivery Drivers Management States
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [driversLoading, setDriversLoading] = useState(false);
+  const [driverSearch, setDriverSearch] = useState('');
+  const [driverScopeFilter, setDriverScopeFilter] = useState<'ALL' | 'GENERAL' | 'SPECIFIC' | 'INACTIVE'>('ALL');
+  const [showAddDriverModal, setShowAddDriverModal] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<any | null>(null);
+
+  // Driver Form States
+  const [driverName, setDriverName] = useState('');
+  const [driverPhone, setDriverPhone] = useState('');
+  const [driverUsername, setDriverUsername] = useState('');
+  const [driverPassword, setDriverPassword] = useState('');
+  const [driverIsAllBranches, setDriverIsAllBranches] = useState(true);
+  const [driverSelectedBranchIds, setDriverSelectedBranchIds] = useState<string[]>([]);
+  const [driverIsActive, setDriverIsActive] = useState(true);
+  const [savingDriver, setSavingDriver] = useState(false);
+  const [driverFormError, setDriverFormError] = useState<string | null>(null);
+  const [togglingDriverId, setTogglingDriverId] = useState<string | null>(null);
+  const [deletingDriverId, setDeletingDriverId] = useState<string | null>(null);
+
   // Modals
   const [showAddBranchModal, setShowAddBranchModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<any | null>(null);
@@ -288,7 +337,7 @@ export const AdminPage: React.FC = () => {
     if (!token && !adminUser) return;
     try {
       setLoading(true);
-      const [statsRes, branchesRes, ordersRes, studentsRes, bannersRes, promosRes, reviewsRes] = await Promise.all([
+      const [statsRes, branchesRes, ordersRes, studentsRes, bannersRes, promosRes, reviewsRes, driversRes] = await Promise.all([
         fetch(`${API_BASE_URL}/admin/stats`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/branches`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/orders?limit=100`, { headers: getAdminHeaders() }),
@@ -296,6 +345,7 @@ export const AdminPage: React.FC = () => {
         fetch(`${API_BASE_URL}/admin/banners`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/promo-codes`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/reviews`, { headers: getAdminHeaders() }),
+        fetch(`${API_BASE_URL}/admin/drivers`, { headers: getAdminHeaders() }),
       ]);
 
       if (statsRes.ok) setStats(await statsRes.json());
@@ -309,10 +359,132 @@ export const AdminPage: React.FC = () => {
         setReviews(revData.reviews || []);
         if (revData.stats) setReviewsStats(revData.stats);
       }
+      if (driversRes && driversRes.ok) {
+        setDrivers(await driversRes.json());
+      }
     } catch (err) {
       console.error('Fetch dashboard error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDriversData = async () => {
+    try {
+      setDriversLoading(true);
+      const data = await api.getAdminDrivers();
+      setDrivers(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Fetch drivers error:', err);
+    } finally {
+      setDriversLoading(false);
+    }
+  };
+
+  const handleOpenAddDriver = () => {
+    setEditingDriver(null);
+    setDriverName('');
+    setDriverPhone('');
+    setDriverUsername('');
+    setDriverPassword('');
+    setDriverIsAllBranches(true);
+    setDriverSelectedBranchIds(branches.map(b => b.id));
+    setDriverIsActive(true);
+    setDriverFormError(null);
+    setShowAddDriverModal(true);
+  };
+
+  const handleOpenEditDriver = (driver: any) => {
+    setEditingDriver(driver);
+    setDriverName(driver.name || '');
+    setDriverPhone(driver.phone || '');
+    setDriverUsername(driver.username || '');
+    setDriverPassword('');
+    setDriverIsAllBranches(Boolean(driver.isAllBranches));
+    const currentBranchIds = Array.isArray(driver.branchIds) && driver.branchIds.length > 0
+      ? driver.branchIds
+      : (driver.primaryBranch?.id ? [driver.primaryBranch.id] : branches.map(b => b.id));
+    setDriverSelectedBranchIds(currentBranchIds);
+    setDriverIsActive(Boolean(driver.isActive));
+    setDriverFormError(null);
+    setShowAddDriverModal(true);
+  };
+
+  const handleSaveDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDriverFormError(null);
+
+    if (!driverName.trim() || !driverPhone.trim() || !driverUsername.trim()) {
+      setDriverFormError('يرجى كتابة الاسم ورقم الهاتف واسم المستخدم');
+      return;
+    }
+
+    if (!editingDriver && !driverPassword.trim()) {
+      setDriverFormError('يرجى تحديد كلمة مرور لكابتن التوصيل الجديد');
+      return;
+    }
+
+    if (!driverIsAllBranches && driverSelectedBranchIds.length === 0) {
+      setDriverFormError('يرجى اختيار مطعم أو فرع واحد على الأقل، أو تحديد "جميع المطاعم"');
+      return;
+    }
+
+    try {
+      setSavingDriver(true);
+      if (editingDriver) {
+        await api.updateAdminDriver(editingDriver.id, {
+          name: driverName.trim(),
+          phone: driverPhone.trim(),
+          username: driverUsername.trim(),
+          password: driverPassword.trim() || undefined,
+          isAllBranches: driverIsAllBranches,
+          branchIds: driverIsAllBranches ? [] : driverSelectedBranchIds,
+          isActive: driverIsActive,
+        });
+      } else {
+        await api.createAdminDriver({
+          name: driverName.trim(),
+          phone: driverPhone.trim(),
+          username: driverUsername.trim(),
+          password: driverPassword.trim(),
+          isAllBranches: driverIsAllBranches,
+          branchIds: driverIsAllBranches ? [] : driverSelectedBranchIds,
+          primaryBranchId: driverSelectedBranchIds[0] || (branches[0]?.id),
+        });
+      }
+
+      setShowAddDriverModal(false);
+      setEditingDriver(null);
+      await fetchDriversData();
+    } catch (err: any) {
+      setDriverFormError(err.message || 'حدث خطأ أثناء حفظ بيانات الطيار');
+    } finally {
+      setSavingDriver(false);
+    }
+  };
+
+  const handleToggleDriverActive = async (driverId: string) => {
+    try {
+      setTogglingDriverId(driverId);
+      const res = await api.toggleAdminDriverActive(driverId);
+      setDrivers(prev => prev.map(d => d.id === driverId ? { ...d, isActive: res.isActive } : d));
+    } catch (err: any) {
+      alert(err.message || 'فشل تغيير حالة الطيار');
+    } finally {
+      setTogglingDriverId(null);
+    }
+  };
+
+  const handleDeleteDriver = async (driverId: string, driverName: string) => {
+    if (!window.confirm(`هل أنت متأكد من رغبتك في حذف كابتن التوصيل (${driverName})؟ سيتم إلغاء حسابه نهائياً.`)) return;
+    try {
+      setDeletingDriverId(driverId);
+      await api.deleteAdminDriver(driverId);
+      setDrivers(prev => prev.filter(d => d.id !== driverId));
+    } catch (err: any) {
+      alert(err.message || 'فشل حذف كابتن التوصيل');
+    } finally {
+      setDeletingDriverId(null);
     }
   };
 
@@ -380,7 +552,12 @@ export const AdminPage: React.FC = () => {
       setLoadingWhatsAppAlerts(true);
       const data = await api.getWhatsAppAlertSettings();
       if (data) {
-        setWhatsAppAlertSettings(data);
+        setWhatsAppAlertSettings(prev => ({
+          ...prev,
+          ...data,
+          driverUnacceptedAlertEnabled: data.driverUnacceptedAlertEnabled !== undefined ? data.driverUnacceptedAlertEnabled : true,
+          driverUnacceptedDelayMinutes: data.driverUnacceptedDelayMinutes !== undefined ? data.driverUnacceptedDelayMinutes : 3,
+        }));
       }
     } catch (err: any) {
       console.error('فشل جلب إعدادات تنبيهات الواتساب:', err);
@@ -468,6 +645,9 @@ export const AdminPage: React.FC = () => {
     if (activeTab === 'REVIEWS') {
       fetchReviewsData();
     }
+    if (activeTab === 'DRIVERS') {
+      fetchDriversData();
+    }
   }, [activeTab]);
 
 
@@ -534,9 +714,126 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const fetchSoundSettings = async () => {
+    try {
+      setLoadingSoundSettings(true);
+      const data = await api.getAdminSoundSettings();
+      if (data) {
+        setSoundSettings({
+          enabled: data.enabled ?? true,
+          soundUrl: data.soundUrl || '',
+          soundName: data.soundName || 'النغمة الافتراضية للنظام',
+          volume: data.volume ?? 1.0,
+        });
+      }
+    } catch (err) {
+      console.error('Fetch sound settings error:', err);
+    } finally {
+      setLoadingSoundSettings(false);
+    }
+  };
+
+  const handleAudioFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingAudio(true);
+      setAudioUploadError(null);
+      const res = await api.uploadAudio(file);
+      if (res.fileUrl) {
+        setSoundSettings(prev => ({
+          ...prev,
+          soundUrl: res.fileUrl,
+          soundName: file.name,
+        }));
+      }
+    } catch (err: any) {
+      setAudioUploadError(err.message || 'فشل رفع الملف الصوتي');
+    } finally {
+      setUploadingAudio(false);
+      e.target.value = '';
+    }
+  };
+
+  const handlePlaySoundPreview = () => {
+    try {
+      if (audioPreviewRef.current) {
+        audioPreviewRef.current.pause();
+        audioPreviewRef.current = null;
+        setIsPlayingPreview(false);
+        return;
+      }
+
+      if (soundSettings.soundUrl) {
+        const fullUrl = soundSettings.soundUrl.startsWith('http')
+          ? soundSettings.soundUrl
+          : `${API_BASE_URL.replace('/api', '')}${soundSettings.soundUrl.startsWith('/') ? '' : '/'}${soundSettings.soundUrl}`;
+        const audio = new Audio(fullUrl);
+        audio.volume = soundSettings.volume;
+        audioPreviewRef.current = audio;
+        setIsPlayingPreview(true);
+        audio.play().catch(() => setIsPlayingPreview(false));
+        audio.onended = () => {
+          setIsPlayingPreview(false);
+          audioPreviewRef.current = null;
+        };
+      } else {
+        // نغمة تخليقية افتراضية للاستماع
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(440, now + 0.35);
+        gain.gain.setValueAtTime(0.8 * soundSettings.volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(now + 0.35);
+      }
+    } catch (_e) {
+      setIsPlayingPreview(false);
+    }
+  };
+
+  const handleSaveSoundSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSavingSoundSettings(true);
+      await api.updateAdminSoundSettings(soundSettings);
+      setSoundSaveSuccess(true);
+      setTimeout(() => setSoundSaveSuccess(false), 3500);
+    } catch (err: any) {
+      alert(err.message || 'فشل حفظ إعدادات الصوت');
+    } finally {
+      setSavingSoundSettings(false);
+    }
+  };
+
+  const handleResetSoundSettings = async () => {
+    if (!window.confirm('هل أنت متأكد من استعادة نغمة النظام الافتراضية؟')) return;
+    try {
+      setSavingSoundSettings(true);
+      const res = await api.resetAdminSoundSettings();
+      if (res.settings) {
+        setSoundSettings(res.settings);
+      }
+      setSoundSaveSuccess(true);
+      setTimeout(() => setSoundSaveSuccess(false), 3500);
+    } catch (err: any) {
+      alert(err.message || 'فشل استعادة النغمة الافتراضية');
+    } finally {
+      setSavingSoundSettings(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'SETTINGS') {
       fetchLoyaltySettings();
+      fetchSoundSettings();
     }
   }, [activeTab]);
 
@@ -1100,6 +1397,19 @@ export const AdminPage: React.FC = () => {
     return true;
   });
 
+  const filteredDrivers = drivers.filter(d => {
+    const matchesSearch =
+      (d.name || '').toLowerCase().includes(driverSearch.toLowerCase()) ||
+      (d.phone || '').includes(driverSearch) ||
+      (d.username || '').toLowerCase().includes(driverSearch.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (driverScopeFilter === 'GENERAL') return d.isAllBranches;
+    if (driverScopeFilter === 'SPECIFIC') return !d.isAllBranches;
+    if (driverScopeFilter === 'INACTIVE') return !d.isActive;
+    return true;
+  });
+
   // If not logged in, show Full-Screen Admin Login
   if (!adminUser) {
     return (
@@ -1329,6 +1639,21 @@ export const AdminPage: React.FC = () => {
                 <span>مراقبة طلبات الحرم</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'ORDERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
                   {orders.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('DRIVERS')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'DRIVERS'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <Truck className="w-4 h-4 shrink-0 text-indigo-400" />
+                <span>كباتن التوصيل (الطيارين)</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'DRIVERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                  {drivers.length}
                 </span>
               </button>
 
@@ -2346,6 +2671,293 @@ export const AdminPage: React.FC = () => {
           </div>
         )}
 
+        {/* DRIVERS: Delivery Fleet Management (إدارة كباتن التوصيل والربط مع المطاعم) */}
+        {activeTab === 'DRIVERS' && (
+          <div className="space-y-5 animate-fadeIn">
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-slate-400 block">إجمالي كباتن التوصيل</span>
+                  <span className="text-xl font-black text-white">{drivers.length}</span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-slate-400 block">الكباتن النشطون</span>
+                  <span className="text-xl font-black text-emerald-400">
+                    {drivers.filter(d => d.isActive).length}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-slate-400 block">طيارون عامون لكل المطاعم</span>
+                  <span className="text-xl font-black text-purple-400">
+                    {drivers.filter(d => d.isAllBranches).length}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-slate-400 block">إجمالي طلبات التوصيل</span>
+                  <span className="text-xl font-black text-amber-400">
+                    {drivers.reduce((acc, d) => acc + (d._count?.orders || 0), 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Header Toolbar: Search, Filters & Add Driver Button */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
+                {/* Search */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-4 h-4 text-slate-500 absolute right-3.5 top-3" />
+                  <input
+                    type="text"
+                    placeholder="ابحث باسم الطيار، رقم الهاتف، أو اسم الدخول..."
+                    value={driverSearch}
+                    onChange={e => setDriverSearch(e.target.value)}
+                    className="w-full pr-10 pl-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
+                  <button
+                    type="button"
+                    onClick={() => setDriverScopeFilter('ALL')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      driverScopeFilter === 'ALL'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    الكل ({drivers.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDriverScopeFilter('GENERAL')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      driverScopeFilter === 'GENERAL'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🌐 طيار عام ({drivers.filter(d => d.isAllBranches).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDriverScopeFilter('SPECIFIC')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      driverScopeFilter === 'SPECIFIC'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🏪 مطاعم محددة ({drivers.filter(d => !d.isAllBranches).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDriverScopeFilter('INACTIVE')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      driverScopeFilter === 'INACTIVE'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🚫 معطل ({drivers.filter(d => !d.isActive).length})
+                  </button>
+                </div>
+              </div>
+
+              {/* Add Driver Button */}
+              <button
+                type="button"
+                onClick={handleOpenAddDriver}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/30 transition-all active:scale-95 shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>إضافة كابتن توصيل جديد</span>
+              </button>
+            </div>
+
+            {/* Drivers List / Cards */}
+            {driversLoading ? (
+              <div className="py-20 text-center text-slate-400 space-y-3">
+                <RotateCw className="w-8 h-8 mx-auto animate-spin text-purple-400" />
+                <p className="text-xs font-bold">جاري تحميل بيانات أسطول التوصيل...</p>
+              </div>
+            ) : filteredDrivers.length === 0 ? (
+              <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-3xl space-y-3">
+                <Truck className="w-12 h-12 text-slate-600 mx-auto" />
+                <h4 className="text-sm font-black text-slate-300">لا يوجد كباتن توصيل مطابقين</h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  لم يتم العثور على أي كباتن توصيل تطابق معايير البحث أو التصفية الحالية.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleOpenAddDriver}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة أول كابتن توصيل الآن</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredDrivers.map(driver => (
+                  <div
+                    key={driver.id}
+                    className={`bg-slate-900/70 border rounded-2xl p-4 sm:p-5 flex flex-col justify-between transition-all space-y-4 hover:shadow-xl ${
+                      driver.isActive
+                        ? 'border-slate-800 hover:border-slate-700'
+                        : 'border-rose-950/40 bg-slate-950/40 opacity-75'
+                    }`}
+                  >
+                    {/* Top Identity */}
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-base shrink-0 shadow-inner ${
+                            driver.isAllBranches
+                              ? 'bg-purple-950/80 text-purple-300 border border-purple-800/80'
+                              : 'bg-indigo-950/80 text-indigo-300 border border-indigo-800/80'
+                          }`}>
+                            <Truck className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-black text-white truncate">{driver.name}</h4>
+                              <button
+                                type="button"
+                                disabled={togglingDriverId === driver.id}
+                                onClick={() => handleToggleDriverActive(driver.id)}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                                  driver.isActive
+                                    ? 'bg-emerald-950 text-emerald-400 border-emerald-800 hover:bg-emerald-900'
+                                    : 'bg-rose-950 text-rose-400 border-rose-800 hover:bg-rose-900'
+                                }`}
+                              >
+                                {togglingDriverId === driver.id ? '...' : (driver.isActive ? 'نشط' : 'معطل')}
+                              </button>
+                            </div>
+                            <span className="text-[11px] font-mono text-slate-400 block truncate" dir="ltr">
+                              @{driver.username}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Phone & Contact info */}
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`tel:${driver.phone}`}
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-mono transition-colors"
+                          title="اتصال هاتفي"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{driver.phone}</span>
+                        </a>
+                        <a
+                          href={`https://wa.me/20${driver.phone.replace(/^0+/, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 bg-emerald-950/70 border border-emerald-800 text-emerald-400 hover:bg-emerald-900 rounded-lg text-xs transition-colors"
+                          title="محادثة واتساب"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+
+                      {/* Scope Badge (نطاق العمل: عام لكل المطاعم أو مطاعم محددة) */}
+                      <div className="pt-2 border-t border-slate-800/70 space-y-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                          نطاق استلام الطلبات:
+                        </span>
+                        {driver.isAllBranches ? (
+                          <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-800/50 text-purple-200 text-xs font-bold flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse shrink-0" />
+                            <span>🌐 طيار عام لجميع المطاعم والفروع</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
+                              <Store className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>مطاعم محددة ({driver.servedBranches?.length || 0}):</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto custom-scrollbar">
+                              {driver.servedBranches && driver.servedBranches.length > 0 ? (
+                                driver.servedBranches.map((b: any) => (
+                                  <span
+                                    key={b.id}
+                                    className="px-2 py-0.5 rounded-md bg-slate-800/90 border border-slate-700 text-slate-300 text-[10px] font-bold flex items-center gap-1"
+                                  >
+                                    <span>🏪</span>
+                                    <span>{b.name}</span>
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[11px] text-slate-500">لا يوجد فروع مخصصة</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stats */}
+                      <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+                        <span>إجمالي الطلبات المنجزة:</span>
+                        <span className="font-mono font-black text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-900/50">
+                          {driver._count?.orders ?? 0} طلب
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Actions Bar */}
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditDriver(driver)}
+                        className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-slate-700"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-purple-400" />
+                        <span>تعديل النطاق والبيانات</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={deletingDriverId === driver.id}
+                        onClick={() => handleDeleteDriver(driver.id, driver.name)}
+                        className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors border border-transparent hover:border-rose-900/50"
+                        title="حذف الكابتن نهائياً"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 6. Tab 3: Registered Students */}
         {activeTab === 'STUDENTS' && (
           <div className="space-y-4">
@@ -3061,7 +3673,57 @@ export const AdminPage: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* 3. Shift Closing Daily Financial Report (التقرير المالي اليومي لإغلاق الشيفت) */}
+                  {/* 3. Driver Unaccepted Order Alert (تنبيه الطيار في حال تأخر قبول الطلب) */}
+                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                          <Truck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-black text-slate-200 block">
+                            تنبيه كابتن التوصيل (الطيار) بالواتساب عند عدم قبول الأوردر
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            إرسال رسالة واتساب تلقائية للطيار بتفاصيل الأوردر والمطعم والعنوان في حال تأخر قبوله
+                          </span>
+                        </div>
+                      </div>
+
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={whatsAppAlertSettings.driverUnacceptedAlertEnabled}
+                          onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, driverUnacceptedAlertEnabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                          مهلة انتظار قبول الطيار قبل إرسال الواتساب (بالدقائق)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="60"
+                          value={whatsAppAlertSettings.driverUnacceptedDelayMinutes}
+                          onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, driverUnacceptedDelayMinutes: parseInt(e.target.value) || 3 })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors text-center font-mono"
+                        />
+                      </div>
+                      <div className="flex flex-col justify-end">
+                        <p className="text-[10px] text-slate-400 leading-relaxed">
+                          عند تعيين طيار للطلب، إذا لم يقم بالضغط على &quot;قبول الطلب&quot; في تطبيق الطيار خلال المهلة المحددة، يقوم السيرفر بإرسال رسالة واتساب إلى رقم هاتف الطيار تلقائياً مع تفاصيل الأوردر واسم المطعم وعنوان التوصيل.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Shift Closing Daily Financial Report (التقرير المالي اليومي لإغلاق الشيفت) */}
                   <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
@@ -3466,6 +4128,189 @@ export const AdminPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Card 3: Notification Sound Customization */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                    <Volume2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <span>التحكم في صوت نغمة الإشعارات والتنبيهات</span>
+                      <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] font-black rounded-md border border-indigo-500/30">
+                        بث لحظي للـ POS وبوابات الطيارين 🔔
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      رفع نغمة تنبيه مخصصة (MP3, WAV, OGG) تُعزف فورياً عند وصول أي أوردر جديد لكابتن التوصيل أو مطبخ الفرع
+                    </p>
+                  </div>
+                </div>
+
+                <span className={`px-3 py-1 rounded-full text-[11px] font-bold border shrink-0 ${
+                  soundSettings.enabled 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                }`}>
+                  {soundSettings.enabled ? '● صوت الإشعارات مفعّل' : '○ صوت الإشعارات مكتوم'}
+                </span>
+              </div>
+
+              <form onSubmit={handleSaveSoundSettings} className="space-y-5">
+                {/* Master Audio Toggle */}
+                <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-black text-slate-200 block">تشغيل نغمة الإشعارات الصوتية</span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      عند الإلغاء، ستصل الأوردرات بصمت دون تشغيل أي تنبيه صوتي في المنظومة
+                    </span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={soundSettings.enabled}
+                      onChange={(e) => setSoundSettings({ ...soundSettings, enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+
+                {/* Sound Source & Uploader */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Active Sound File Card */}
+                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-400 block mb-1">النغمة المعتمدة حالياً:</span>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0">
+                          <Music className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-white truncate">
+                            {soundSettings.soundName || 'النغمة الافتراضية للنظام'}
+                          </p>
+                          <span className="text-[10px] text-slate-400 block truncate">
+                            {soundSettings.soundUrl ? '🎵 ملف صوتي مخصص مرفوع' : '🔔 نغمة رنين إلكترونية افتراضية'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
+                      <button
+                        type="button"
+                        onClick={handlePlaySoundPreview}
+                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                      >
+                        <Volume2 className="w-3.5 h-3.5" />
+                        <span>{isPlayingPreview ? 'إيقاف الاستماع' : 'استماع وتجربة النغمة'}</span>
+                      </button>
+
+                      {soundSettings.soundUrl && (
+                        <button
+                          type="button"
+                          onClick={handleResetSoundSettings}
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
+                        >
+                          استعادة النغمة الافتراضية
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Upload Custom Audio File */}
+                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-400 block mb-1">رفع نغمة صوت جديدة من اختيارك:</span>
+                      <label className="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors bg-slate-900/50 group">
+                        <input
+                          type="file"
+                          accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac"
+                          onChange={handleAudioFileUpload}
+                          className="hidden"
+                          disabled={uploadingAudio}
+                        />
+                        {uploadingAudio ? (
+                          <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold py-2">
+                            <RotateCw className="w-5 h-5 animate-spin" />
+                            <span>جاري رفع وتأمين الملف الصوتي في السيرفر...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-400 transition-colors mb-1.5" />
+                            <span className="text-xs font-black text-slate-200 group-hover:text-white">
+                              اضغط هنا لاختيار ملف صوتي
+                            </span>
+                            <span className="text-[10px] text-slate-500 mt-1">
+                              يدعم جميع الصيغ (MP3, WAV, OGG, M4A) بحد أقصى 10 ميجابايت
+                            </span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+
+                    {audioUploadError && (
+                      <div className="p-2.5 bg-rose-950/60 border border-rose-800 text-rose-300 text-[11px] rounded-xl flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>{audioUploadError}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Volume Slider */}
+                <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="font-bold text-slate-300 flex items-center gap-1.5">
+                      <Volume2 className="w-4 h-4 text-indigo-400" />
+                      <span>مستوى شدة صوت الرنين والتنبيه:</span>
+                    </label>
+                    <span className="font-mono font-black text-indigo-400">
+                      {Math.round(soundSettings.volume * 100)}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1.0"
+                    step="0.05"
+                    value={soundSettings.volume}
+                    onChange={(e) => setSoundSettings({ ...soundSettings, volume: parseFloat(e.target.value) || 1.0 })}
+                    className="w-full accent-indigo-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
+                  />
+                </div>
+
+                {soundSaveSuccess && (
+                  <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>تم حفظ صوت التنبيه بنجاح وبثه لجميع الشاشات ونقاط البيع وبوابات الطيارين! ✅</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingSoundSettings || loadingSoundSettings}
+                    className="h-11 px-6 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                  >
+                    {savingSoundSettings ? (
+                      <>
+                        <RotateCw className="w-4 h-4 animate-spin" />
+                        <span>جاري الحفظ والبث...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>حفظ وتطبيق نغمة الإشعارات فوراً</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+
             {/* Card: Android Admin App (APK) */}
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
@@ -3696,7 +4541,7 @@ export const AdminPage: React.FC = () => {
             type="button"
             onClick={() => setShowMobileMoreMenu(prev => !prev)}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
-              showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS'].includes(activeTab)
+              showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS'].includes(activeTab)
                 ? 'text-purple-400 font-black'
                 : 'text-slate-400 hover:text-slate-200 font-medium'
             }`}
@@ -3708,7 +4553,7 @@ export const AdminPage: React.FC = () => {
               )}
             </div>
             <span className="text-[10px] leading-tight">المزيد</span>
-            {(showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS'].includes(activeTab)) && (
+            {(showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS'].includes(activeTab)) && (
               <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
             )}
           </button>
@@ -3744,6 +4589,32 @@ export const AdminPage: React.FC = () => {
 
             {/* Quick Grid for Secondary Tabs */}
             <div className="grid grid-cols-2 gap-2.5">
+              {/* DRIVERS */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('DRIVERS');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
+                  activeTab === 'DRIVERS'
+                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                    <Truck className="w-4 h-4" />
+                  </div>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                    {drivers.length}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-white">كباتن التوصيل (الطيارين)</span>
+                  <span className="text-[10px] text-slate-400 block">إدارة الطيارين ونطاق المطاعم</span>
+                </div>
+              </button>
               {/* REVIEWS */}
               <button
                 type="button"
@@ -5521,6 +6392,266 @@ export const AdminPage: React.FC = () => {
                     <>
                       <Trash2 className="w-4 h-4" />
                       <span>تأكيد تصفير البيانات الآن</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* H. Add / Edit Delivery Driver Modal */}
+      {showAddDriverModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-white">
+                    {editingDriver ? 'تعديل بيانات ونطاق كابتن التوصيل' : 'إضافة كابتن توصيل (طيار) جديد'}
+                  </h3>
+                  <span className="text-[11px] text-slate-400 block">
+                    تحديد نطاق عمل الطيار (عام لجميع المطاعم أو مطاعم محددة)
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddDriverModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDriver} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar text-xs">
+                {driverFormError && (
+                  <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 rounded-xl flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{driverFormError}</span>
+                  </div>
+                )}
+
+                {/* Name & Phone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">اسم الكابتن الكامل *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="مثال: أحمد محمود"
+                      value={driverName}
+                      onChange={e => setDriverName(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">رقم الهاتف *</label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="01xxxxxxxxx"
+                      value={driverPhone}
+                      onChange={e => setDriverPhone(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Username & Password */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">اسم المستخدم للدخول (Username) *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="مثال: ahmed_driver"
+                      value={driverUsername}
+                      onChange={e => setDriverUsername(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">
+                      {editingDriver ? 'كلمة المرور (اتركه فارغاً للإبقاء)' : 'كلمة المرور *'}
+                    </label>
+                    <input
+                      type="password"
+                      required={!editingDriver}
+                      placeholder={editingDriver ? '••••••••' : 'كلمة مرور الدخول'}
+                      value={driverPassword}
+                      onChange={e => setDriverPassword(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Driver Scope Selector (نطاق العمل واستقبال الطلبات) */}
+                <div className="pt-2 space-y-2.5">
+                  <label className="block text-xs font-black text-slate-200">
+                    نطاق استقبال طلبات المطاعم:
+                  </label>
+
+                  {/* Scope Option 1: General Driver (All Branches) */}
+                  <div
+                    onClick={() => setDriverIsAllBranches(true)}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                      driverIsAllBranches
+                        ? 'bg-purple-950/60 border-purple-600 ring-1 ring-purple-500'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="radio"
+                        name="driver_scope"
+                        checked={driverIsAllBranches}
+                        onChange={() => setDriverIsAllBranches(true)}
+                        className="text-purple-600 focus:ring-purple-500"
+                      />
+                      <div className="flex-1">
+                        <span className="font-black text-white text-xs block">
+                          🌐 استقبال طلبات جميع المطاعم والفروع (طيار عام للمنظومة)
+                        </span>
+                        <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
+                          يستقبل الطلبات من كافة مطاعم الحرم الجامعي، ويظهر اسمه في قائمة التعيين لدى جميع كاشيرات الفروع ونقاط البيع.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scope Option 2: Specific Branches */}
+                  <div
+                    onClick={() => setDriverIsAllBranches(false)}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                      !driverIsAllBranches
+                        ? 'bg-purple-950/60 border-purple-600 ring-1 ring-purple-500'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="radio"
+                        name="driver_scope"
+                        checked={!driverIsAllBranches}
+                        onChange={() => setDriverIsAllBranches(false)}
+                        className="text-purple-600 focus:ring-purple-500"
+                      />
+                      <div className="flex-1">
+                        <span className="font-black text-white text-xs block">
+                          🏪 مطاعم وفروع محددة فقط
+                        </span>
+                        <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
+                          يستقبل الطلبات ويظهر فقط لكاشيرات المطاعم المختارة بالأسفل.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Branch Checkboxes if specific branches chosen */}
+                  {!driverIsAllBranches && (
+                    <div className="p-3 bg-slate-950/90 border border-slate-800 rounded-2xl space-y-2.5 animate-fadeIn">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-bold text-slate-300">حدد المطاعم المصرح بها ({driverSelectedBranchIds.length} محددة):</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setDriverSelectedBranchIds(branches.map(b => b.id))}
+                            className="text-purple-400 hover:underline"
+                          >
+                            تحديد الكل
+                          </button>
+                          <span className="text-slate-600">•</span>
+                          <button
+                            type="button"
+                            onClick={() => setDriverSelectedBranchIds([])}
+                            className="text-slate-400 hover:underline"
+                          >
+                            إلغاء التحديد
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
+                        {branches.map(branch => {
+                          const isChecked = driverSelectedBranchIds.includes(branch.id);
+                          return (
+                            <label
+                              key={branch.id}
+                              className={`flex items-center gap-2.5 p-2 rounded-xl border cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-purple-950/40 border-purple-800 text-white'
+                                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    setDriverSelectedBranchIds([...driverSelectedBranchIds, branch.id]);
+                                  } else {
+                                    setDriverSelectedBranchIds(driverSelectedBranchIds.filter(id => id !== branch.id));
+                                  }
+                                }}
+                                className="rounded text-purple-600 focus:ring-0"
+                              />
+                              <span className="font-bold text-xs truncate">{branch.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Active Checkbox if editing */}
+                {editingDriver && (
+                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={driverIsActive}
+                      onChange={e => setDriverIsActive(e.target.checked)}
+                      className="rounded text-purple-600 focus:ring-0"
+                    />
+                    <div>
+                      <span className="font-bold text-slate-200 block">تفعيل حساب كابتن التوصيل</span>
+                      <span className="text-[10px] text-slate-500 block">عند التعطيل، لن يستطيع الطيار تسجيل الدخول أو استقبال أي طلبات</span>
+                    </div>
+                  </label>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAddDriverModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingDriver}
+                  className="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {savingDriver ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>جاري الحفظ...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{editingDriver ? 'حفظ التعديلات' : 'إضافة الكابتن الآن'}</span>
                     </>
                   )}
                 </button>

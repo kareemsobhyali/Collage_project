@@ -21,6 +21,7 @@ import uploadRoutes from "./routes/upload.routes.js";
 import driverRoutes from "./routes/driver.routes.js";
 import { authLimiter, orderLimiter, generalApiLimiter, uploadLimiter } from "./middleware/rateLimiter.js";
 import prisma from "./prisma.js";
+import { getNotificationSoundSettings } from "./services/settings.service.js";
 
 
 const app = express();
@@ -144,6 +145,16 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+// نقطة نهاية عامة لجلب إعدادات صوت التنبيهات لجميع التطبيقات (POS، الطيار، الإدارة)
+app.get("/api/public/sound-settings", async (_req, res) => {
+  try {
+    const settings = await getNotificationSoundSettings();
+    res.json({ success: true, ...settings });
+  } catch (_e) {
+    res.json({ success: true, enabled: true, soundUrl: "", volume: 1.0 });
+  }
+});
+
 // مسارات شاشة فروع المطاعم والـ POS (desktop-app)
 const desktopDistPath = resolvePath("../desktop-app/dist", "desktop-app/dist");
 if (fs.existsSync(desktopDistPath)) {
@@ -216,10 +227,13 @@ server.listen(PORT, "0.0.0.0", () => {
 
   // فحص دوري كل 45 ثانية للطلبات المعلقة التي تجاوزت 5 دقائق دون قبول لإرسال إنذار عبر الواتساب
   import("./services/settings.service.js")
-    .then(({ checkAndSendUnacceptedOrdersWhatsAppAlerts, checkAndSendShiftClosingReports }) => {
+    .then(({ checkAndSendUnacceptedOrdersWhatsAppAlerts, checkAndSendShiftClosingReports, checkAndSendDriverUnacceptedOrdersAlerts }) => {
       setInterval(() => {
         checkAndSendUnacceptedOrdersWhatsAppAlerts().catch((err) => {
           console.error("[Scheduler] Unaccepted orders check error:", err);
+        });
+        checkAndSendDriverUnacceptedOrdersAlerts().catch((err) => {
+          console.error("[Scheduler] Driver unaccepted orders check error:", err);
         });
       }, 45 * 1000);
 

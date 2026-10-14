@@ -11,6 +11,7 @@ import {
   notifyMenuItemAvailabilityChanged
 } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert } from "../services/settings.service.js";
+import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig } from "../services/driver.service.js";
 
 
 const router = Router();
@@ -1028,14 +1029,16 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 18. جلب قائمة كباتن التوصيل (الطيارين) التابعين للفرع
+// 18. جلب قائمة كباتن التوصيل (الطيارين) المتاحين للفرع (طياري الفرع + الطيارين العامين لكل المطاعم)
 router.get("/drivers", async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
-    const drivers = await prisma.deliveryDriver.findMany({
-      where: { branchId },
+
+    const allDrivers = await prisma.deliveryDriver.findMany({
+      where: { isActive: true },
       select: {
         id: true,
+        branchId: true,
         name: true,
         phone: true,
         username: true,
@@ -1045,7 +1048,27 @@ router.get("/drivers", async (req: AuthRequest, res: Response) => {
       },
       orderBy: { createdAt: "desc" },
     });
-    res.json(drivers);
+
+    const eligibleDrivers = [];
+    for (const d of allDrivers) {
+      const allowed = await canDriverServeBranch(d.id, d.branchId, branchId);
+      if (allowed) {
+        const config = await getDriverBranchConfig(d.id, d.branchId);
+        eligibleDrivers.push({
+          id: d.id,
+          name: d.name,
+          phone: d.phone,
+          username: d.username,
+          isActive: d.isActive,
+          createdAt: d.createdAt,
+          isAllBranches: config.isAllBranches,
+          isGeneralDriver: config.isAllBranches || d.branchId !== branchId,
+          _count: d._count,
+        });
+      }
+    }
+
+    res.json(eligibleDrivers);
   } catch (error) {
     res.status(500).json({ error: "فشل استرجاع قائمة الطيارين" });
   }
@@ -1081,6 +1104,9 @@ router.post("/drivers", async (req: AuthRequest, res: Response) => {
         isActive: true,
       },
     });
+
+    // تسجيل أن هذا الطيار مخصص لهذا الفرع
+    await setDriverBranchConfig(driver.id, { isAllBranches: false, branchIds: [branchId] });
 
     res.status(201).json({
       success: true,
@@ -1172,11 +1198,16 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
 
     let assignedDriver: any = null;
     if (driverId) {
-      assignedDriver = await prisma.deliveryDriver.findFirst({
-        where: { id: driverId, branchId, isActive: true },
+      assignedDriver = await prisma.deliveryDriver.findUnique({
+        where: { id: driverId },
       });
-      if (!assignedDriver) {
-        res.status(400).json({ error: "الطيار المحدد غير متاح أو لا يتبع هذا الفرع" });
+      if (!assignedDriver || !assignedDriver.isActive) {
+        res.status(400).json({ error: "الطيار المحدد غير متاح حالياً" });
+        return;
+      }
+      const allowed = await canDriverServeBranch(assignedDriver.id, assignedDriver.branchId, branchId);
+      if (!allowed) {
+        res.status(400).json({ error: "الطيار المحدد غير مصرح له بتوصيل طلبات هذا المطعم" });
         return;
       }
     }

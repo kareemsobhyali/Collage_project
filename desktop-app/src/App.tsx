@@ -15,11 +15,7 @@ import {
   Clock,
   PowerOff,
   Truck,
-  Printer,
-  BellRing,
-  Eye,
-  X,
-  MapPin
+  Printer
 } from 'lucide-react';
 import { api } from './services/api';
 import { soundNotifier } from './services/audioAlert';
@@ -44,8 +40,6 @@ export function App() {
 
   const [activeTab, setActiveTab] = useState<'ORDERS' | 'MENU' | 'MODIFIERS' | 'DRIVERS' | 'PROFILE'>('ORDERS');
   const [orders, setOrders] = useState<any[]>([]);
-  const [incomingOrders, setIncomingOrders] = useState<any[]>([]);
-  const [selectedModalOrder, setSelectedModalOrder] = useState<any | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [modifierGroups, setModifierGroups] = useState<any[]>([]);
   const [socketConnected, setSocketConnected] = useState<boolean>(false);
@@ -159,8 +153,6 @@ export function App() {
     socket.on('new_order', (newOrder: any) => {
       // إضافة الطلب في أول القائمة
       setOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
-      // إضافة الطلب للكروت المصغرة الواردة
-      setIncomingOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
       // تشغيل جرس التنبيه المستمر
       soundNotifier.startRepeatingAlarm();
 
@@ -173,9 +165,6 @@ export function App() {
     // تحديث حالة طلب
     socket.on('order_status_updated', (updatedOrder: any) => {
       setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
-      if (updatedOrder.status !== 'PENDING') {
-        setIncomingOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
-      }
     });
 
     // تحديث حالة عمل الفرع لحظياً
@@ -187,6 +176,15 @@ export function App() {
           closedUntil: data.closedUntil,
           closingReason: data.closingReason,
         }));
+      }
+    });
+
+    // تحديث صوت التنبيه المخصص فورياً عند تغييره من قِبل الإدارة
+    socket.on('notification_sound_updated', (soundSettings: any) => {
+      if (soundSettings && soundSettings.enabled && soundSettings.soundUrl) {
+        soundNotifier.setCustomSound(soundSettings.soundUrl, soundSettings.volume ?? 1.0);
+      } else {
+        soundNotifier.setCustomSound(null);
       }
     });
 
@@ -216,8 +214,6 @@ export function App() {
     localStorage.removeItem('branch_token');
     localStorage.removeItem('branch_info');
     soundNotifier.stopRepeatingAlarm();
-    setIncomingOrders([]);
-    setSelectedModalOrder(null);
     setToken(null);
     setBranch(null);
   };
@@ -437,110 +433,6 @@ export function App() {
         </div>
       </header>
 
-      {/* Floating / Sticky Incoming Orders Tray (شريط الكروت المصغرة للطلبات الواردة لحظياً) */}
-      {incomingOrders.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-xl border-b border-orange-600/30 sticky top-[102px] z-30 transition-all">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
-                </span>
-                <span className="font-black text-sm sm:text-base flex items-center gap-1.5">
-                  <BellRing className="w-4 h-4 animate-bounce" />
-                  <span>طلبات جديدة واردة الآن ({incomingOrders.length})</span>
-                </span>
-                <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-bold hidden md:inline">
-                  اضغط على أي كارت لفتح تفاصيل الطلب وقبوله
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => soundNotifier.stopRepeatingAlarm()}
-                  className="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
-                  title="إيقاف صوت التنبيه مؤقتاً"
-                >
-                  <VolumeX className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">كتم الصوت</span>
-                </button>
-                <button
-                  onClick={() => setIncomingOrders([])}
-                  className="px-2.5 py-1 bg-black/20 hover:bg-black/30 text-white rounded-lg text-xs font-bold transition-colors"
-                  title="إخفاء هذا الشريط"
-                >
-                  إخفاء الشريط
-                </button>
-              </div>
-            </div>
-
-            {/* Mini Cards Horizontal Grid / Tray */}
-            <div className="flex items-stretch gap-3 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
-              {incomingOrders.map((incOrder) => (
-                <div
-                  key={incOrder.id}
-                  onClick={() => {
-                    setActiveTab('ORDERS');
-                    setSelectedModalOrder(incOrder);
-                    setIncomingOrders(prev => prev.filter(o => o.id !== incOrder.id));
-                  }}
-                  className="bg-white text-slate-900 rounded-2xl p-3 shadow-lg min-w-[260px] sm:min-w-[290px] max-w-[320px] cursor-pointer hover:shadow-2xl hover:scale-[1.02] active:scale-98 transition-all border border-orange-200 shrink-0 relative group flex flex-col justify-between"
-                >
-                  {/* Dismiss Mini Card */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIncomingOrders(prev => prev.filter(o => o.id !== incOrder.id));
-                    }}
-                    className="absolute top-2 left-2 p-1 text-slate-400 hover:text-rose-600 rounded-full hover:bg-rose-50 transition-colors"
-                    title="تجاهل الكارت المصغر"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5 pl-6">
-                      <span className="font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-lg text-xs">
-                        #{incOrder.orderNumber}
-                      </span>
-                      <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 font-mono">
-                        {incOrder.total} ج.م
-                      </span>
-                    </div>
-
-                    <div className="text-xs font-black text-slate-800 truncate mb-1">
-                      👤 {incOrder.customerName || 'طالب'}
-                      <span className="text-[11px] font-bold text-slate-500 mr-1.5">
-                        {incOrder.orderType === 'DELIVERY' ? '• 🛵 توصيل' : '• 🛍️ استلام'}
-                      </span>
-                    </div>
-
-                    {incOrder.deliveryLocation && (
-                      <div className="text-[11px] text-slate-500 truncate mb-1.5 flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span className="truncate">{incOrder.deliveryLocation}</span>
-                      </div>
-                    )}
-
-                    <div className="text-[11px] text-slate-600 line-clamp-1 mb-2 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                      🛒 {incOrder.items?.length || 0} أصناف: {incOrder.items?.map((i: any) => i.itemName || i.item?.name).slice(0, 2).join('، ')}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[11px] font-black text-indigo-600 group-hover:text-indigo-700">
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>فتح وقبول الطلب</span>
-                    </span>
-                    <span className="text-slate-400 group-hover:translate-x-[-2px] transition-transform">←</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Operational Status Alerts */}
       {branch.operationalStatus === 'BUSY' && (
         <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-md">
@@ -584,8 +476,6 @@ export function App() {
             orders={orders}
             branchName={branch.name}
             onRefreshOrders={loadData}
-            initialDetailedOrder={selectedModalOrder}
-            onClearDetailedOrder={() => setSelectedModalOrder(null)}
           />
         )}
 

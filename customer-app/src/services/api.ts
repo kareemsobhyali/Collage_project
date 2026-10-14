@@ -316,6 +316,20 @@ export const api = {
     return data;
   },
 
+  // 9.2. رفع الملفات الصوتية لنغمات الإشعارات
+  async uploadAudio(file: File) {
+    const formData = new FormData();
+    formData.append('audio', file);
+    const res = await fetch(`${API_BASE_URL}/upload/audio`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل رفع الملف الصوتي');
+    return data;
+  },
+
   // 10. العناوين المحفوظة
   async getAddresses() {
     const res = await fetch(`${API_BASE_URL}/customer/addresses`, {
@@ -578,6 +592,20 @@ export const api = {
     return data;
   },
 
+  async driverAcceptOrder(orderId: string) {
+    const token = localStorage.getItem('driver_token');
+    const res = await fetch(`${API_BASE_URL}/driver/orders/${orderId}/accept`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token || ''}`,
+      },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل قبول الطلب');
+    return data;
+  },
+
   async driverRejectOrder(orderId: string, reason?: string) {
     const token = localStorage.getItem('driver_token');
     const res = await fetch(`${API_BASE_URL}/driver/orders/${orderId}/reject`, {
@@ -714,6 +742,8 @@ export const api = {
     unacceptedAlertPhones: string;
     unacceptedAlertEnabled: boolean;
     unacceptedDelayMinutes: number;
+    driverUnacceptedAlertEnabled?: boolean;
+    driverUnacceptedDelayMinutes?: number;
     dailyReportPhones?: string;
     dailyReportEnabled?: boolean;
   }) {
@@ -748,6 +778,124 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل تصفير بيانات المشروع');
+    return data;
+  },
+
+  // 41. إعدادات الصوت العامة وإدارة النغمات المخصصة
+  async getPublicSoundSettings() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/sound-settings`);
+      const data = await res.json();
+      return data;
+    } catch (_e) {
+      return { success: true, enabled: true, soundUrl: '', volume: 1.0 };
+    }
+  },
+
+  async getAdminSoundSettings() {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/sound`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب إعدادات صوت الإشعارات');
+    return data;
+  },
+
+  async updateAdminSoundSettings(settings: {
+    enabled?: boolean;
+    soundUrl?: string;
+    soundName?: string;
+    volume?: number;
+  }) {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/sound`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(settings),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ إعدادات صوت الإشعارات');
+    return data;
+  },
+
+  async resetAdminSoundSettings() {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/sound/reset`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استعادة نغمة الإشعارات الافتراضية');
+    return data;
+  },
+
+  // 42. إدارة كباتن التوصيل (الطيارين) من لوحة تحكم الأدمن
+  async getAdminDrivers() {
+    const res = await fetch(`${API_BASE_URL}/admin/drivers`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب قائمة كباتن التوصيل');
+    return data;
+  },
+
+  async createAdminDriver(driverData: {
+    name: string;
+    phone: string;
+    username: string;
+    password: string;
+    isAllBranches: boolean;
+    branchIds: string[];
+    primaryBranchId?: string;
+  }) {
+    const res = await fetch(`${API_BASE_URL}/admin/drivers`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(driverData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إضافة كابتن التوصيل');
+    return data;
+  },
+
+  async updateAdminDriver(
+    id: string,
+    driverData: {
+      name?: string;
+      phone?: string;
+      username?: string;
+      password?: string;
+      isActive?: boolean;
+      isAllBranches?: boolean;
+      branchIds?: string[];
+      primaryBranchId?: string;
+    }
+  ) {
+    const res = await fetch(`${API_BASE_URL}/admin/drivers/${id}`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(driverData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعديل بيانات كابتن التوصيل');
+    return data;
+  },
+
+  async toggleAdminDriverActive(id: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/drivers/${id}/toggle-active`, {
+      method: 'PATCH',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تغيير حالة كابتن التوصيل');
+    return data;
+  },
+
+  async deleteAdminDriver(id: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/drivers/${id}`, {
+      method: 'DELETE',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف كابتن التوصيل');
     return data;
   },
 };

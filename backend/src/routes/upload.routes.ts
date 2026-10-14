@@ -110,4 +110,80 @@ router.post("/", authenticateAny, (req: AuthRequest, res: Response) => {
   });
 });
 
+// تكوين رفع الملفات الصوتية الخاصة بنغمات الإشعارات والتنبيهات
+const audioUpload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB حد أقصى للملفات الصوتية
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase().replace(".", "");
+    const isAudioExt = /^(mp3|wav|ogg|m4a|aac|webm|flac|mpeg|mp4)$/i.test(ext);
+    const isAudioMime = file.mimetype.startsWith("audio/") || file.mimetype.includes("mpeg") || file.mimetype.includes("mp4") || file.mimetype.includes("ogg") || file.mimetype.includes("wav");
+    if (isAudioExt || isAudioMime) {
+      cb(null, true);
+    } else {
+      cb(new Error("يُسمح فقط برفع ملفات صوتية بصيغة (MP3, WAV, OGG, M4A, AAC)"));
+    }
+  },
+}).single("audio");
+
+// نقطة نهاية رفع الملفات الصوتية
+router.post("/audio", authenticateAny, (req: AuthRequest, res: Response) => {
+  audioUpload(req, res, async (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: "حجم الملف الصوتي كبير جداً، الحد الأقصى 10 ميجابايت" });
+      }
+      return res.status(400).json({ error: `خطأ أثناء رفع الملف الصوتي: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ error: err.message || "فشل رفع الملف الصوتي" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "لم يتم اختيار أي ملف صوتي للرفع" });
+    }
+
+    const filename = req.file.filename;
+    const originalName = req.file.originalname;
+    const mimeType = req.file.mimetype || "audio/mpeg";
+
+    try {
+      const fileBuffer = fs.readFileSync(req.file.path);
+
+      // حفظ نسخة احتياطية في قاعدة البيانات لضمان البقاء في أي استضافة
+      prisma.uploadedFile.upsert({
+        where: { filename },
+        update: {
+          mimeType,
+          data: fileBuffer,
+          size: fileBuffer.length,
+        },
+        create: {
+          filename,
+          mimeType,
+          data: fileBuffer,
+          size: fileBuffer.length,
+        },
+      }).catch((dbErr) => {
+        console.warn("[Upload] Could not store binary audio copy in DB:", dbErr);
+      });
+
+      const fileUrl = `/uploads/${filename}`;
+      return res.json({
+        success: true,
+        fileUrl,
+        filename,
+        originalName,
+      });
+    } catch (_e) {
+      return res.json({
+        success: true,
+        fileUrl: `/uploads/${filename}`,
+        filename,
+        originalName,
+      });
+    }
+  });
+});
+
 export default router;
+

@@ -533,7 +533,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     <option value="">{assignedDriver ? '-- تغيير الطيار المعين --' : '-- اختر كابتن توصيل (طيار) --'}</option>
                     {drivers.map((d: any) => (
                       <option key={d.id} value={d.id} disabled={!d.isActive}>
-                        {d.name} ({d.phone}) {d.isActive ? '' : '(غير متاح)'}
+                        {d.name} ({d.phone}) {d.isGeneralDriver ? '🌐 [طيار عام]' : ''} {d.isActive ? '' : '(غير متاح)'}
                       </option>
                     ))}
                   </select>
@@ -1112,7 +1112,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 <option value="">-- بدون تعيين طيار الآن (يمكن التعيين لاحقاً) --</option>
                 {drivers.map(d => (
                   <option key={d.id} value={d.id} disabled={!d.isActive}>
-                    {d.name} ({d.phone}) {d.isActive ? '' : '(غير متاح)'}
+                    {d.name} ({d.phone}) {d.isGeneralDriver ? '🌐 [طيار عام]' : ''} {d.isActive ? '' : '(غير متاح)'}
                   </option>
                 ))}
               </select>

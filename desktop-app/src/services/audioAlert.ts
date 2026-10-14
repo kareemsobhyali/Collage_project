@@ -1,11 +1,36 @@
-// نظام تنبيهات صوتية تركيبي باستخدام Web Audio API يعمل فوراً دون الحاجة لملفات صوت خارجية
+import { api, getFullImageUrl } from './api';
+
+// نظام تنبيهات صوتية ذكي: يشغل الصوت المخصص المرفوع من لوحة تحكم الإدارة، مع دعم احتياطي لنغمة Web Audio API التخليقية
 class SoundNotifier {
   private audioCtx: AudioContext | null = null;
   private intervalId: any = null;
   private isMuted: boolean = false;
+  private customAudioUrl: string | null = null;
+  private customVolume: number = 1.0;
 
   constructor() {
     this.setupUserGestureUnlock();
+    this.fetchAndApplySettings();
+  }
+
+  public setCustomSound(soundUrl: string | null, volume: number = 1.0) {
+    if (soundUrl) {
+      this.customAudioUrl = getFullImageUrl(soundUrl);
+      this.customVolume = volume;
+    } else {
+      this.customAudioUrl = null;
+    }
+  }
+
+  public async fetchAndApplySettings() {
+    try {
+      const data = await api.getPublicSoundSettings();
+      if (data && data.enabled && data.soundUrl) {
+        this.setCustomSound(data.soundUrl, data.volume ?? 1.0);
+      } else {
+        this.setCustomSound(null);
+      }
+    } catch (_e) {}
   }
 
   // فك حظر تشغيل الصوت تلقائياً فور أول تفاعل من المستخدم مع الصفحة امتثالاً لسياسة المتصفحات الصارمة
@@ -36,9 +61,8 @@ class SoundNotifier {
     } catch (_e) {}
   }
 
-  // عزف نغمة الجرس المزدوج المميزة للطلبات
-  private playChime() {
-    if (this.isMuted) return;
+  // عزف النغمة التخليقية الثنائية
+  private playSyntheticChime() {
     try {
       this.initCtx();
       if (!this.audioCtx) return;
@@ -50,7 +74,7 @@ class SoundNotifier {
       const gain1 = this.audioCtx.createGain();
       osc1.type = 'triangle';
       osc1.frequency.setValueAtTime(880, now); // A5
-      gain1.gain.setValueAtTime(0.3, now);
+      gain1.gain.setValueAtTime(0.3 * this.customVolume, now);
       gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
       osc1.connect(gain1);
       gain1.connect(this.audioCtx.destination);
@@ -62,7 +86,7 @@ class SoundNotifier {
       const gain2 = this.audioCtx.createGain();
       osc2.type = 'sine';
       osc2.frequency.setValueAtTime(1174.66, now + 0.15); // D6
-      gain2.gain.setValueAtTime(0.4, now + 0.15);
+      gain2.gain.setValueAtTime(0.4 * this.customVolume, now + 0.15);
       gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
       osc2.connect(gain2);
       gain2.connect(this.audioCtx.destination);
@@ -71,6 +95,30 @@ class SoundNotifier {
     } catch (e) {
       console.warn("Sound play error:", e);
     }
+  }
+
+  // عزف النغمة المخصصة أو الاحتياطية
+  private playChime() {
+    if (this.isMuted) return;
+
+    if (this.customAudioUrl) {
+      try {
+        const audio = new Audio(this.customAudioUrl);
+        audio.volume = this.customVolume;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((_err) => {
+            // في حال منع المتصفح تشغيل ملف الصوت المخصص، نلجأ فوراً لـ Web Audio API التخليقي
+            this.playSyntheticChime();
+          });
+        }
+        return;
+      } catch (_e) {
+        // Fallback
+      }
+    }
+
+    this.playSyntheticChime();
   }
 
   // تشغيل تنبيه متكرر لا يتوقف حتى يقوم الكاشير بالاستجابة

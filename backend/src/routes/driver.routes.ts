@@ -4,6 +4,7 @@ import prisma from "../prisma.js";
 import { generateToken, authenticateDriver, AuthRequest } from "../middleware/auth.js";
 import { notifyOrderStatusChanged } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted } from "../services/settings.service.js";
+import { getDriverBranchConfig, markOrderAcceptedByDriver, isOrderAcceptedByDriver } from "../services/driver.service.js";
 
 const router = Router();
 
@@ -48,6 +49,18 @@ router.post("/login", async (req: Request, res: Response) => {
       username: driver.username,
     });
 
+    const config = await getDriverBranchConfig(driver.id, driver.branchId);
+    let servedBranchNames: string[] = [];
+    if (config.isAllBranches) {
+      servedBranchNames = ["جميع المطاعم والفروع (طيار عام)"];
+    } else {
+      const branches = await prisma.branch.findMany({
+        where: { id: { in: config.branchIds } },
+        select: { name: true },
+      });
+      servedBranchNames = branches.map(b => b.name);
+    }
+
     res.json({
       success: true,
       token,
@@ -58,6 +71,8 @@ router.post("/login", async (req: Request, res: Response) => {
         username: driver.username,
         branchId: driver.branchId,
         branch: driver.branch,
+        isAllBranches: config.isAllBranches,
+        servedBranchNames,
       },
     });
   } catch (error) {
@@ -87,7 +102,23 @@ router.get("/me", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    res.json(driver);
+    const config = await getDriverBranchConfig(driver.id, driver.branchId);
+    let servedBranchNames: string[] = [];
+    if (config.isAllBranches) {
+      servedBranchNames = ["جميع المطاعم والفروع (طيار عام)"];
+    } else {
+      const branches = await prisma.branch.findMany({
+        where: { id: { in: config.branchIds } },
+        select: { name: true },
+      });
+      servedBranchNames = branches.map(b => b.name);
+    }
+
+    res.json({
+      ...driver,
+      isAllBranches: config.isAllBranches,
+      servedBranchNames,
+    });
   } catch (error) {
     res.status(500).json({ error: "فشل جلب بيانات الحساب" });
   }
@@ -115,10 +146,61 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
       take: 50,
     });
 
-    res.json(orders);
+    const enrichedOrders = await Promise.all(
+      orders.map(async (o) => {
+        const isAccepted = Boolean(o.driverPickedUpAt) || (await isOrderAcceptedByDriver(o.id));
+        return {
+          ...o,
+          isDriverAccepted: isAccepted,
+        };
+      })
+    );
+
+    res.json(enrichedOrders);
   } catch (error) {
     console.error("Get driver orders error:", error);
     res.status(500).json({ error: "فشل جلب طلبات الطيار" });
+  }
+});
+
+// 3.1. قبول الطلب من قِبل الطيار (Driver Accept Order)
+router.put("/orders/:id/accept", async (req: AuthRequest, res: Response) => {
+  try {
+    const orderId = req.params.id as string;
+    const driverId = req.driver!.driverId;
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        branch: true,
+        items: true,
+        driver: { select: { id: true, name: true, phone: true } },
+      },
+    });
+
+    if (!order || order.driverId !== driverId) {
+      res.status(404).json({ error: "الطلب غير مسند لك" });
+      return;
+    }
+
+    await markOrderAcceptedByDriver(orderId, driverId);
+
+    const updated = {
+      ...order,
+      isDriverAccepted: true,
+    };
+
+    // إشعار الفرع فوراً بأن الطيار قبل الطلب وفي طريقه للاستلام
+    notifyOrderStatusChanged(order.id, order.branchId, updated, driverId);
+
+    res.json({
+      success: true,
+      message: "تم قبول الطلب بنجاح! توجه للفرع لاستلام الوجبة 🛵",
+      order: updated,
+    });
+  } catch (error) {
+    console.error("Driver accept order error:", error);
+    res.status(500).json({ error: "فشل قبول الطلب" });
   }
 });
 

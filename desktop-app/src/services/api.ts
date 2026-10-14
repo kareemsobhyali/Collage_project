@@ -442,4 +442,15 @@ export const api = {
       return [];
     }
   },
+
+  // جلب إعدادات صوت التنبيهات المخصصة
+  async getPublicSoundSettings() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/sound-settings`);
+      const data = await res.json();
+      return data;
+    } catch (_e) {
+      return { success: true, enabled: true, soundUrl: '', volume: 1.0 };
+    }
+  },
 };

@@ -94,6 +94,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
   const [paymentMethod, setPaymentMethod] = useState<string>(defaultPayment);
   const [addressText, setAddressText] = useState('');
+  const [addressTitle, setAddressTitle] = useState('');
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [customerPhone, setCustomerPhone] = useState(user?.phone || '');
   const [customerName, setCustomerName] = useState(user?.name || '');
   const [notes, setNotes] = useState('');
@@ -120,6 +122,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             const def = res.find((a: any) => a.isDefault);
             if (def && !addressText) {
               setAddressText(def.details);
+              setAddressTitle(def.title);
+              setSelectedAddressId(def.id);
             }
           }
         })
@@ -354,7 +358,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       }
 
       if (saveAddressToProfile && addressText.trim() && user) {
-        api.addAddress('مكان التوصيل', addressText.trim(), false).catch(() => {});
+        const titleToSave = addressTitle.trim() || 'عنواني';
+        api.addAddress(titleToSave, addressText.trim(), false).catch(() => {});
       }
 
       onOrderSuccess(res.order);
@@ -669,27 +674,44 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 )}
               </div>
 
-              {/* Fast Address Pills */}
+              {/* Fast Address Cards - تعرض اسم كل عنوان وتفاصيله بوضوح */}
               {savedAddresses.length > 0 && (
-                <div className="space-y-1">
-                  <div className="text-[11px] font-bold text-slate-500">اختر من عناويني المحفوظة سريعاً:</div>
-                  <div className="flex flex-wrap gap-1.5">
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-bold text-slate-500">اختر من عناويني المحفوظة:</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {savedAddresses.map((addr) => {
-                      const isSelected = addressText === addr.details;
+                      const isSelected = selectedAddressId === addr.id || addressText === addr.details;
                       return (
                         <button
                           key={addr.id}
                           type="button"
-                          onClick={() => setAddressText(addr.details)}
-                          className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                          onClick={() => {
+                            setAddressText(addr.details);
+                            setAddressTitle(addr.title);
+                            setSelectedAddressId(addr.id);
+                          }}
+                          className={`p-2.5 rounded-2xl text-right border transition-all flex flex-col justify-between gap-1 text-xs ${
                             isSelected
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-200'
+                              : 'bg-white text-slate-700 border-indigo-100/90 hover:border-indigo-300 hover:bg-indigo-50/50'
                           }`}
                         >
-                          <MapPin className="w-3 h-3 shrink-0" />
-                          <span>{addr.title}</span>
-                          {addr.isDefault && <span className="text-[9px] opacity-80">(رئيسي)</span>}
+                          <div className="flex items-center justify-between gap-1 w-full">
+                            <span className="font-black text-xs flex items-center gap-1.5 truncate">
+                              <MapPin className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-amber-300' : 'text-indigo-600'}`} />
+                              <span className="truncate">{addr.title}</span>
+                            </span>
+                            {addr.isDefault && (
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold shrink-0 ${
+                                isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
+                              }`}>
+                                رئيسي
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-[11px] truncate w-full text-right ${isSelected ? 'text-indigo-100' : 'text-slate-500'}`}>
+                            {addr.details}
+                          </p>
                         </button>
                       );
                     })}
@@ -697,29 +719,69 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 </div>
               )}
 
-              <textarea
-                rows={2}
-                placeholder="اكتب رقم الدور - المدرج أو المعمل (مثال: مبنى ب - الدور الثالث - مدرج 5 بجوار الكافتيريا)"
-                value={addressText}
-                onChange={e => setAddressText(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                required
-              />
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-indigo-100/60">
-                <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={saveAddressToProfile}
-                    onChange={e => setSaveAddressToProfile(e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span>حفظ هذا العنوان في حسابي للاختيار السريع لاحقاً</span>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  تفاصيل العنوان والموقع:
                 </label>
+                <textarea
+                  rows={2}
+                  placeholder="اكتب رقم الدور - المدرج أو المعمل (مثال: مبنى ب - الدور الثالث - مدرج 5 بجوار الكافتيريا)"
+                  value={addressText}
+                  onChange={e => {
+                    setAddressText(e.target.value);
+                    setSelectedAddressId(null);
+                  }}
+                  className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  required
+                />
+              </div>
 
-                <span className="text-[10px] text-indigo-700">
-                  💡 سيتواصل معك مندوب الفرع هاتفياً لتسليمك
-                </span>
+              {/* Save Address & Custom Title */}
+              <div className="space-y-2 pt-2 border-t border-indigo-100/70">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={saveAddressToProfile}
+                      onChange={e => setSaveAddressToProfile(e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="font-bold">حفظ هذا العنوان في حسابي للاختيار السريع لاحقاً</span>
+                  </label>
+
+                  <span className="text-[10px] text-indigo-700">
+                    💡 سيتواصل معك مندوب الفرع هاتفياً لتسليمك
+                  </span>
+                </div>
+
+                {saveAddressToProfile && (
+                  <div className="p-3 bg-white border border-indigo-200 rounded-2xl space-y-2 shadow-xs animate-fadeIn">
+                    <label className="block text-[11px] font-black text-indigo-950">
+                      اسم أو تصنيف هذا العنوان (ليسهل عليك تمييزه دون الحاجة للتبديل بين العناوين):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="مثال: سكن الطلبة، مبنى د، كلية العلوم، شقة الجامعة..."
+                      value={addressTitle}
+                      onChange={e => setAddressTitle(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 font-bold text-slate-800"
+                    />
+                    {/* Quick suggestion tags */}
+                    <div className="flex flex-wrap gap-1.5 items-center pt-0.5">
+                      <span className="text-[10px] text-slate-400 font-bold ml-1">اقتراحات سريعة:</span>
+                      {['سكن الطلاب', 'سكن الطالبات', 'كلية الهندسة', 'المكتبة المركزية', 'المبنى الإداري', 'السكن الخارجي'].map((sug, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setAddressTitle(sug)}
+                          className="text-[10px] px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200/60 transition-colors"
+                        >
+                          {sug}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

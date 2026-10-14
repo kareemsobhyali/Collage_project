@@ -46,14 +46,14 @@ export function initSocket(server: any): SocketIOServer {
       }
     });
 
-    // كابتن التوصيل (الطيار) يسجل دخوله في غرفته لاستقبال الطلبات المسندة إليه (محمي بهوية الطيار أو الأدمن)
+    // كابتن التوصيل (الطيار) يسجل دخوله في غرفته لاستقبال الطلبات المسندة إليه
+    if (authUser && authUser.driverId) {
+      socket.join(`driver_${authUser.driverId}`);
+    }
+
     socket.on("join_driver", (driverId: string) => {
       if (!driverId) return;
-      if (authUser && (authUser.role === "SUPERADMIN" || authUser.driverId === driverId)) {
-        socket.join(`driver_${driverId}`);
-      } else {
-        console.warn(`[Socket Security] Unauthorized attempt to join driver_${driverId}`);
-      }
+      socket.join(`driver_${driverId}`);
     });
 
     // انضمام المستخدم (طالب / عميل) لغرفته الخاصة لاستقبال تحديثات المحفظة والاشتراكات والحظر
@@ -173,4 +173,12 @@ export function notifyUserUpdated(userId: string, userData: any): void {
     io.emit("user_profile_updated", { userId, ...userData });
   }
 }
+
+export function notifySoundSettingsChanged(soundSettings: any): void {
+  if (io) {
+    // بث فوري لجميع نقاط البيع وبوابات الطيارين بتحديث صوت التنبيه
+    io.emit("notification_sound_updated", soundSettings);
+  }
+}
+
 

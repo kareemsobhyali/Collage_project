@@ -9,15 +9,24 @@ import {
   getWhatsAppAlertSettings,
   updateWhatsAppAlertSettings,
   sendOrderCancellationWhatsAppAlert,
-  sendBranchShiftWhatsAppReport
+  sendBranchShiftWhatsAppReport,
+  getNotificationSoundSettings,
+  updateNotificationSoundSettings,
+  DEFAULT_SOUND_SETTINGS
 } from "../services/settings.service.js";
 import { 
   notifyBranchStatusChanged,
   notifyBranchesListChanged,
   notifyBannersUpdated,
   notifyPromosUpdated,
-  notifyUserUpdated
+  notifyUserUpdated,
+  notifySoundSettingsChanged
 } from "../sockets/socketManager.js";
+import { 
+  getDriverBranchConfig, 
+  setDriverBranchConfig, 
+  deleteDriverBranchConfig 
+} from "../services/driver.service.js";
 
 
 
@@ -1234,6 +1243,59 @@ router.put("/settings/whatsapp-alerts", async (req: AuthRequest, res: Response) 
   }
 });
 
+// 12.2. جلب إعدادات صوت التنبيهات والإشعارات المخصصة
+router.get("/settings/sound", async (_req: AuthRequest, res: Response) => {
+  try {
+    const settings = await getNotificationSoundSettings();
+    res.json(settings);
+  } catch (error) {
+    console.error("Get sound settings error:", error);
+    res.status(500).json({ error: "فشل جلب إعدادات صوت الإشعارات" });
+  }
+});
+
+// 12.3. تحديث وحفظ إعدادات صوت الإشعارات (رفع وتخصيص الصوت ومستواه)
+router.put("/settings/sound", async (req: AuthRequest, res: Response) => {
+  try {
+    const { enabled, soundUrl, soundName, volume } = req.body;
+    const updated = await updateNotificationSoundSettings({
+      enabled,
+      soundUrl,
+      soundName,
+      volume,
+    });
+
+    // بث لحظي لجميع تطبيقات المطاعم وبوابات الطيارين لتحديث الصوت مباشرة
+    notifySoundSettingsChanged(updated);
+
+    res.json({
+      success: true,
+      message: "تم حفظ وتحديث نغمة الإشعارات بنجاح ✅",
+      settings: updated,
+    });
+  } catch (error) {
+    console.error("Update sound settings error:", error);
+    res.status(500).json({ error: "فشل حفظ إعدادات صوت الإشعارات" });
+  }
+});
+
+// 12.4. استعادة نغمة النظام الافتراضية
+router.post("/settings/sound/reset", async (_req: AuthRequest, res: Response) => {
+  try {
+    const reset = await updateNotificationSoundSettings(DEFAULT_SOUND_SETTINGS);
+    notifySoundSettingsChanged(reset);
+
+    res.json({
+      success: true,
+      message: "تمت استعادة نغمة الإشعارات الافتراضية بنجاح ✅",
+      settings: reset,
+    });
+  } catch (error) {
+    console.error("Reset sound settings error:", error);
+    res.status(500).json({ error: "فشل استعادة نغمة الإشعارات الافتراضية" });
+  }
+});
+
 // 13. إرسال التقرير المالي للشيفت الآن لأي فرع أو لجميع الفروع عبر الواتساب
 router.post("/reports/send-shift-report/:branchId", async (req: AuthRequest, res: Response) => {
   try {
@@ -1324,6 +1386,223 @@ router.post("/system/factory-reset", async (req: AuthRequest, res: Response) => 
   } catch (error: any) {
     console.error("Factory reset error:", error);
     res.status(500).json({ error: "فشل تنفيذ عملية إعادة ضبط المصنع: " + (error?.message || "") });
+  }
+});
+
+// =========================================================================
+// 15. إدارة كباتن التوصيل (الطيارين) من لوحة تحكم الإدارة (Admin Driver Management)
+// =========================================================================
+
+// 15.1 جلب جميع كباتن التوصيل مع نطاق المطاعم المعتمدة لكل منهم
+router.get("/drivers", async (_req: AuthRequest, res: Response) => {
+  try {
+    const drivers = await prisma.deliveryDriver.findMany({
+      include: {
+        branch: { select: { id: true, name: true, logoUrl: true } },
+        _count: { select: { orders: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const branches = await prisma.branch.findMany({
+      select: { id: true, name: true, logoUrl: true },
+    });
+    const branchMap = new Map(branches.map(b => [b.id, b]));
+
+    const enrichedDrivers = await Promise.all(
+      drivers.map(async (d) => {
+        const config = await getDriverBranchConfig(d.id, d.branchId);
+        const servedBranches = config.isAllBranches
+          ? branches
+          : config.branchIds.map(bId => branchMap.get(bId) || { id: bId, name: "فرع محذوف", logoUrl: null });
+
+        return {
+          id: d.id,
+          name: d.name,
+          phone: d.phone,
+          username: d.username,
+          isActive: d.isActive,
+          createdAt: d.createdAt,
+          primaryBranch: d.branch,
+          isAllBranches: config.isAllBranches,
+          branchIds: config.isAllBranches ? branches.map(b => b.id) : config.branchIds,
+          servedBranches,
+          _count: d._count,
+        };
+      })
+    );
+
+    res.json(enrichedDrivers);
+  } catch (error) {
+    console.error("Admin get drivers error:", error);
+    res.status(500).json({ error: "فشل استرجاع قائمة كباتن التوصيل" });
+  }
+});
+
+// 15.2 إضافة كابتن توصيل جديد (عام لجميع المطاعم أو مطاعم محددة)
+router.post("/drivers", async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, phone, username, password, isAllBranches, branchIds, primaryBranchId } = req.body;
+
+    if (!name || !phone || !username || !password) {
+      res.status(400).json({ error: "جميع بيانات الطيار مطلوبة (الاسم، الهاتف، اسم المستخدم، كلمة المرور)" });
+      return;
+    }
+
+    const existing = await prisma.deliveryDriver.findUnique({
+      where: { username: username.trim() },
+    });
+    if (existing) {
+      res.status(400).json({ error: "اسم المستخدم الخاص بالطيار مسجل بالفعل، يرجى اختيار اسم آخر" });
+      return;
+    }
+
+    // تحديد الفرع الأساسي للربط في قاعدة البيانات
+    let finalBranchId = primaryBranchId;
+    if (!finalBranchId) {
+      if (Array.isArray(branchIds) && branchIds.length > 0) {
+        finalBranchId = branchIds[0];
+      } else {
+        const firstBranch = await prisma.branch.findFirst({ select: { id: true } });
+        finalBranchId = firstBranch?.id;
+      }
+    }
+
+    if (!finalBranchId) {
+      res.status(400).json({ error: "يجب وجود فرع واحد على الأقل مسجل في المنظومة لربط الطيار به" });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const driver = await prisma.deliveryDriver.create({
+      data: {
+        branchId: finalBranchId,
+        name: name.trim(),
+        phone: phone.trim(),
+        username: username.trim(),
+        password: hashedPassword,
+        isActive: true,
+      },
+      include: {
+        branch: { select: { id: true, name: true, logoUrl: true } },
+      },
+    });
+
+    const isAll = Boolean(isAllBranches);
+    const selectedBranchIds = isAll ? [] : (Array.isArray(branchIds) ? branchIds : [finalBranchId]);
+
+    const config = await setDriverBranchConfig(driver.id, {
+      isAllBranches: isAll,
+      branchIds: selectedBranchIds,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "تمت إضافة كابتن التوصيل بنجاح ✅",
+      driver: {
+        ...driver,
+        isAllBranches: config.isAllBranches,
+        branchIds: config.branchIds,
+      },
+    });
+  } catch (error) {
+    console.error("Admin create driver error:", error);
+    res.status(500).json({ error: "فشل إضافة كابتن التوصيل" });
+  }
+});
+
+// 15.3 تعديل بيانات ونطاق عمل كابتن التوصيل
+router.put("/drivers/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { name, phone, username, password, isActive, isAllBranches, branchIds } = req.body;
+
+    const driver = await prisma.deliveryDriver.findUnique({ where: { id } });
+    if (!driver) {
+      res.status(404).json({ error: "كابتن التوصيل غير موجود" });
+      return;
+    }
+
+    const updateData: any = {};
+    if (name) updateData.name = name.trim();
+    if (phone) updateData.phone = phone.trim();
+    if (username && username.trim() !== driver.username) {
+      const existing = await prisma.deliveryDriver.findUnique({ where: { username: username.trim() } });
+      if (existing) {
+        res.status(400).json({ error: "اسم المستخدم الجديد مسجل مسبقاً لطيار آخر" });
+        return;
+      }
+      updateData.username = username.trim();
+    }
+    if (isActive !== undefined) updateData.isActive = Boolean(isActive);
+    if (password && password.trim()) {
+      updateData.password = await bcrypt.hash(password.trim(), 10);
+    }
+
+    const updated = await prisma.deliveryDriver.update({
+      where: { id },
+      data: updateData,
+      include: {
+        branch: { select: { id: true, name: true, logoUrl: true } },
+        _count: { select: { orders: true } },
+      },
+    });
+
+    let config = await getDriverBranchConfig(id, updated.branchId);
+    if (isAllBranches !== undefined || branchIds !== undefined) {
+      config = await setDriverBranchConfig(id, {
+        isAllBranches: isAllBranches !== undefined ? Boolean(isAllBranches) : config.isAllBranches,
+        branchIds: Array.isArray(branchIds) ? branchIds : config.branchIds,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "تم تعديل بيانات كابتن التوصيل بنجاح ✅",
+      driver: {
+        ...updated,
+        isAllBranches: config.isAllBranches,
+        branchIds: config.branchIds,
+      },
+    });
+  } catch (error) {
+    console.error("Admin update driver error:", error);
+    res.status(500).json({ error: "فشل تعديل بيانات كابتن التوصيل" });
+  }
+});
+
+// 15.4 تفعيل / إيقاف حساب كابتن توصيل سريعاً
+router.patch("/drivers/:id/toggle-active", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const driver = await prisma.deliveryDriver.findUnique({ where: { id } });
+    if (!driver) {
+      res.status(404).json({ error: "كابتن التوصيل غير موجود" });
+      return;
+    }
+
+    const updated = await prisma.deliveryDriver.update({
+      where: { id },
+      data: { isActive: !driver.isActive },
+    });
+
+    res.json({ success: true, isActive: updated.isActive });
+  } catch (error) {
+    res.status(500).json({ error: "فشل تغيير حالة الطيار" });
+  }
+});
+
+// 15.5 حذف كابتن توصيل
+router.delete("/drivers/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    await prisma.deliveryDriver.delete({ where: { id } });
+    await deleteDriverBranchConfig(id);
+
+    res.json({ success: true, message: "تم حذف كابتن التوصيل بنجاح ✅" });
+  } catch (error) {
+    console.error("Admin delete driver error:", error);
+    res.status(500).json({ error: "فشل حذف كابتن التوصيل" });
   }
 });
 

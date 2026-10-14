@@ -24,7 +24,8 @@ import {
   ChevronDown,
   Eye,
   MessageSquare,
-  Store
+  Store,
+  Check
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
@@ -50,7 +51,6 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
-  const [incomingAssignedOrders, setIncomingAssignedOrders] = useState<any[]>([]);
 
   // Delivery PIN dialog
   const [deliveringOrder, setDeliveringOrder] = useState<any | null>(null);
@@ -58,40 +58,122 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   const [pinError, setPinError] = useState<string | null>(null);
   const [deliveringLoading, setDeliveringLoading] = useState(false);
 
-  // Audio alerts
+  // Audio alerts & Custom sound settings
   const [isMuted, setIsMuted] = useState(false);
+  const [customSoundUrl, setCustomSoundUrl] = useState<string | null>(null);
+  const [customVolume, setCustomVolume] = useState<number>(1.0);
+  const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission === 'granted';
+    }
+    return false;
+  });
   const audioContextRef = useRef<AudioContext | null>(null);
   const alarmIntervalRef = useRef<any>(null);
 
-  // Initialize Web Audio beep for loud alerts
-  const playAlertSound = () => {
-    if (isMuted) return;
+  // فك حظر تشغيل الصوت تلقائياً فور أول نقرة أو لمس للشاشة
+  useEffect(() => {
+    const unlockAudio = () => {
+      try {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume().catch(() => {});
+        }
+      } catch (_e) {}
+    };
+
+    window.addEventListener('click', unlockAudio, { once: true, passive: true });
+    window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+  }, []);
+
+  // جلب إعدادات الصوت المخصص من السيرفر
+  const fetchSoundSettings = async () => {
+    try {
+      const data = await api.getPublicSoundSettings();
+      if (data && data.enabled && data.soundUrl) {
+        setCustomSoundUrl(data.soundUrl);
+        setCustomVolume(data.volume ?? 1.0);
+      } else {
+        setCustomSoundUrl(null);
+      }
+    } catch (_e) {}
+  };
+
+  useEffect(() => {
+    fetchSoundSettings();
+  }, []);
+
+  // نغمة صفارة تخليقية مزدوجة عالية جداً في حال عدم توفر ملف صوت أو تقييد المتصفح
+  const playSyntheticBeep = () => {
     try {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
       const ctx = audioContextRef.current;
       if (ctx.state === 'suspended') {
-        ctx.resume();
+        ctx.resume().catch(() => {});
       }
 
-      // Loud double-beep alert
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+      const now = ctx.currentTime;
+      // نغمة أولى حادة
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(987.77, now); // B5
+      osc1.frequency.exponentialRampToValueAtTime(587.33, now + 0.35); // D5
+      gain1.gain.setValueAtTime(0.9 * customVolume, now);
+      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
 
-      gain.gain.setValueAtTime(0.8, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.3);
+      // نغمة ثانية أعلى لشد الانتباه
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1318.51, now + 0.18); // E6
+      gain2.gain.setValueAtTime(0.9 * customVolume, now + 0.18);
+      gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.18);
+      osc2.stop(now + 0.55);
     } catch (e) {
       console.error('Audio play error:', e);
     }
+  };
+
+  // تشغيل نغمة التنبيه (الصوت المخصص من الإدارة أو التخليقي)
+  const playAlertSound = () => {
+    if (isMuted) return;
+
+    if (customSoundUrl) {
+      try {
+        const fullUrl = customSoundUrl.startsWith('http')
+          ? customSoundUrl
+          : `${API_BASE_URL.replace('/api', '')}${customSoundUrl.startsWith('/') ? '' : '/'}${customSoundUrl}`;
+        const audio = new Audio(fullUrl);
+        audio.volume = customVolume;
+        const p = audio.play();
+        if (p !== undefined) {
+          p.catch(() => {
+            playSyntheticBeep();
+          });
+        }
+        return;
+      } catch (_e) {
+        // Fallback
+      }
+    }
+
+    playSyntheticBeep();
   };
 
   const startRepeatingAlarm = () => {
@@ -99,7 +181,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     playAlertSound();
     alarmIntervalRef.current = setInterval(() => {
       playAlertSound();
-    }, 2500);
+    }, 2200);
   };
 
   const stopAlarm = () => {
@@ -135,17 +217,19 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     registerServiceWorker();
     if (token) {
       loadDriverData();
-      requestPushPermission().catch(() => {});
     }
     return () => stopAlarm();
   }, [token]);
 
-  // Socket setup for driver room
+  // Socket setup for driver room with Token Auth
   useEffect(() => {
-    if (!driver?.id) return;
+    if (!driver?.id || !token) return;
 
     const socketHost = API_BASE_URL.replace('/api', '');
-    const socket: Socket = io(socketHost);
+    const socket: Socket = io(socketHost, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+    });
 
     socket.on('connect', () => {
       socket.emit('join_driver', driver.id);
@@ -154,7 +238,6 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     socket.on('new_order_assigned', (order: any) => {
       startRepeatingAlarm();
       setOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
-      setIncomingAssignedOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
       sendWebNotification(
         `🛵 طلب توصيل جديد مسند لك #${order.orderNumber || ''}!`,
         `العميل: ${order.customerName || 'طالب'} • العنوان: ${order.addressText || ''}`,
@@ -166,16 +249,23 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       setOrders((prev) =>
         prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o))
       );
-      if (updated.status === 'COMPLETED' || updated.status === 'REJECTED') {
-        setIncomingAssignedOrders((prev) => prev.filter((o) => o.id !== updated.id));
-      }
       setSelectedOrder((prev: any) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+    });
+
+    // تحديث النغمة الصوتية لحظياً فور تغييرها من الإدارة
+    socket.on('notification_sound_updated', (soundSettings: any) => {
+      if (soundSettings && soundSettings.enabled && soundSettings.soundUrl) {
+        setCustomSoundUrl(soundSettings.soundUrl);
+        setCustomVolume(soundSettings.volume ?? 1.0);
+      } else {
+        setCustomSoundUrl(null);
+      }
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [driver?.id]);
+  }, [driver?.id, token]);
 
   // Login handler
   const handleLogin = async (e: React.FormEvent) => {
@@ -209,6 +299,20 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     setDriver(null);
     setOrders([]);
     stopAlarm();
+  };
+
+  // Accept order
+  const handleAccept = async (orderId: string) => {
+    try {
+      await api.driverAcceptOrder(orderId);
+      stopAlarm();
+      setOrders((prev: any[]) => prev.map(o => o.id === orderId ? { ...o, isDriverAccepted: true } : o));
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder({ ...selectedOrder, isDriverAccepted: true });
+      }
+    } catch (err: any) {
+      alert(err.message || 'فشل قبول الطلب');
+    }
   };
 
   // Reject order (only before pickup)
@@ -359,10 +463,28 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
               <span className="text-[11px] text-indigo-300 font-mono block truncate" dir="ltr">
                 @{driver.username} • {driver.phone}
               </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-800/90 text-indigo-200 border border-indigo-700/60 inline-flex items-center gap-1">
+                  {driver.isAllBranches ? '🌐 طيار عام لجميع المطاعم' : `🏪 ${driver.servedBranchNames?.length ? `${driver.servedBranchNames.length} مطاعم مخصصة` : (driver.branch?.name || 'مطعم محدد')}`}
+                </span>
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Test sound button */}
+            <button
+              onClick={() => {
+                if (isMuted) setIsMuted(false);
+                playAlertSound();
+              }}
+              className="h-9 px-2.5 bg-indigo-800 hover:bg-indigo-700 text-indigo-200 rounded-xl transition-colors shrink-0 flex items-center gap-1.5 text-[11px] font-bold"
+              title="تجربة صوت التنبيه"
+            >
+              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">تجربة الصوت</span>
+            </button>
+
             {/* Audio toggle */}
             <button
               onClick={() => {
@@ -408,105 +530,56 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
         </div>
       </header>
 
-      {/* Floating Incoming Assigned Orders Dock / Stack */}
-      {incomingAssignedOrders.length > 0 && (
-        <aside aria-label="طلبات جديدة واردة" className="fixed top-3 left-3 right-3 z-40 max-w-lg mx-auto animate-slideDown" dir="rtl">
-          <div className="bg-slate-900/95 backdrop-blur-md border-2 border-indigo-500 rounded-3xl p-3 sm:p-4 shadow-2xl text-white space-y-2.5">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                </span>
-                <span className="text-xs font-black text-emerald-400 flex items-center gap-1.5">
-                  <Truck className="w-4 h-4 text-emerald-400 animate-bounce" />
-                  <span>
-                    {incomingAssignedOrders.length === 1
-                      ? 'طلب توصيل جديد مسند إليك الآن!'
-                      : `${incomingAssignedOrders.length} طلبات توصيل مسندة إليك!`}
-                  </span>
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  stopAlarm();
-                  setIncomingAssignedOrders([]);
-                }}
-                className="text-[11px] text-slate-400 hover:text-white px-2 py-0.5 rounded-lg bg-slate-800 transition-colors"
-              >
-                تجاهل الكروت
-              </button>
-            </div>
-
-            {/* Organized Small Cards Stack */}
-            <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-              {incomingAssignedOrders.map((incOrder) => (
-                <div
-                  key={incOrder.id}
-                  onClick={() => {
-                    stopAlarm();
-                    setSelectedOrder(incOrder);
-                    setIncomingAssignedOrders((prev) => prev.filter((o) => o.id !== incOrder.id));
-                  }}
-                  className="bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-indigo-400 rounded-2xl p-3 cursor-pointer transition-all active:scale-98 flex items-center justify-between gap-3 group shadow-md"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-mono font-black text-sm shrink-0 group-hover:scale-105 transition-transform">
-                      #{incOrder.orderNumber}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-white">
-                          {incOrder.customerName || 'طالب'}
-                        </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-950 text-indigo-300 font-bold border border-indigo-800/60">
-                          {incOrder.branch?.name || 'المطعم'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-300 flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
-                        <span className="truncate max-w-[190px] sm:max-w-xs">
-                          {incOrder.deliveryZoneName || incOrder.addressText || 'الحرم الجامعي'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5">
-                    <div className="text-left shrink-0">
-                      <span className="text-xs font-mono font-black text-emerald-400 block">
-                        {incOrder.total} ج.م
-                      </span>
-                      <span className="text-[9px] text-slate-400 font-bold block">
-                        {incOrder.paymentMethod === 'CASH' ? '💵 كاش' : '💳 أونلاين'}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIncomingAssignedOrders((prev) => prev.filter((o) => o.id !== incOrder.id));
-                      }}
-                      className="p-1 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-700/60"
-                      title="إخفاء الكارت"
-                    >
-                      <XCircle className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-[10px] text-center text-indigo-300 font-medium">
-              👆 اضغط على أي كارت لفتح شاشة وتفاصيل الطلب وبدء التوصيل
-            </p>
-          </div>
-        </aside>
-      )}
-
       {/* Main Container */}
       <main className="flex-1 p-4 max-w-2xl w-full mx-auto space-y-4">
+        {/* Scope Banner */}
+        <div className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between gap-2 shadow-sm ${
+          driver.isAllBranches
+            ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 text-indigo-900'
+            : 'bg-white border-slate-200 text-slate-800'
+        }`}>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${driver.isAllBranches ? 'bg-purple-600 animate-pulse' : 'bg-indigo-600'}`} />
+            <div className="min-w-0">
+              <span className="font-black block text-xs">
+                {driver.isAllBranches ? '🌐 طيار عام لجميع المطاعم والفروع' : '🏪 مطاعم وفروع محددة:'}
+              </span>
+              <span className="text-[11px] font-normal text-slate-600 truncate block">
+                {driver.isAllBranches
+                  ? 'مؤهل لاستقبال وتوصيل الطلبات من كافة مطاعم الحرم الجامعي'
+                  : (driver.servedBranchNames?.length ? driver.servedBranchNames.join(' • ') : (driver.branch?.name || 'الفرع الأساسي'))}
+              </span>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-800 shrink-0">
+            {driver.isAllBranches ? 'نطاق شامل' : `${driver.servedBranchNames?.length || 1} فروع`}
+          </span>
+        </div>
+        {/* Permission Banner if notifications not granted */}
+        {!hasNotificationPermission && typeof window !== 'undefined' && 'Notification' in window && (
+          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 text-white p-3 sm:p-3.5 rounded-3xl shadow-md flex items-center justify-between gap-3 animate-pulse">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <BellRing className="w-4 h-4 text-white animate-bounce" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black truncate">تفعيل إشعارات وصوت التنبيهات 🔔</p>
+                <p className="text-[10px] text-white/90 truncate">انقر هنا لتشغيل التنبيهات الصوتية فور إسناد أي أوردر جديد لك</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                playAlertSound();
+                const granted = await requestPushPermission();
+                setHasNotificationPermission(granted);
+              }}
+              className="px-3.5 py-1.5 bg-white text-indigo-950 font-black rounded-xl text-xs shrink-0 shadow-sm hover:bg-indigo-50 active:scale-95 transition-all"
+            >
+              تفعيل الآن
+            </button>
+          </div>
+        )}
         {/* Active Orders Count Badge */}
         <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -573,11 +646,19 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black shrink-0 ${
                       isPickedUp
                         ? 'bg-indigo-600 text-white'
-                        : isReady
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-amber-500 text-white animate-pulse'
+                        : !order.isDriverAccepted
+                          ? 'bg-amber-500 text-white animate-pulse'
+                          : isReady
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-indigo-500 text-white'
                     }`}>
-                      {isPickedUp ? '🛵 جاري التوصيل' : isReady ? '✅ جاهز للاستلام' : '🍳 قيد التجهيز'}
+                      {isPickedUp
+                        ? '🛵 جاري التوصيل'
+                        : !order.isDriverAccepted
+                          ? '⚡ بانتظار قبولك'
+                          : isReady
+                            ? '✅ جاهز للاستلام'
+                            : '👍 تم القبول (قيد التجهيز)'}
                     </span>
                   </div>
 
@@ -615,14 +696,34 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     </div>
                   </div>
 
-                  {/* 4. Footer link to open */}
-                  <div className="pt-1 flex items-center justify-between text-xs font-black text-indigo-600 border-t border-slate-100">
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>عرض تفاصيل الطلب والتوصيل</span>
-                    </span>
-                    <span className="text-slate-400">←</span>
-                  </div>
+                  {/* 4. Actions: Accept/Reject quick buttons if not accepted, or open details */}
+                  {!isPickedUp && !order.isDriverAccepted ? (
+                    <div className="pt-2 flex items-center gap-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => handleAccept(order.id)}
+                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>قبول الطلب والتوجه للمطعم</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleReject(order.id)}
+                        className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all"
+                      >
+                        اعتذار
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="pt-1 flex items-center justify-between text-xs font-black text-indigo-600 border-t border-slate-100">
+                      <span className="flex items-center gap-1">
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>عرض تفاصيل الطلب والتوصيل</span>
+                      </span>
+                      <span className="text-slate-400">←</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -832,8 +933,35 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
             {/* Modal Actions Footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0">
-              {/* Pickup button */}
-              {selectedOrder.status !== 'COMPLETED' && !selectedOrder.driverPickedUpAt && (
+              {/* Accept button if not yet accepted */}
+              {selectedOrder.status !== 'COMPLETED' && !selectedOrder.driverPickedUpAt && !selectedOrder.isDriverAccepted && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleAccept(selectedOrder.id);
+                      setSelectedOrder({ ...selectedOrder, isDriverAccepted: true });
+                    }}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>قبول الطلب والتوجه للمطعم</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleReject(selectedOrder.id);
+                      setSelectedOrder(null);
+                    }}
+                    className="px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs"
+                  >
+                    اعتذار
+                  </button>
+                </>
+              )}
+
+              {/* Pickup button if already accepted */}
+              {selectedOrder.status !== 'COMPLETED' && !selectedOrder.driverPickedUpAt && selectedOrder.isDriverAccepted && (
                 <button
                   type="button"
                   onClick={() => {
