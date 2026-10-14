@@ -58,6 +58,26 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   const [pinError, setPinError] = useState<string | null>(null);
   const [deliveringLoading, setDeliveringLoading] = useState(false);
 
+  // Custom Confirmation Dialog & Toast States
+  const [driverConfirmDialog, setDriverConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDanger?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => (prev?.message === message ? null : prev));
+    }, 4000);
+  };
+
   // Audio alerts & Custom sound settings
   const [isMuted, setIsMuted] = useState(false);
   const [customSoundUrl, setCustomSoundUrl] = useState<string | null>(null);
@@ -306,42 +326,85 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     try {
       await api.driverAcceptOrder(orderId);
       stopAlarm();
+      showToast('تم قبول الطلب بنجاح! توجه للمطعم للاستلام 🚀', 'success');
       setOrders((prev: any[]) => prev.map(o => o.id === orderId ? { ...o, isDriverAccepted: true } : o));
       if (selectedOrder && selectedOrder.id === orderId) {
         setSelectedOrder({ ...selectedOrder, isDriverAccepted: true });
       }
     } catch (err: any) {
-      alert(err.message || 'فشل قبول الطلب');
+      showToast(err.message || 'فشل قبول الطلب', 'error');
     }
   };
 
   // Reject order (only before pickup)
-  const handleReject = async (orderId: string) => {
-    if (!window.confirm('هل أنت متأكد من الاعتذار عن توصيل هذا الطلب؟ سيعاد للمطعم لإسناده لطيار آخر.')) return;
-    try {
-      await api.driverRejectOrder(orderId, 'اعتذار من الطيار');
-      stopAlarm();
-      loadDriverData();
-    } catch (err: any) {
-      alert(err.message || 'فشل رفض الطلب');
-    }
+  const handleReject = (order: any) => {
+    const orderNumber = order?.orderNumber || order?.id?.slice(0, 5) || '';
+    const branchName = order?.branch?.name || 'المطعم';
+    setDriverConfirmDialog({
+      isOpen: true,
+      title: 'الاعتذار عن توصيل الطلب',
+      message: `هل أنت متأكد من الاعتذار عن توصيل الطلب #${orderNumber} القادم من مطعم "${branchName}"؟\nسيعاد الطلب للمطعم لإسناده لكابتن آخر فوراً.`,
+      confirmText: 'نعم، اعتذر عن الطلب',
+      cancelText: 'تراجع واستمرار',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await api.driverRejectOrder(order.id, 'اعتذار من الطيار');
+          stopAlarm();
+          loadDriverData();
+          if (selectedOrder?.id === order.id) {
+            setSelectedOrder(null);
+          }
+          showToast('تم الاعتذار عن توصيل الطلب بنجاح', 'info');
+        } catch (err: any) {
+          showToast(err.message || 'فشل الاعتذار عن الطلب', 'error');
+        }
+      },
+    });
   };
 
   // Pickup order from branch
-  const handlePickup = async (order: any) => {
+  const handlePickup = (order: any) => {
+    const branchName = order?.branch?.name || 'المطعم';
     if (order.status !== 'READY') {
-      const confirmEarly = window.confirm(
-        'تنبيه: الأوردر ما زال قيد التجهيز بالمطبخ ولم يحدد المطعم بعد أنه جاهز للاستلام.\nهل استلمت الوجبة بالفعل من الفرع وتريد بدء التوصيل للعميل؟'
-      );
-      if (!confirmEarly) return;
+      setDriverConfirmDialog({
+        isOpen: true,
+        title: 'استلام الطلب قبل اكتمال التحضير',
+        message: `تنبيه: الأوردر #${order.orderNumber} ما زال قيد التجهيز في مطبخ "${branchName}" ولم يحدد المطعم بعد أنه جاهز للاستلام.\nهل استلمت الوجبة بالفعل من الفرع وتريد بدء التوصيل للطالب الآن؟`,
+        confirmText: 'نعم، استلمت وبدء التوصيل',
+        cancelText: 'انتظار اكتمال التحضير',
+        isDanger: false,
+        onConfirm: async () => {
+          try {
+            await api.driverPickupOrder(order.id);
+            stopAlarm();
+            loadDriverData();
+            if (selectedOrder?.id === order.id) {
+              setSelectedOrder(null);
+            }
+            showToast('تم تأكيد الاستلام وبدء التوصيل 🛵', 'success');
+          } catch (err: any) {
+            showToast(err.message || 'فشل تأكيد الاستلام من الفرع', 'error');
+          }
+        },
+      });
+      return;
     }
-    try {
-      await api.driverPickupOrder(order.id);
-      stopAlarm();
-      loadDriverData();
-    } catch (err: any) {
-      alert(err.message || 'فشل تأكيد الاستلام من الفرع');
-    }
+
+    // Direct pickup if already READY
+    (async () => {
+      try {
+        await api.driverPickupOrder(order.id);
+        stopAlarm();
+        loadDriverData();
+        if (selectedOrder?.id === order.id) {
+          setSelectedOrder(null);
+        }
+        showToast('تم تأكيد الاستلام وبدء التوصيل 🛵', 'success');
+      } catch (err: any) {
+        showToast(err.message || 'فشل تأكيد الاستلام من الفرع', 'error');
+      }
+    })();
   };
 
   // Confirm delivery with PIN
@@ -632,18 +695,13 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                         : 'border-amber-300 ring-2 ring-amber-100 bg-gradient-to-b from-amber-50/30 to-white'
                   }`}
                 >
-                  {/* 1. Header: Order #, Branch, Status Badge */}
+                  {/* 1. Header: Order #, Status Badge */}
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono font-black text-base text-slate-900">
-                        #{order.orderNumber}
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold truncate max-w-[120px]">
-                        {order.branch?.name || 'المطعم'}
-                      </span>
-                    </div>
+                    <span className="font-mono font-black text-lg text-slate-900">
+                      #{order.orderNumber}
+                    </span>
 
-                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black shrink-0 ${
+                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-black shrink-0 ${
                       isPickedUp
                         ? 'bg-indigo-600 text-white'
                         : !order.isDriverAccepted
@@ -662,7 +720,27 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     </span>
                   </div>
 
-                  {/* 2. Customer & Campus Location */}
+                  {/* 2. Prominent Restaurant Banner - اسم المطعم واضح وكامل جداً */}
+                  <div className="p-3 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-2xl border border-amber-300/80 shadow-xs flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Store className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block">
+                        المطعم المطلوب الاستلام منه:
+                      </span>
+                      <span className="text-sm font-black text-slate-900 block leading-tight break-words">
+                        {order.branch?.name || 'مطعم غير محدد'}
+                      </span>
+                      {order.branch?.address && (
+                        <span className="text-[10px] text-slate-500 block truncate mt-0.5 font-medium">
+                          📍 {order.branch.address}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3. Customer & Campus Location */}
                   <div className="flex items-center justify-between text-xs text-slate-600">
                     <span className="font-bold truncate max-w-[160px]">
                       👤 {order.customerName || 'طالب'}
@@ -679,7 +757,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     </div>
                   )}
 
-                  {/* 3. Items Count & Price (Requested: رقم الأوردر، عدد الأصناف، السعر) */}
+                  {/* 4. Items Count & Price (Requested: رقم الأوردر، عدد الأصناف، السعر) */}
                   <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
                     <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold">
                       <ShoppingBag className="w-4 h-4 text-indigo-600 shrink-0" />
@@ -696,7 +774,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     </div>
                   </div>
 
-                  {/* 4. Actions: Accept/Reject quick buttons if not accepted, or open details */}
+                  {/* 5. Actions: Accept/Reject quick buttons if not accepted, or open details */}
                   {!isPickedUp && !order.isDriverAccepted ? (
                     <div className="pt-2 flex items-center gap-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -709,7 +787,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleReject(order.id)}
+                        onClick={() => handleReject(order)}
                         className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all"
                       >
                         اعتذار
@@ -822,6 +900,39 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
             {/* Modal Scrollable Body */}
             <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
+              {/* Prominent Restaurant Pickup Header Card - اسم المطعم واضح وكامل */}
+              <div className="p-4 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-2xl border-2 border-amber-400/70 shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                    <Store className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block mb-0.5">
+                      🏪 مطعم الاستلام (توجه إلى):
+                    </span>
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 break-words leading-snug">
+                      {selectedOrder.branch?.name || 'مطعم غير محدد'}
+                    </h3>
+                    {selectedOrder.branch?.address && (
+                      <p className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-1">
+                        <MapPin className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <span>{selectedOrder.branch.address}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {selectedOrder.branch?.phone && (
+                  <a
+                    href={`tel:${selectedOrder.branch.phone}`}
+                    className="px-3 py-2 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>اتصال</span>
+                  </a>
+                )}
+              </div>
+
               {/* Customer Contact & Call */}
               <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
                 <div>
@@ -950,8 +1061,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   <button
                     type="button"
                     onClick={() => {
-                      handleReject(selectedOrder.id);
-                      setSelectedOrder(null);
+                      handleReject(selectedOrder);
                     }}
                     className="px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs"
                   >
@@ -966,7 +1076,6 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   type="button"
                   onClick={() => {
                     handlePickup(selectedOrder);
-                    setSelectedOrder(null);
                   }}
                   className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
                 >
@@ -999,6 +1108,79 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 إغلاق
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation / Alert Dialog */}
+      {driverConfirmDialog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-5 shadow-2xl space-y-4 animate-scaleUp border border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                driverConfirmDialog.isDanger 
+                  ? 'bg-rose-50 text-rose-600 border border-rose-200' 
+                  : 'bg-indigo-50 text-indigo-600 border border-indigo-200'
+              }`}>
+                {driverConfirmDialog.isDanger ? <AlertCircle className="w-6 h-6" /> : <Store className="w-6 h-6" />}
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-sm">
+                  {driverConfirmDialog.title}
+                </h3>
+                <span className="text-[10px] text-slate-400 font-bold block">
+                  تطبيق كابتن التوصيل
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed font-medium whitespace-pre-line">
+              {driverConfirmDialog.message}
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDriverConfirmDialog(null)}
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors"
+              >
+                {driverConfirmDialog.cancelText || 'تراجع'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = driverConfirmDialog.onConfirm;
+                  setDriverConfirmDialog(null);
+                  action();
+                }}
+                className={`py-2.5 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+                  driverConfirmDialog.isDanger
+                    ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
+                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+                }`}
+              >
+                <span>{driverConfirmDialog.confirmText || 'تأكيد'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] w-11/12 max-w-sm" dir="rtl">
+          <div className={`p-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-black border ${
+            toast.type === 'error'
+              ? 'bg-rose-600 text-white border-rose-700'
+              : toast.type === 'success'
+                ? 'bg-emerald-600 text-white border-emerald-700'
+                : 'bg-slate-900 text-white border-slate-800'
+          }`}>
+            {toast.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle className="w-4 h-4 shrink-0" />}
+            <span className="flex-1">{toast.message}</span>
+            <button onClick={() => setToast(null)} className="p-1 hover:opacity-75">
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}

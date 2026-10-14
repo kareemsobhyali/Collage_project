@@ -62,6 +62,14 @@ import {
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
 import { Logo } from './Logo';
+const QUICK_ADMIN_CANCEL_REASONS = [
+  'المطعم مغلق حالياً',
+  'نفاد الكمية في المطعم',
+  'العميل طلب إلغاء الطلب',
+  'عدم توفر كابتن توصيل متاح',
+  'العنوان غير مدعوم أو خارج نطاق الحرم',
+  'تأخر تحضير الطلب في المطعم',
+];
 
 export const AdminPage: React.FC = () => {
   const [adminUser, setAdminUser] = useState<any | null>(() => {
@@ -279,6 +287,17 @@ export const AdminPage: React.FC = () => {
   const [editingPaymentBranch, setEditingPaymentBranch] = useState<any | null>(null);
   const [editingCredentialsBranch, setEditingCredentialsBranch] = useState<any | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
+  const [adminCancellingOrder, setAdminCancellingOrder] = useState<any | null>(null);
+  const [adminCancelReason, setAdminCancelReason] = useState<string>('');
+  const [adminConfirmDialog, setAdminConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDanger?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
   const [editingStudentWallet, setEditingStudentWallet] = useState<any | null>(null);
   const [editStudentBalance, setEditStudentBalance] = useState('0');
   const [editStudentPoints, setEditStudentPoints] = useState('0');
@@ -475,17 +494,26 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleDeleteDriver = async (driverId: string, driverName: string) => {
-    if (!window.confirm(`هل أنت متأكد من رغبتك في حذف كابتن التوصيل (${driverName})؟ سيتم إلغاء حسابه نهائياً.`)) return;
-    try {
-      setDeletingDriverId(driverId);
-      await api.deleteAdminDriver(driverId);
-      setDrivers(prev => prev.filter(d => d.id !== driverId));
-    } catch (err: any) {
-      alert(err.message || 'فشل حذف كابتن التوصيل');
-    } finally {
-      setDeletingDriverId(null);
-    }
+  const handleDeleteDriver = (driverId: string, driverName: string) => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'حذف كابتن التوصيل',
+      message: `هل أنت متأكد من رغبتك في حذف كابتن التوصيل (${driverName})؟ سيتم إلغاء حسابه نهائياً من النظام.`,
+      confirmText: 'نعم، حذف الكابتن',
+      cancelText: 'تراجع',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          setDeletingDriverId(driverId);
+          await api.deleteAdminDriver(driverId);
+          setDrivers(prev => prev.filter(d => d.id !== driverId));
+        } catch (err: any) {
+          alert(err.message || 'فشل حذف كابتن التوصيل');
+        } finally {
+          setDeletingDriverId(null);
+        }
+      },
+    });
   };
 
   const fetchReviewsData = async () => {
@@ -505,21 +533,30 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleDeleteReview = async (orderId: string) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا التقييم؟ سيتم إزالة النجوم والتعليق من سجل الطلب.')) return;
-    try {
-      setDeletingReviewId(orderId);
-      await api.deleteAdminReview(orderId);
-      setReviews(prev => prev.filter(r => r.id !== orderId));
-      setReviewsStats((prev: any) => ({
-        ...prev,
-        totalReviews: Math.max(0, (prev.totalReviews || 1) - 1),
-      }));
-    } catch (err: any) {
-      alert(err.message || 'فشل حذف التقييم');
-    } finally {
-      setDeletingReviewId(null);
-    }
+  const handleDeleteReview = (orderId: string) => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'حذف تقييم العميل',
+      message: 'هل أنت متأكد من حذف هذا التقييم؟ سيتم إزالة النجوم والتعليق من سجل الطلب نهائياً.',
+      confirmText: 'نعم، حذف التقييم',
+      cancelText: 'تراجع',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          setDeletingReviewId(orderId);
+          await api.deleteAdminReview(orderId);
+          setReviews(prev => prev.filter(r => r.id !== orderId));
+          setReviewsStats((prev: any) => ({
+            ...prev,
+            totalReviews: Math.max(0, (prev.totalReviews || 1) - 1),
+          }));
+        } catch (err: any) {
+          alert(err.message || 'فشل حذف التقييم');
+        } finally {
+          setDeletingReviewId(null);
+        }
+      },
+    });
   };
 
   const fetchWhatsAppStatus = async () => {
@@ -534,17 +571,26 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleDisconnectWhatsApp = async () => {
-    if (!window.confirm('هل أنت متأكد من رغبتك في فصل جلسة الواتساب الحالية؟ سيطلب منك مسح رمز QR جديد للربط.')) return;
-    try {
-      setLoadingWhatsApp(true);
-      await api.disconnectWhatsApp();
-      setTimeout(fetchWhatsAppStatus, 1500);
-    } catch (err: any) {
-      alert(err.message || 'فشل فصل الجلسة');
-    } finally {
-      setLoadingWhatsApp(false);
-    }
+  const handleDisconnectWhatsApp = () => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'فصل جلسة الواتساب',
+      message: 'هل أنت متأكد من رغبتك في فصل جلسة الواتساب الحالية؟ سيتوقف إرسال الرسائل حتى تقوم بمسح رمز QR جديد للربط.',
+      confirmText: 'نعم، فصل الجلسة',
+      cancelText: 'إبقاء الجلسة',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          setLoadingWhatsApp(true);
+          await api.disconnectWhatsApp();
+          setTimeout(fetchWhatsAppStatus, 1500);
+        } catch (err: any) {
+          alert(err.message || 'فشل فصل الجلسة');
+        } finally {
+          setLoadingWhatsApp(false);
+        }
+      },
+    });
   };
 
   const fetchWhatsAppAlertSettings = async () => {
@@ -583,10 +629,9 @@ export const AdminPage: React.FC = () => {
     try {
       let targetPhone = whatsAppAlertSettings.dailyReportPhones?.trim();
       if (!targetPhone) {
-        const input = window.prompt('يرجى إدخال رقم هاتف الواتساب المخصص لاستقبال التقرير المالي:\n(مثال: 01012345678)');
-        if (!input) return;
-        targetPhone = input.trim();
-        setWhatsAppAlertSettings(prev => ({ ...prev, dailyReportPhones: targetPhone! }));
+        setShiftReportTestMsg('⚠️ يرجى إدخال رقم هاتف الواتساب في الحقل المخصص أعلاه أولاً');
+        setTimeout(() => setShiftReportTestMsg(null), 5000);
+        return;
       }
 
       setTestingShiftReport(true);
@@ -813,21 +858,30 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleResetSoundSettings = async () => {
-    if (!window.confirm('هل أنت متأكد من استعادة نغمة النظام الافتراضية؟')) return;
-    try {
-      setSavingSoundSettings(true);
-      const res = await api.resetAdminSoundSettings();
-      if (res.settings) {
-        setSoundSettings(res.settings);
-      }
-      setSoundSaveSuccess(true);
-      setTimeout(() => setSoundSaveSuccess(false), 3500);
-    } catch (err: any) {
-      alert(err.message || 'فشل استعادة النغمة الافتراضية');
-    } finally {
-      setSavingSoundSettings(false);
-    }
+  const handleResetSoundSettings = () => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'استعادة النغمة الافتراضية',
+      message: 'هل أنت متأكد من رغبتك في استعادة نغمة النظام الصوتية الافتراضية؟',
+      confirmText: 'استعادة الافتراضية',
+      cancelText: 'إلغاء',
+      isDanger: false,
+      onConfirm: async () => {
+        try {
+          setSavingSoundSettings(true);
+          const res = await api.resetAdminSoundSettings();
+          if (res.settings) {
+            setSoundSettings(res.settings);
+          }
+          setSoundSaveSuccess(true);
+          setTimeout(() => setSoundSaveSuccess(false), 3500);
+        } catch (err: any) {
+          alert(err.message || 'فشل استعادة النغمة الافتراضية');
+        } finally {
+          setSavingSoundSettings(false);
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -935,14 +989,23 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleDeleteBanner = async (bannerId: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الإعلان؟')) return;
-    try {
-      await api.deleteAdminBanner(bannerId);
-      setBanners(banners.filter(b => b.id !== bannerId));
-    } catch (err: any) {
-      alert(err.message || 'فشل حذف البانر');
-    }
+  const handleDeleteBanner = (bannerId: string) => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'حذف الإعلان',
+      message: 'هل أنت متأكد من حذف هذا الإعلان نهائياً؟',
+      confirmText: 'نعم، حذف الإعلان',
+      cancelText: 'تراجع',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await api.deleteAdminBanner(bannerId);
+          setBanners(banners.filter(b => b.id !== bannerId));
+        } catch (err: any) {
+          alert(err.message || 'فشل حذف البانر');
+        }
+      },
+    });
   };
 
   // Promo Code Handlers
@@ -1257,22 +1320,28 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleDeleteBranch = async (branch: any) => {
-    if (!window.confirm(`هل أنت متأكد تماماً من رغبتك في حذف فرع "${branch.name}"؟\nسيتم مسح كافة أصنافه وإعداداته.`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/branches/${branch.id}`, {
-        method: 'DELETE',
-        headers: getAdminHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'فشل حذف الفرع');
-      fetchDashboardData();
-    } catch (err: any) {
-      alert(err.message || 'خطأ في حذف الفرع');
-    }
+  const handleDeleteBranch = (branch: any) => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'حذف الفرع نهائياً',
+      message: `هل أنت متأكد تماماً من رغبتك في حذف فرع "${branch.name}"؟\nسيتم مسح كافة أصنافه وإعداداته نهائياً من المنظومة.`,
+      confirmText: 'نعم، حذف الفرع بالكامل',
+      cancelText: 'تراجع',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/admin/branches/${branch.id}`, {
+            method: 'DELETE',
+            headers: getAdminHeaders(),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'فشل حذف الفرع');
+          fetchDashboardData();
+        } catch (err: any) {
+          alert(err.message || 'خطأ في حذف الفرع');
+        }
+      },
+    });
   };
 
   const handleOpenPaymentSettings = (branch: any) => {
@@ -2101,12 +2170,10 @@ export const AdminPage: React.FC = () => {
                           {order.status === 'PENDING' && (
                             <button
                               onClick={() => {
-                                const reason = window.prompt('يرجى كتابة سبب إلغاء هذا الطلب:');
-                                if (reason !== null) {
-                                  handleAdminUpdateOrderStatus(order.id, 'REJECTED', reason.trim() || undefined);
-                                }
+                                setAdminCancellingOrder(order);
+                                setAdminCancelReason('المطعم مغلق حالياً');
                               }}
-                              className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 text-rose-300 text-xs font-bold rounded-lg border border-rose-800"
+                              className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 text-rose-300 text-xs font-bold rounded-lg border border-rose-800 transition-colors"
                             >
                               إلغاء الطلب
                             </button>
@@ -6657,6 +6724,149 @@ export const AdminPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Order Cancellation Dialog */}
+      {adminCancellingOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn" dir="rtl">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-base">
+                    إلغاء الطلب #{adminCancellingOrder.orderNumber}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {adminCancellingOrder.branch?.name ? `مطعم: ${adminCancellingOrder.branch.name}` : ''}
+                    {adminCancellingOrder.customerName ? ` • العميل: ${adminCancellingOrder.customerName}` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setAdminCancellingOrder(null);
+                  setAdminCancelReason('');
+                }}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-300 block">
+                اختر سبب الإلغاء السريع أو اكتب سبباً مخصصاً:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_ADMIN_CANCEL_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setAdminCancelReason(reason)}
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
+                      adminCancelReason === reason
+                        ? 'bg-rose-600 text-white border-rose-500 font-bold shadow-xs'
+                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                rows={3}
+                value={adminCancelReason}
+                onChange={(e) => setAdminCancelReason(e.target.value)}
+                placeholder="اكتب سبب إلغاء هذا الطلب هنا..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors mt-2"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminCancellingOrder(null);
+                  setAdminCancelReason('');
+                }}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+              >
+                تراجع
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const finalReason = adminCancelReason.trim() || 'تم الإلغاء بواسطة الإدارة';
+                  handleAdminUpdateOrderStatus(adminCancellingOrder.id, 'REJECTED', finalReason);
+                  setAdminCancellingOrder(null);
+                  setAdminCancelReason('');
+                }}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-colors flex items-center gap-1.5 shadow-lg shadow-rose-600/30 active:scale-95"
+              >
+                <X className="w-4 h-4" />
+                <span>تأكيد إلغاء الطلب</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Custom Confirmation Modal */}
+      {adminConfirmDialog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-fadeIn" dir="rtl">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                adminConfirmDialog.isDanger 
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' 
+                  : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+              }`}>
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-black text-white text-base">
+                  {adminConfirmDialog.title}
+                </h3>
+                <span className="text-[10px] text-slate-400 font-bold block">
+                  لوحة الإدارة المركزية
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed font-medium whitespace-pre-line">
+              {adminConfirmDialog.message}
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setAdminConfirmDialog(null)}
+                className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs transition-colors"
+              >
+                {adminConfirmDialog.cancelText || 'تراجع'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = adminConfirmDialog.onConfirm;
+                  setAdminConfirmDialog(null);
+                  action();
+                }}
+                className={`py-2.5 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+                  adminConfirmDialog.isDanger
+                    ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/30'
+                    : 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/30'
+                }`}
+              >
+                <span>{adminConfirmDialog.confirmText || 'تأكيد'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
