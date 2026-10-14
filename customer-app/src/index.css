@@ -110,3 +110,22 @@ button, a, input, select, textarea {
 .animate-splash-bar {
   animation: splash-progress 2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
+
+/* Animations for Mobile Drawers & Dialogs */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

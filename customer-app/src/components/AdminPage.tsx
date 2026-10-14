@@ -46,7 +46,8 @@ import {
   RefreshCw,
   Gift,
   Sparkles,
-  Send
+  Send,
+  MoreHorizontal
 } from 'lucide-react';
 
 
@@ -75,6 +76,7 @@ export const AdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
   const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
+  const [showMobileMoreMenu, setShowMobileMoreMenu] = useState(false);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollTabs = (direction: 'left' | 'right') => {
@@ -1075,10 +1077,10 @@ export const AdminPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
       {/* 1. Top Enterprise Header Bar */}
-      <header className="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-3 sm:px-8 py-2.5 shadow-lg">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+      <header className="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-3 sm:px-8 py-2 sm:py-2.5 shadow-lg">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
           {/* Identity */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Logo size="sm" lightText />
             <div className="hidden md:block h-6 w-px bg-slate-800 shrink-0"></div>
             <div className="hidden md:flex items-center gap-2 min-w-0">
@@ -1092,11 +1094,11 @@ export const AdminPage: React.FC = () => {
           </div>
 
           {/* Action Tools & Close/Return */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={fetchDashboardData}
               disabled={loading}
-              className="h-9 flex items-center gap-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-700 whitespace-nowrap shrink-0"
+              className="h-8 sm:h-9 flex items-center gap-1.5 px-2.5 sm:px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-700 whitespace-nowrap shrink-0"
               title="تحديث البيانات"
             >
               <RotateCw className={`w-3.5 h-3.5 shrink-0 ${loading ? 'animate-spin text-purple-400' : ''}`} />
@@ -1106,16 +1108,16 @@ export const AdminPage: React.FC = () => {
             {/* زر العودة المباشر لمتجر الطلاب */}
             <button
               onClick={handleReturnToStudentStore}
-              className="h-9 flex items-center gap-1.5 px-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/30 transition-all active:scale-95 whitespace-nowrap shrink-0"
+              className="h-8 sm:h-9 flex items-center gap-1.5 px-3 sm:px-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/30 transition-all active:scale-95 whitespace-nowrap shrink-0"
               title="إغلاق والرجوع لشاشة الطلاب"
             >
               <Store className="w-4 h-4 text-white shrink-0" />
-              <span>متجر الطلاب</span>
+              <span className="hidden sm:inline">متجر الطلاب</span>
             </button>
 
             <button
               onClick={handleLogout}
-              className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors border border-slate-800 hover:border-rose-900/50 shrink-0"
+              className="w-8 sm:w-9 h-8 sm:h-9 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors border border-slate-800 hover:border-rose-900/50 shrink-0"
               title="تسجيل الخروج"
             >
               <Power className="w-4 h-4" />
@@ -1125,37 +1127,52 @@ export const AdminPage: React.FC = () => {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 pb-24 sm:pb-8">
         
         {/* 2. Top Analytics Metric Cards */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-            <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl">
-              <span className="text-[11px] text-slate-400 font-bold block mb-1">الفروع النشطة</span>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
+            <div className="p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+                <span className="text-[11px] font-bold">الفروع النشطة</span>
+                <Building className="w-3.5 h-3.5 text-emerald-400/80 shrink-0" />
+              </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black text-emerald-400">{stats.activeBranches}</span>
+                <span className="text-xl sm:text-2xl font-black text-emerald-400">{stats.activeBranches}</span>
                 <span className="text-xs text-slate-500 font-mono">/ {stats.totalBranches}</span>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl">
-              <span className="text-[11px] text-slate-400 font-bold block mb-1">إجمالي الطلبات</span>
-              <span className="text-2xl font-black text-indigo-400">{stats.totalOrders}</span>
+            <div className="p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+                <span className="text-[11px] font-bold">إجمالي الطلبات</span>
+                <ShoppingBag className="w-3.5 h-3.5 text-indigo-400/80 shrink-0" />
+              </div>
+              <span className="text-xl sm:text-2xl font-black text-indigo-400">{stats.totalOrders}</span>
             </div>
 
-            <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl">
-              <span className="text-[11px] text-slate-400 font-bold block mb-1">طلبات قيد التنفيذ</span>
-              <span className="text-2xl font-black text-amber-400 animate-pulse">{stats.pendingOrders ?? 0}</span>
+            <div className="p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+                <span className="text-[11px] font-bold">قيد التنفيذ</span>
+                <Clock className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
+              </div>
+              <span className="text-xl sm:text-2xl font-black text-amber-400 animate-pulse">{stats.pendingOrders ?? 0}</span>
             </div>
 
-            <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl">
-              <span className="text-[11px] text-slate-400 font-bold block mb-1">المبيعات المكتملة</span>
-              <span className="text-2xl font-black text-purple-400">{stats.totalSales} <span className="text-xs">ج.م</span></span>
+            <div className="p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+                <span className="text-[11px] font-bold">المبيعات</span>
+                <TrendingUp className="w-3.5 h-3.5 text-purple-400/80 shrink-0" />
+              </div>
+              <span className="text-xl sm:text-2xl font-black text-purple-400">{stats.totalSales} <span className="text-xs font-normal">ج.م</span></span>
             </div>
 
-            <div className="col-span-2 sm:col-span-1 p-4 bg-slate-900/70 border border-slate-800 rounded-2xl">
-              <span className="text-[11px] text-slate-400 font-bold block mb-1">الطلاب المسجلين</span>
-              <span className="text-2xl font-black text-sky-400">{stats.totalStudents ?? students.length}</span>
+            <div className="col-span-2 sm:col-span-1 p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+                <span className="text-[11px] font-bold">الطلاب المسجلين</span>
+                <Users className="w-3.5 h-3.5 text-sky-400/80 shrink-0" />
+              </div>
+              <span className="text-xl sm:text-2xl font-black text-sky-400">{stats.totalStudents ?? students.length}</span>
             </div>
           </div>
         )}
@@ -1382,10 +1399,10 @@ export const AdminPage: React.FC = () => {
                             </span>
                           )}
                           {branch.phone && (
-                            <span className="flex items-center gap-1 font-mono">
+                            <a href={`tel:${branch.phone}`} className="flex items-center gap-1 font-mono hover:text-purple-300 transition-colors">
                               <Phone className="w-3.5 h-3.5 text-slate-500" />
                               <span>{branch.phone}</span>
-                            </span>
+                            </a>
                           )}
                         </div>
                       </div>
@@ -1506,16 +1523,16 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'ORDERS' && (
           <div className="space-y-4">
             {/* Filter Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-400 font-bold ml-1">تصفية حسب الحالة:</span>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/60 p-3 sm:p-4 rounded-2xl border border-slate-800">
+              <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1 w-full sm:w-auto">
+                <span className="text-xs text-slate-400 font-bold ml-1 shrink-0">الحالة:</span>
                 {['ALL', 'PENDING', 'PREPARING', 'READY', 'COMPLETED', 'REJECTED'].map(st => (
                   <button
                     key={st}
                     onClick={() => setOrderStatusFilter(st)}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                       orderStatusFilter === st
-                        ? 'bg-purple-600 text-white'
+                        ? 'bg-purple-600 text-white shadow-sm'
                         : 'bg-slate-800 text-slate-400 hover:text-white'
                     }`}
                   >
@@ -1530,12 +1547,12 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Branch Filter dropdown */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 font-bold">الفرع:</span>
+              <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                <span className="text-xs text-slate-400 font-bold shrink-0">الفرع:</span>
                 <select
                   value={orderBranchFilter}
                   onChange={e => setOrderBranchFilter(e.target.value)}
-                  className="bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full sm:w-auto"
                 >
                   <option value="ALL">جميع فروع الجامعة</option>
                   {branches.map(b => (
@@ -1575,7 +1592,7 @@ export const AdminPage: React.FC = () => {
                   return (
                     <div
                       key={order.id}
-                      className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      className="p-3.5 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-2xl hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
@@ -1588,9 +1605,14 @@ export const AdminPage: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-400">
                           <span className="font-bold text-slate-200">{order.customerName}</span>
-                          <span className="font-mono text-slate-400">{order.customerPhone}</span>
+                          <a 
+                            href={`tel:${order.customerPhone}`}
+                            className="font-mono text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1"
+                          >
+                            📞 {order.customerPhone}
+                          </a>
                           {order.addressText && (
                             <span className="text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md">
                               📍 {order.addressText}
@@ -1699,7 +1721,9 @@ export const AdminPage: React.FC = () => {
                             </span>
                           )}
                         </div>
-                        <span className="font-mono text-xs text-slate-400 block">{student.phone}</span>
+                        <a href={`tel:${student.phone}`} className="font-mono text-xs text-purple-400 hover:text-purple-300 hover:underline block">
+                          📞 {student.phone}
+                        </a>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded-full font-mono">
                             المحفظة: {(student.walletBalance ?? 0).toFixed(0)} ج.م
@@ -2798,6 +2822,313 @@ export const AdminPage: React.FC = () => {
         )}
 
       </main>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav 
+        aria-label="التنقل السريع في لوحة الإدارة"
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 border-t border-slate-800/80 backdrop-blur-xl px-2 py-1.5 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.6)]"
+      >
+        <div className="grid grid-cols-5 gap-1 items-center max-w-lg mx-auto">
+          {/* 1. Branches */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('BRANCHES');
+              setShowMobileMoreMenu(false);
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
+              activeTab === 'BRANCHES' && !showMobileMoreMenu
+                ? 'text-purple-400 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <div className="relative">
+              <Building className="w-5 h-5 mb-0.5" />
+              {branches.length > 0 && (
+                <span className="absolute -top-1 -right-2 text-[9px] font-mono font-bold px-1 py-0.2 bg-slate-800 text-slate-300 rounded-full border border-slate-700 leading-none">
+                  {branches.length}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] leading-tight">الفروع</span>
+            {activeTab === 'BRANCHES' && !showMobileMoreMenu && (
+              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+            )}
+          </button>
+
+          {/* 2. Orders */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('ORDERS');
+              setShowMobileMoreMenu(false);
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
+              activeTab === 'ORDERS' && !showMobileMoreMenu
+                ? 'text-purple-400 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <div className="relative">
+              <ShoppingBag className="w-5 h-5 mb-0.5" />
+              {(stats?.pendingOrders ?? 0) > 0 && (
+                <span className="absolute -top-1 -right-2 text-[9px] font-mono font-black px-1.5 py-0.2 bg-amber-500 text-slate-950 rounded-full animate-bounce shadow-sm shadow-amber-500/50 leading-none">
+                  {stats?.pendingOrders}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] leading-tight">الطلبات</span>
+            {activeTab === 'ORDERS' && !showMobileMoreMenu && (
+              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+            )}
+          </button>
+
+          {/* 3. Students */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('STUDENTS');
+              setShowMobileMoreMenu(false);
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
+              activeTab === 'STUDENTS' && !showMobileMoreMenu
+                ? 'text-purple-400 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <div className="relative">
+              <Users className="w-5 h-5 mb-0.5" />
+              {students.length > 0 && (
+                <span className="absolute -top-1 -right-2 text-[9px] font-mono font-bold px-1 py-0.2 bg-slate-800 text-slate-300 rounded-full border border-slate-700 leading-none">
+                  {students.length}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] leading-tight">الطلاب</span>
+            {activeTab === 'STUDENTS' && !showMobileMoreMenu && (
+              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+            )}
+          </button>
+
+          {/* 4. Analytics */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('ANALYTICS');
+              setShowMobileMoreMenu(false);
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
+              activeTab === 'ANALYTICS' && !showMobileMoreMenu
+                ? 'text-purple-400 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <TrendingUp className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight">التقارير</span>
+            {activeTab === 'ANALYTICS' && !showMobileMoreMenu && (
+              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+            )}
+          </button>
+
+          {/* 5. More / المزيد */}
+          <button
+            type="button"
+            onClick={() => setShowMobileMoreMenu(prev => !prev)}
+            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
+              showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS'].includes(activeTab)
+                ? 'text-purple-400 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <div className="relative">
+              <MoreHorizontal className="w-5 h-5 mb-0.5" />
+              {whatsAppStatus?.isConnected && (
+                <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse ring-2 ring-slate-900" />
+              )}
+            </div>
+            <span className="text-[10px] leading-tight">المزيد</span>
+            {(showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS'].includes(activeTab)) && (
+              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+            )}
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile "المزيد" Bottom Sheet Drawer */}
+      {showMobileMoreMenu && (
+        <div className="sm:hidden fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Backdrop */}
+          <div 
+            onClick={() => setShowMobileMoreMenu(false)}
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm animate-fadeIn" 
+          />
+
+          {/* Sheet */}
+          <div className="relative z-10 bg-slate-900 border-t border-slate-800 rounded-t-3xl p-5 pb-safe space-y-4 max-h-[85vh] overflow-y-auto custom-scrollbar animate-slideUp shadow-2xl">
+            {/* Grab Handle */}
+            <div className="w-12 h-1.5 bg-slate-700/80 rounded-full mx-auto" />
+
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <span>أقسام الإدارة والخدمات الإضافية</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowMobileMoreMenu(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Grid for Secondary Tabs */}
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* BANNERS */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('BANNERS');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
+                  activeTab === 'BANNERS'
+                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                    <ImageIcon className="w-4 h-4" />
+                  </div>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                    {banners.length}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-white">البانرات والإعلانات</span>
+                  <span className="text-[10px] text-slate-400 block">واجهة متجر الطلاب</span>
+                </div>
+              </button>
+
+              {/* PROMOS */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('PROMOS');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
+                  activeTab === 'PROMOS'
+                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                    {promos.length}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-white">كوبونات الخصم</span>
+                  <span className="text-[10px] text-slate-400 block">خصومات الفروع والعامة</span>
+                </div>
+              </button>
+
+              {/* WHATSAPP */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('WHATSAPP');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
+                  activeTab === 'WHATSAPP'
+                    ? 'bg-emerald-950/70 border-emerald-600 text-white shadow-md'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <span className={`w-2.5 h-2.5 rounded-full ${whatsAppStatus?.isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-500'}`} />
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-white">بوت الواتساب و OTP</span>
+                  <span className="text-[10px] text-slate-400 block">
+                    {whatsAppStatus?.isConnected ? 'متصل بنجاح ✅' : 'بانتظار المسح ⚠️'}
+                  </span>
+                </div>
+              </button>
+
+              {/* SETTINGS */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('SETTINGS');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
+                  activeTab === 'SETTINGS'
+                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-slate-800 text-purple-400 flex items-center justify-center">
+                    <Settings className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] text-purple-400 font-mono">سيرفر</span>
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-white">إعدادات النظام والأمان</span>
+                  <span className="text-[10px] text-slate-400 block">التنبيهات وتصفير المنظومة</span>
+                </div>
+              </button>
+            </div>
+
+            {/* Quick Actions Row */}
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMobileMoreMenu(false);
+                  fetchDashboardData();
+                }}
+                disabled={loading}
+                className="flex-1 py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-400' : ''}`} />
+                <span>تحديث البيانات</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMobileMoreMenu(false);
+                  handleReturnToStudentStore();
+                }}
+                className="flex-1 py-2.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/30"
+              >
+                <Store className="w-4 h-4" />
+                <span>متجر الطلاب</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-10 h-10 flex items-center justify-center text-rose-400 bg-rose-950/40 border border-rose-900/60 rounded-xl transition-colors hover:bg-rose-900 shrink-0"
+                title="تسجيل الخروج"
+              >
+                <Power className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 8. MODALS SECTION */}
 
