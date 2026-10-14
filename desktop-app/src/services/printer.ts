@@ -4,6 +4,8 @@
  * system printer detection, and automated printing on order arrival.
  */
 
+import { api } from './api';
+
 export interface DetectedPrinter {
   name: string;
   isDefault: boolean;
@@ -47,7 +49,6 @@ export const fetchSystemPrinters = async (): Promise<DetectedPrinter[]> => {
 
   // ثانياً: فحص الطابعات عبر سيرفر الـ Backend إن كان يعمل محلياً على جهاز الكاشير
   try {
-    const { api } = await import('./api');
     const printers = await api.getSystemPrinters();
     if (Array.isArray(printers) && printers.length > 0) {
       return printers;

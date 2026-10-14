@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 // حماية مسارات تسجيل الدخول من محاولات التخمين والهجمات العنيفة (Brute Force)
 export const authLimiter = rateLimit({
@@ -8,9 +8,15 @@ export const authLimiter = rateLimit({
     error: "تم تجاوز الحد الأقصى لمحاولات تسجيل الدخول، يرجى المحاولة مرة أخرى بعد 15 دقيقة للحماية والأمان.",
   },
   keyGenerator: (req) => {
-    // دمج عنوان الـ IP مع معرف الحساب (الهاتف أو اسم المستخدم) لتفادي حظر شبكة واي فاي الجامعة المشتركة بالكامل
+    // دمج عنوان الـ IP مع معرف الحساب (الهاتف أو اسم المستخدم) مع دعم وتطبيع IPv6 لتفادي حظر شبكة واي فاي الجامعة بالكامل
     const identifier = String(req.body?.phone || req.body?.username || "").trim();
-    return `${req.ip}_${identifier}`;
+    const clientIp = req.ip ? ipKeyGenerator(req.ip) : "127.0.0.1";
+    return `${clientIp}_${identifier}`;
+  },
+  validate: {
+    keyGeneratorIpFallback: false,
+    xForwardedForHeader: false,
+    default: true,
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -24,6 +30,10 @@ export const orderLimiter = rateLimit({
   message: {
     error: "تم إرسال عدد كبير من الطلبات في وقت قصير، يرجى الانتظار قليلاً.",
   },
+  validate: {
+    xForwardedForHeader: false,
+    default: true,
+  },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -35,6 +45,10 @@ export const generalApiLimiter = rateLimit({
   message: {
     error: "تم تجاوز معدل الطلبات المسموح به، يرجى المحاولة لاحقاً.",
   },
+  validate: {
+    xForwardedForHeader: false,
+    default: true,
+  },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -45,6 +59,10 @@ export const uploadLimiter = rateLimit({
   max: 30, // حد أقصى 30 صورة لكل 5 دقائق
   message: {
     error: "تم تجاوز الحد المسموح به لرفع الملفات مؤقتاً، يرجى المحاولة بعد قليل.",
+  },
+  validate: {
+    xForwardedForHeader: false,
+    default: true,
   },
   standardHeaders: true,
   legacyHeaders: false,
