@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ShieldCheck, 
   Lock, 
@@ -7,6 +7,8 @@ import {
   ArrowLeft, 
   Store, 
   ArrowRight, 
+  ChevronLeft,
+  ChevronRight,
   AlertCircle,
   Plus, 
   Power, 
@@ -73,6 +75,14 @@ export const AdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
   const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    if (!tabsContainerRef.current) return;
+    // In RTL, scrollBy direction depends on browser implementation, so we can support both
+    const amount = direction === 'left' ? -260 : 260;
+    tabsContainerRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+  };
 
   // System Settings & Loyalty states
   const [loyaltySettings, setLoyaltySettings] = useState<{
@@ -1151,105 +1161,146 @@ export const AdminPage: React.FC = () => {
         )}
 
         {/* 3. Navigation Tabs Bar */}
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveTab('BRANCHES')}
-            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'BRANCHES'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Building className="w-4 h-4 shrink-0" />
-            <span>الفروع والمطاعم ({branches.length})</span>
-          </button>
+        <div className="border-b border-slate-800 pb-2">
+          {/* Scroll Navigation Buttons for Desktop / Tablet */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => scrollTabs('right')}
+              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 shrink-0 shadow-sm transition-all active:scale-95"
+              title="تمرير لليمين"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
 
-          <button
-            onClick={() => setActiveTab('ORDERS')}
-            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'ORDERS'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <ShoppingBag className="w-4 h-4 shrink-0" />
-            <span>مراقبة طلبات الحرم الجامعي ({orders.length})</span>
-          </button>
+            <div 
+              ref={tabsContainerRef}
+              className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto custom-scrollbar pb-1.5 flex-1 scroll-smooth"
+            >
+              <button
+                onClick={() => setActiveTab('BRANCHES')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'BRANCHES'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <Building className="w-4 h-4 shrink-0" />
+                <span>الفروع والمطاعم</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'BRANCHES' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                  {branches.length}
+                </span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('STUDENTS')}
-            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'STUDENTS'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Users className="w-4 h-4 shrink-0" />
-            <span>دليل الطلاب ({students.length})</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('ORDERS')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'ORDERS'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <ShoppingBag className="w-4 h-4 shrink-0" />
+                <span>مراقبة طلبات الحرم</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'ORDERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                  {orders.length}
+                </span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('ANALYTICS')}
-            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'ANALYTICS'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4 shrink-0" />
-            <span>التقارير والإحصائيات المالية</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('STUDENTS')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'STUDENTS'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <Users className="w-4 h-4 shrink-0" />
+                <span>دليل الطلاب</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'STUDENTS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                  {students.length}
+                </span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('BANNERS')}
-            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'BANNERS'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <ImageIcon className="w-4 h-4 shrink-0" />
-            <span>الإعلانات والبانرات ({banners.length})</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('ANALYTICS')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'ANALYTICS'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4 shrink-0" />
+                <span>التقارير المالية</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('PROMOS')}
-            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'PROMOS'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Tag className="w-4 h-4 shrink-0" />
-            <span>كوبونات الخصم ({promos.length})</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('BANNERS')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'BANNERS'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <ImageIcon className="w-4 h-4 shrink-0" />
+                <span>الإعلانات والبانرات</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'BANNERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                  {banners.length}
+                </span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('WHATSAPP')}
-            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'WHATSAPP'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4 shrink-0 text-emerald-400" />
-            <span>بوت الواتساب و OTP</span>
-            {whatsAppStatus?.isConnected && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-            )}
-          </button>
+              <button
+                onClick={() => setActiveTab('PROMOS')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'PROMOS'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <Tag className="w-4 h-4 shrink-0" />
+                <span>كوبونات الخصم</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'PROMOS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                  {promos.length}
+                </span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('SETTINGS')}
-            className={`h-10 flex items-center gap-2 px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'SETTINGS'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Settings className="w-4 h-4 shrink-0 text-purple-400" />
-            <span>إعدادات النظام والأمان</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('WHATSAPP')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'WHATSAPP'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-1 ring-emerald-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>بوت الواتساب و OTP</span>
+                {whatsAppStatus?.isConnected && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                )}
+              </button>
+
+              <button
+                onClick={() => setActiveTab('SETTINGS')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'SETTINGS'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <Settings className="w-4 h-4 shrink-0 text-purple-400" />
+                <span>إعدادات النظام والأمان</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => scrollTabs('left')}
+              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 shrink-0 shadow-sm transition-all active:scale-95"
+              title="تمرير لليسار"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
 
@@ -1392,8 +1443,8 @@ export const AdminPage: React.FC = () => {
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-800 gap-2">
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center justify-between pt-3 border-t border-slate-800 gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <button
                           onClick={() => handleOpenEditBranch(branch)}
                           className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-colors"
@@ -2752,16 +2803,21 @@ export const AdminPage: React.FC = () => {
 
       {/* A. Add Branch Modal */}
       {showAddBranchModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <h3 className="font-black text-base text-white">إضافة فرع مطعم جديد بالجامعة</h3>
-              <button onClick={() => setShowAddBranchModal(false)} className="text-slate-400 hover:text-white">
+              <button 
+                onClick={() => setShowAddBranchModal(false)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateBranch} className="space-y-4">
+            <form onSubmit={handleCreateBranch} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {/* لوجو المطعم */}
               <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -2881,18 +2937,19 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddBranchModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
                   إنشاء الفرع
                 </button>
@@ -2904,16 +2961,21 @@ export const AdminPage: React.FC = () => {
 
       {/* B. Edit Branch Details Modal */}
       {editingBranch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <h3 className="font-black text-base text-white">تعديل بيانات: {editingBranch.name}</h3>
-              <button onClick={() => setEditingBranch(null)} className="text-slate-400 hover:text-white">
+              <button 
+                onClick={() => setEditingBranch(null)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditBranch} className="space-y-4">
+            <form onSubmit={handleSaveEditBranch} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {/* لوجو المطعم */}
               <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -3028,18 +3090,19 @@ export const AdminPage: React.FC = () => {
                   <span className="text-xs font-bold text-slate-300">إتاحة الاستلام من الفرع</span>
                 </label>
               </div>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingBranch(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
                   حفظ التعديلات
                 </button>
@@ -3051,16 +3114,21 @@ export const AdminPage: React.FC = () => {
 
       {/* C. Payment Config Modal */}
       {editingPaymentBranch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <h3 className="font-black text-base text-white">طرق الدفع: {editingPaymentBranch.name}</h3>
-              <button onClick={() => setEditingPaymentBranch(null)} className="text-slate-400 hover:text-white">
+              <button 
+                onClick={() => setEditingPaymentBranch(null)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSavePaymentSettings} className="space-y-4">
+            <form onSubmit={handleSavePaymentSettings} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {/* Cash */}
               <div className="p-3 bg-slate-800/70 rounded-xl flex items-center justify-between">
                 <div>
@@ -3132,18 +3200,19 @@ export const AdminPage: React.FC = () => {
                   className="w-4 h-4 rounded text-emerald-600"
                 />
               </div>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingPaymentBranch(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
                   حفظ طرق الدفع
                 </button>
@@ -3155,51 +3224,57 @@ export const AdminPage: React.FC = () => {
 
       {/* D. Desktop Credentials Modal */}
       {editingCredentialsBranch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <h3 className="font-black text-base text-white">حساب الديسكتوب: {editingCredentialsBranch.name}</h3>
-              <button onClick={() => setEditingCredentialsBranch(null)} className="text-slate-400 hover:text-white">
+              <button 
+                onClick={() => setEditingCredentialsBranch(null)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCredentials} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">اسم المستخدم للفرع</label>
-                <input
-                  type="text"
-                  required
-                  value={credUsername}
-                  onChange={e => setCredUsername(e.target.value)}
-                  placeholder="مثال: burger_branch"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                />
+            <form onSubmit={handleSaveCredentials} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">اسم المستخدم للفرع</label>
+                  <input
+                    type="text"
+                    required
+                    value={credUsername}
+                    onChange={e => setCredUsername(e.target.value)}
+                    placeholder="مثال: burger_branch"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">كلمة المرور الجديدة</label>
+                  <input
+                    type="password"
+                    required
+                    value={credPassword}
+                    onChange={e => setCredPassword(e.target.value)}
+                    placeholder="أدخل كلمة مرور جديدة"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">كلمة المرور الجديدة</label>
-                <input
-                  type="password"
-                  required
-                  value={credPassword}
-                  onChange={e => setCredPassword(e.target.value)}
-                  placeholder="أدخل كلمة مرور جديدة"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingCredentialsBranch(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
                   تحديث البيانات
                 </button>
@@ -3332,19 +3407,24 @@ export const AdminPage: React.FC = () => {
 
       {/* D. Add Banner Modal */}
       {showAddBannerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-purple-400" />
                 <h3 className="font-black text-base text-white">إضافة بانر إعلاني جديد</h3>
               </div>
-              <button onClick={() => setShowAddBannerModal(false)} className="text-slate-400 hover:text-white">
+              <button 
+                onClick={() => setShowAddBannerModal(false)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateBanner} className="space-y-4">
+            <form onSubmit={handleCreateBanner} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {/* صورة الإعلان */}
               <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -3442,18 +3522,19 @@ export const AdminPage: React.FC = () => {
                   )}
                 </div>
               </div>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddBannerModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
                   حفظ ونشر الإعلان
                 </button>
@@ -3465,19 +3546,24 @@ export const AdminPage: React.FC = () => {
 
       {/* D2. Edit Banner Modal */}
       {editingBanner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-purple-400" />
                 <h3 className="font-black text-base text-white">تعديل البانر الإعلاني</h3>
               </div>
-              <button onClick={() => setEditingBanner(null)} className="text-slate-400 hover:text-white">
+              <button 
+                onClick={() => setEditingBanner(null)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditBanner} className="space-y-4">
+            <form onSubmit={handleSaveEditBanner} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   {editBannerImageUrl ? (
@@ -3582,18 +3668,19 @@ export const AdminPage: React.FC = () => {
                 />
                 <span className="text-xs font-bold text-slate-200">مفعل ويظهر للطلاب في الصفحة الرئيسية</span>
               </label>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingBanner(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
                   حفظ التعديلات
                 </button>
@@ -3605,181 +3692,190 @@ export const AdminPage: React.FC = () => {
 
       {/* E. Add Promo Code Modal */}
       {showAddPromoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
                 <Tag className="w-5 h-5 text-purple-400" />
                 <h3 className="font-black text-base text-white">إنشاء كوبون خصم جديد</h3>
               </div>
-              <button onClick={() => setShowAddPromoModal(false)} className="text-slate-400 hover:text-white">
+              <button 
+                onClick={() => setShowAddPromoModal(false)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق النافذة"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreatePromo} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">كود الكوبون (رمز الخصم) *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="مثال: UNI20 أو STUDENT15"
-                  value={newPromoCode}
-                  onChange={e => setNewPromoCode(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 uppercase font-mono font-bold tracking-wider"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreatePromo} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">نوع الخصم</label>
-                  <select
-                    value={newPromoType}
-                    onChange={e => setNewPromoType(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="FIXED">مبلغ ثابت (ج.م)</option>
-                    <option value="PERCENT">نسبة مئوية (%)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">قيمة الخصم *</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">كود الكوبون (رمز الخصم) *</label>
                   <input
-                    type="number"
-                    min="1"
-                    step="0.5"
+                    type="text"
                     required
-                    value={newPromoValue}
-                    onChange={e => setNewPromoValue(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">الحد الأدنى للطلب (ج.م)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={newPromoMinOrder}
-                    onChange={e => setNewPromoMinOrder(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                    placeholder="مثال: UNI20 أو STUDENT15"
+                    value={newPromoCode}
+                    onChange={e => setNewPromoCode(e.target.value.toUpperCase())}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 uppercase font-mono font-bold tracking-wider"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">أقصى عدد مرات الاستخدام</label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="غير محدود (∞)"
-                    value={newPromoMaxUses}
-                    onChange={e => setNewPromoMaxUses(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={newPromoOncePerUser}
-                  onChange={e => setNewPromoOncePerUser(e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-0"
-                />
-                <div>
-                  <span className="text-xs font-bold text-slate-200 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
-                  <span className="text-[10px] text-slate-400">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
-                </div>
-              </label>
-
-              {/* Branch Applicability Scope */}
-              <div className="p-3 bg-slate-800/80 rounded-xl space-y-2 border border-slate-700/60">
-                <label className="block text-xs font-bold text-slate-200 mb-1">
-                  نطاق صلاحية الكوبون (الفروع والمطاعم)
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewPromoScope('ALL');
-                      setNewPromoBranchIds([]);
-                    }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
-                      newPromoScope === 'ALL'
-                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    <span>🌐</span>
-                    <span>كافة الفروع</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewPromoScope('SPECIFIC')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
-                      newPromoScope === 'SPECIFIC'
-                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    <span>🏪</span>
-                    <span>فروع محددة</span>
-                  </button>
-                </div>
-
-                {newPromoScope === 'SPECIFIC' && (
-                  <div className="pt-2 border-t border-slate-700/60 mt-2 space-y-1.5">
-                    <p className="text-[11px] text-slate-400 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
-                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
-                      {branches.map(b => {
-                        const isChecked = newPromoBranchIds.includes(b.id);
-                        return (
-                          <label
-                            key={b.id}
-                            className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-xs transition-colors border ${
-                              isChecked
-                                ? 'bg-purple-950/50 border-purple-800 text-purple-200 font-bold'
-                                : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setNewPromoBranchIds(prev => [...prev, b.id]);
-                                } else {
-                                  setNewPromoBranchIds(prev => prev.filter(id => id !== b.id));
-                                }
-                              }}
-                              className="rounded text-purple-600 focus:ring-0"
-                            />
-                            <span>{b.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {newPromoBranchIds.length === 0 && (
-                      <p className="text-[10px] text-amber-400 font-bold">⚠️ يرجى تحديد فرع واحد على الأقل، أو اختيار "كافة الفروع"</p>
-                    )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">نوع الخصم</label>
+                    <select
+                      value={newPromoType}
+                      onChange={e => setNewPromoType(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="FIXED">مبلغ ثابت (ج.م)</option>
+                      <option value="PERCENT">نسبة مئوية (%)</option>
+                    </select>
                   </div>
-                )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">قيمة الخصم *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.5"
+                      required
+                      value={newPromoValue}
+                      onChange={e => setNewPromoValue(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">الحد الأدنى للطلب (ج.م)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newPromoMinOrder}
+                      onChange={e => setNewPromoMinOrder(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">أقصى عدد مرات الاستخدام</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="غير محدود (∞)"
+                      value={newPromoMaxUses}
+                      onChange={e => setNewPromoMaxUses(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer border border-slate-700/50 hover:bg-slate-800 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={newPromoOncePerUser}
+                    onChange={e => setNewPromoOncePerUser(e.target.checked)}
+                    className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-200 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
+                    <span className="text-[10px] text-slate-400">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
+                  </div>
+                </label>
+
+                {/* Branch Applicability Scope */}
+                <div className="p-3.5 bg-slate-800/80 rounded-xl space-y-2.5 border border-slate-700/60">
+                  <label className="block text-xs font-bold text-slate-200 mb-1">
+                    نطاق صلاحية الكوبون (الفروع والمطاعم)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewPromoScope('ALL');
+                        setNewPromoBranchIds([]);
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                        newPromoScope === 'ALL'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <span>🌐</span>
+                      <span>كافة الفروع</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewPromoScope('SPECIFIC')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                        newPromoScope === 'SPECIFIC'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <span>🏪</span>
+                      <span>فروع محددة</span>
+                    </button>
+                  </div>
+
+                  {newPromoScope === 'SPECIFIC' && (
+                    <div className="pt-2 border-t border-slate-700/60 mt-2 space-y-1.5">
+                      <p className="text-[11px] text-slate-400 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
+                      <div className="max-h-40 overflow-y-auto space-y-1.5 p-1 custom-scrollbar">
+                        {branches.map(b => {
+                          const isChecked = newPromoBranchIds.includes(b.id);
+                          return (
+                            <label
+                              key={b.id}
+                              className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs transition-colors border ${
+                                isChecked
+                                  ? 'bg-purple-950/60 border-purple-700 text-purple-200 font-bold'
+                                  : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                                <span>{b.name}</span>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNewPromoBranchIds(prev => [...prev, b.id]);
+                                  } else {
+                                    setNewPromoBranchIds(prev => prev.filter(id => id !== b.id));
+                                  }
+                                }}
+                                className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {newPromoBranchIds.length === 0 && (
+                        <p className="text-[10px] text-amber-400 font-bold mt-1">⚠️ يرجى تحديد فرع واحد على الأقل، أو اختيار "كافة الفروع"</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddPromoModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
                   إنشاء الكوبون
                 </button>
@@ -3791,190 +3887,199 @@ export const AdminPage: React.FC = () => {
 
       {/* E2. Edit Promo Code Modal */}
       {editingPromo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-purple-400" />
                 <h3 className="font-black text-base text-white">تعديل كوبون الخصم: {editingPromo.code}</h3>
               </div>
-              <button onClick={() => setEditingPromo(null)} className="text-slate-400 hover:text-white">
+              <button 
+                onClick={() => setEditingPromo(null)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق النافذة"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditPromo} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">كود الكوبون (رمز الخصم) *</label>
-                <input
-                  type="text"
-                  required
-                  value={editPromoCode}
-                  onChange={e => setEditPromoCode(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 uppercase font-mono font-bold tracking-wider"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveEditPromo} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">نوع الخصم</label>
-                  <select
-                    value={editPromoType}
-                    onChange={e => setEditPromoType(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="FIXED">مبلغ ثابت (ج.م)</option>
-                    <option value="PERCENT">نسبة مئوية (%)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">قيمة الخصم *</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">كود الكوبون (رمز الخصم) *</label>
                   <input
-                    type="number"
-                    min="1"
-                    step="0.5"
+                    type="text"
                     required
-                    value={editPromoValue}
-                    onChange={e => setEditPromoValue(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">الحد الأدنى للطلب (ج.م)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editPromoMinOrder}
-                    onChange={e => setEditPromoMinOrder(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                    value={editPromoCode}
+                    onChange={e => setEditPromoCode(e.target.value.toUpperCase())}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 uppercase font-mono font-bold tracking-wider"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">أقصى عدد مرات الاستخدام</label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="غير محدود (∞)"
-                    value={editPromoMaxUses}
-                    onChange={e => setEditPromoMaxUses(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editPromoOncePerUser}
-                  onChange={e => setEditPromoOncePerUser(e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-0"
-                />
-                <div>
-                  <span className="text-xs font-bold text-slate-200 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
-                  <span className="text-[10px] text-slate-400">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editPromoActive}
-                  onChange={e => setEditPromoActive(e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-0"
-                />
-                <span className="text-xs font-bold text-slate-200">تفعيل الكوبون للطلاب</span>
-              </label>
-
-              {/* Branch Applicability Scope */}
-              <div className="p-3 bg-slate-800/80 rounded-xl space-y-2 border border-slate-700/60">
-                <label className="block text-xs font-bold text-slate-200 mb-1">
-                  نطاق صلاحية الكوبون (الفروع والمطاعم)
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditPromoScope('ALL');
-                      setEditPromoBranchIds([]);
-                    }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
-                      editPromoScope === 'ALL'
-                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    <span>🌐</span>
-                    <span>كافة الفروع</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditPromoScope('SPECIFIC')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
-                      editPromoScope === 'SPECIFIC'
-                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    <span>🏪</span>
-                    <span>فروع محددة</span>
-                  </button>
-                </div>
-
-                {editPromoScope === 'SPECIFIC' && (
-                  <div className="pt-2 border-t border-slate-700/60 mt-2 space-y-1.5">
-                    <p className="text-[11px] text-slate-400 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
-                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
-                      {branches.map(b => {
-                        const isChecked = editPromoBranchIds.includes(b.id);
-                        return (
-                          <label
-                            key={b.id}
-                            className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-xs transition-colors border ${
-                              isChecked
-                                ? 'bg-purple-950/50 border-purple-800 text-purple-200 font-bold'
-                                : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setEditPromoBranchIds(prev => [...prev, b.id]);
-                                } else {
-                                  setEditPromoBranchIds(prev => prev.filter(id => id !== b.id));
-                                }
-                              }}
-                              className="rounded text-purple-600 focus:ring-0"
-                            />
-                            <span>{b.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {editPromoBranchIds.length === 0 && (
-                      <p className="text-[10px] text-amber-400 font-bold">⚠️ يرجى تحديد فرع واحد على الأقل، أو اختيار "كافة الفروع"</p>
-                    )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">نوع الخصم</label>
+                    <select
+                      value={editPromoType}
+                      onChange={e => setEditPromoType(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="FIXED">مبلغ ثابت (ج.م)</option>
+                      <option value="PERCENT">نسبة مئوية (%)</option>
+                    </select>
                   </div>
-                )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">قيمة الخصم *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.5"
+                      required
+                      value={editPromoValue}
+                      onChange={e => setEditPromoValue(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">الحد الأدنى للطلب (ج.م)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editPromoMinOrder}
+                      onChange={e => setEditPromoMinOrder(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">أقصى عدد مرات الاستخدام</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="غير محدود (∞)"
+                      value={editPromoMaxUses}
+                      onChange={e => setEditPromoMaxUses(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer border border-slate-700/50 hover:bg-slate-800 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={editPromoOncePerUser}
+                    onChange={e => setEditPromoOncePerUser(e.target.checked)}
+                    className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-200 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
+                    <span className="text-[10px] text-slate-400">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer border border-slate-700/50 hover:bg-slate-800 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={editPromoActive}
+                    onChange={e => setEditPromoActive(e.target.checked)}
+                    className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-200">تفعيل الكوبون للطلاب</span>
+                </label>
+
+                {/* Branch Applicability Scope */}
+                <div className="p-3.5 bg-slate-800/80 rounded-xl space-y-2.5 border border-slate-700/60">
+                  <label className="block text-xs font-bold text-slate-200 mb-1">
+                    نطاق صلاحية الكوبون (الفروع والمطاعم)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditPromoScope('ALL');
+                        setEditPromoBranchIds([]);
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                        editPromoScope === 'ALL'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <span>🌐</span>
+                      <span>كافة الفروع</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditPromoScope('SPECIFIC')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                        editPromoScope === 'SPECIFIC'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <span>🏪</span>
+                      <span>فروع محددة</span>
+                    </button>
+                  </div>
+
+                  {editPromoScope === 'SPECIFIC' && (
+                    <div className="pt-2 border-t border-slate-700/60 mt-2 space-y-1.5">
+                      <p className="text-[11px] text-slate-400 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
+                      <div className="max-h-40 overflow-y-auto space-y-1.5 p-1 custom-scrollbar">
+                        {branches.map(b => {
+                          const isChecked = editPromoBranchIds.includes(b.id);
+                          return (
+                            <label
+                              key={b.id}
+                              className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs transition-colors border ${
+                                isChecked
+                                  ? 'bg-purple-950/60 border-purple-700 text-purple-200 font-bold'
+                                  : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                                <span>{b.name}</span>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setEditPromoBranchIds(prev => [...prev, b.id]);
+                                  } else {
+                                    setEditPromoBranchIds(prev => prev.filter(id => id !== b.id));
+                                  }
+                                }}
+                                className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {editPromoBranchIds.length === 0 && (
+                        <p className="text-[10px] text-amber-400 font-bold mt-1">⚠️ يرجى تحديد فرع واحد على الأقل، أو اختيار "كافة الفروع"</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingPromo(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
                   حفظ التعديلات
                 </button>
@@ -3986,9 +4091,9 @@ export const AdminPage: React.FC = () => {
 
       {/* F. Student Wallet & Loyalty Points Top-Up Modal */}
       {editingStudentWallet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-emerald-400" />
                 <div>
@@ -3996,12 +4101,17 @@ export const AdminPage: React.FC = () => {
                   <span className="text-[11px] text-slate-400 font-mono block">{editingStudentWallet.phone}</span>
                 </div>
               </div>
-              <button onClick={() => setEditingStudentWallet(null)} className="text-slate-400 hover:text-white">
+              <button 
+                onClick={() => setEditingStudentWallet(null)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveStudentWallet} className="space-y-4">
+            <form onSubmit={handleSaveStudentWallet} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-emerald-300">رصيد المحفظة النقدية (ج.م)</label>
@@ -4105,19 +4215,20 @@ export const AdminPage: React.FC = () => {
                   <span className="text-[10px] text-slate-400 block">يمنع هذا الرقم من إرسال أي طلبات جديدة</span>
                 </div>
               </label>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingStudentWallet(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={savingStudentWallet}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/30 disabled:opacity-50"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/30 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {savingStudentWallet ? 'جاري الحفظ...' : 'حفظ التعديلات'}
                 </button>
@@ -4129,9 +4240,9 @@ export const AdminPage: React.FC = () => {
 
       {/* G. Factory Reset Confirmation Modal (حالة الصفر) */}
       {showFactoryResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border border-rose-800/80 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-rose-800/80 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
                   <Trash2 className="w-5 h-5" />
@@ -4148,55 +4259,58 @@ export const AdminPage: React.FC = () => {
                     setFactoryResetError(null);
                   }
                 }}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-3 bg-rose-950/40 border border-rose-900/60 rounded-2xl space-y-2 text-xs">
-              <p className="text-rose-200 leading-relaxed font-semibold">
-                ⚠️ سيتم حذف جميع الطلبات التجريبية وسلات الشلة وحسابات الطلاب.
-              </p>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                ستبقى فروع المطاعم والمنيو وأسعار الوجبات وحساب الإدارة الرئيسية محفوظاً بالكامل دون أي مساس.
-              </p>
-            </div>
-
-            <form onSubmit={handleExecuteFactoryReset} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-200 block mb-1.5">
-                  أدخل كلمة مرور الإدارة (SuperAdmin) للتأكيد:
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={factoryResetPassword}
-                    onChange={(e) => setFactoryResetPassword(e.target.value)}
-                    placeholder="كلمة مرور الإدارة الحالية..."
-                    required
-                    disabled={factoryResetLoading}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono"
-                  />
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+            <form onSubmit={handleExecuteFactoryReset} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+                <div className="p-3 bg-rose-950/40 border border-rose-900/60 rounded-2xl space-y-2 text-xs">
+                  <p className="text-rose-200 leading-relaxed font-semibold">
+                    ⚠️ سيتم حذف جميع الطلبات التجريبية وسلات الشلة وحسابات الطلاب.
+                  </p>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    ستبقى فروع المطاعم والمنيو وأسعار الوجبات وحساب الإدارة الرئيسية محفوظاً بالكامل دون أي مساس.
+                  </p>
                 </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-200 block mb-1.5">
+                    أدخل كلمة مرور الإدارة (SuperAdmin) للتأكيد:
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={factoryResetPassword}
+                      onChange={(e) => setFactoryResetPassword(e.target.value)}
+                      placeholder="كلمة مرور الإدارة الحالية..."
+                      required
+                      disabled={factoryResetLoading}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono"
+                    />
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                  </div>
+                </div>
+
+                {factoryResetError && (
+                  <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{factoryResetError}</span>
+                  </div>
+                )}
+
+                {factoryResetSuccess && (
+                  <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{factoryResetSuccess}</span>
+                  </div>
+                )}
               </div>
 
-              {factoryResetError && (
-                <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>{factoryResetError}</span>
-                </div>
-              )}
-
-              {factoryResetSuccess && (
-                <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
-                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{factoryResetSuccess}</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
                 <button
                   type="button"
                   disabled={factoryResetLoading}
