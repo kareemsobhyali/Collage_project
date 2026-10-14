@@ -86,7 +86,11 @@ function resolvePath(...cands: string[]): string {
 const uploadsPath = resolvePath("uploads", "backend/uploads", "../uploads");
 
 app.get("/uploads/:filename", async (req, res, next) => {
-  const filename = req.params.filename;
+  const rawFilename = req.params.filename;
+  const filename = path.basename(rawFilename);
+  if (!filename || filename === "." || filename === "..") {
+    return res.status(400).json({ error: "Invalid filename" });
+  }
   const localFilePath = path.join(uploadsPath, filename);
 
   // 1. إذا كانت الصورة موجودة على القرص الصلب، نرسلها مباشرة بسرعة فائقة

@@ -7,22 +7,38 @@ import { generateToken, authenticateUser, AuthRequest } from "../middleware/auth
 const router = Router();
 const EGYPT_PHONE_REGEX = /^01[0125][0-9]{8}$/;
 
-// دالة مساعدة لتحديد عنوان الـ Web App لإرسال الروابط الذكية في الواتساب
+// دالة مساعدة لتحديد عنوان الـ Web App لإرسال الروابط الذكية في الواتساب مع حماية النطاق من التلاعب
 function getAppBaseUrl(req: Request): string {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "");
+
   const origin = req.get("origin") || req.get("referer");
   if (origin) {
     try {
       const parsed = new URL(origin);
-      return parsed.origin;
+      const hostname = parsed.hostname.toLowerCase();
+      // السماح بالنطاقات المعتمدة فقط (محلياً أو سيرفرات المنصة) لمنع روابط التصيد الاحتيالي
+      if (
+        hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        hostname.endsWith(".onrender.com") ||
+        hostname.endsWith(".railway.app") ||
+        hostname.endsWith(".vercel.app")
+      ) {
+        return parsed.origin;
+      }
     } catch (_e) {}
   }
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
-  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "");
+
   const host = req.get("host");
   const protocol = req.protocol === "https" || req.get("x-forwarded-proto") === "https" ? "https" : "http";
-  if (host) return `${protocol}://${host}`;
+  if (host && (host.includes("localhost") || host.includes("127.0.0.1") || host.includes("onrender.com"))) {
+    return `${protocol}://${host}`;
+  }
+
   return "https://collage-project-5zby.onrender.com";
 }
+
 
 // تسجيل حساب عميل جديد (طالب / مستخدم) مع إرسال كود ورابط التفعيل عبر الواتساب
 router.post("/register", async (req: Request, res: Response) => {

@@ -7,8 +7,9 @@
     "install:all": "npm --prefix backend install --include=dev && npm --prefix customer-app install --include=dev && npm --prefix desktop-app install --include=dev",
     "build": "npm --prefix backend run prisma:generate && npm --prefix customer-app run build && npm --prefix desktop-app run build && npm --prefix backend run build",
     "build:cloud": "npm run install:all && npm run build",
-    "start": "npm --prefix backend run prisma:push && node backend/dist/server.js",
+    "start": "node backend/dist/server.js",
     "prisma:generate": "npm --prefix backend run prisma:generate",
+
     "prisma:push": "npm --prefix backend run prisma:push",
     "seed": "npm --prefix backend run seed"
   }

@@ -1,4 +1,7 @@
 import { Server as SocketIOServer, Socket } from "socket.io";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-campus-delivery-2026";
 
 let io: SocketIOServer | null = null;
 
@@ -10,11 +13,29 @@ export function initSocket(server: any): SocketIOServer {
     },
   });
 
+  // فحص هوية المتصل وتحديد صلاحياته في الغرف الخاصة
+  io.use((socket: Socket, next) => {
+    const rawToken = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
+    if (rawToken) {
+      try {
+        const token = String(rawToken).replace(/^Bearer\s+/i, "");
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        (socket as any).user = decoded;
+      } catch (_e) {}
+    }
+    next();
+  });
+
   io.on("connection", (socket: Socket) => {
-    // الفرع يسجل دخوله في غرفته لاستقبال طلباته المباشرة
+    const authUser = (socket as any).user;
+
+    // الفرع يسجل دخوله في غرفته لاستقبال طلباته المباشرة (محمي بصلاحية الفرع أو الأدمن)
     socket.on("join_branch", (branchId: string) => {
-      if (branchId) {
+      if (!branchId) return;
+      if (authUser && (authUser.role === "SUPERADMIN" || authUser.branchId === branchId)) {
         socket.join(`branch_${branchId}`);
+      } else {
+        console.warn(`[Socket Security] Unauthorized attempt to join branch_${branchId}`);
       }
     });
 
@@ -25,14 +46,17 @@ export function initSocket(server: any): SocketIOServer {
       }
     });
 
-    // كابتن التوصيل (الطيار) يسجل دخوله في غرفته لاستقبال الطلبات المسندة إليه
+    // كابتن التوصيل (الطيار) يسجل دخوله في غرفته لاستقبال الطلبات المسندة إليه (محمي بهوية الطيار أو الأدمن)
     socket.on("join_driver", (driverId: string) => {
-      if (driverId) {
+      if (!driverId) return;
+      if (authUser && (authUser.role === "SUPERADMIN" || authUser.driverId === driverId)) {
         socket.join(`driver_${driverId}`);
+      } else {
+        console.warn(`[Socket Security] Unauthorized attempt to join driver_${driverId}`);
       }
     });
 
-    // الطلاب في السلة الجماعية التشاركية
+    // الطلاب في السلة الجماعية التشاركية (متاح عبر كود المشاركة)
     socket.on("join_group_cart", (shareCode: string) => {
       if (shareCode) {
         socket.join(`group_cart_${shareCode}`);
@@ -46,6 +70,7 @@ export function initSocket(server: any): SocketIOServer {
 
   return io;
 }
+
 
 export function getIO(): SocketIOServer {
   if (!io) {

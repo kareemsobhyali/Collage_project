@@ -890,59 +890,86 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
       }
     }
 
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data: updateData,
-      include: {
-        items: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            isBlocked: true,
-            restaurantNotes: true,
-            _count: {
-              select: { orders: true },
-            },
-          },
-        },
-        driver: { select: { id: true, name: true, phone: true } },
-      },
-    });
-
-    // إيداع نقاط الولاء في محفظة الطالب فقط عند اكتمال الطلب والتسليم الفعلي
-    if (status === "COMPLETED") {
-      await awardLoyaltyPointsIfCompleted(id);
-    }
-
-    // إذا تم رفض/إلغاء الطلب للمرة الأولى، نسترد رصيد المحفظة الجامعية للطالب
+    let updatedOrder;
     if (status === "REJECTED" && existingOrder.status !== "REJECTED") {
-      const targetUser = await prisma.user.findUnique({ where: { id: existingOrder.userId } });
-      if (targetUser) {
-        const refundedWallet = (targetUser.walletBalance || 0) + (existingOrder.walletDiscount || 0);
-        const updateUserData: any = { walletBalance: refundedWallet };
-        if (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0) {
-          updateUserData.loyaltyPoints = Math.max(0, (targetUser.loyaltyPoints || 0) - existingOrder.pointsEarned);
-        }
-        await prisma.user.update({
-          where: { id: existingOrder.userId },
-          data: updateUserData,
-        }).catch(() => {});
-      }
+      updatedOrder = await prisma.$transaction(async (tx) => {
+        const orderRes = await tx.order.update({
+          where: { id },
+          data: updateData,
+          include: {
+            items: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                isBlocked: true,
+                restaurantNotes: true,
+                _count: {
+                  select: { orders: true },
+                },
+              },
+            },
+            driver: { select: { id: true, name: true, phone: true } },
+          },
+        });
 
-      if (existingOrder.promoCode) {
-        const promo = await prisma.promoCode.findUnique({ where: { code: existingOrder.promoCode } });
-        if (promo && promo.usedCount > 0) {
-          await prisma.promoCode.update({
-            where: { id: promo.id },
-            data: { usedCount: { decrement: 1 } },
-          }).catch(() => {});
+        if (existingOrder.walletDiscount > 0 || (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0)) {
+          const targetUser = await tx.user.findUnique({ where: { id: existingOrder.userId } });
+          if (targetUser) {
+            const refundedWallet = (targetUser.walletBalance || 0) + (existingOrder.walletDiscount || 0);
+            const updateUserData: any = { walletBalance: refundedWallet };
+            if (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0) {
+              updateUserData.loyaltyPoints = Math.max(0, (targetUser.loyaltyPoints || 0) - existingOrder.pointsEarned);
+            }
+            await tx.user.update({
+              where: { id: existingOrder.userId },
+              data: updateUserData,
+            });
+          }
         }
-      }
+
+        if (existingOrder.promoCode) {
+          const promo = await tx.promoCode.findUnique({ where: { code: existingOrder.promoCode } });
+          if (promo && promo.usedCount > 0) {
+            await tx.promoCode.update({
+              where: { id: promo.id },
+              data: { usedCount: { decrement: 1 } },
+            }).catch(() => {});
+          }
+        }
+
+        return orderRes;
+      });
 
       // إرسال تنبيه واتساب فوري لمشرفي المنظومة بأن المطعم كنسل هذا الطلب
       sendOrderCancellationWhatsAppAlert(id, (req.body.reason || req.body.notes || "").trim()).catch(() => {});
+    } else {
+      updatedOrder = await prisma.order.update({
+        where: { id },
+        data: updateData,
+        include: {
+          items: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              isBlocked: true,
+              restaurantNotes: true,
+              _count: {
+                select: { orders: true },
+              },
+            },
+          },
+          driver: { select: { id: true, name: true, phone: true } },
+        },
+      });
+
+      // إيداع نقاط الولاء في محفظة الطالب فقط عند اكتمال الطلب والتسليم الفعلي
+      if (status === "COMPLETED") {
+        await awardLoyaltyPointsIfCompleted(id);
+      }
     }
 
     // إشعار لحظي عبر Socket.io للعميل والديسكتوب والطيار

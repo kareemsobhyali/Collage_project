@@ -8,6 +8,7 @@ import makeWASocket, {
 import pino from 'pino';
 // @ts-ignore
 import QRCode from 'qrcode';
+import prisma from '../prisma.js';
 
 class WhatsAppService {
   private sock: WASocket | null = null;
@@ -16,7 +17,9 @@ class WhatsAppService {
   private currentQrDataUrl: string | null = null;
   private currentRawQr: string | null = null;
   private isInitializing: boolean = false;
-  private sessionDir: string = path.resolve(process.cwd(), 'auth_info_baileys');
+  private sessionDir: string = process.env.WHATSAPP_SESSION_PATH || (
+    fs.existsSync('/var/data') ? '/var/data/auth_info_baileys' : path.resolve(process.cwd(), 'auth_info_baileys')
+  );
 
   constructor() {
     this.ensureSessionDir();
@@ -32,11 +35,35 @@ class WhatsAppService {
     }
   }
 
+  // استرجاع ملفات الجلسة من قاعدة البيانات PostgreSQL عند إعادة تشغيل السيرفرات السحابية المؤقتة
+  private async restoreSessionFromDb() {
+    try {
+      this.ensureSessionDir();
+      const credsPath = path.join(this.sessionDir, 'creds.json');
+      if (!fs.existsSync(credsPath)) {
+        const records = await prisma.systemSetting.findMany({
+          where: { key: { startsWith: 'baileys_file_' } }
+        });
+        if (records.length > 0) {
+          for (const rec of records) {
+            const rawFilename = rec.key.replace('baileys_file_', '');
+            const filename = path.basename(rawFilename);
+            fs.writeFileSync(path.join(this.sessionDir, filename), rec.value, 'utf-8');
+          }
+          console.log(`[WhatsApp] Successfully restored ${records.length} session auth files from PostgreSQL database.`);
+        }
+      }
+    } catch (err) {
+      console.warn('[WhatsApp] Could not restore session from DB:', err);
+    }
+  }
+
   public async initWhatsApp() {
     if (this.isInitializing) return;
     this.isInitializing = true;
 
     try {
+      await this.restoreSessionFromDb();
       this.ensureSessionDir();
       const { state, saveCreds } = await useMultiFileAuthState(this.sessionDir);
 
@@ -51,7 +78,25 @@ class WhatsAppService {
 
       this.sock = socket;
 
-      socket.ev.on('creds.update', saveCreds);
+      socket.ev.on('creds.update', async () => {
+        await saveCreds();
+        // مزامنة ملفات الجلسة تلقائياً في قاعدة البيانات PostgreSQL لحفظها من الفقدان
+        try {
+          if (fs.existsSync(this.sessionDir)) {
+            const files = fs.readdirSync(this.sessionDir);
+            for (const file of files) {
+              if (file.endsWith('.json')) {
+                const content = fs.readFileSync(path.join(this.sessionDir, file), 'utf-8');
+                await prisma.systemSetting.upsert({
+                  where: { key: `baileys_file_${file}` },
+                  update: { value: content },
+                  create: { key: `baileys_file_${file}`, value: content },
+                }).catch(() => {});
+              }
+            }
+          }
+        } catch (_syncErr) {}
+      });
 
       socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
@@ -110,6 +155,9 @@ class WhatsAppService {
         fs.rmSync(this.sessionDir, { recursive: true, force: true });
         this.ensureSessionDir();
       }
+      prisma.systemSetting.deleteMany({
+        where: { key: { startsWith: 'baileys_file_' } }
+      }).catch(() => {});
     } catch (e) {
       console.error('[WhatsApp] Cleanup error:', e);
     }
@@ -142,12 +190,12 @@ class WhatsAppService {
 
   public formatEgyptianJid(phone: string): string {
     let clean = phone.replace(/\D/g, '');
-    if (clean.startsWith('01')) {
+    if (clean.startsWith('01') && clean.length === 11) {
       clean = '2' + clean;
     } else if (clean.startsWith('1') && clean.length === 10) {
       clean = '20' + clean;
-    } else if (!clean.startsWith('20')) {
-      clean = '20' + clean;
+    } else if (clean.startsWith('00')) {
+      clean = clean.substring(2);
     }
     return `${clean}@s.whatsapp.net`;
   }
@@ -170,13 +218,16 @@ class WhatsAppService {
         return { success: true, simulated: false };
       } catch (err) {
         console.error(`[WhatsApp] Failed to send message to ${phone}:`, err);
-        // Fallback simulated success so user is not completely blocked
         return { success: true, simulated: true };
       }
     }
 
     // In development or if bot is not paired yet, log to console
-    console.warn(`[WhatsApp - Not Paired Yet] Simulated OTP for ${phone} is: [${otp}]`);
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[WhatsApp - Dev Mode] Simulated OTP for ${phone} is: [${otp}]`);
+    } else {
+      console.warn(`[WhatsApp - Not Paired] Simulated OTP triggered for ${phone.slice(0, 4)}***`);
+    }
     return { success: true, simulated: true };
   }
 
@@ -212,9 +263,14 @@ class WhatsAppService {
       }
     }
 
-    console.warn(`[WhatsApp - Not Paired Yet] Simulated Verification OTP for ${phone} is: [${code}] | Magic Link: ${magicLink}`);
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[WhatsApp - Dev Mode] Verification OTP for ${phone} is: [${code}]`);
+    } else {
+      console.warn(`[WhatsApp - Not Paired] Verification OTP triggered for ${phone.slice(0, 4)}***`);
+    }
     return { success: true, simulated: true };
   }
+
 
   public async sendOrderStatusNotification(phone: string, message: string): Promise<boolean> {
     if (!this.isConnected || !this.sock) return false;

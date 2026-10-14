@@ -11,9 +11,9 @@ async function main() {
     update: {
       name: "مدير المنظومة (Admin)",
       role: "SUPERADMIN",
-      password: adminPassword,
     },
     create: {
+
       name: "مدير المنظومة (Admin)",
       phone: "admin",
       password: adminPassword,

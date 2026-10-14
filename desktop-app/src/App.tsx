@@ -126,14 +126,23 @@ export function App() {
   useEffect(() => {
     if (!token || !branch?.id) return;
 
-    const socketUrl = (window.location.port === '5173' || window.location.port === '5174')
-      ? `http://${window.location.hostname}:5000`
-      : window.location.origin;
-    const socket: Socket = io(socketUrl);
+    const isElectronFile = typeof window !== 'undefined' && (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null');
+    const socketUrl = isElectronFile
+      ? 'http://localhost:5000'
+      : (window.location.port === '5173' || window.location.port === '5174' || window.location.port === '3000')
+        ? `http://${window.location.hostname || 'localhost'}:5000`
+        : window.location.origin;
+    const socket: Socket = io(socketUrl, { auth: { token } });
 
     socket.on('connect', () => {
       setSocketConnected(true);
       socket.emit('join_branch', branch.id);
+      // مزامنة فورية للطلبات بعد انقطاع الاتصال لضمان عدم ضياع أي طلب جديد تم إرساله أثناء انقطاع الإنترنت
+      api.getOrders().then(freshOrders => {
+        if (Array.isArray(freshOrders)) {
+          setOrders(freshOrders);
+        }
+      }).catch(() => {});
     });
 
     socket.on('disconnect', () => {

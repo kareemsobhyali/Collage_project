@@ -276,7 +276,20 @@ export function App() {
     registerServiceWorker();
 
     const socketHost = API_BASE_URL.replace('/api', '');
-    const socket = io(socketHost);
+    const token = localStorage.getItem('customer_token');
+    const socket = io(socketHost, {
+      auth: { token: token || '' },
+    });
+
+    if (token) {
+      api.getMe().then((res: any) => {
+        const fresh = res?.user || res;
+        if (fresh && fresh.id) {
+          localStorage.setItem('customer_user', JSON.stringify(fresh));
+          setUser(fresh);
+        }
+      }).catch(() => {});
+    }
 
     socket.on('branch_status_updated', (data: any) => {
       setBranches(prev => prev.map(b => {

@@ -3,13 +3,19 @@ import rateLimit from "express-rate-limit";
 // حماية مسارات تسجيل الدخول من محاولات التخمين والهجمات العنيفة (Brute Force)
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 دقيقة
-  max: 15, // حد أقصى 15 محاولة تسجيل دخول لكل IP خلال 15 دقيقة
+  max: 20, // حد أقصى 20 محاولة تسجيل دخول للحساب خلال 15 دقيقة
   message: {
     error: "تم تجاوز الحد الأقصى لمحاولات تسجيل الدخول، يرجى المحاولة مرة أخرى بعد 15 دقيقة للحماية والأمان.",
+  },
+  keyGenerator: (req) => {
+    // دمج عنوان الـ IP مع معرف الحساب (الهاتف أو اسم المستخدم) لتفادي حظر شبكة واي فاي الجامعة المشتركة بالكامل
+    const identifier = String(req.body?.phone || req.body?.username || "").trim();
+    return `${req.ip}_${identifier}`;
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
+
 
 // حماية مسار إنشاء الطلبات من السبام والطلبات الوهمية المكثفة
 export const orderLimiter = rateLimit({

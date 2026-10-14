@@ -4,14 +4,36 @@ class SoundNotifier {
   private intervalId: any = null;
   private isMuted: boolean = false;
 
-  private initCtx() {
-    if (!this.audioCtx) {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      this.audioCtx = new AudioContextClass();
-    }
-    if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
-    }
+  constructor() {
+    this.setupUserGestureUnlock();
+  }
+
+  // فك حظر تشغيل الصوت تلقائياً فور أول تفاعل من المستخدم مع الصفحة امتثالاً لسياسة المتصفحات الصارمة
+  private setupUserGestureUnlock() {
+    if (typeof window === 'undefined') return;
+    const unlock = () => {
+      this.initCtx();
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+    window.addEventListener('click', unlock, { once: true, passive: true });
+    window.addEventListener('keydown', unlock, { once: true, passive: true });
+    window.addEventListener('touchstart', unlock, { once: true, passive: true });
+  }
+
+  public initCtx() {
+    try {
+      if (!this.audioCtx) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          this.audioCtx = new AudioContextClass();
+        }
+      }
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+    } catch (_e) {}
   }
 
   // عزف نغمة الجرس المزدوج المميزة للطلبات

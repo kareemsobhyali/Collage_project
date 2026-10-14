@@ -101,7 +101,7 @@ jobs:
           files: |
             ./UniFood-Student.apk
             ./UniFood-Driver.apk
-            android-app/app/release.keystore
           prerelease: false
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

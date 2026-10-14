@@ -267,8 +267,15 @@ export function getCairoNow(): { dateStr: string; timeStr: string; startOfDay: D
     hour12: false,
   }).format(now); // "HH:mm"
 
+  // حساب بداية اليوم (00:00:00) بتوقيت القاهرة بدقة متوافقة ديناميكياً مع التوقيتين الشتوي (UTC+2) والصيفي (UTC+3)
   const [y, m, d] = dateStr.split("-").map(Number);
-  const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 3 * 60 * 60 * 1000);
+  const noonApprox = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const cairoHourAtNoon = parseInt(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Cairo", hour: "2-digit", hour12: false }).format(noonApprox),
+    10
+  );
+  const cairoOffsetHours = (cairoHourAtNoon - 12 + 24) % 24;
+  const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - cairoOffsetHours * 60 * 60 * 1000);
 
   return { dateStr, timeStr, startOfDay };
 }
@@ -465,9 +472,16 @@ export async function checkAndSendShiftClosingReports(): Promise<void> {
     for (const branch of activeBranches) {
       if (!branch.closingTime) continue;
 
-      // مقارنة موعد إغلاق الفرع مع الوقت الحالي بالقاهرة
+      // مقارنة موعد إغلاق الفرع مع الوقت الحالي بالقاهرة (مع هامش أمان 60 دقيقة لمنع تفويت التقرير بسبب انحراف الـ Event loop)
       const cleanBranchClosing = branch.closingTime.trim();
-      if (cleanBranchClosing === timeStr) {
+      const [curH, curM] = timeStr.split(":").map(Number);
+      const [closeH, closeM] = cleanBranchClosing.split(":").map(Number);
+      const curMins = curH * 60 + curM;
+      const closeMins = closeH * 60 + closeM;
+      const diffMins = curMins - closeMins;
+
+      // يتم إرسال التقرير في دقيقة الإغلاق أو خلال 60 دقيقة تالية لضمان عدم تفويته إذا كان السيرفر يعيد التشغيل
+      if (diffMins >= 0 && diffMins <= 60) {
         // التحقق من عدم إرسال التقرير لهذا الفرع اليوم مسبقاً
         const sentKey = `shift_report_sent_${branch.id}_${dateStr}`;
         const alreadySent = await prisma.systemSetting.findUnique({
@@ -475,7 +489,7 @@ export async function checkAndSendShiftClosingReports(): Promise<void> {
         });
 
         if (!alreadySent) {
-          console.log(`[Shift Report] Triggering automated shift closing report for ${branch.name} at ${timeStr}...`);
+          console.log(`[Shift Report] Triggering automated shift closing report for ${branch.name} at ${timeStr} (closing: ${cleanBranchClosing})...`);
           await sendBranchShiftWhatsAppReport(branch.id);
 
           // تسجيل أنه تم الإرسال اليوم

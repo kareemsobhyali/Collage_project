@@ -8,8 +8,10 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push --accept-data-loss",
+    "prisma:push": "prisma db push",
+    "prisma:push:force": "prisma db push --accept-data-loss",
     "seed": "tsx src/seed.ts"
+
   },
   "keywords": [],
   "author": "",

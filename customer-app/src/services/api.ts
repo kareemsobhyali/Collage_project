@@ -2,7 +2,8 @@ export const getApiHost = () => (typeof window !== 'undefined' ? window.location
 
 export const getApiBaseUrl = () => {
   if (typeof window === 'undefined') return 'http://localhost:5000/api';
-  if (window.location.port === '5173' || window.location.port === '5174') {
+  if ((import.meta as any).env?.VITE_API_URL) return (import.meta as any).env.VITE_API_URL;
+  if (window.location.port && window.location.port !== '5000' && window.location.port !== '80' && window.location.port !== '443') {
     return `http://${window.location.hostname}:5000/api`;
   }
   return `${window.location.origin}/api`;
@@ -14,14 +15,14 @@ export const getFullImageUrl = (url?: string | null) => {
   if (!url) return '';
   if (url.startsWith('data:') || url.startsWith('blob:')) return url;
   if (url.startsWith('http://') || url.startsWith('https://')) {
-    if (typeof window !== 'undefined' && window.location.port !== '5173' && window.location.port !== '5174' && url.includes(':5000/uploads/')) {
+    if (typeof window !== 'undefined' && (!window.location.port || window.location.port === '80' || window.location.port === '443') && url.includes(':5000/uploads/')) {
       const idx = url.indexOf('/uploads/');
       return `${window.location.origin}${url.substring(idx)}`;
     }
     return url;
   }
   if (typeof window !== 'undefined') {
-    if (window.location.port === '5173' || window.location.port === '5174') {
+    if (window.location.port && window.location.port !== '5000' && window.location.port !== '80' && window.location.port !== '443') {
       return `http://${window.location.hostname}:5000${url.startsWith('/') ? '' : '/'}${url}`;
     }
     return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;

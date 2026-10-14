@@ -2,8 +2,12 @@ export const getApiHost = () => (typeof window !== 'undefined' ? window.location
 
 export const getApiBaseUrl = () => {
   if (typeof window === 'undefined') return 'http://localhost:5000/api';
-  if (window.location.port === '5173' || window.location.port === '5174') {
-    return `http://${window.location.hostname}:5000/api`;
+  if ((import.meta as any).env?.VITE_API_URL) return `${(import.meta as any).env.VITE_API_URL}/api`;
+  if (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null') {
+    return 'http://localhost:5000/api';
+  }
+  if (window.location.port === '5173' || window.location.port === '5174' || window.location.port === '3000') {
+    return `http://${window.location.hostname || 'localhost'}:5000/api`;
   }
   return `${window.location.origin}/api`;
 };
@@ -14,15 +18,15 @@ export const getFullImageUrl = (url?: string | null) => {
   if (!url) return '';
   if (url.startsWith('data:') || url.startsWith('blob:')) return url;
   if (url.startsWith('http://') || url.startsWith('https://')) {
-    if (typeof window !== 'undefined' && window.location.port !== '5173' && window.location.port !== '5174' && url.includes(':5000/uploads/')) {
+    if (typeof window !== 'undefined' && window.location.protocol !== 'file:' && window.location.port !== '5173' && window.location.port !== '5174' && window.location.port !== '3000' && url.includes(':5000/uploads/')) {
       const idx = url.indexOf('/uploads/');
       return `${window.location.origin}${url.substring(idx)}`;
     }
     return url;
   }
-  if (typeof window !== 'undefined') {
-    if (window.location.port === '5173' || window.location.port === '5174') {
-      return `http://${window.location.hostname}:5000${url.startsWith('/') ? '' : '/'}${url}`;
+  if (typeof window !== 'undefined' && window.location.protocol !== 'file:') {
+    if (window.location.port === '5173' || window.location.port === '5174' || window.location.port === '3000') {
+      return `http://${window.location.hostname || 'localhost'}:5000${url.startsWith('/') ? '' : '/'}${url}`;
     }
     return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
   }

@@ -736,92 +736,121 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       ? Math.max(0, Math.floor(subtotal * loyaltySettings.pointsPerPound)) 
       : 0;
 
-    // توليد رقم طلب عشوائي وسهل القراءة
-    const orderCount = await prisma.order.count();
-    const orderNumber = 1000 + orderCount + 1;
-
     // توليد رمز أمان استلام عشوائي (4 أرقام) للتحقق عند التسليم مع الطيار
     const pickupPin = Math.floor(1000 + Math.random() * 9000).toString();
 
-    // إنشاء الطلب
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        branchId,
-        userId,
-        orderType,
-        paymentMethod,
-        addressText: orderType === "DELIVERY" ? addressText?.trim() : "استلام من الفرع",
-        deliveryZoneName: deliveryZoneName ? String(deliveryZoneName).trim() : null,
-        paymentProofUrl: paymentProofUrl ? String(paymentProofUrl).trim() : null,
-        paymentSenderPhone: paymentSenderPhone ? String(paymentSenderPhone).trim() : null,
-        promoCode: verifiedPromoCode,
-        discount,
-        walletDiscount,
-        pointsEarned,
-        pointsAwarded: false,
-        customerPhone: finalPhone,
-        customerName: customerName ? customerName.trim() : "طالب",
-        notes: notes ? notes.trim() : null,
-        status: "PENDING",
-        subtotal,
-        deliveryFee: calculatedDeliveryFee,
-        total,
-        isScheduled: !!isScheduled,
-        scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
-        pickupPin,
-        groupCartDetails: groupCartDetails ? (typeof groupCartDetails === "object" ? JSON.stringify(groupCartDetails) : String(groupCartDetails)) : null,
-        items: {
-          create: orderItemsData,
-        },
-      },
-      include: {
-        items: true,
-        user: {
+    // إنشاء الطلب وخصم المحفظة في عملية متسلسلة ذرية واحدة لحماية الرصيد ومنع تكرار أرقام الطلبات
+    const { order, updatedUser } = await prisma.$transaction(async (tx) => {
+      // توليد رقم طلب تصاعدي وفريد بدقة داخل المعاملة لمنع سباق العمليات
+      const lastOrder = await tx.order.findFirst({
+        orderBy: { orderNumber: "desc" },
+        select: { orderNumber: true },
+      });
+      const orderNumber = lastOrder && lastOrder.orderNumber >= 1000 ? lastOrder.orderNumber + 1 : 1001;
+
+      // التحقق من الرصيد داخل المعاملة لمنع استنزاف المحفظة بالتزامن
+      let userAfterWallet = null;
+      if (walletDiscount > 0) {
+        const freshUser = await tx.user.findUnique({ where: { id: userId } });
+        if (!freshUser || (freshUser.walletBalance || 0) < walletDiscount) {
+          throw new Error("رصيد المحفظة الحالي غير كافٍ لإتمام عملية الخصم");
+        }
+        userAfterWallet = await tx.user.update({
+          where: { id: userId },
+          data: { walletBalance: { decrement: walletDiscount } },
           select: {
             id: true,
             name: true,
             phone: true,
-            isBlocked: true,
-            restaurantNotes: true,
-            _count: {
-              select: { orders: true },
-            },
+            role: true,
+            loyaltyPoints: true,
+            walletBalance: true,
+          },
+        });
+      } else {
+        userAfterWallet = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            role: true,
+            loyaltyPoints: true,
+            walletBalance: true,
+          },
+        });
+      }
+
+      const createdOrder = await tx.order.create({
+        data: {
+          orderNumber,
+          branchId,
+          userId,
+          orderType,
+          paymentMethod,
+          addressText: orderType === "DELIVERY" ? addressText?.trim() : "استلام من الفرع",
+          deliveryZoneName: deliveryZoneName ? String(deliveryZoneName).trim() : null,
+          paymentProofUrl: paymentProofUrl ? String(paymentProofUrl).trim() : null,
+          paymentSenderPhone: paymentSenderPhone ? String(paymentSenderPhone).trim() : null,
+          promoCode: verifiedPromoCode,
+          discount,
+          walletDiscount,
+          pointsEarned,
+          pointsAwarded: false,
+          customerPhone: finalPhone,
+          customerName: customerName ? customerName.trim() : "طالب",
+          notes: notes ? notes.trim() : null,
+          status: "PENDING",
+          subtotal,
+          deliveryFee: calculatedDeliveryFee,
+          total,
+          isScheduled: !!isScheduled,
+          scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+          pickupPin,
+          groupCartDetails: groupCartDetails ? (typeof groupCartDetails === "object" ? JSON.stringify(groupCartDetails) : String(groupCartDetails)) : null,
+          items: {
+            create: orderItemsData,
           },
         },
-        branch: {
-          select: { name: true, phone: true, address: true, logoUrl: true },
+        include: {
+          items: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              isBlocked: true,
+              restaurantNotes: true,
+              _count: {
+                select: { orders: true },
+              },
+            },
+          },
+          branch: {
+            select: { name: true, phone: true, address: true, logoUrl: true },
+          },
+          driver: {
+            select: { id: true, name: true, phone: true },
+          },
         },
-        driver: {
-          select: { id: true, name: true, phone: true },
-        },
-      },
-    });
+      });
 
-    // تحديث عداد استخدام كود الخصم إن وُجد
-    if (verifiedPromoId) {
-      await prisma.promoCode.update({
-        where: { id: verifiedPromoId },
-        data: { usedCount: { increment: 1 } },
-      }).catch(() => {});
-    }
+      if (verifiedPromoId) {
+        const freshPromo = await tx.promoCode.findUnique({
+          where: { id: verifiedPromoId },
+        });
+        if (freshPromo) {
+          if (freshPromo.maxUses && freshPromo.usedCount >= freshPromo.maxUses) {
+            throw new Error("عذراً، كود الخصم وصل للحد الأقصى لعدد مرات الاستخدام المسموحة");
+          }
+          await tx.promoCode.update({
+            where: { id: verifiedPromoId },
+            data: { usedCount: { increment: 1 } },
+          });
+        }
+      }
 
-    // خصم رصيد المحفظة المستخدم فقط إن وُجد (النقاط لن تودع إلا بعد اكتمال الطلب والتسليم الفعلي)
-    const updateUserData: any = {};
-    if (walletDiscount > 0) {
-      updateUserData.walletBalance = { decrement: walletDiscount };
-    }
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateUserData,
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        role: true,
-        loyaltyPoints: true,
-        walletBalance: true,
-      },
+      return { order: createdOrder, updatedUser: userAfterWallet };
     });
 
     // إشعار فوري لتطبيق الديسكتوب الخاص بالفرع لتشغيل التنبيه الصوتي فوراً
@@ -910,49 +939,51 @@ router.put("/orders/:id/cancel", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const updated = await prisma.order.update({
-      where: { id },
-      data: {
-        status: "REJECTED",
-        cancelledAt: new Date(),
-        notes: `${order.notes ? order.notes + " | " : ""}تم إلغاء الطلب من قِبل الطالب`,
-      },
-      include: { items: true, branch: true },
-    });
-
-    // استرداد رصيد المحفظة المخصوم وسحب نقاط الولاء المكتسبة من هذا الطلب الملغي
-    let updatedUser = null;
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    if (currentUser) {
-      const refundedWallet = (currentUser.walletBalance || 0) + (order.walletDiscount || 0);
-      const revertedPoints = Math.max(0, (currentUser.loyaltyPoints || 0) - (order.pointsEarned || 0));
-      updatedUser = await prisma.user.update({
-        where: { id: userId },
+    const { updated, updatedUser } = await prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: { id },
         data: {
-          walletBalance: refundedWallet,
-          loyaltyPoints: revertedPoints,
+          status: "REJECTED",
+          cancelledAt: new Date(),
+          notes: `${order.notes ? order.notes + " | " : ""}تم إلغاء الطلب من قِبل الطالب`,
         },
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          role: true,
-          loyaltyPoints: true,
-          walletBalance: true,
-        },
+        include: { items: true, branch: true },
       });
-    }
 
-    // استرجاع عداد الكوبون إذا كان مستخدماً في هذا الطلب
-    if (order.promoCode) {
-      const promo = await prisma.promoCode.findUnique({ where: { code: order.promoCode } });
-      if (promo && promo.usedCount > 0) {
-        await prisma.promoCode.update({
-          where: { id: promo.id },
-          data: { usedCount: { decrement: 1 } },
-        }).catch(() => {});
+      let refundedUser = null;
+      const currentUser = await tx.user.findUnique({ where: { id: userId } });
+      if (currentUser) {
+        const refundedWallet = (currentUser.walletBalance || 0) + (order.walletDiscount || 0);
+        const revertedPoints = Math.max(0, (currentUser.loyaltyPoints || 0) - (order.pointsEarned || 0));
+        refundedUser = await tx.user.update({
+          where: { id: userId },
+          data: {
+            walletBalance: refundedWallet,
+            loyaltyPoints: revertedPoints,
+          },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            role: true,
+            loyaltyPoints: true,
+            walletBalance: true,
+          },
+        });
       }
-    }
+
+      if (order.promoCode) {
+        const promo = await tx.promoCode.findUnique({ where: { code: order.promoCode } });
+        if (promo && promo.usedCount > 0) {
+          await tx.promoCode.update({
+            where: { id: promo.id },
+            data: { usedCount: { decrement: 1 } },
+          }).catch(() => {});
+        }
+      }
+
+      return { updated: updatedOrder, updatedUser: refundedUser };
+    });
 
     notifyOrderStatusChanged(id, order.branchId, updated);
 
@@ -1174,20 +1205,29 @@ router.post("/wallet/convert-points", async (req: AuthRequest, res: Response) =>
     // حساب المبلغ المضاف بدقة بالجنيه حسب نسبة الاستبدال المحددة في لوحة الإدارة
     const cashAdded = Math.round(pointsToConvert * loyaltySettings.pointsRedemptionRate * 100) / 100;
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        loyaltyPoints: { decrement: pointsToConvert },
-        walletBalance: { increment: cashAdded },
-      },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        role: true,
-        loyaltyPoints: true,
-        walletBalance: true,
-      },
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const freshUser = await tx.user.findUnique({ where: { id: userId } });
+      if (!freshUser) {
+        throw new Error("المستخدم غير موجود");
+      }
+      if (freshUser.loyaltyPoints < pointsToConvert) {
+        throw new Error("رصيد نقاط الولاء غير كافٍ لإتمام عملية الاستبدال");
+      }
+      return await tx.user.update({
+        where: { id: userId },
+        data: {
+          loyaltyPoints: { decrement: pointsToConvert },
+          walletBalance: { increment: cashAdded },
+        },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          role: true,
+          loyaltyPoints: true,
+          walletBalance: true,
+        },
+      });
     });
 
     res.json({

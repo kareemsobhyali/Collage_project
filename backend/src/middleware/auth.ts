@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import prisma from "../prisma.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-campus-delivery-2026";
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
+  console.warn("⚠️ [SECURITY WARNING]: JWT_SECRET is not set in environment variables! Using fallback secret.");
+}
 
 export interface AuthenticatedUserPayload {
   userId: string;
@@ -32,8 +36,8 @@ export function generateToken(payload: object, expiresIn: string = "30d"): strin
   return jwt.sign(payload, JWT_SECRET, { expiresIn } as any);
 }
 
-// حماية مسارات العملاء والأدمن
-export function authenticateUser(req: AuthRequest, res: Response, next: NextFunction): void {
+// حماية مسارات العملاء والأدمن مع التحقق من عدم حظر الحساب
+export async function authenticateUser(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(401).json({ error: "غير مصرح، يرجى تسجيل الدخول" });
@@ -47,12 +51,24 @@ export function authenticateUser(req: AuthRequest, res: Response, next: NextFunc
       res.status(403).json({ error: "رمز الدخول غير صالح لحساب العميل" });
       return;
     }
+
+    // التحقق من أن الحساب غير محظور حالياً
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { isBlocked: true },
+    });
+    if (user?.isBlocked) {
+      res.status(403).json({ error: "عذراً، هذا الحساب موقوف حالياً من قبل الإدارة" });
+      return;
+    }
+
     req.user = decoded;
     next();
   } catch (error) {
     res.status(401).json({ error: "رمز الدخول غير صالح أو منتهي الصلاحية" });
   }
 }
+
 
 // حماية مسارات السوبر أدمن
 export function requireSuperAdmin(req: AuthRequest, res: Response, next: NextFunction): void {
