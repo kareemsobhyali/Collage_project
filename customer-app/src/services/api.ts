@@ -898,6 +898,29 @@ export const api = {
     if (!res.ok) throw new Error(data.error || 'فشل حذف كابتن التوصيل');
     return data;
   },
+
+  // 46. تقرير الحسابات والمالية الشامل وحسابات الشيفتات والدليفري
+  async getFinanceReport(params: {
+    branchId?: string;
+    startDate?: string;
+    endDate?: string;
+    shiftMode?: string;
+    shiftDate?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params.branchId) searchParams.append('branchId', params.branchId);
+    if (params.startDate) searchParams.append('startDate', params.startDate);
+    if (params.endDate) searchParams.append('endDate', params.endDate);
+    if (params.shiftMode) searchParams.append('shiftMode', params.shiftMode);
+    if (params.shiftDate) searchParams.append('shiftDate', params.shiftDate);
+
+    const res = await fetch(`${API_BASE_URL}/admin/finance/report?${searchParams.toString()}`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب التقرير المالي وحسابات الشيفتات');
+    return data;
+  },
 };
 
 

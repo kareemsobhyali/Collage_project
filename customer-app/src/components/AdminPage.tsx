@@ -55,7 +55,12 @@ import {
   Volume2,
   VolumeX,
   Music,
-  BellRing
+  BellRing,
+  Calendar,
+  FileSpreadsheet,
+  Download,
+  Wallet,
+  Coins
 } from 'lucide-react';
 
 
@@ -90,7 +95,7 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
+  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'FINANCE' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
   const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
   const [showMobileMoreMenu, setShowMobileMoreMenu] = useState(false);
@@ -298,6 +303,30 @@ export const AdminPage: React.FC = () => {
     isDanger?: boolean;
     onConfirm: () => void;
   } | null>(null);
+
+  // Finance & Shifts Accounting States
+  const [financeBranchFilter, setFinanceBranchFilter] = useState<string>('ALL');
+  const [financeShiftMode, setFinanceShiftMode] = useState<'SHIFT' | 'CUSTOM'>('SHIFT');
+  const [financeShiftDate, setFinanceShiftDate] = useState<string>(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [financeStartDate, setFinanceStartDate] = useState<string>(() => {
+    const today = new Date();
+    const dStr = today.toISOString().split('T')[0];
+    return `${dStr}T00:00`;
+  });
+  const [financeEndDate, setFinanceEndDate] = useState<string>(() => {
+    const today = new Date();
+    const dStr = today.toISOString().split('T')[0];
+    return `${dStr}T23:59`;
+  });
+  const [financeReportData, setFinanceReportData] = useState<any | null>(null);
+  const [financeLoading, setFinanceLoading] = useState<boolean>(false);
+  const [financeError, setFinanceError] = useState<string | null>(null);
+  const [financeSubTab, setFinanceSubTab] = useState<'OVERVIEW' | 'SHIFTS' | 'DRIVERS' | 'ORDERS'>('OVERVIEW');
+  const [selectedDriverOrdersModal, setSelectedDriverOrdersModal] = useState<any | null>(null);
+
   const [editingStudentWallet, setEditingStudentWallet] = useState<any | null>(null);
   const [editStudentBalance, setEditStudentBalance] = useState('0');
   const [editStudentPoints, setEditStudentPoints] = useState('0');
@@ -693,7 +722,217 @@ export const AdminPage: React.FC = () => {
     if (activeTab === 'DRIVERS') {
       fetchDriversData();
     }
+    if (activeTab === 'FINANCE') {
+      fetchFinanceReport();
+    }
   }, [activeTab]);
+
+  // Finance & Shifts Handlers
+  const fetchFinanceReport = async () => {
+    try {
+      setFinanceLoading(true);
+      setFinanceError(null);
+      const data = await api.getFinanceReport({
+        branchId: financeBranchFilter,
+        shiftMode: financeShiftMode,
+        shiftDate: financeShiftMode === 'SHIFT' ? financeShiftDate : undefined,
+        startDate: financeShiftMode === 'CUSTOM' ? financeStartDate : undefined,
+        endDate: financeShiftMode === 'CUSTOM' ? financeEndDate : undefined,
+      });
+      setFinanceReportData(data);
+    } catch (err: any) {
+      console.error('Fetch finance report error:', err);
+      setFinanceError(err.message || 'فشل جلب التقرير المالي وحسابات الشيفتات');
+    } finally {
+      setFinanceLoading(false);
+    }
+  };
+
+  // Helper to trigger Excel CSV download with UTF-8 BOM for perfect Arabic display
+  const downloadCsv = (filename: string, rows: (string | number)[][]) => {
+    const csvContent = rows
+      .map(row =>
+        row
+          .map(val => {
+            const str = String(val ?? '').replace(/"/g, '""');
+            return `"${str}"`;
+          })
+          .join(',')
+      )
+      .join('\r\n');
+
+    // UTF-8 BOM so Excel opens Arabic correctly
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // 1. Export Shifts & Branch Sales
+  const exportShiftsToExcel = () => {
+    if (!financeReportData?.branchBreakdown) return;
+    const rows: (string | number)[][] = [
+      ['تقرير مبيعات وشيفتات فروع UniFood'],
+      ['الفترة من', financeReportData.timeframe?.start ? new Date(financeReportData.timeframe.start).toLocaleString('ar-EG') : '', 'إلى', financeReportData.timeframe?.end ? new Date(financeReportData.timeframe.end).toLocaleString('ar-EG') : ''],
+      ['نظام الفلترة', financeReportData.timeframe?.shiftMode === 'SHIFT' ? 'شيفت يومي للفرع' : 'فترة مخصصة بالوقت'],
+      [],
+      [
+        'اسم المطعم / الفرع',
+        'وقت الفتح',
+        'وقت الإغلاق',
+        'إجمالي المبيعات (ج.م)',
+        'صافي مبيعات الوجبات (ج.م)',
+        'رسوم التوصيل (ج.م)',
+        'المحصل كاش (ج.م)',
+        'المحصل إلكتروني / محافظ (ج.م)',
+        'الطلبات المكتملة',
+        'الطلبات الملغاة',
+        'إجمالي الطلبات'
+      ]
+    ];
+
+    financeReportData.branchBreakdown.forEach((b: any) => {
+      rows.push([
+        b.branchName,
+        b.openingTime || '08:00',
+        b.closingTime || '22:00',
+        Number(b.grossSales || 0).toFixed(2),
+        Number(b.foodNet || 0).toFixed(2),
+        Number(b.deliveryFees || 0).toFixed(2),
+        Number(b.cashSales || 0).toFixed(2),
+        Number(b.electronicSales || 0).toFixed(2),
+        b.completedCount || 0,
+        b.rejectedCount || 0,
+        b.totalOrders || 0
+      ]);
+    });
+
+    // Add totals row
+    rows.push([]);
+    rows.push([
+      'الإجمالي الكلي لكافة الفروع',
+      '-',
+      '-',
+      Number(financeReportData.summary?.totalGrossSales || 0).toFixed(2),
+      Number(financeReportData.summary?.totalFoodNet || 0).toFixed(2),
+      Number(financeReportData.summary?.totalDeliveryFees || 0).toFixed(2),
+      Number(financeReportData.paymentBreakdown?.CASH?.total || 0).toFixed(2),
+      Number((financeReportData.summary?.totalGrossSales || 0) - (financeReportData.paymentBreakdown?.CASH?.total || 0)).toFixed(2),
+      financeReportData.summary?.completedOrdersCount || 0,
+      financeReportData.summary?.rejectedOrdersCount || 0,
+      financeReportData.summary?.totalOrdersCount || 0
+    ]);
+
+    const dateTag = new Date().toISOString().split('T')[0];
+    downloadCsv(`تقرير_شيفتات_ومبيعات_الفروع_${dateTag}`, rows);
+  };
+
+  // 2. Export Delivery Drivers Settlements
+  const exportDriversToExcel = () => {
+    if (!financeReportData?.driversBreakdown) return;
+    const rows: (string | number)[][] = [
+      ['كشف حسابات وتصفية كباتن التوصيل (الطيارين) - UniFood'],
+      ['الفترة من', financeReportData.timeframe?.start ? new Date(financeReportData.timeframe.start).toLocaleString('ar-EG') : '', 'إلى', financeReportData.timeframe?.end ? new Date(financeReportData.timeframe.end).toLocaleString('ar-EG') : ''],
+      [],
+      [
+        'اسم كابتن التوصيل',
+        'رقم الهاتف',
+        'اسم المستخدم',
+        'عدد الطلبات المسلمة بنجاح',
+        'إجمالي مبالغ الطلبات (ج.م)',
+        'الكاش المحصل في يد الطيار (ج.م)',
+        'مبالغ الدفع الإلكتروني (ج.م)',
+        'إجمالي رسوم التوصيل المستحقة للطيار (أجرة التوصيل)',
+        'صافي الحساب (الكاش المطلوب تسليمه للإدارة)'
+      ]
+    ];
+
+    financeReportData.driversBreakdown.forEach((d: any) => {
+      rows.push([
+        d.driverName,
+        d.driverPhone,
+        d.driverUsername,
+        d.deliveredOrdersCount,
+        Number(d.totalOrdersValue || 0).toFixed(2),
+        Number(d.cashCollectedInHand || 0).toFixed(2),
+        Number(d.electronicOrdersValue || 0).toFixed(2),
+        Number(d.totalDeliveryFeesEarned || 0).toFixed(2),
+        Number(d.netCashToDeliver || 0).toFixed(2)
+      ]);
+    });
+
+    const dateTag = new Date().toISOString().split('T')[0];
+    downloadCsv(`كشف_حساب_الطيارين_والتوصيل_${dateTag}`, rows);
+  };
+
+  // 3. Export All Orders Detail
+  const exportAllOrdersToExcel = () => {
+    if (!financeReportData?.orders) return;
+    const rows: (string | number)[][] = [
+      ['سجل كافة طلبات الفترة - UniFood'],
+      ['الفترة من', financeReportData.timeframe?.start ? new Date(financeReportData.timeframe.start).toLocaleString('ar-EG') : '', 'إلى', financeReportData.timeframe?.end ? new Date(financeReportData.timeframe.end).toLocaleString('ar-EG') : ''],
+      [],
+      [
+        'رقم الطلب',
+        'المطعم / الفرع',
+        'اسم العميل',
+        'رقم الهاتف',
+        'مكان ومبنى التسليم',
+        'طريقة الدفع',
+        'قيمة الوجبات (ج.م)',
+        'رسوم التوصيل (ج.م)',
+        'الخصم (ج.م)',
+        'الإجمالي الكلي (ج.م)',
+        'حالة الطلب',
+        'كابتن التوصيل',
+        'وقت إنشاء الطلب',
+        'وقت التسليم'
+      ]
+    ];
+
+    financeReportData.orders.forEach((o: any) => {
+      const pmMap: any = {
+        CASH: 'كاش',
+        VODAFONE_CASH: 'فودافون كاش',
+        INSTAPAY: 'إنستاباي',
+        CARD: 'فيزا'
+      };
+      const stMap: any = {
+        COMPLETED: 'مكتمل',
+        REJECTED: 'ملغي/مرفوض',
+        PENDING: 'جديد بانتظار الموافقة',
+        ACCEPTED: 'مقبول',
+        PREPARING: 'قيد التجهيز',
+        READY: 'جاهز للاستلام'
+      };
+
+      rows.push([
+        `#${o.orderNumber}`,
+        o.branchName,
+        o.customerName,
+        o.customerPhone,
+        o.addressText || o.deliveryZoneName || '',
+        pmMap[o.paymentMethod] || o.paymentMethod,
+        Number(o.subtotal || 0).toFixed(2),
+        Number(o.deliveryFee || 0).toFixed(2),
+        Number(o.discount || 0).toFixed(2),
+        Number(o.total || 0).toFixed(2),
+        stMap[o.status] || o.status,
+        o.driverName || 'غير مسند',
+        new Date(o.createdAt).toLocaleString('ar-EG'),
+        o.completedAt ? new Date(o.completedAt).toLocaleString('ar-EG') : '-'
+      ]);
+    });
+
+    const dateTag = new Date().toISOString().split('T')[0];
+    downloadCsv(`سجل_طلبات_الفترة_${dateTag}`, rows);
+  };
 
 
   // System Settings & Loyalty Handlers
@@ -1712,6 +1951,21 @@ export const AdminPage: React.FC = () => {
               </button>
 
               <button
+                onClick={() => setActiveTab('FINANCE')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'FINANCE'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-1 ring-emerald-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <Coins className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>المالية والشيفتات</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'FINANCE' ? 'bg-emerald-800/80 text-white' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                  جديد
+                </span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('DRIVERS')}
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'DRIVERS'
@@ -2199,6 +2453,998 @@ export const AdminPage: React.FC = () => {
                   );
                 })}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab: Finance & Shifts Accounting (قسم المالية وحسابات الشيفتات) */}
+        {activeTab === 'FINANCE' && (
+          <div className="space-y-6">
+            {/* 1. Header Bar with Title and Quick Excel Exports */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+                  <Coins className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-black text-white">
+                      قسم الإدارة المالية وحسابات الشيفتات
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                      محاسبة وإكسل
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    حساب مبيعات الفروع من موعد الفتح للإغلاق، ومتابعة عهدة كباتن التوصيل وأجرة التوصيل وصافي التوريد للإدارة
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons: Refresh & Excel Exports */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchFinanceReport}
+                  disabled={financeLoading}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                  title="تحديث البيانات المحاسبية"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${financeLoading ? 'animate-spin text-emerald-400' : ''}`} />
+                  <span>تحديث</span>
+                </button>
+
+                {/* Export Dropdown / Buttons */}
+                <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={exportShiftsToExcel}
+                    disabled={financeLoading || !financeReportData?.branchBreakdown?.length}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-300 border border-emerald-700/60 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    title="تصدير مبيعات وشيفتات الفروع لملف إكسل"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>شيفتات الفروع (Excel)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={exportDriversToExcel}
+                    disabled={financeLoading || !financeReportData?.driversBreakdown?.length}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-900/60 hover:bg-indigo-800/80 text-indigo-300 border border-indigo-700/60 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    title="تصدير كشف حساب وتصفية كباتن التوصيل لملف إكسل"
+                  >
+                    <Truck className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>حساب الطيارين (Excel)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={exportAllOrdersToExcel}
+                    disabled={financeLoading || !financeReportData?.orders?.length}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-900/60 hover:bg-purple-800/80 text-purple-300 border border-purple-700/60 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    title="تصدير كافة طلبات الفترة لملف إكسل"
+                  >
+                    <Download className="w-3.5 h-3.5 text-purple-400" />
+                    <span>سجل الطلبات (Excel)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Filter & Shift Control Box */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
+              {/* Row 1: Mode Switch & Branch Selection */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+                {/* Mode Selector Tabs */}
+                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setFinanceShiftMode('SHIFT')}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${
+                      financeShiftMode === 'SHIFT'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>نظام شيفت الفرع (من الفتح للإغلاق)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFinanceShiftMode('CUSTOM')}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${
+                      financeShiftMode === 'CUSTOM'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>فترة مخصصة (بالتاريخ والساعة)</span>
+                  </button>
+                </div>
+
+                {/* Branch Selection */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400 whitespace-nowrap">المطعم / الفرع:</span>
+                  <select
+                    value={financeBranchFilter}
+                    onChange={(e) => setFinanceBranchFilter(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="ALL">جميع الفروع والمطاعم ({branches.length})</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} {b.openingTime && b.closingTime ? `(${b.openingTime} - ${b.closingTime})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Inputs depending on mode */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                {financeShiftMode === 'SHIFT' ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-400">تاريخ الشيفت:</span>
+                      <input
+                        type="date"
+                        value={financeShiftDate}
+                        onChange={(e) => setFinanceShiftDate(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    {/* Operational Shift Info */}
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/40 border border-emerald-800/40 rounded-xl text-[11px] text-emerald-300">
+                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                      {financeBranchFilter === 'ALL' ? (
+                        <span>يتم احتساب مبيعات كل فرع بناءً على مواعيد فتحه وإغلاقه الرسمية للشيفت</span>
+                      ) : (
+                        (() => {
+                          const currB = branches.find((b) => b.id === financeBranchFilter);
+                          return (
+                            <span>
+                              ساعات تشغيل الفرع: من {currB?.openingTime || '08:00'} حتى {currB?.closingTime || '22:00'} (تلقائياً)
+                            </span>
+                          );
+                        })()
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-400">من (تاريخ وساعة):</span>
+                      <input
+                        type="datetime-local"
+                        value={financeStartDate}
+                        onChange={(e) => setFinanceStartDate(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-400">إلى (تاريخ وساعة):</span>
+                      <input
+                        type="datetime-local"
+                        value={financeEndDate}
+                        onChange={(e) => setFinanceEndDate(e.target.value)}
+                        className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date().toISOString().split('T')[0];
+                          setFinanceStartDate(`${today}T00:00`);
+                          setFinanceEndDate(`${today}T23:59`);
+                        }}
+                        className="px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-white rounded-md hover:bg-slate-800"
+                      >
+                        اليوم
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() - 1);
+                          const yest = d.toISOString().split('T')[0];
+                          setFinanceStartDate(`${yest}T00:00`);
+                          setFinanceEndDate(`${yest}T23:59`);
+                        }}
+                        className="px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-white rounded-md hover:bg-slate-800"
+                      >
+                        أمس
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() - 7);
+                          const past7 = d.toISOString().split('T')[0];
+                          const today = new Date().toISOString().split('T')[0];
+                          setFinanceStartDate(`${past7}T00:00`);
+                          setFinanceEndDate(`${today}T23:59`);
+                        }}
+                        className="px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-white rounded-md hover:bg-slate-800"
+                      >
+                        آخر 7 أيام
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date();
+                          const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                          const today = now.toISOString().split('T')[0];
+                          setFinanceStartDate(`${firstDay}T00:00`);
+                          setFinanceEndDate(`${today}T23:59`);
+                        }}
+                        className="px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-white rounded-md hover:bg-slate-800"
+                      >
+                        هذا الشهر
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Apply Button */}
+                <button
+                  type="button"
+                  onClick={fetchFinanceReport}
+                  disabled={financeLoading}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/30 transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
+                >
+                  <Filter className="w-4 h-4" />
+                  <span>تطبيق الفلتر وعرض الحسابات</span>
+                </button>
+              </div>
+
+              {/* Timeframe Confirmation Notice */}
+              {financeReportData?.timeframe && (
+                <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/80 gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">● الفترة النشطة المعتمدة:</span>
+                    <span>
+                      من{' '}
+                      <strong className="text-white">
+                        {new Date(financeReportData.timeframe.start).toLocaleString('ar-EG')}
+                      </strong>{' '}
+                      إلى{' '}
+                      <strong className="text-white">
+                        {new Date(financeReportData.timeframe.end).toLocaleString('ar-EG')}
+                      </strong>
+                    </span>
+                  </div>
+                  <span className="text-slate-500 font-mono">
+                    {financeReportData.timeframe.shiftMode === 'SHIFT' ? 'نظام الشيفت اليومي' : 'فترة مخصصة بالوقت'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Error Message if any */}
+            {financeError && (
+              <div className="p-4 bg-rose-950/50 border border-rose-800 text-rose-300 rounded-2xl text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{financeError}</span>
+              </div>
+            )}
+
+            {/* 3. Subtabs Bar */}
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto custom-scrollbar">
+              <button
+                type="button"
+                onClick={() => setFinanceSubTab('OVERVIEW')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  financeSubTab === 'OVERVIEW'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span>نظرة عامة وطرق الدفع</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFinanceSubTab('SHIFTS')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  financeSubTab === 'SHIFTS'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+                <span>مبيعات وشيفتات الفروع</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 font-mono">
+                  {financeReportData?.branchBreakdown?.length || 0}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFinanceSubTab('DRIVERS')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  financeSubTab === 'DRIVERS'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Truck className="w-4 h-4" />
+                <span>حساب وتصفية الطيارين (الكباتن)</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-indigo-950 text-indigo-300 font-mono">
+                  {financeReportData?.driversBreakdown?.length || 0}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFinanceSubTab('ORDERS')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  financeSubTab === 'ORDERS'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>سجل الطلبات المفصل</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-purple-950 text-purple-300 font-mono">
+                  {financeReportData?.orders?.length || 0}
+                </span>
+              </button>
+            </div>
+
+            {/* 4. Subtab Content */}
+            {financeLoading ? (
+              <div className="py-20 text-center">
+                <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-xs text-slate-400 font-bold">جاري تحميل وتجميع الحسابات المالية والشيفتات...</p>
+              </div>
+            ) : !financeReportData ? (
+              <div className="py-16 text-center bg-slate-900/50 rounded-2xl border border-slate-800">
+                <Coins className="w-12 h-12 text-slate-600 mx-auto mb-2" />
+                <p className="text-sm font-bold text-slate-300">لم يتم جلب أي بيانات حتى الآن</p>
+                <p className="text-xs text-slate-500 mt-1">اضغط على زر "تطبيق الفلتر وعرض الحسابات" بالأعلى</p>
+              </div>
+            ) : (
+              <>
+                {/* SUBTAB 1: OVERVIEW */}
+                {financeSubTab === 'OVERVIEW' && (
+                  <div className="space-y-6 animate-fadeIn">
+                    {/* Hero KPI Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* 1. Total Gross Sales */}
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-900 border border-emerald-800/60 shadow-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-emerald-400">إجمالي المبيعات الكلية</span>
+                          <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                            <Coins className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-white font-mono">
+                          {Number(financeReportData.summary?.totalGrossSales || 0).toFixed(2)}
+                          <span className="text-xs font-bold text-emerald-400 mr-1.5">ج.م</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between">
+                          <span>الطلبات المكتملة:</span>
+                          <strong className="text-emerald-300 font-mono font-bold">
+                            {financeReportData.summary?.completedOrdersCount || 0} طلب
+                          </strong>
+                        </div>
+                      </div>
+
+                      {/* 2. Total Food Net */}
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-950/60 via-slate-900 to-slate-900 border border-purple-800/60 shadow-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-purple-400">صافي مبيعات الوجبات (للمطاعم)</span>
+                          <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                            <Store className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-white font-mono">
+                          {Number(financeReportData.summary?.totalFoodNet || 0).toFixed(2)}
+                          <span className="text-xs font-bold text-purple-400 mr-1.5">ج.م</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between">
+                          <span>إيراد المطاعم باستثناء التوصيل</span>
+                        </div>
+                      </div>
+
+                      {/* 3. Total Delivery Fees */}
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-indigo-950/60 via-slate-900 to-slate-900 border border-indigo-800/60 shadow-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-indigo-400">إجمالي رسوم التوصيل</span>
+                          <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                            <Truck className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-white font-mono">
+                          {Number(financeReportData.summary?.totalDeliveryFees || 0).toFixed(2)}
+                          <span className="text-xs font-bold text-indigo-400 mr-1.5">ج.م</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between">
+                          <span>مستحقات خدمة دليفري الحرم</span>
+                        </div>
+                      </div>
+
+                      {/* 4. Cash Collected in Hand */}
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-950/60 via-slate-900 to-slate-900 border border-amber-800/60 shadow-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-amber-400">الكاش المحصل يدوياً</span>
+                          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                            <Wallet className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-white font-mono">
+                          {Number(financeReportData.paymentBreakdown?.CASH?.total || 0).toFixed(2)}
+                          <span className="text-xs font-bold text-amber-400 mr-1.5">ج.م</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between">
+                          <span>مقابل إلكتروني:</span>
+                          <strong className="text-sky-300 font-mono font-bold">
+                            {(
+                              Number(financeReportData.summary?.totalGrossSales || 0) -
+                              Number(financeReportData.paymentBreakdown?.CASH?.total || 0)
+                            ).toFixed(2)}{' '}
+                            ج.م
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Secondary Metrics Bar */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+                      <div>
+                        <span className="text-[11px] text-slate-500 block">إجمالي الخصومات والكوبونات:</span>
+                        <span className="text-sm font-bold text-rose-400 font-mono">
+                          {Number(financeReportData.summary?.totalDiscounts || 0).toFixed(2)} ج.م
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-slate-500 block">الطلبات الملغاة / المرفوضة:</span>
+                        <span className="text-sm font-bold text-rose-400 font-mono">
+                          {financeReportData.summary?.rejectedOrdersCount || 0} طلب (خسارة{' '}
+                          {Number(financeReportData.summary?.rejectedLostSales || 0).toFixed(0)} ج.م)
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-slate-500 block">إجمالي طلبات الفترة:</span>
+                        <span className="text-sm font-bold text-white font-mono">
+                          {financeReportData.summary?.totalOrdersCount || 0} طلب
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-slate-500 block">نسبة إنجاز الطلبات بنجاح:</span>
+                        <span className="text-sm font-bold text-emerald-400 font-mono">
+                          {financeReportData.summary?.totalOrdersCount > 0
+                            ? (
+                                (Number(financeReportData.summary?.completedOrdersCount || 0) /
+                                  Number(financeReportData.summary?.totalOrdersCount)) *
+                                100
+                              ).toFixed(1)
+                            : 0}
+                          %
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Payment Methods Breakdown */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-black text-white flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-emerald-400" />
+                        <span>تفصيل التحصيل حسب طريقة الدفع</span>
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {/* Cash */}
+                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-emerald-400">نقداً (كاش مع الطيار)</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                              {financeReportData.paymentBreakdown?.CASH?.count || 0} طلب
+                            </span>
+                          </div>
+                          <div className="text-xl font-black text-white font-mono">
+                            {Number(financeReportData.paymentBreakdown?.CASH?.total || 0).toFixed(2)}{' '}
+                            <span className="text-xs text-slate-400 font-sans">ج.م</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 flex justify-between">
+                            <span>رسوم التوصيل المضمنة:</span>
+                            <span className="font-mono text-slate-300">
+                              {Number(financeReportData.paymentBreakdown?.CASH?.deliveryFees || 0).toFixed(2)} ج.م
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Vodafone Cash */}
+                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-rose-400">فودافون كاش</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                              {financeReportData.paymentBreakdown?.VODAFONE_CASH?.count || 0} طلب
+                            </span>
+                          </div>
+                          <div className="text-xl font-black text-white font-mono">
+                            {Number(financeReportData.paymentBreakdown?.VODAFONE_CASH?.total || 0).toFixed(2)}{' '}
+                            <span className="text-xs text-slate-400 font-sans">ج.م</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 flex justify-between">
+                            <span>رسوم التوصيل المضمنة:</span>
+                            <span className="font-mono text-slate-300">
+                              {Number(financeReportData.paymentBreakdown?.VODAFONE_CASH?.deliveryFees || 0).toFixed(2)} ج.م
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* InstaPay */}
+                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-indigo-400">إنستاباي (InstaPay)</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                              {financeReportData.paymentBreakdown?.INSTAPAY?.count || 0} طلب
+                            </span>
+                          </div>
+                          <div className="text-xl font-black text-white font-mono">
+                            {Number(financeReportData.paymentBreakdown?.INSTAPAY?.total || 0).toFixed(2)}{' '}
+                            <span className="text-xs text-slate-400 font-sans">ج.م</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 flex justify-between">
+                            <span>رسوم التوصيل المضمنة:</span>
+                            <span className="font-mono text-slate-300">
+                              {Number(financeReportData.paymentBreakdown?.INSTAPAY?.deliveryFees || 0).toFixed(2)} ج.م
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Card */}
+                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-sky-400">فيزا / بطاقة إلكترونية</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                              {financeReportData.paymentBreakdown?.CARD?.count || 0} طلب
+                            </span>
+                          </div>
+                          <div className="text-xl font-black text-white font-mono">
+                            {Number(financeReportData.paymentBreakdown?.CARD?.total || 0).toFixed(2)}{' '}
+                            <span className="text-xs text-slate-400 font-sans">ج.م</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 flex justify-between">
+                            <span>رسوم التوصيل المضمنة:</span>
+                            <span className="font-mono text-slate-300">
+                              {Number(financeReportData.paymentBreakdown?.CARD?.deliveryFees || 0).toFixed(2)} ج.م
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Top Selling Meals in this Period */}
+                    {financeReportData.topItems && financeReportData.topItems.length > 0 && (
+                      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+                        <h4 className="text-sm font-black text-white flex items-center gap-2">
+                          <ChefHat className="w-4 h-4 text-purple-400" />
+                          <span>أعلى الوجبات طلباً ومبيعاً خلال هذه الفترة</span>
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {financeReportData.topItems.map((item: any, idx: number) => (
+                            <div
+                              key={item.name}
+                              className="flex items-center justify-between p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-[11px] shrink-0 font-mono">
+                                  #{idx + 1}
+                                </span>
+                                <div>
+                                  <span className="font-black text-white block">{item.name}</span>
+                                  <span className="text-[10px] text-slate-400">
+                                    تم بيع <strong className="text-emerald-400 font-mono">{item.qty}</strong> وجبة
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="font-mono font-bold text-white text-xs">
+                                {Number(item.revenue || 0).toFixed(2)} ج.م
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* SUBTAB 2: SHIFTS */}
+                {financeSubTab === 'SHIFTS' && (
+                  <div className="space-y-4 animate-fadeIn">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                      <div>
+                        <h4 className="text-sm font-black text-white">تقرير شيفتات ومبيعات الفروع</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          تجميع مبيعات كل فرع منفصلاً مع مواعيد الفتح والإغلاق، الكاش المحصل، والمبالغ الإلكترونية
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={exportShiftsToExcel}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        <span>تصدير تقرير الشيفتات للإكسل</span>
+                      </button>
+                    </div>
+
+                    {/* Branches Shifts Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {financeReportData.branchBreakdown?.map((b: any) => (
+                        <div
+                          key={b.branchId}
+                          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4 shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center font-bold text-base shrink-0">
+                                <Store className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className="font-black text-base text-white">{b.branchName}</h3>
+                                <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                                  <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>
+                                    الشيفت الرسمي: {b.openingTime || '08:00'} ص إلى {b.closingTime || '22:00'} م
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFinanceBranchFilter(b.branchId);
+                                setFinanceShiftMode('SHIFT');
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-colors"
+                              title="تخصيص الفلتر لهذا الفرع فقط"
+                            >
+                              عزل الفرع
+                            </button>
+                          </div>
+
+                          {/* Stats Grid */}
+                          <div className="grid grid-cols-2 gap-2 p-3 bg-slate-950/70 rounded-xl text-xs font-mono border border-slate-800/80">
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-sans block">إجمالي المبيعات:</span>
+                              <span className="font-bold text-emerald-400 text-sm">
+                                {Number(b.grossSales || 0).toFixed(2)} ج.م
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-sans block">صافي الوجبات:</span>
+                              <span className="font-bold text-purple-400 text-sm">
+                                {Number(b.foodNet || 0).toFixed(2)} ج.م
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-sans block">رسوم التوصيل:</span>
+                              <span className="font-bold text-indigo-400">
+                                {Number(b.deliveryFees || 0).toFixed(2)} ج.م
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-sans block">كاش / إلكتروني:</span>
+                              <span className="text-slate-300 font-bold">
+                                {Number(b.cashSales || 0).toFixed(0)} / {Number(b.electronicSales || 0).toFixed(0)} ج.م
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Footer Order Counts */}
+                          <div className="flex items-center justify-between text-[11px] pt-1 text-slate-400">
+                            <span>
+                              الطلبات المكتملة:{' '}
+                              <strong className="text-emerald-400 font-mono">{b.completedCount || 0}</strong>
+                            </span>
+                            <span>
+                              الطلبات الملغاة:{' '}
+                              <strong className="text-rose-400 font-mono">{b.rejectedCount || 0}</strong>
+                            </span>
+                            <span>
+                              الإجمالي: <strong className="text-white font-mono">{b.totalOrders || 0}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* SUBTAB 3: DRIVERS */}
+                {financeSubTab === 'DRIVERS' && (
+                  <div className="space-y-4 animate-fadeIn">
+                    {/* Hero Settlement Ledger */}
+                    <div className="bg-gradient-to-r from-indigo-950/70 via-slate-900 to-purple-950/70 border border-indigo-700/50 rounded-2xl p-5 shadow-xl">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Truck className="w-5 h-5 text-indigo-400" />
+                            <h4 className="text-base font-black text-white">
+                              كشف حسابات وتصفية عهدة كباتن التوصيل (الطيارين)
+                            </h4>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-1">
+                            حساب كل طيار: عدد الطلبات المسلمة، الكاش المحصل بيده من الزبائن، أجرة التوصيل المستحقة، وصافي النقد المطلوب توريده للإدارة
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={exportDriversToExcel}
+                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          <span>تصدير كشف حساب الطيارين للإكسل</span>
+                        </button>
+                      </div>
+
+                      {/* Cumulative Driver Metrics */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                        <div>
+                          <span className="text-[11px] text-slate-400 block font-bold">إجمالي الكباتن النشطين:</span>
+                          <span className="text-xl font-black text-white font-mono">
+                            {financeReportData.driversBreakdown?.length || 0} طيار
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] text-slate-400 block font-bold">الكاش في يد الطيارين:</span>
+                          <span className="text-xl font-black text-amber-400 font-mono">
+                            {financeReportData.driversBreakdown
+                              ?.reduce((sum: number, d: any) => sum + (d.cashCollectedInHand || 0), 0)
+                              .toFixed(2)}{' '}
+                            ج.م
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] text-slate-400 block font-bold">إجمالي أجرة التوصيل المستحقة:</span>
+                          <span className="text-xl font-black text-indigo-400 font-mono">
+                            {financeReportData.driversBreakdown
+                              ?.reduce((sum: number, d: any) => sum + (d.totalDeliveryFeesEarned || 0), 0)
+                              .toFixed(2)}{' '}
+                            ج.م
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] text-slate-400 block font-bold">صافي التوريد المطلوب للخزينة:</span>
+                          <span className="text-xl font-black text-emerald-400 font-mono">
+                            {financeReportData.driversBreakdown
+                              ?.reduce((sum: number, d: any) => sum + (d.netCashToDeliver || 0), 0)
+                              .toFixed(2)}{' '}
+                            ج.م
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Drivers Cards Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {financeReportData.driversBreakdown?.map((d: any) => (
+                        <div
+                          key={d.driverId}
+                          className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center font-bold text-base shrink-0">
+                                <Truck className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-black text-base text-white">{d.driverName}</h3>
+                                  {d.isActive ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                                      نشط
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                                      معطل
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5 font-mono">
+                                  <Phone className="w-3.5 h-3.5 text-slate-500" />
+                                  <span>{d.driverPhone}</span>
+                                  <span className="text-slate-600">|</span>
+                                  <span>@{d.driverUsername}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDriverOrdersModal(d)}
+                              className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shrink-0"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>الطلبات ({d.deliveredOrdersCount || 0})</span>
+                            </button>
+                          </div>
+
+                          {/* Driver Financial Breakdown */}
+                          <div className="grid grid-cols-2 gap-2 p-3 bg-slate-950/70 rounded-xl text-xs font-mono border border-slate-800">
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-sans block">الطلبات المسلمة:</span>
+                              <span className="font-bold text-white text-sm">
+                                {d.deliveredOrdersCount || 0} طلب
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-sans block">إجمالي قيمة الطلبات:</span>
+                              <span className="font-bold text-slate-200 text-sm">
+                                {Number(d.totalOrdersValue || 0).toFixed(2)} ج.م
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-sans block">الكاش في يد الكابتن:</span>
+                              <span className="font-bold text-amber-400">
+                                {Number(d.cashCollectedInHand || 0).toFixed(2)} ج.م
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-sans block">أجرة التوصيل المستحقة:</span>
+                              <span className="font-bold text-indigo-400">
+                                {Number(d.totalDeliveryFeesEarned || 0).toFixed(2)} ج.م
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Settlement Verdict Card */}
+                          <div
+                            className={`p-3 rounded-xl border flex items-center justify-between text-xs font-bold ${
+                              d.netCashToDeliver > 0
+                                ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300'
+                                : d.netCashToDeliver < 0
+                                ? 'bg-sky-950/60 border-sky-800/80 text-sky-300'
+                                : 'bg-slate-950 border-slate-800 text-slate-400'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Wallet className="w-4 h-4" />
+                              <span>
+                                {d.netCashToDeliver > 0
+                                  ? 'المطلوب توريده للإدارة:'
+                                  : d.netCashToDeliver < 0
+                                  ? 'مستحق للكابتن طرف الإدارة:'
+                                  : 'الحساب مصفى تماماً:'}
+                              </span>
+                            </div>
+                            <span className="text-base font-black font-mono">
+                              {Math.abs(Number(d.netCashToDeliver || 0)).toFixed(2)} ج.م
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* SUBTAB 4: ORDERS */}
+                {financeSubTab === 'ORDERS' && (
+                  <div className="space-y-4 animate-fadeIn">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                      <div>
+                        <h4 className="text-sm font-black text-white">سجل كافة طلبات الفترة</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          عرض تفصيلي لـ {financeReportData.orders?.length || 0} طلب خلال الفترة المحددة مع إمكانية التصدير للإكسل
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={exportAllOrdersToExcel}
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md transition-all active:scale-95 shrink-0"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        <span>تصدير السجل الكامل للإكسل</span>
+                      </button>
+                    </div>
+
+                    {/* Orders Table */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-right text-xs">
+                          <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 font-bold">
+                            <tr>
+                              <th className="py-3 px-4">رقم الطلب</th>
+                              <th className="py-3 px-4">الفرع</th>
+                              <th className="py-3 px-4">العميل والموقع</th>
+                              <th className="py-3 px-4">طريقة الدفع</th>
+                              <th className="py-3 px-4">الوجبات</th>
+                              <th className="py-3 px-4">التوصيل</th>
+                              <th className="py-3 px-4">الإجمالي</th>
+                              <th className="py-3 px-4">الحالة</th>
+                              <th className="py-3 px-4">الطيار</th>
+                              <th className="py-3 px-4">التاريخ والوقت</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {financeReportData.orders?.map((ord: any) => (
+                              <tr key={ord.id} className="hover:bg-slate-800/30 transition-colors">
+                                <td className="py-3 px-4 font-mono font-bold text-purple-400">
+                                  #{ord.orderNumber}
+                                </td>
+                                <td className="py-3 px-4 font-bold text-white">{ord.branchName}</td>
+                                <td className="py-3 px-4">
+                                  <div className="font-bold text-white">{ord.customerName}</div>
+                                  <div className="text-[10px] text-slate-400">
+                                    {ord.addressText || ord.deliveryZoneName || ord.customerPhone}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                      ord.paymentMethod === 'CASH'
+                                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                        : ord.paymentMethod === 'VODAFONE_CASH'
+                                        ? 'bg-rose-950 text-rose-400 border border-rose-800'
+                                        : ord.paymentMethod === 'INSTAPAY'
+                                        ? 'bg-indigo-950 text-indigo-400 border border-indigo-800'
+                                        : 'bg-sky-950 text-sky-400 border border-sky-800'
+                                    }`}
+                                  >
+                                    {ord.paymentMethod === 'CASH' && 'كاش'}
+                                    {ord.paymentMethod === 'VODAFONE_CASH' && 'فودافون كاش'}
+                                    {ord.paymentMethod === 'INSTAPAY' && 'إنستاباي'}
+                                    {ord.paymentMethod === 'CARD' && 'فيزا'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 font-mono text-slate-300">
+                                  {Number(ord.subtotal || 0).toFixed(2)}
+                                </td>
+                                <td className="py-3 px-4 font-mono text-indigo-400">
+                                  {Number(ord.deliveryFee || 0).toFixed(2)}
+                                </td>
+                                <td className="py-3 px-4 font-mono font-bold text-emerald-400">
+                                  {Number(ord.total || 0).toFixed(2)} ج.م
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      ord.status === 'COMPLETED'
+                                        ? 'bg-emerald-950 text-emerald-400'
+                                        : ord.status === 'REJECTED'
+                                        ? 'bg-rose-950 text-rose-400'
+                                        : 'bg-amber-950 text-amber-400'
+                                    }`}
+                                  >
+                                    {ord.status === 'COMPLETED'
+                                      ? 'مكتمل'
+                                      : ord.status === 'REJECTED'
+                                      ? 'ملغي'
+                                      : 'قيد التنفيذ'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-slate-300 font-bold">
+                                  {ord.driverName || <span className="text-slate-500 font-normal">بدون طيار</span>}
+                                </td>
+                                <td className="py-3 px-4 text-[10px] text-slate-400 font-mono">
+                                  {new Date(ord.createdAt).toLocaleTimeString('ar-EG', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}{' '}
+                                  - {new Date(ord.createdAt).toLocaleDateString('ar-EG')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -4583,23 +5829,23 @@ export const AdminPage: React.FC = () => {
             )}
           </button>
 
-          {/* 4. Analytics */}
+          {/* 4. Finance */}
           <button
             type="button"
             onClick={() => {
-              setActiveTab('ANALYTICS');
+              setActiveTab('FINANCE');
               setShowMobileMoreMenu(false);
             }}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
-              activeTab === 'ANALYTICS' && !showMobileMoreMenu
-                ? 'text-purple-400 font-black'
+              activeTab === 'FINANCE' && !showMobileMoreMenu
+                ? 'text-emerald-400 font-black'
                 : 'text-slate-400 hover:text-slate-200 font-medium'
             }`}
           >
-            <TrendingUp className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] leading-tight">التقارير</span>
-            {activeTab === 'ANALYTICS' && !showMobileMoreMenu && (
-              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+            <Coins className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight">المالية</span>
+            {activeTab === 'FINANCE' && !showMobileMoreMenu && (
+              <span className="w-1 h-1 rounded-full bg-emerald-500 mt-0.5 animate-pulse" />
             )}
           </button>
 
@@ -4608,7 +5854,7 @@ export const AdminPage: React.FC = () => {
             type="button"
             onClick={() => setShowMobileMoreMenu(prev => !prev)}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
-              showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS'].includes(activeTab)
+              showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS', 'ANALYTICS'].includes(activeTab)
                 ? 'text-purple-400 font-black'
                 : 'text-slate-400 hover:text-slate-200 font-medium'
             }`}
@@ -4620,7 +5866,7 @@ export const AdminPage: React.FC = () => {
               )}
             </div>
             <span className="text-[10px] leading-tight">المزيد</span>
-            {(showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS'].includes(activeTab)) && (
+            {(showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS', 'ANALYTICS'].includes(activeTab)) && (
               <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
             )}
           </button>
@@ -4656,6 +5902,31 @@ export const AdminPage: React.FC = () => {
 
             {/* Quick Grid for Secondary Tabs */}
             <div className="grid grid-cols-2 gap-2.5">
+              {/* ANALYTICS */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('ANALYTICS');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
+                  activeTab === 'ANALYTICS'
+                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-mono text-purple-400 font-bold">إحصاءات</span>
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-white">التقارير والمخططات</span>
+                  <span className="text-[10px] text-slate-400 block">رسوم بيانية للأداء التاريخي</span>
+                </div>
+              </button>
+
               {/* DRIVERS */}
               <button
                 type="button"
@@ -6865,6 +8136,145 @@ export const AdminPage: React.FC = () => {
                 }`}
               >
                 <span>{adminConfirmDialog.confirmText || 'تأكيد'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Driver Orders Breakdown Modal (كشف تفاصيل طلبات الطيار) */}
+      {selectedDriverOrdersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-fadeIn" dir="rtl">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-scaleUp">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-base">
+                    سجل طلبات كابتن التوصيل: {selectedDriverOrdersModal.driverName}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs text-slate-400 font-mono mt-0.5">
+                    <Phone className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{selectedDriverOrdersModal.driverPhone}</span>
+                    <span className="text-slate-600">|</span>
+                    <span>@{selectedDriverOrdersModal.driverUsername}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDriverOrdersModal(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Summary Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-950/40 border-b border-slate-800 text-xs font-mono">
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                <span className="text-[10px] text-slate-400 font-sans block">الطلبات المسلمة:</span>
+                <span className="text-base font-black text-white">
+                  {selectedDriverOrdersModal.deliveredOrdersCount || 0} طلب
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                <span className="text-[10px] text-slate-400 font-sans block">الكاش في اليد:</span>
+                <span className="text-base font-black text-amber-400">
+                  {Number(selectedDriverOrdersModal.cashCollectedInHand || 0).toFixed(2)} ج.م
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                <span className="text-[10px] text-slate-400 font-sans block">أجرة التوصيل المستحقة:</span>
+                <span className="text-base font-black text-indigo-400">
+                  {Number(selectedDriverOrdersModal.totalDeliveryFeesEarned || 0).toFixed(2)} ج.م
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                <span className="text-[10px] text-slate-400 font-sans block">صافي التوريد للإدارة:</span>
+                <span
+                  className={`text-base font-black ${
+                    selectedDriverOrdersModal.netCashToDeliver > 0 ? 'text-emerald-400' : 'text-slate-300'
+                  }`}
+                >
+                  {Number(selectedDriverOrdersModal.netCashToDeliver || 0).toFixed(2)} ج.م
+                </span>
+              </div>
+            </div>
+
+            {/* Orders List */}
+            <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2.5">
+              {!selectedDriverOrdersModal.orders || selectedDriverOrdersModal.orders.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-xs">
+                  لا توجد طلبات مسجلة لهذا الكابتن خلال الفترة المحددة
+                </div>
+              ) : (
+                selectedDriverOrdersModal.orders.map((ord: any) => (
+                  <div
+                    key={ord.id}
+                    className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-mono font-bold shrink-0">
+                        #{ord.orderNumber}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-white">{ord.branchName}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              ord.paymentMethod === 'CASH'
+                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                : 'bg-indigo-950 text-indigo-400 border border-indigo-800'
+                            }`}
+                          >
+                            {ord.paymentMethod === 'CASH' ? 'كاش في اليد' : 'دفع إلكتروني'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-1">
+                          العميل: <strong className="text-slate-200">{ord.customerName}</strong>
+                          {ord.customerPhone && (
+                            <span className="font-mono text-slate-500 mr-2">({ord.customerPhone})</span>
+                          )}
+                          {ord.deliveryZoneName && (
+                            <span className="text-slate-400 mr-2">📍 {ord.deliveryZoneName}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800/60 font-mono">
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-sans block">أجرة التوصيل:</span>
+                        <span className="text-indigo-400 font-bold">{Number(ord.deliveryFee || 0).toFixed(2)} ج.م</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-sans block">إجمالي الطلب:</span>
+                        <span className="text-emerald-400 font-black text-sm">{Number(ord.total || 0).toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-sans">
+                        {ord.completedAt
+                          ? new Date(ord.completedAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+                          : new Date(ord.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end p-4 border-t border-slate-800 bg-slate-950/60">
+              <button
+                type="button"
+                onClick={() => setSelectedDriverOrdersModal(null)}
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors"
+              >
+                إغلاق النافذة
               </button>
             </div>
           </div>

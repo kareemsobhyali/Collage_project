@@ -1606,6 +1606,247 @@ router.delete("/drivers/:id", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 16. قسم الحسابات والمالية الشامل (Financial & Shifts Accounting)
+router.get("/finance/report", async (req: AuthRequest, res: Response) => {
+  try {
+    const { branchId, startDate, endDate, shiftMode, shiftDate } = req.query;
+
+    let start: Date;
+    let end: Date;
+
+    if (shiftMode === "SHIFT" && shiftDate) {
+      let openH = 8, openM = 0;
+      let closeH = 23, closeM = 59;
+      if (branchId && branchId !== "ALL") {
+        const b = await prisma.branch.findUnique({ where: { id: branchId as string } });
+        if (b) {
+          if (b.openingTime) {
+            const [h, m] = b.openingTime.split(":").map(Number);
+            if (!isNaN(h)) openH = h;
+            if (!isNaN(m)) openM = m;
+          }
+          if (b.closingTime) {
+            const [h, m] = b.closingTime.split(":").map(Number);
+            if (!isNaN(h)) closeH = h;
+            if (!isNaN(m)) closeM = m;
+          }
+        }
+      }
+      start = new Date(`${shiftDate}T${String(openH).padStart(2, "0")}:${String(openM).padStart(2, "0")}:00`);
+      if (closeH < openH) {
+        const nextDay = new Date(start);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayStr = nextDay.toISOString().split("T")[0];
+        end = new Date(`${nextDayStr}T${String(closeH).padStart(2, "0")}:${String(closeM).padStart(2, "0")}:59`);
+      } else {
+        end = new Date(`${shiftDate}T${String(closeH).padStart(2, "0")}:${String(closeM).padStart(2, "0")}:59`);
+      }
+    } else {
+      start = startDate ? new Date(startDate as string) : new Date(new Date().setHours(0, 0, 0, 0));
+      end = endDate ? new Date(endDate as string) : new Date(new Date().setHours(23, 59, 59, 999));
+    }
+
+    const whereClause: any = {
+      createdAt: {
+        gte: start,
+        lte: end,
+      },
+    };
+
+    if (branchId && branchId !== "ALL") {
+      whereClause.branchId = branchId as string;
+    }
+
+    const [orders, allBranches, allDrivers] = await Promise.all([
+      prisma.order.findMany({
+        where: whereClause,
+        include: {
+          branch: { select: { id: true, name: true, openingTime: true, closingTime: true, phone: true } },
+          driver: { select: { id: true, name: true, phone: true, username: true } },
+          items: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.branch.findMany({
+        select: { id: true, name: true, openingTime: true, closingTime: true, phone: true, isActive: true },
+      }),
+      prisma.deliveryDriver.findMany({
+        select: { id: true, name: true, phone: true, username: true, isActive: true },
+      }),
+    ]);
+
+    const completedOrders = orders.filter(o => o.status === "COMPLETED");
+    const rejectedOrders = orders.filter(o => o.status === "REJECTED");
+    const inProgressOrders = orders.filter(o => ["PENDING", "ACCEPTED", "PREPARING", "READY"].includes(o.status));
+
+    const totalGrossSales = completedOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+    const totalFoodNet = completedOrders.reduce((acc, o) => acc + (o.subtotal || 0), 0);
+    const totalDeliveryFees = completedOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
+    const totalDiscounts = completedOrders.reduce((acc, o) => acc + (o.discount || 0) + (o.walletDiscount || 0), 0);
+    const rejectedLostSales = rejectedOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+
+    // تفصيل طرق الدفع للطلبات المكتملة
+    const paymentBreakdown = {
+      CASH: {
+        total: completedOrders.filter(o => o.paymentMethod === "CASH").reduce((acc, o) => acc + (o.total || 0), 0),
+        count: completedOrders.filter(o => o.paymentMethod === "CASH").length,
+        deliveryFees: completedOrders.filter(o => o.paymentMethod === "CASH").reduce((acc, o) => acc + (o.deliveryFee || 0), 0),
+      },
+      VODAFONE_CASH: {
+        total: completedOrders.filter(o => o.paymentMethod === "VODAFONE_CASH").reduce((acc, o) => acc + (o.total || 0), 0),
+        count: completedOrders.filter(o => o.paymentMethod === "VODAFONE_CASH").length,
+        deliveryFees: completedOrders.filter(o => o.paymentMethod === "VODAFONE_CASH").reduce((acc, o) => acc + (o.deliveryFee || 0), 0),
+      },
+      INSTAPAY: {
+        total: completedOrders.filter(o => o.paymentMethod === "INSTAPAY").reduce((acc, o) => acc + (o.total || 0), 0),
+        count: completedOrders.filter(o => o.paymentMethod === "INSTAPAY").length,
+        deliveryFees: completedOrders.filter(o => o.paymentMethod === "INSTAPAY").reduce((acc, o) => acc + (o.deliveryFee || 0), 0),
+      },
+      CARD: {
+        total: completedOrders.filter(o => o.paymentMethod === "CARD").reduce((acc, o) => acc + (o.total || 0), 0),
+        count: completedOrders.filter(o => o.paymentMethod === "CARD").length,
+        deliveryFees: completedOrders.filter(o => o.paymentMethod === "CARD").reduce((acc, o) => acc + (o.deliveryFee || 0), 0),
+      },
+    };
+
+    // تفصيل أداء ومبيعات كل فرع
+    const branchBreakdown = allBranches.map(b => {
+      const bOrders = orders.filter(o => o.branchId === b.id);
+      const bCompleted = bOrders.filter(o => o.status === "COMPLETED");
+      const bRejected = bOrders.filter(o => o.status === "REJECTED");
+      const grossSales = bCompleted.reduce((acc, o) => acc + (o.total || 0), 0);
+      const foodNet = bCompleted.reduce((acc, o) => acc + (o.subtotal || 0), 0);
+      const deliveryFees = bCompleted.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
+      const cashSales = bCompleted.filter(o => o.paymentMethod === "CASH").reduce((acc, o) => acc + (o.total || 0), 0);
+      const electronicSales = bCompleted.filter(o => o.paymentMethod !== "CASH").reduce((acc, o) => acc + (o.total || 0), 0);
+
+      return {
+        branchId: b.id,
+        branchName: b.name,
+        openingTime: b.openingTime,
+        closingTime: b.closingTime,
+        phone: b.phone,
+        totalOrders: bOrders.length,
+        completedCount: bCompleted.length,
+        rejectedCount: bRejected.length,
+        grossSales,
+        foodNet,
+        deliveryFees,
+        cashSales,
+        electronicSales,
+      };
+    }).sort((a, b) => b.grossSales - a.grossSales);
+
+    // تفصيل حسابات كباتن التوصيل (الطيارين)
+    const driversBreakdown = allDrivers.map(d => {
+      const dOrders = orders.filter(o => o.driverId === d.id);
+      const dCompleted = dOrders.filter(o => o.status === "COMPLETED");
+      const totalOrdersValue = dCompleted.reduce((acc, o) => acc + (o.total || 0), 0);
+      // الكاش الذي حصله الطيار في يده من العملاء
+      const cashCollectedInHand = dCompleted.filter(o => o.paymentMethod === "CASH").reduce((acc, o) => acc + (o.total || 0), 0);
+      // المبالغ المحصلة أونلاين/محافظ
+      const electronicOrdersValue = dCompleted.filter(o => o.paymentMethod !== "CASH").reduce((acc, o) => acc + (o.total || 0), 0);
+      // إجمالي خدمة التوصيل المستحقة للطيار (أجرة الطيار)
+      const totalDeliveryFeesEarned = dCompleted.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
+      // صافي الحساب (الكاش المحصل ناقص عمولة التوصيل للطيار = ما يجب على الطيار تسليمه للإدارة/المطعم)
+      const netCashToDeliver = cashCollectedInHand - totalDeliveryFeesEarned;
+
+      return {
+        driverId: d.id,
+        driverName: d.name,
+        driverPhone: d.phone,
+        driverUsername: d.username,
+        isActive: d.isActive,
+        totalAssignedOrders: dOrders.length,
+        deliveredOrdersCount: dCompleted.length,
+        totalOrdersValue,
+        cashCollectedInHand,
+        electronicOrdersValue,
+        totalDeliveryFeesEarned,
+        netCashToDeliver,
+        orders: dOrders.map(o => ({
+          id: o.id,
+          orderNumber: o.orderNumber,
+          branchName: o.branch?.name || "مطعم غير محدد",
+          customerName: o.customerName,
+          customerPhone: o.customerPhone,
+          addressText: o.addressText,
+          deliveryZoneName: o.deliveryZoneName,
+          paymentMethod: o.paymentMethod,
+          total: o.total,
+          deliveryFee: o.deliveryFee,
+          status: o.status,
+          createdAt: o.createdAt,
+          completedAt: o.completedAt,
+        })),
+      };
+    }).sort((a, b) => b.deliveredOrdersCount - a.deliveredOrdersCount);
+
+    // أفضل الأصناف مبيعاً في الفترة
+    const itemCounts: Record<string, { name: string; qty: number; revenue: number }> = {};
+    for (const o of completedOrders) {
+      for (const item of o.items) {
+        if (!itemCounts[item.itemName]) {
+          itemCounts[item.itemName] = { name: item.itemName, qty: 0, revenue: 0 };
+        }
+        itemCounts[item.itemName].qty += item.quantity;
+        itemCounts[item.itemName].revenue += item.totalPrice;
+      }
+    }
+    const topItems = Object.values(itemCounts).sort((a, b) => b.qty - a.qty).slice(0, 10);
+
+    res.json({
+      success: true,
+      timeframe: {
+        start: start.toISOString(),
+        end: end.toISOString(),
+        shiftMode: shiftMode || "CUSTOM",
+        shiftDate: shiftDate || null,
+        branchId: branchId || "ALL",
+      },
+      summary: {
+        totalOrdersCount: orders.length,
+        completedOrdersCount: completedOrders.length,
+        rejectedOrdersCount: rejectedOrders.length,
+        inProgressOrdersCount: inProgressOrders.length,
+        totalGrossSales,
+        totalFoodNet,
+        totalDeliveryFees,
+        totalDiscounts,
+        rejectedLostSales,
+      },
+      paymentBreakdown,
+      branchBreakdown,
+      driversBreakdown,
+      topItems,
+      orders: orders.map(o => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        branchId: o.branchId,
+        branchName: o.branch?.name || "مطعم غير محدد",
+        driverId: o.driverId,
+        driverName: o.driver?.name || null,
+        customerName: o.customerName,
+        customerPhone: o.customerPhone,
+        addressText: o.addressText,
+        deliveryZoneName: o.deliveryZoneName,
+        paymentMethod: o.paymentMethod,
+        subtotal: o.subtotal,
+        deliveryFee: o.deliveryFee,
+        discount: o.discount + o.walletDiscount,
+        total: o.total,
+        status: o.status,
+        createdAt: o.createdAt,
+        completedAt: o.completedAt,
+        itemsCount: o.items.reduce((acc, it) => acc + it.quantity, 0),
+      })),
+    });
+  } catch (error) {
+    console.error("Admin finance report error:", error);
+    res.status(500).json({ error: "فشل توليد التقرير المالي وحسابات الشيفتات" });
+  }
+});
+
 export default router;
 
 
