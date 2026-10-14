@@ -1081,32 +1081,13 @@ router.post("/reports/send-shift-report/:branchId", async (req: AuthRequest, res
     const branchId = req.params.branchId as string;
     const { customPhone } = req.body;
 
-    if (branchId === "ALL") {
-      const branches = await prisma.branch.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true },
-      });
-
-      let totalSent = 0;
-      for (const b of branches) {
-        const result = await sendBranchShiftWhatsAppReport(b.id, customPhone);
-        if (result.success) totalSent += result.sentCount;
-      }
-
-      res.json({
-        success: true,
-        message: `تم إرسال التقارير المالية لجميع الفروع النشطة بنجاح (${branches.length} فرع)`,
-      });
-      return;
-    }
-
     const result = await sendBranchShiftWhatsAppReport(branchId, customPhone);
     if (!result.success) {
-      res.status(400).json({ error: result.message || "فشل إرسال التقرير" });
+      res.status(400).json({ error: result.message || "فشل إرسال التقرير المالي" });
       return;
     }
 
-    res.json({ success: true, message: result.message });
+    res.json({ success: true, message: result.message, sentCount: result.sentCount });
   } catch (error: any) {
     console.error("Send shift report error:", error);
     res.status(500).json({ error: error?.message || "فشل إرسال التقرير المالي" });

@@ -143,6 +143,24 @@ export async function updateWhatsAppAlertSettings(settings: Partial<WhatsAppAler
 
 
 /**
+ * تحليل وتوحيد أرقام الهواتف المدخلة وتدقيقها
+ * يدعم الأرقام الإنجليزية والعربية/الفارسية، والفواصل العربية (،) والإنجليزية
+ */
+export function normalizeAndParsePhoneNumbers(input?: string | null): string[] {
+  if (!input) return [];
+  const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+  let normalized = input;
+  for (let i = 0; i < 10; i++) {
+    normalized = normalized.replaceAll(arabicDigits[i], String(i)).replaceAll(persianDigits[i], String(i));
+  }
+  return normalized
+    .split(/[\n,;،\s]+/)
+    .map((p) => p.replace(/\D/g, '').trim())
+    .filter((p) => p.length >= 10);
+}
+
+/**
  * إرسال إشعار فوري عبر الواتساب للمشرفين عند قيام المطعم بإلغاء/رفض أي طلب
  */
 export async function sendOrderCancellationWhatsAppAlert(orderId: string, reason?: string): Promise<void> {
@@ -152,11 +170,7 @@ export async function sendOrderCancellationWhatsAppAlert(orderId: string, reason
       return;
     }
 
-    const phones = settings.cancellationAlertPhones
-      .split(/[\n,;]+/)
-      .map((p) => p.trim())
-      .filter((p) => p.length >= 10);
-
+    const phones = normalizeAndParsePhoneNumbers(settings.cancellationAlertPhones);
     if (phones.length === 0) return;
 
     const order = await prisma.order.findUnique({
@@ -200,11 +214,7 @@ export async function checkAndSendUnacceptedOrdersWhatsAppAlerts(): Promise<void
       return;
     }
 
-    const phones = settings.unacceptedAlertPhones
-      .split(/[\n,;]+/)
-      .map((p) => p.trim())
-      .filter((p) => p.length >= 10);
-
+    const phones = normalizeAndParsePhoneNumbers(settings.unacceptedAlertPhones);
     if (phones.length === 0) return;
 
     const delayMinutes = settings.unacceptedDelayMinutes || 5;
@@ -407,37 +417,269 @@ ${topItemsText}
 }
 
 /**
+ * توليد نص التقرير المالي المجمع والشامل لكافة فروع الجامعة اليوم
+ */
+export async function generateAllBranchesShiftReport(): Promise<{
+  branchName: string;
+  message: string;
+  totalOrders: number;
+  completedOrders: number;
+  totalRevenue: number;
+}> {
+  const { dateStr, timeStr, startOfDay } = getCairoNow();
+
+  const [branches, allOrders] = await Promise.all([
+    prisma.branch.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+    }),
+    prisma.order.findMany({
+      where: {
+        createdAt: { gte: startOfDay },
+      },
+      include: {
+        items: true,
+        branch: { select: { id: true, name: true } },
+      },
+    }),
+  ]);
+
+  const totalOrders = allOrders.length;
+  const completedOrders = allOrders.filter((o) => o.status === "COMPLETED");
+  const rejectedOrders = allOrders.filter((o) => o.status === "REJECTED");
+  const inProgressOrders = allOrders.filter((o) =>
+    ["PENDING", "ACCEPTED", "PREPARING", "READY"].includes(o.status)
+  );
+
+  const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const deliveryFeesSum = completedOrders.reduce((sum, o) => sum + (o.deliveryFee || 0), 0);
+  const foodNetSum = totalRevenue - deliveryFeesSum;
+  const walletDiscountsSum = completedOrders.reduce((sum, o) => sum + (o.walletDiscount || 0), 0);
+
+  // إحصائيات طرق الدفع للطلبات المكتملة
+  let cashTotal = 0, cashCount = 0;
+  let vodafoneTotal = 0, vodafoneCount = 0;
+  let instapayTotal = 0, instapayCount = 0;
+  let cardTotal = 0, cardCount = 0;
+
+  for (const o of completedOrders) {
+    if (o.paymentMethod === "CASH") {
+      cashTotal += o.total;
+      cashCount++;
+    } else if (o.paymentMethod === "VODAFONE_CASH") {
+      vodafoneTotal += o.total;
+      vodafoneCount++;
+    } else if (o.paymentMethod === "INSTAPAY") {
+      instapayTotal += o.total;
+      instapayCount++;
+    } else if (o.paymentMethod === "CARD") {
+      cardTotal += o.total;
+      cardCount++;
+    }
+  }
+
+  // توزيع المبيعات حسب الفروع
+  const branchSales: Record<string, { name: string; revenue: number; completedCount: number; totalCount: number }> = {};
+  for (const b of branches) {
+    branchSales[b.id] = { name: b.name, revenue: 0, completedCount: 0, totalCount: 0 };
+  }
+  for (const o of allOrders) {
+    if (!branchSales[o.branchId]) {
+      branchSales[o.branchId] = { name: o.branch?.name || "فرع", revenue: 0, completedCount: 0, totalCount: 0 };
+    }
+    branchSales[o.branchId].totalCount++;
+    if (o.status === "COMPLETED") {
+      branchSales[o.branchId].revenue += o.total;
+      branchSales[o.branchId].completedCount++;
+    }
+  }
+
+  const branchSummaryLines = Object.values(branchSales)
+    .sort((a, b) => b.revenue - a.revenue)
+    .map((bs, idx) => `  ${idx + 1}. *${bs.name}*: ${bs.revenue.toFixed(1)} ج.م (${bs.completedCount} مكتمل / ${bs.totalCount} كلي)`)
+    .join("\n");
+
+  // أفضل 5 أصناف مبيعاً عبر كافة الفروع
+  const itemCounts: Record<string, { name: string; qty: number; revenue: number }> = {};
+  for (const o of completedOrders) {
+    for (const item of o.items) {
+      if (!itemCounts[item.itemName]) {
+        itemCounts[item.itemName] = { name: item.itemName, qty: 0, revenue: 0 };
+      }
+      itemCounts[item.itemName].qty += item.quantity;
+      itemCounts[item.itemName].revenue += item.totalPrice;
+    }
+  }
+
+  const topItems = Object.values(itemCounts)
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 5);
+
+  const topItemsText =
+    topItems.length > 0
+      ? topItems
+          .map((item, idx) => `  ${idx + 1}. *${item.name}*: ${item.qty} وجبة (${item.revenue.toFixed(0)} ج.م)`)
+          .join("\n")
+      : "  لا توجد أصناف مكتملة اليوم بعد.";
+
+  const message =
+`📊 *التقرير المالي المجمع لمنصة UniFood* 🏛️
+📅 *تاريخ اليوم:* ${dateStr}
+⏰ *توقيت التقرير:* ${timeStr}
+🏪 *إجمالي الفروع النشطة:* ${branches.length} مطعم
+
+━━━━━━━━━━━━━━━━━━━━━
+📈 *إجمالي مبيعات وإيرادات الحرم الجامعي:*
+💰 إجمالي المبيعات المحققة: *${totalRevenue.toFixed(1)} ج.م*
+🍲 صافي مبيعات الوجبات: *${foodNetSum.toFixed(1)} ج.م*
+🛵 إجمالي رسوم التوصيل: *${deliveryFeesSum.toFixed(1)} ج.م*
+👛 خصومات المحفظة والولاء: *${walletDiscountsSum.toFixed(1)} ج.م*
+
+📦 إجمالي الطلبات بالمنظومة: *${totalOrders} طلب*
+✅ طلبات ناجحة ومكتملة: *${completedOrders.length} طلب*
+❌ طلبات ملغاة أو مرفوضة: *${rejectedOrders.length} طلب*
+⏳ طلبات جارية/معلقة: *${inProgressOrders.length} طلب*
+
+━━━━━━━━━━━━━━━━━━━━━
+🏪 *تفصيل أداء ومبيعات الفروع اليوم:*
+${branchSummaryLines || "  لا توجد فروع مسجلة."}
+
+━━━━━━━━━━━━━━━━━━━━━
+💳 *طرق التحصيل المالي المجمعة:*
+💵 كاش (نقداً): *${cashTotal.toFixed(1)} ج.م* (${cashCount} طلب)
+📱 فودافون كاش: *${vodafoneTotal.toFixed(1)} ج.م* (${vodafoneCount} طلب)
+🏦 إنستاباي: *${instapayTotal.toFixed(1)} ج.م* (${instapayCount} طلب)
+💳 فيزا / بطاقات: *${cardTotal.toFixed(1)} ج.م* (${cardCount} طلب)
+
+━━━━━━━━━━━━━━━━━━━━━
+🍽️ *أكثر الوجبات طلباً على مستوى الجامعة:*
+${topItemsText}
+
+━━━━━━━━━━━━━━━━━━━━━
+✨ *نظام UniFood لإدارة وتوصيل مطاعم الحرم الجامعي.*`;
+
+  return {
+    branchName: "جميع فروع الجامعة",
+    message,
+    totalOrders,
+    completedOrders: completedOrders.length,
+    totalRevenue,
+  };
+}
+
+/**
+ * إرسال التقرير المالي المجمع لكافة الفروع عبر الواتساب للأرقام المحددة
+ */
+export async function sendAllBranchesShiftReport(customPhone?: string): Promise<{ success: boolean; sentCount: number; message?: string }> {
+  try {
+    const { whatsappService } = await import("./whatsapp.service.js");
+    if (!whatsappService.getIsConnected()) {
+      return {
+        success: false,
+        sentCount: 0,
+        message: "⚠️ بوت الواتساب غير متصل حالياً! يرجى فتح تبويب (بوت الواتساب و OTP) ومسح رمز QR لربط رقمك أولاً لتفعيل إرسال التقارير.",
+      };
+    }
+
+    const settings = await getWhatsAppAlertSettings();
+    const phones = normalizeAndParsePhoneNumbers(customPhone || settings.dailyReportPhones);
+
+    if (phones.length === 0) {
+      return {
+        success: false,
+        sentCount: 0,
+        message: "⚠️ لم يتم تحديد أي رقم هاتف صالح لاستقبال التقرير! يرجى إدخال رقم الهاتف في إعدادات التقارير (مثال: 01012345678).",
+      };
+    }
+
+    const report = await generateAllBranchesShiftReport();
+
+    let sentCount = 0;
+    for (const phone of phones) {
+      try {
+        const sent = await whatsappService.sendOrderStatusNotification(phone, report.message);
+        if (sent) sentCount++;
+      } catch (err) {
+        console.warn(`[Shift Report] Failed to send to ${phone}:`, err);
+      }
+    }
+
+    if (sentCount === 0) {
+      return {
+        success: false,
+        sentCount: 0,
+        message: "تعذر إرسال التقرير للأرقام المحددة. يرجى التأكد من أن الرقم مسجل على واتساب ومتاح لاستقبال الرسائل.",
+      };
+    }
+
+    return {
+      success: true,
+      sentCount,
+      message: `تم إرسال التقرير المالي المجمع إلى ${sentCount} رقم عبر الواتساب بنجاح ✅`,
+    };
+  } catch (err: any) {
+    console.error("[Shift Report] Error sending all-branches shift report:", err);
+    return { success: false, sentCount: 0, message: err?.message || "فشل إرسال التقرير المالي" };
+  }
+}
+
+/**
  * إرسال التقرير المالي للشيفت عبر الواتساب للأرقام المحددة في لوحة التحكم
  */
 export async function sendBranchShiftWhatsAppReport(branchId: string, customPhone?: string): Promise<{ success: boolean; sentCount: number; message?: string }> {
   try {
+    if (branchId === "ALL") {
+      return await sendAllBranchesShiftReport(customPhone);
+    }
+
+    const { whatsappService } = await import("./whatsapp.service.js");
+    if (!whatsappService.getIsConnected()) {
+      return {
+        success: false,
+        sentCount: 0,
+        message: "⚠️ بوت الواتساب غير متصل حالياً! يرجى فتح تبويب (بوت الواتساب و OTP) ومسح رمز QR لربط رقمك أولاً لتفعيل إرسال التقارير.",
+      };
+    }
+
     const report = await generateBranchShiftReport(branchId);
     if (!report) {
       return { success: false, sentCount: 0, message: "الفرع غير موجود" };
     }
 
     const settings = await getWhatsAppAlertSettings();
-    const phoneSources = customPhone ? [customPhone] : (settings.dailyReportPhones || "").split(/[\n,;]+/);
-    const phones = phoneSources
-      .map((p) => p.trim())
-      .filter((p) => p.length >= 10);
+    const phones = normalizeAndParsePhoneNumbers(customPhone || settings.dailyReportPhones);
 
     if (phones.length === 0) {
-      return { success: false, sentCount: 0, message: "لم يتم تحديد أرقام هواتف لإرسال التقرير إليها" };
+      return {
+        success: false,
+        sentCount: 0,
+        message: "⚠️ لم يتم تحديد أي رقم هاتف صالح لاستقبال التقرير! يرجى إدخال رقم الهاتف في إعدادات التقارير (مثال: 01012345678).",
+      };
     }
 
-    const { whatsappService } = await import("./whatsapp.service.js");
     let sentCount = 0;
     for (const phone of phones) {
       try {
-        await whatsappService.sendOrderStatusNotification(phone, report.message);
-        sentCount++;
+        const sent = await whatsappService.sendOrderStatusNotification(phone, report.message);
+        if (sent) sentCount++;
       } catch (err) {
         console.warn(`[Shift Report] Failed to send to ${phone}:`, err);
       }
     }
 
-    return { success: sentCount > 0, sentCount, message: `تم إرسال التقرير المالي إلى ${sentCount} رقم بنجاح` };
+    if (sentCount === 0) {
+      return {
+        success: false,
+        sentCount: 0,
+        message: "تعذر إرسال التقرير للأرقام المحددة. يرجى التأكد من أن الرقم مسجل على واتساب ومتاح لاستقبال الرسائل.",
+      };
+    }
+
+    return {
+      success: true,
+      sentCount,
+      message: `تم إرسال التقرير المالي لفرع (${report.branchName}) إلى ${sentCount} رقم بنجاح ✅`,
+    };
   } catch (err: any) {
     console.error("[Shift Report] Error sending shift report:", err);
     return { success: false, sentCount: 0, message: err?.message || "فشل إرسال التقرير" };

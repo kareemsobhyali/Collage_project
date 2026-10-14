@@ -342,11 +342,21 @@ export const AdminPage: React.FC = () => {
 
   const handleTestSendShiftReport = async (branchId: string = 'ALL') => {
     try {
+      let targetPhone = whatsAppAlertSettings.dailyReportPhones?.trim();
+      if (!targetPhone) {
+        const input = window.prompt('يرجى إدخال رقم هاتف الواتساب المخصص لاستقبال التقرير المالي:\n(مثال: 01012345678)');
+        if (!input) return;
+        targetPhone = input.trim();
+        setWhatsAppAlertSettings(prev => ({ ...prev, dailyReportPhones: targetPhone! }));
+      }
+
       setTestingShiftReport(true);
       setShiftReportTestMsg(null);
-      const res = await api.sendShiftReportNow(branchId);
+
+      // تمرير رقم الهاتف مباشرة حتى يعمل الإرسال فوراً دون اشتراط حفظ الإعدادات مسبقاً
+      const res = await api.sendShiftReportNow(branchId, targetPhone);
       setShiftReportTestMsg(res.message || 'تم إرسال التقرير المالي للشيفت بنجاح عبر الواتساب ✅');
-      setTimeout(() => setShiftReportTestMsg(null), 6000);
+      setTimeout(() => setShiftReportTestMsg(null), 8000);
     } catch (err: any) {
       alert(err.message || 'فشل إرسال التقرير المالي للشيفت');
     } finally {
@@ -1767,6 +1777,48 @@ export const AdminPage: React.FC = () => {
         {/* 7. Tab 4: Analytics & Financial breakdown */}
         {activeTab === 'ANALYTICS' && (
           <div className="space-y-6">
+            {/* Top Toolbar for Financial Reports */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+              <div>
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  <span>التقارير المالية ومؤشرات الحرم الجامعي</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  إحصائيات تفصيلية لحجم المبيعات وطرق الدفع وسرعة توصيل المطاعم
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleTestSendShiftReport('ALL')}
+                  disabled={testingShiftReport}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 disabled:opacity-50"
+                  title="إرسال التقرير المالي الشامل لكافة فروع اليوم إلى الواتساب"
+                >
+                  {testingShiftReport ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>جاري إرسال التقرير...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>إرسال التقرير المالي للواتساب 📲</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {shiftReportTestMsg && (
+              <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{shiftReportTestMsg}</span>
+              </div>
+            )}
+
             {/* Kitchen & Delivery Timings SLA Analytics */}
             <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -2406,8 +2458,8 @@ export const AdminPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleTestSendShiftReport('ALL')}
-                        disabled={testingShiftReport || !whatsAppAlertSettings.dailyReportPhones}
-                        className="px-4 py-2 bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-40"
+                        disabled={testingShiftReport}
+                        className="px-4 py-2 bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 active:scale-95 shadow-md"
                       >
                         {testingShiftReport ? (
                           <>

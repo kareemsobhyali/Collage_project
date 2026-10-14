@@ -175,6 +175,10 @@ class WhatsAppService {
     };
   }
 
+  public getIsConnected(): boolean {
+    return this.isConnected;
+  }
+
   public async disconnect(): Promise<boolean> {
     try {
       if (this.sock) {
@@ -189,7 +193,13 @@ class WhatsAppService {
   }
 
   public formatEgyptianJid(phone: string): string {
-    let clean = phone.replace(/\D/g, '');
+    const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    let clean = phone || '';
+    for (let i = 0; i < 10; i++) {
+      clean = clean.replaceAll(arabicDigits[i], String(i)).replaceAll(persianDigits[i], String(i));
+    }
+    clean = clean.replace(/\D/g, '');
     if (clean.startsWith('01') && clean.length === 11) {
       clean = '2' + clean;
     } else if (clean.startsWith('1') && clean.length === 10) {
