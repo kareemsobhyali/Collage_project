@@ -47,7 +47,11 @@ import {
   Gift,
   Sparkles,
   Send,
-  MoreHorizontal
+  MoreHorizontal,
+  Star,
+  ChevronDown,
+  Award,
+  ThumbsUp
 } from 'lucide-react';
 
 
@@ -74,7 +78,7 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
+  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
   const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
   const [showMobileMoreMenu, setShowMobileMoreMenu] = useState(false);
@@ -153,6 +157,20 @@ export const AdminPage: React.FC = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [banners, setBanners] = useState<any[]>([]);
   const [promos, setPromos] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsStats, setReviewsStats] = useState<any>({
+    totalReviews: 0,
+    withTextCount: 0,
+    averageRating: 0,
+    distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+  });
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewBranchFilter, setReviewBranchFilter] = useState('ALL');
+  const [reviewRatingFilter, setReviewRatingFilter] = useState('ALL');
+  const [reviewOnlyWithText, setReviewOnlyWithText] = useState(false);
+  const [reviewSearchQuery, setReviewSearchQuery] = useState('');
+  const [expandedReviewOrderId, setExpandedReviewOrderId] = useState<string | null>(null);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
   const [stats, setStats] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -270,13 +288,14 @@ export const AdminPage: React.FC = () => {
     if (!token && !adminUser) return;
     try {
       setLoading(true);
-      const [statsRes, branchesRes, ordersRes, studentsRes, bannersRes, promosRes] = await Promise.all([
+      const [statsRes, branchesRes, ordersRes, studentsRes, bannersRes, promosRes, reviewsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/admin/stats`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/branches`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/orders?limit=100`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/users`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/banners`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/promo-codes`, { headers: getAdminHeaders() }),
+        fetch(`${API_BASE_URL}/admin/reviews`, { headers: getAdminHeaders() }),
       ]);
 
       if (statsRes.ok) setStats(await statsRes.json());
@@ -285,10 +304,49 @@ export const AdminPage: React.FC = () => {
       if (studentsRes.ok) setStudents(await studentsRes.json());
       if (bannersRes.ok) setBanners(await bannersRes.json());
       if (promosRes.ok) setPromos(await promosRes.json());
+      if (reviewsRes && reviewsRes.ok) {
+        const revData = await reviewsRes.json();
+        setReviews(revData.reviews || []);
+        if (revData.stats) setReviewsStats(revData.stats);
+      }
     } catch (err) {
       console.error('Fetch dashboard error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReviewsData = async () => {
+    try {
+      setReviewsLoading(true);
+      const data = await api.getAdminReviews({
+        branchId: reviewBranchFilter,
+        rating: reviewRatingFilter,
+        hasText: reviewOnlyWithText,
+      });
+      setReviews(data.reviews || []);
+      if (data.stats) setReviewsStats(data.stats);
+    } catch (err) {
+      console.error('Fetch reviews error:', err);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const handleDeleteReview = async (orderId: string) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا التقييم؟ سيتم إزالة النجوم والتعليق من سجل الطلب.')) return;
+    try {
+      setDeletingReviewId(orderId);
+      await api.deleteAdminReview(orderId);
+      setReviews(prev => prev.filter(r => r.id !== orderId));
+      setReviewsStats((prev: any) => ({
+        ...prev,
+        totalReviews: Math.max(0, (prev.totalReviews || 1) - 1),
+      }));
+    } catch (err: any) {
+      alert(err.message || 'فشل حذف التقييم');
+    } finally {
+      setDeletingReviewId(null);
     }
   };
 
@@ -403,6 +461,12 @@ export const AdminPage: React.FC = () => {
       fetchWhatsAppAlertSettings();
       const interval = setInterval(fetchWhatsAppStatus, 8000);
       return () => clearInterval(interval);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'REVIEWS') {
+      fetchReviewsData();
     }
   }, [activeTab]);
 
@@ -981,12 +1045,12 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleAdminUpdateOrderStatus = async (orderId: string, newStatus: string) => {
+  const handleAdminUpdateOrderStatus = async (orderId: string, newStatus: string, reason?: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/status`, {
         method: 'PUT',
         headers: getAdminHeaders(),
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, reason }),
       });
       if (!res.ok) throw new Error('فشل تحديث حالة الطلب');
       fetchDashboardData();
@@ -1014,6 +1078,27 @@ export const AdminPage: React.FC = () => {
     s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
     s.phone.includes(studentSearch)
   );
+
+  const filteredReviews = reviews.filter((r) => {
+    if (reviewBranchFilter !== 'ALL' && r.branchId !== reviewBranchFilter) return false;
+    if (reviewRatingFilter === '5' && r.rating !== 5) return false;
+    if (reviewRatingFilter === '4' && r.rating !== 4) return false;
+    if (reviewRatingFilter === '3' && r.rating !== 3) return false;
+    if (reviewRatingFilter === '2' && r.rating !== 2) return false;
+    if (reviewRatingFilter === '1' && r.rating !== 1) return false;
+    if (reviewRatingFilter === 'LOW' && (r.rating || 0) > 3) return false;
+    if (reviewOnlyWithText && (!r.review || !r.review.trim())) return false;
+    if (reviewSearchQuery.trim()) {
+      const q = reviewSearchQuery.trim().toLowerCase();
+      const matchName = (r.customerName || r.user?.name || '').toLowerCase().includes(q);
+      const matchPhone = (r.customerPhone || r.user?.phone || '').includes(q);
+      const matchOrderNum = String(r.orderNumber || '').includes(q);
+      const matchReview = (r.review || '').toLowerCase().includes(q);
+      const matchBranch = (r.branch?.name || '').toLowerCase().includes(q);
+      if (!matchName && !matchPhone && !matchOrderNum && !matchReview && !matchBranch) return false;
+    }
+    return true;
+  });
 
   // If not logged in, show Full-Screen Admin Login
   if (!adminUser) {
@@ -1244,6 +1329,21 @@ export const AdminPage: React.FC = () => {
                 <span>مراقبة طلبات الحرم</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'ORDERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
                   {orders.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('REVIEWS')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'REVIEWS'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <Star className="w-4 h-4 shrink-0 text-amber-400 fill-amber-400" />
+                <span>تقييمات وآراء العملاء</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'REVIEWS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                  {reviews.length}
                 </span>
               </button>
 
@@ -1675,7 +1775,12 @@ export const AdminPage: React.FC = () => {
                         <div className="flex items-center gap-1.5">
                           {order.status === 'PENDING' && (
                             <button
-                              onClick={() => handleAdminUpdateOrderStatus(order.id, 'REJECTED')}
+                              onClick={() => {
+                                const reason = window.prompt('يرجى كتابة سبب إلغاء هذا الطلب:');
+                                if (reason !== null) {
+                                  handleAdminUpdateOrderStatus(order.id, 'REJECTED', reason.trim() || undefined);
+                                }
+                              }}
                               className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 text-rose-300 text-xs font-bold rounded-lg border border-rose-800"
                             >
                               إلغاء الطلب
@@ -1697,6 +1802,541 @@ export const AdminPage: React.FC = () => {
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                         </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab: Customer Reviews & Ratings */}
+        {activeTab === 'REVIEWS' && (
+          <div className="space-y-6">
+            {/* Header with Title and Refresh */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 shadow-inner">
+                  <Star className="w-5 h-5 fill-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <span>تقييمات وآراء العملاء</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800/60 font-mono">
+                      {reviews.length} تقييم
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    متابعة آراء وملاحظات الطلاب على الطلبات والوجبات، والتعامل السريع مع ملاحظات الفروع
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={reviewsLoading}
+                  onClick={fetchReviewsData}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                  title="تحديث قائمة التقييمات"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${reviewsLoading ? 'animate-spin text-purple-400' : ''}`} />
+                  <span>تحديث</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Summary Metrics Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {/* Card 1: Average Rating */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
+                  <span>متوسط التقييم العام</span>
+                  <Award className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl sm:text-3xl font-black text-white font-mono">
+                    {reviewsStats.averageRating || (reviews.length > 0 ? (reviews.reduce((a: number, b: any) => a + (b.rating || 0), 0) / reviews.length).toFixed(1) : '5.0')}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">/ 5.0</span>
+                </div>
+                <div className="mt-2 flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => {
+                    const avg = reviewsStats.averageRating || (reviews.length > 0 ? (reviews.reduce((a: number, b: any) => a + (b.rating || 0), 0) / reviews.length) : 5);
+                    return (
+                      <Star
+                        key={s}
+                        className={`w-3.5 h-3.5 ${s <= Math.round(avg) ? 'text-amber-400 fill-amber-400' : 'text-slate-700'}`}
+                      />
+                    );
+                  })}
+                  <span className="text-[10px] text-amber-400 font-bold mr-1">
+                    {(reviewsStats.averageRating || 5) >= 4.5 ? 'ممتاز جداً 🌟' : (reviewsStats.averageRating || 5) >= 3.5 ? 'جيد جداً 👍' : 'متوسط ⚠️'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 2: Total Reviews */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
+                  <span>إجمالي التقييمات</span>
+                  <Star className="w-4 h-4 text-purple-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-white font-mono">
+                  {reviewsStats.totalReviews || reviews.length}
+                </div>
+                <span className="text-[11px] text-slate-400 mt-2 block">
+                  طلب تم تقييمه من قِبل الطلاب
+                </span>
+              </div>
+
+              {/* Card 3: Reviews with Written Feedback */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
+                  <span>آراء وملاحظات مكتوبة</span>
+                  <MessageSquare className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
+                  {reviews.filter((r: any) => r.review && r.review.trim()).length}
+                </div>
+                <span className="text-[11px] text-slate-400 mt-2 block">
+                  تحتوي على تعليق نصي مفصل
+                </span>
+              </div>
+
+              {/* Card 4: Positive Satisfaction Rate */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
+                  <span>نسبة الرضا العالي</span>
+                  <ThumbsUp className="w-4 h-4 text-blue-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-blue-400 font-mono">
+                  {reviews.length > 0
+                    ? `${Math.round((reviews.filter((r: any) => (r.rating || 0) >= 4).length / reviews.length) * 100)}%`
+                    : '100%'}
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
+                  <div
+                    className="bg-blue-500 h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${reviews.length > 0 ? (reviews.filter((r: any) => (r.rating || 0) >= 4).length / reviews.length) * 100 : 100}%`
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Star Distribution Breakdown */}
+            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-300 pb-2 border-b border-slate-800/60">
+                <span className="flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+                  <span>توزيع النجوم (اضغط على أي تقييم للفلترة السريعة):</span>
+                </span>
+                {reviewRatingFilter !== 'ALL' && (
+                  <button
+                    onClick={() => setReviewRatingFilter('ALL')}
+                    className="text-[11px] text-purple-400 hover:text-purple-300 underline"
+                  >
+                    إلغاء فلترة النجوم
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 pt-1">
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const count = reviews.filter((r: any) => r.rating === stars).length;
+                  const pct = reviews.length > 0 ? Math.round((count / reviews.length) * 100) : 0;
+                  const isSelected = reviewRatingFilter === String(stars);
+
+                  return (
+                    <button
+                      key={stars}
+                      type="button"
+                      onClick={() => setReviewRatingFilter(isSelected ? 'ALL' : String(stars))}
+                      className={`p-2.5 rounded-xl border text-right transition-all flex flex-col justify-between gap-1.5 ${
+                        isSelected
+                          ? 'bg-purple-950/80 border-purple-500 ring-1 ring-purple-400/30'
+                          : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono font-black text-xs text-white">{stars}</span>
+                          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">{count} ({pct}%)</span>
+                      </div>
+                      <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            stars >= 4 ? 'bg-amber-400' : stars === 3 ? 'bg-amber-600' : 'bg-rose-500'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Filters Bar */}
+            <div className="flex flex-col md:flex-row gap-3">
+              {/* Search Query */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-500 absolute right-3.5 top-3" />
+                <input
+                  type="text"
+                  placeholder="ابحث باسم العميل، الهاتف، رقم الطلب، أو كلمات في الرأي..."
+                  value={reviewSearchQuery}
+                  onChange={e => setReviewSearchQuery(e.target.value)}
+                  className="w-full pr-10 pl-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Branch Filter */}
+              <div className="w-full md:w-52">
+                <select
+                  value={reviewBranchFilter}
+                  onChange={e => setReviewBranchFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="ALL">جميع المطاعم والفروع ({branches.length})</option>
+                  {branches.map((b: any) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Rating Filter */}
+              <div className="w-full md:w-44">
+                <select
+                  value={reviewRatingFilter}
+                  onChange={e => setReviewRatingFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="ALL">جميع النجوم (الكل)</option>
+                  <option value="5">⭐⭐⭐⭐⭐ 5 نجوم (ممتاز)</option>
+                  <option value="4">⭐⭐⭐⭐ 4 نجوم (جيد جداً)</option>
+                  <option value="3">⭐⭐⭐ 3 نجوم (متوسط)</option>
+                  <option value="2">⭐⭐ 2 نجوم (غير راضٍ)</option>
+                  <option value="1">⭐ 1 نجمة (سيئ)</option>
+                  <option value="LOW">⚠️ تقييمات منخفضة (1-3 نجوم)</option>
+                </select>
+              </div>
+
+              {/* Only With Written Text Toggle */}
+              <button
+                type="button"
+                onClick={() => setReviewOnlyWithText(prev => !prev)}
+                className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border shrink-0 ${
+                  reviewOnlyWithText
+                    ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/20'
+                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>تعليقات مكتوبة فقط</span>
+              </button>
+            </div>
+
+            {/* Results count & Active filters reset */}
+            {(reviewBranchFilter !== 'ALL' || reviewRatingFilter !== 'ALL' || reviewOnlyWithText || reviewSearchQuery.trim()) && (
+              <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-900/40 px-3 py-2 rounded-xl border border-slate-800/40">
+                <span>
+                  تم العثور على <strong className="text-white font-mono">{filteredReviews.length}</strong> تقييم مطابق للفلترة
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReviewBranchFilter('ALL');
+                    setReviewRatingFilter('ALL');
+                    setReviewOnlyWithText(false);
+                    setReviewSearchQuery('');
+                  }}
+                  className="text-purple-400 hover:text-purple-300 font-bold"
+                >
+                  إعادة ضبط الفلاتر ↺
+                </button>
+              </div>
+            )}
+
+            {/* Reviews Grid */}
+            {filteredReviews.length === 0 ? (
+              <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-amber-400/60">
+                  <Star className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-bold text-white">لا توجد تقييمات مطابقة</h4>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  لم يتم العثور على أي تقييمات تطابق معايير البحث والفلترة المحددة حالياً.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {filteredReviews.map((review: any) => {
+                  const ratingNum = review.rating || 5;
+                  const isExpanded = expandedReviewOrderId === review.id;
+                  const customerName = review.customerName || review.user?.name || 'طالب';
+                  const customerPhone = review.customerPhone || review.user?.phone || '';
+                  const branchName = review.branch?.name || 'المطعم';
+
+                  return (
+                    <div
+                      key={review.id}
+                      className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 hover:border-slate-700 transition-all shadow-sm space-y-3.5 flex flex-col justify-between"
+                    >
+                      {/* Section 1: Customer Profile & Rating Bar */}
+                      <div className="flex items-start justify-between gap-3 border-b border-slate-800/70 pb-3">
+                        {/* Customer Info */}
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-purple-950/80 border border-purple-800/50 text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">
+                            {customerName.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black text-white">{customerName}</span>
+                              {review.user?.isBlocked && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-950 text-rose-300 border border-rose-800 font-bold">
+                                  محظور 🚫
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs font-mono text-slate-400 block">{customerPhone}</span>
+                            
+                            {/* Customer Badges */}
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              {review.user?.walletBalance !== undefined && (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60">
+                                  محفظة: {Number(review.user.walletBalance).toFixed(2)} ج.م
+                                </span>
+                              )}
+                              {(review.user?.loyaltyPoints !== undefined || review.pointsEarned > 0) && (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-purple-950/60 text-purple-300 border border-purple-800/40">
+                                  نقاط: {review.user?.loyaltyPoints ?? review.pointsEarned} 🪙
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Rating Display */}
+                        <div className="flex flex-col items-end shrink-0 text-left">
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star
+                                key={s}
+                                className={`w-3.5 h-3.5 ${
+                                  s <= ratingNum ? 'text-amber-400 fill-amber-400' : 'text-slate-700'
+                                }`}
+                              />
+                            ))}
+                            <span className="font-mono font-black text-xs text-white mr-1">
+                              {ratingNum}/5
+                            </span>
+                          </div>
+
+                          <span
+                            className={`mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                              ratingNum === 5
+                                ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60'
+                                : ratingNum === 4
+                                ? 'bg-teal-950/80 text-teal-400 border-teal-800/60'
+                                : ratingNum === 3
+                                ? 'bg-amber-950/80 text-amber-400 border-amber-800/60'
+                                : ratingNum === 2
+                                ? 'bg-orange-950/80 text-orange-400 border-orange-800/60'
+                                : 'bg-rose-950/80 text-rose-400 border-rose-800/60'
+                            }`}
+                          >
+                            {ratingNum === 5
+                              ? 'ممتاز جداً 🌟'
+                              : ratingNum === 4
+                              ? 'جيد جداً 👍'
+                              : ratingNum === 3
+                              ? 'متوسط 😐'
+                              : ratingNum === 2
+                              ? 'غير راضٍ 👎'
+                              : 'تجربة سيئة ⚠️'}
+                          </span>
+
+                          <span className="text-[10px] text-slate-500 font-mono mt-1">
+                            {new Date(review.createdAt).toLocaleDateString('ar-EG', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Section 2: Review Text (الي كتبوه) */}
+                      {review.review && review.review.trim() ? (
+                        <div className="bg-purple-950/30 border border-purple-800/40 rounded-xl p-3.5 space-y-1 relative">
+                          <div className="flex items-center gap-1.5 text-purple-300 text-[11px] font-bold">
+                            <MessageSquare className="w-3.5 h-3.5 text-purple-400" />
+                            <span>رأي وتعليق العميل:</span>
+                          </div>
+                          <p className="text-slate-100 text-xs sm:text-sm font-bold leading-relaxed whitespace-pre-wrap pr-1">
+                            "{review.review.trim()}"
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl px-3 py-2 text-slate-400 text-[11px] flex items-center gap-2">
+                          <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span>قيّم العميل الطلب بالنجوم فقط بدون كتابة تعليق نصي إضافي.</span>
+                        </div>
+                      )}
+
+                      {/* Section 3: Evaluated Order Details (الاوردر الي اتقييم) */}
+                      <div className="bg-slate-950/70 border border-slate-800/70 rounded-xl p-3 space-y-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-xs text-purple-400 font-mono">
+                              #{review.orderNumber}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <Store className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-xs font-black text-white">{branchName}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400">
+                                {review.orderType === 'DELIVERY' ? '🛵 توصيل للحرم' : '🛍️ استلام من الفرع'}
+                                {review.deliveryZoneName ? ` • ${review.deliveryZoneName}` : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-left">
+                            <span className="text-xs font-mono font-black text-emerald-400 block">
+                              {Number(review.total).toFixed(2)} ج.م
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {review.paymentMethod === 'CASH' && 'نقداً عند الاستلام'}
+                              {review.paymentMethod === 'VODAFONE_CASH' && 'فودافون كاش'}
+                              {review.paymentMethod === 'INSTAPAY' && 'انستاباي'}
+                              {review.paymentMethod === 'CARD' && 'فيزا / بطاقة'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Campus Delivery Address */}
+                        {review.addressText && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-300">
+                            <MapPin className="w-3 h-3 text-purple-400 shrink-0" />
+                            <span className="truncate">{review.addressText}</span>
+                          </div>
+                        )}
+
+                        {/* Collapsible Order Items */}
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedReviewOrderId(isExpanded ? null : review.id)}
+                              className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                            >
+                              <span>أصناف الوجبة ({review.items?.length || 0} صنف)</span>
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrderDetails(review)}
+                              className="text-[11px] font-bold text-slate-400 hover:text-white flex items-center gap-1"
+                              title="عرض تفاصيل الطلب الكاملة في نافذة منبثقة"
+                            >
+                              <Eye className="w-3 h-3" />
+                              <span>تفاصيل كاملة</span>
+                            </button>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="mt-2 space-y-1.5 pt-2 border-t border-slate-800/60">
+                              {review.items?.map((it: any) => (
+                                <div
+                                  key={it.id}
+                                  className="flex items-center justify-between text-xs bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800/40"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-md bg-purple-950 text-purple-300 font-mono text-[10px] flex items-center justify-center font-bold">
+                                      {it.quantity}x
+                                    </span>
+                                    <span className="font-bold text-slate-200">{it.itemName}</span>
+                                    {it.sizeName && (
+                                      <span className="text-[10px] text-slate-400">({it.sizeName})</span>
+                                    )}
+                                  </div>
+                                  <span className="font-mono text-slate-300 text-[11px]">
+                                    {Number(it.totalPrice).toFixed(2)} ج.م
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Section 4: Actions Bar (تواصل واتساب، اتصال، فتح الملف، حذف التقييم) */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/70">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* WhatsApp Customer Button */}
+                          <a
+                            href={`https://wa.me/20${customerPhone.replace(/^0+/, '')}?text=${encodeURIComponent(
+                              `مرحباً أستاذ ${customerName}، تتواصل معك إدارة منصة طلبات الحرم بخصوص تقييمك (${ratingNum}/5 نجوم) للطلب رقم #${review.orderNumber} من مطعم ${branchName}...`
+                            )}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all active:scale-95"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>تواصل واتساب</span>
+                          </a>
+
+                          {/* Call Button */}
+                          <a
+                            href={`tel:${customerPhone}`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                            <span>اتصال</span>
+                          </a>
+
+                          {/* Edit Student / Wallet button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const st = review.user || {
+                                id: review.userId,
+                                name: customerName,
+                                phone: customerPhone,
+                                walletBalance: 0,
+                                loyaltyPoints: 0,
+                                restaurantNotes: '',
+                                isBlocked: false
+                              };
+                              handleOpenStudentWallet(st);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-950/60 hover:bg-purple-900/60 text-purple-300 border border-purple-800/40 rounded-xl text-xs font-bold transition-all"
+                          >
+                            <User className="w-3.5 h-3.5 text-purple-400" />
+                            <span>ملف الطالب</span>
+                          </button>
+                        </div>
+
+                        {/* Delete Review Button */}
+                        <button
+                          type="button"
+                          disabled={deletingReviewId === review.id}
+                          onClick={() => handleDeleteReview(review.id)}
+                          className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                          title="حذف هذا التقييم من سجل الطلب"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   );
@@ -3056,7 +3696,7 @@ export const AdminPage: React.FC = () => {
             type="button"
             onClick={() => setShowMobileMoreMenu(prev => !prev)}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
-              showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS'].includes(activeTab)
+              showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS'].includes(activeTab)
                 ? 'text-purple-400 font-black'
                 : 'text-slate-400 hover:text-slate-200 font-medium'
             }`}
@@ -3068,7 +3708,7 @@ export const AdminPage: React.FC = () => {
               )}
             </div>
             <span className="text-[10px] leading-tight">المزيد</span>
-            {(showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS'].includes(activeTab)) && (
+            {(showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS'].includes(activeTab)) && (
               <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
             )}
           </button>
@@ -3104,6 +3744,33 @@ export const AdminPage: React.FC = () => {
 
             {/* Quick Grid for Secondary Tabs */}
             <div className="grid grid-cols-2 gap-2.5">
+              {/* REVIEWS */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('REVIEWS');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
+                  activeTab === 'REVIEWS'
+                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                  </div>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                    {reviews.length}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-white">تقييمات وآراء العملاء</span>
+                  <span className="text-[10px] text-slate-400 block">آراء وملاحظات الطلبات</span>
+                </div>
+              </button>
+
               {/* BANNERS */}
               <button
                 type="button"

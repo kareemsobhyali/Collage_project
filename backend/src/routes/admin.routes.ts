@@ -580,11 +580,107 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// استرجاع تقييمات وآراء العملاء مع تفاصيل الطلب والوجبات والمطعم وبيانات العميل
+router.get("/reviews", async (req: AuthRequest, res: Response) => {
+  try {
+    const { branchId, rating, hasText, limit } = req.query;
+    const whereClause: any = {
+      rating: { not: null },
+    };
+
+    if (branchId && branchId !== "ALL") {
+      whereClause.branchId = String(branchId);
+    }
+
+    if (rating && rating !== "ALL") {
+      whereClause.rating = parseInt(String(rating));
+    }
+
+    if (hasText === "true") {
+      whereClause.review = { not: null };
+    }
+
+    const reviews = await prisma.order.findMany({
+      where: whereClause,
+      include: {
+        branch: { select: { id: true, name: true, phone: true, logoUrl: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            walletBalance: true,
+            loyaltyPoints: true,
+            isBlocked: true,
+            restaurantNotes: true,
+            createdAt: true,
+          },
+        },
+        items: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: limit ? parseInt(String(limit)) : 150,
+    });
+
+    // إحصائيات سريعة للتقييمات
+    const allRated = await prisma.order.findMany({
+      where: { rating: { not: null } },
+      select: { rating: true, review: true, branchId: true },
+    });
+
+    const totalReviews = allRated.length;
+    const withTextCount = allRated.filter((r) => r.review && r.review.trim().length > 0).length;
+    const avgRating =
+      totalReviews > 0
+        ? allRated.reduce((acc, curr) => acc + (curr.rating || 0), 0) / totalReviews
+        : 0;
+
+    const distribution = {
+      5: allRated.filter((r) => r.rating === 5).length,
+      4: allRated.filter((r) => r.rating === 4).length,
+      3: allRated.filter((r) => r.rating === 3).length,
+      2: allRated.filter((r) => r.rating === 2).length,
+      1: allRated.filter((r) => r.rating === 1).length,
+    };
+
+    res.json({
+      reviews,
+      stats: {
+        totalReviews,
+        withTextCount,
+        averageRating: Number(avgRating.toFixed(1)),
+        distribution,
+      },
+    });
+  } catch (error) {
+    console.error("Get admin reviews error:", error);
+    res.status(500).json({ error: "فشل استرجاع التقييمات" });
+  }
+});
+
+// حذف تقييم مسيء أو غير لائق بواسطة السوبر أدمن
+router.delete("/reviews/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    await prisma.order.update({
+      where: { id },
+      data: {
+        rating: null,
+        review: null,
+      },
+    });
+    res.json({ success: true, message: "تم حذف التقييم بنجاح" });
+  } catch (error) {
+    console.error("Delete review error:", error);
+    res.status(500).json({ error: "فشل حذف التقييم" });
+  }
+});
+
 // تعديل أو إلغاء حالة طلب بواسطة السوبر أدمن
 router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { status } = req.body;
+    const { status, reason } = req.body;
 
     if (!status) {
       res.status(400).json({ error: "حالة الطلب مطلوبة" });
@@ -608,6 +704,12 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
       updateData.completedAt = now;
     } else if (status === "REJECTED") {
       updateData.cancelledAt = now;
+      const rawReason = (reason || req.body.notes || "").trim();
+      if (rawReason) {
+        updateData.notes = existingOrder.notes
+          ? `${existingOrder.notes} | سبب الإلغاء: ${rawReason}`
+          : `سبب الإلغاء: ${rawReason}`;
+      }
     }
 
     let updated;
@@ -648,7 +750,7 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
       });
 
       // إشعار واتساب للمشرفين بإلغاء الطلب
-      sendOrderCancellationWhatsAppAlert(id, "إلغاء بواسطة إدارة المنظومة").catch(() => {});
+      sendOrderCancellationWhatsAppAlert(id, (reason || "إلغاء بواسطة إدارة المنظومة").trim()).catch(() => {});
     } else {
       updated = await prisma.order.update({
         where: { id },

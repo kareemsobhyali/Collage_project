@@ -162,11 +162,11 @@ export const api = {
     return data;
   },
 
-  async updateOrderStatus(orderId: string, status: string, estimatedMinutes?: number) {
+  async updateOrderStatus(orderId: string, status: string, estimatedMinutes?: number, reason?: string) {
     const res = await fetch(`${API_BASE_URL}/branch/orders/${orderId}/status`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ status, estimatedMinutes }),
+      body: JSON.stringify({ status, estimatedMinutes, reason }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل تحديث حالة الطلب');

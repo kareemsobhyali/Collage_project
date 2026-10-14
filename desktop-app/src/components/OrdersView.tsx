@@ -77,6 +77,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
   const [acceptingOrder, setAcceptingOrder] = useState<any | null>(null);
   const [prepMinutes, setPrepMinutes] = useState<number>(15);
 
+  // Rejection & Cancellation Dialog State
+  const [rejectingOrder, setRejectingOrder] = useState<any | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+
   // Payment Proof Modal
   const [viewingProofUrl, setViewingProofUrl] = useState<string | null>(null);
 
@@ -184,10 +188,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
     soundNotifier.stopRepeatingAlarm();
   }
 
-  const handleUpdateStatus = async (orderId: string, newStatus: string, estimatedMinutes?: number) => {
+  const handleUpdateStatus = async (orderId: string, newStatus: string, estimatedMinutes?: number, reason?: string) => {
     try {
       setUpdatingId(orderId);
-      await api.updateOrderStatus(orderId, newStatus, estimatedMinutes);
+      await api.updateOrderStatus(orderId, newStatus, estimatedMinutes, reason);
       if (newStatus !== 'PENDING') {
         soundNotifier.stopRepeatingAlarm();
       }
@@ -197,6 +201,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectingOrder) return;
+    const orderToReject = rejectingOrder;
+    const finalReason = rejectionReason.trim() || 'نفاد المكونات المطلوبة';
+    setRejectingOrder(null);
+    soundNotifier.stopRepeatingAlarm();
+    await handleUpdateStatus(orderToReject.id, 'REJECTED', undefined, finalReason);
   };
 
   const handleConfirmAccept = async () => {
@@ -965,7 +978,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
                         </button>
                         <button
                           disabled={updatingId === order.id}
-                          onClick={() => handleUpdateStatus(order.id, 'REJECTED')}
+                          onClick={() => {
+                            setRejectingOrder(order);
+                            setRejectionReason('نفاد المكونات المطلوبة');
+                          }}
                           className="col-span-1 py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition-all"
                         >
                           رفض الطلب
@@ -1114,6 +1130,89 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ orders, branchName, onRe
                 className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold"
               >
                 إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection & Cancellation Dialog */}
+      {rejectingOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
+                  <XCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 text-sm">رفض الطلب #{rejectingOrder.orderNumber}</h4>
+                  <p className="text-[11px] text-slate-400">يرجى توضيح سبب الرفض لإشعار الطالب والسيستم</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setRejectingOrder(null)} 
+                className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 font-medium">
+              اختر سبباً سريعاً أو اكتب سبباً مخصصاً:
+            </p>
+
+            <div className="space-y-1.5">
+              {[
+                'نفاد المكونات المطلوبة',
+                'ضغط طلبات شديد والمطعم غير قادر على الاستلام حالياً',
+                'المطعم في استراحة / إغلاق مؤقت',
+                'العنوان خارج نطاق التوصيل المتاح',
+                'العميل لم يستجب لتأكيد الطلب',
+                'خطأ في بيانات أو أصناف الطلب'
+              ].map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  onClick={() => setRejectionReason(reason)}
+                  className={`w-full text-right p-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-between ${
+                    rejectionReason === reason
+                      ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-sm'
+                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <span>{reason}</span>
+                  {rejectionReason === reason && <Check className="w-4 h-4 text-rose-600 shrink-0" />}
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">سبب مخصص أو ملاحظة إضافية للعميل:</label>
+              <textarea
+                rows={2}
+                value={rejectionReason}
+                onChange={e => setRejectionReason(e.target.value)}
+                placeholder="اكتب سبب الإلغاء هنا..."
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none"
+              />
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              <button
+                type="button"
+                disabled={updatingId === rejectingOrder.id || !rejectionReason.trim()}
+                onClick={handleConfirmReject}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-rose-600/20 transition-all active:scale-95"
+              >
+                {updatingId === rejectingOrder.id ? 'جارٍ الإلغاء...' : 'تأكيد رفض الطلب وإشعار الطالب'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setRejectingOrder(null)}
+                className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                تراجع
               </button>
             </div>
           </div>

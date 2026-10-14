@@ -885,7 +885,7 @@ router.put("/customers/:userId/crm", async (req: AuthRequest, res: Response) => 
 router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { status, estimatedMinutes } = req.body; // "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"
+    const { status, estimatedMinutes, reason } = req.body; // "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"
     const branchId = req.branch!.branchId;
 
     const validStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"];
@@ -927,6 +927,12 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
     } else if (status === "REJECTED") {
       if (!existingOrder.cancelledAt) {
         updateData.cancelledAt = now;
+      }
+      const rawReason = (reason || req.body.reason || req.body.notes || "").trim();
+      if (rawReason) {
+        updateData.notes = existingOrder.notes
+          ? `${existingOrder.notes} | سبب الإلغاء: ${rawReason}`
+          : `سبب الإلغاء: ${rawReason}`;
       }
     }
 

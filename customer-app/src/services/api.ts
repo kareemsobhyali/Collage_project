@@ -442,6 +442,28 @@ export const api = {
     return data;
   },
 
+  async getAdminReviews(params?: { branchId?: string; rating?: string; hasText?: boolean }) {
+    const query = new URLSearchParams();
+    if (params?.branchId) query.set('branchId', params.branchId);
+    if (params?.rating) query.set('rating', params.rating);
+    if (params?.hasText !== undefined) query.set('hasText', String(params.hasText));
+    const url = `${API_BASE_URL}/admin/reviews${query.toString() ? `?${query.toString()}` : ''}`;
+    const res = await fetch(url, { headers: getAdminHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب التقييمات');
+    return data;
+  },
+
+  async deleteAdminReview(orderId: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/reviews/${orderId}`, {
+      method: 'DELETE',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف التقييم');
+    return data;
+  },
+
   async updateAdminUserWallet(
     userId: string,
     walletData: { walletBalance?: number; loyaltyPoints?: number; isBlocked?: boolean; restaurantNotes?: string }

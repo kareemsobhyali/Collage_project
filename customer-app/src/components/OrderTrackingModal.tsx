@@ -356,12 +356,26 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
           )}
 
           {status === 'REJECTED' ? (
-            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-center text-rose-700 space-y-2">
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-center text-rose-700 space-y-2.5">
               <XCircle className="w-12 h-12 mx-auto text-rose-500" />
-              <h4 className="font-black text-sm">تم إلغاء الطلب / الاعتذار عنه</h4>
-              <p className="text-xs text-rose-600">
-                تم إلغاء هذا الطلب. إذا كان لديك استفسار يمكنك التواصل مع الفرع مباشرة.
-              </p>
+              <h4 className="font-black text-sm">تم الاعتذار عن الطلب</h4>
+              {order.notes?.includes('سبب الإلغاء:') ? (
+                <div className="bg-white/90 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 font-bold space-y-1 text-right">
+                  <span className="text-[11px] text-rose-500 font-bold block">سبب الاعتذار المسجل من المطعم:</span>
+                  <p className="text-xs font-black text-rose-900 leading-relaxed">
+                    {order.notes.split('سبب الإلغاء:')[1].trim()}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-rose-600">
+                  تم الاعتذار عن هذا الطلب من المطعم. إذا كان لديك استفسار يمكنك التواصل مع الفرع مباشرة.
+                </p>
+              )}
+              {order.walletDiscount > 0 && (
+                <p className="text-[11px] font-black text-emerald-700 bg-emerald-50 py-1.5 px-3 rounded-xl border border-emerald-200">
+                  ✓ تم استرداد {order.walletDiscount} ج.م إلى رصيد محفظتك الجامعية بنجاح.
+                </p>
+              )}
             </div>
           ) : (
             /* Progress Timeline */
