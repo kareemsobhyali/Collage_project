@@ -11,6 +11,13 @@ import {
   sendOrderCancellationWhatsAppAlert,
   sendBranchShiftWhatsAppReport
 } from "../services/settings.service.js";
+import { 
+  notifyBranchStatusChanged,
+  notifyBranchesListChanged,
+  notifyBannersUpdated,
+  notifyPromosUpdated,
+  notifyUserUpdated
+} from "../sockets/socketManager.js";
 
 
 
@@ -199,6 +206,8 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
         users: createdUser ? [createdUser] : [],
       },
     });
+
+    notifyBranchesListChanged();
   } catch (error) {
     console.error("Create branch error:", error);
     res.status(500).json({ error: "فشل إنشاء الفرع" });
@@ -221,6 +230,9 @@ router.put("/branches/:id/status", async (req: AuthRequest, res: Response) => {
       data: { isActive: Boolean(isActive) },
     });
 
+    notifyBranchStatusChanged(id, { isActive: updated.isActive });
+    notifyBranchesListChanged();
+
     res.json({ success: true, branch: updated });
   } catch (error) {
     console.error("Update branch status error:", error);
@@ -228,11 +240,26 @@ router.put("/branches/:id/status", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// تعديل بيانات الفرع بالكامل (الاسم، العنوان، الهاتف، رسوم التوصيل، خيارات الاستلام)
+// تعديل بيانات الفرع بالكامل (الاسم، العنوان، الهاتف، رسوم التوصيل، خيارات الاستلام، مواعيد العمل)
 router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { name, phone, address, deliveryFee, allowDelivery, allowPickup, logoUrl, slug } = req.body;
+    const { 
+      name, 
+      phone, 
+      address, 
+      deliveryFee, 
+      allowDelivery, 
+      allowPickup, 
+      logoUrl, 
+      slug,
+      openingTime,
+      closingTime,
+      workingDays,
+      operationalStatus,
+      closedUntil,
+      closingReason
+    } = req.body;
 
     let formattedSlug: string | null | undefined = undefined;
     if (slug !== undefined) {
@@ -261,8 +288,17 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
         deliveryFee: deliveryFee !== undefined ? parseFloat(deliveryFee) : undefined,
         allowDelivery: allowDelivery !== undefined ? Boolean(allowDelivery) : undefined,
         allowPickup: allowPickup !== undefined ? Boolean(allowPickup) : undefined,
+        openingTime: openingTime !== undefined ? (openingTime ? String(openingTime).trim() : null) : undefined,
+        closingTime: closingTime !== undefined ? (closingTime ? String(closingTime).trim() : null) : undefined,
+        workingDays: workingDays !== undefined ? (workingDays ? String(workingDays).trim() : null) : undefined,
+        operationalStatus: operationalStatus !== undefined ? String(operationalStatus).trim() : undefined,
+        closedUntil: closedUntil !== undefined ? (closedUntil ? new Date(closedUntil) : null) : undefined,
+        closingReason: closingReason !== undefined ? (closingReason ? String(closingReason).trim() : null) : undefined,
       },
     });
+
+    notifyBranchStatusChanged(id, updated);
+    notifyBranchesListChanged();
 
     res.json({ success: true, branch: updated });
   } catch (error) {
@@ -303,6 +339,9 @@ router.delete("/branches/:id", async (req: AuthRequest, res: Response) => {
         where: { id },
       }),
     ]);
+
+    notifyBranchStatusChanged(id, { isDeleted: true, isActive: false });
+    notifyBranchesListChanged();
 
     res.json({ success: true, message: "تم حذف الفرع بنجاح" });
   } catch (error) {
@@ -403,6 +442,8 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : false,
       },
     });
+
+    notifyBranchStatusChanged(id, { paymentConfig: updatedConfig });
 
     res.json({ success: true, paymentConfig: updatedConfig });
   } catch (error) {
@@ -689,6 +730,8 @@ router.put("/users/:id/wallet", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyUserUpdated(id, updated);
+
     res.json({ success: true, user: updated });
   } catch (error) {
     res.status(500).json({ error: "فشل تحديث بيانات ومحفظة الطالب" });
@@ -732,6 +775,8 @@ router.post("/banners", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyBannersUpdated();
+
     res.status(201).json({ success: true, banner });
   } catch (error) {
     console.error("Create banner error:", error);
@@ -758,6 +803,8 @@ router.put("/banners/:id", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyBannersUpdated();
+
     res.json({ success: true, banner });
   } catch (error) {
     res.status(500).json({ error: "فشل تحديث البانر" });
@@ -769,6 +816,9 @@ router.delete("/banners/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     await prisma.banner.delete({ where: { id } });
+
+    notifyBannersUpdated();
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "فشل حذف البانر" });
@@ -833,6 +883,8 @@ router.post("/promo-codes", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyPromosUpdated();
+
     res.status(201).json({ success: true, promoCode: created });
   } catch (error) {
     console.error("Create promo code error:", error);
@@ -894,6 +946,8 @@ router.put("/promo-codes/:id", async (req: AuthRequest, res: Response) => {
       data: updateData,
     });
 
+    notifyPromosUpdated();
+
     res.json({ success: true, promoCode: updated });
   } catch (error) {
     console.error("Update promo code error:", error);
@@ -906,6 +960,9 @@ router.delete("/promo-codes/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     await prisma.promoCode.delete({ where: { id } });
+
+    notifyPromosUpdated();
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "فشل حذف الكوبون" });

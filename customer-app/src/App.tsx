@@ -288,18 +288,20 @@ export function App() {
         if (fresh && fresh.id) {
           localStorage.setItem('customer_user', JSON.stringify(fresh));
           setUser(fresh);
+          socket.emit('join_user', fresh.id);
         }
       }).catch(() => {});
     }
 
+    // 1. تحديث حالة وتفاصيل الفرع لحظياً (مواعيد العمل، الإغلاق/الفتح، الرسوم، طرق الدفع)
     socket.on('branch_status_updated', (data: any) => {
       setBranches(prev => prev.map(b => {
         if (b.id === data.branchId) {
+          const { branchId, ...rest } = data;
           return {
             ...b,
-            operationalStatus: data.operationalStatus,
-            closedUntil: data.closedUntil,
-            closingReason: data.closingReason,
+            ...rest,
+            paymentConfig: rest.paymentConfig ? { ...b.paymentConfig, ...rest.paymentConfig } : b.paymentConfig,
           };
         }
         return b;
@@ -307,14 +309,110 @@ export function App() {
 
       setSelectedBranch((prev: any) => {
         if (prev && prev.id === data.branchId) {
+          if (data.isDeleted) {
+            return null;
+          }
+          const { branchId, ...rest } = data;
           return {
             ...prev,
-            operationalStatus: data.operationalStatus,
-            closedUntil: data.closedUntil,
-            closingReason: data.closingReason,
+            ...rest,
+            paymentConfig: rest.paymentConfig ? { ...prev.paymentConfig, ...rest.paymentConfig } : prev.paymentConfig,
           };
         }
         return prev;
+      });
+    });
+
+    // 2. تحديث قائمة الفروع فورياً عند إضافة أو حذف فرع من لوحة الإدارة
+    socket.on('branches_list_changed', () => {
+      loadBranches();
+    });
+
+    // 3. تحديث منيو الفرع لحظياً عند إضافة/تعديل/حذف صنف أو قسم أو إضافة
+    socket.on('branch_menu_updated', (data: any) => {
+      setSelectedBranch((currBranch: any) => {
+        if (currBranch && currBranch.id === data.branchId) {
+          api.getBranchMenu(data.branchId).then((res) => {
+            if (res && res.categories) {
+              setBranchCategories(res.categories);
+            }
+          }).catch(() => {});
+        }
+        return currBranch;
+      });
+    });
+
+    // 4. تغيير فوري لحالة توفر الأصناف والإضافات (تفعيل / نفاد فوري من الكاشير)
+    socket.on('menu_item_availability_changed', (data: any) => {
+      const { branchId, type, id, isAvailable, unavailableUntil } = data;
+      setBranchCategories((prevCategories: any[]) => {
+        if (!Array.isArray(prevCategories)) return prevCategories;
+        if (type === 'ITEM') {
+          return prevCategories.map((cat: any) => {
+            if (!Array.isArray(cat.items)) return cat;
+            return {
+              ...cat,
+              items: cat.items.map((it: any) => {
+                if (it.id === id) {
+                  return { ...it, isAvailable, unavailableUntil };
+                }
+                return it;
+              }),
+            };
+          });
+        } else if (type === 'MODIFIER') {
+          return prevCategories.map((cat: any) => {
+            if (!Array.isArray(cat.items)) return cat;
+            return {
+              ...cat,
+              items: cat.items.map((it: any) => {
+                if (!Array.isArray(it.modifierGroupLinks)) return it;
+                return {
+                  ...it,
+                  modifierGroupLinks: it.modifierGroupLinks.map((link: any) => {
+                    if (!link.group || !Array.isArray(link.group.options)) return link;
+                    return {
+                      ...link,
+                      group: {
+                        ...link.group,
+                        options: link.group.options.map((opt: any) => {
+                          if (opt.id === id) {
+                            return { ...opt, isAvailable, unavailableUntil };
+                          }
+                          return opt;
+                        }),
+                      },
+                    };
+                  }),
+                };
+              }),
+            };
+          });
+        }
+        return prevCategories;
+      });
+
+      setCustomizingItem((currItem: any) => {
+        if (currItem && currItem.id === id && type === 'ITEM') {
+          return { ...currItem, isAvailable, unavailableUntil };
+        }
+        return currItem;
+      });
+    });
+
+    // 5. تحديث البانرات الإعلانية لحظياً
+    socket.on('banners_updated', () => {
+      window.dispatchEvent(new CustomEvent('banners_updated'));
+    });
+
+    // 6. تحديث رصيد المحفظة ونقاط الولاء أو حظر الحساب للطالب فورياً
+    socket.on('user_profile_updated', (data: any) => {
+      setUser((prevUser: any) => {
+        if (!prevUser) return prevUser;
+        if (data.userId && data.userId !== prevUser.id && data.id !== prevUser.id) return prevUser;
+        const merged = { ...prevUser, ...data };
+        localStorage.setItem('customer_user', JSON.stringify(merged));
+        return merged;
       });
     });
 

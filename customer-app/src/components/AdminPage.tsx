@@ -241,6 +241,10 @@ export const AdminPage: React.FC = () => {
   const [editDeliveryFee, setEditDeliveryFee] = useState('10');
   const [editAllowDelivery, setEditAllowDelivery] = useState(true);
   const [editAllowPickup, setEditAllowPickup] = useState(true);
+  const [editOpeningTime, setEditOpeningTime] = useState('08:00');
+  const [editClosingTime, setEditClosingTime] = useState('22:00');
+  const [editWorkingDays, setEditWorkingDays] = useState('SUN,MON,TUE,WED,THU,FRI,SAT');
+  const [editOperationalStatus, setEditOperationalStatus] = useState('OPEN');
 
   // Payment Form
   const [cashEnabled, setCashEnabled] = useState(true);
@@ -854,6 +858,10 @@ export const AdminPage: React.FC = () => {
     setEditDeliveryFee(String(branch.deliveryFee ?? 10));
     setEditAllowDelivery(branch.allowDelivery ?? true);
     setEditAllowPickup(branch.allowPickup ?? true);
+    setEditOpeningTime(branch.openingTime || '08:00');
+    setEditClosingTime(branch.closingTime || '22:00');
+    setEditWorkingDays(branch.workingDays || 'SUN,MON,TUE,WED,THU,FRI,SAT');
+    setEditOperationalStatus(branch.operationalStatus || 'OPEN');
   };
 
   const handleSaveEditBranch = async (e: React.FormEvent) => {
@@ -873,6 +881,10 @@ export const AdminPage: React.FC = () => {
           deliveryFee: parseFloat(editDeliveryFee) || 10,
           allowDelivery: editAllowDelivery,
           allowPickup: editAllowPickup,
+          openingTime: editOpeningTime.trim() || '08:00',
+          closingTime: editClosingTime.trim() || '22:00',
+          workingDays: editWorkingDays.trim() || 'SUN,MON,TUE,WED,THU,FRI,SAT',
+          operationalStatus: editOperationalStatus,
         }),
       });
       const data = await res.json();
@@ -3529,6 +3541,53 @@ export const AdminPage: React.FC = () => {
                   onChange={e => setEditDeliveryFee(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">وقت بدء العمل (فتح المطعم)</label>
+                  <input
+                    type="time"
+                    value={editOpeningTime}
+                    onChange={e => setEditOpeningTime(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">وقت إغلاق العمل اليومي</label>
+                  <input
+                    type="time"
+                    value={editClosingTime}
+                    onChange={e => setEditClosingTime(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">أيام العمل المتاحة</label>
+                <input
+                  type="text"
+                  value={editWorkingDays}
+                  onChange={e => setEditWorkingDays(e.target.value)}
+                  placeholder="SUN,MON,TUE,WED,THU,FRI,SAT"
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                  dir="ltr"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">الأيام مفصولة بفواصل (SUN, MON, TUE, WED, THU, FRI, SAT)</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">حالة التشغيل اللحظية</label>
+                <select
+                  value={editOperationalStatus}
+                  onChange={e => setEditOperationalStatus(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="OPEN">مفتوح للطلب (OPEN)</option>
+                  <option value="BUSY">مغلق مؤقتاً / ضغط طلبات (BUSY)</option>
+                  <option value="CLOSED">مغلق تماماً (CLOSED)</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2">

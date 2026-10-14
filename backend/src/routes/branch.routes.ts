@@ -3,7 +3,13 @@ import bcrypt from "bcryptjs";
 import { exec } from "child_process";
 import prisma from "../prisma.js";
 import { generateToken, authenticateBranch, AuthRequest } from "../middleware/auth.js";
-import { notifyOrderStatusChanged, notifyBranchStatusChanged, notifyDriverAssigned } from "../sockets/socketManager.js";
+import { 
+  notifyOrderStatusChanged, 
+  notifyBranchStatusChanged, 
+  notifyDriverAssigned,
+  notifyBranchMenuChanged,
+  notifyMenuItemAvailabilityChanged
+} from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert } from "../services/settings.service.js";
 
 
@@ -195,6 +201,8 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
       include: { paymentConfig: true, deliveryZones: true },
     });
 
+    notifyBranchStatusChanged(branchId, updated);
+
     res.json({ success: true, branch: updated });
   } catch (error) {
     console.error("Update branch details error:", error);
@@ -293,6 +301,8 @@ router.put("/payment-methods", async (req: AuthRequest, res: Response) => {
       include: { paymentConfig: true },
     });
 
+    notifyBranchStatusChanged(branchId, { paymentConfig: updatedConfig });
+
     res.json({ success: true, paymentConfig: updatedConfig, branch });
   } catch (error) {
     console.error("Update branch payment methods error:", error);
@@ -379,6 +389,8 @@ router.post("/categories", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyBranchMenuChanged(req.branch!.branchId);
+
     res.status(201).json(category);
   } catch (error) {
     res.status(500).json({ error: "فشل إنشاء قسم المنيو" });
@@ -408,6 +420,8 @@ router.put("/categories/:id", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyBranchMenuChanged(branchId);
+
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: "فشل تعديل قسم المنيو" });
@@ -427,6 +441,8 @@ router.delete("/categories/:id", async (req: AuthRequest, res: Response) => {
       res.status(404).json({ error: "القسم غير موجود أو لا يتبع هذا الفرع" });
       return;
     }
+
+    notifyBranchMenuChanged(branchId);
 
     res.json({ success: true });
   } catch (error) {
@@ -495,6 +511,8 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyBranchMenuChanged(branchId);
+
     res.status(201).json(item);
   } catch (error) {
     console.error("Create item error:", error);
@@ -560,6 +578,8 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyBranchMenuChanged(branchId);
+
     res.json(item);
   } catch (error) {
     res.status(500).json({ error: "فشل تعديل الصنف" });
@@ -594,6 +614,13 @@ router.put("/items/:id/availability", async (req: AuthRequest, res: Response) =>
       },
     });
 
+    notifyMenuItemAvailabilityChanged(branchId, {
+      type: "ITEM",
+      id,
+      isAvailable: avail,
+      unavailableUntil,
+    });
+
     res.json({ success: true, item: updated });
   } catch (error) {
     res.status(500).json({ error: "فشل تعديل حالة توفر الصنف" });
@@ -613,6 +640,8 @@ router.delete("/items/:id", async (req: AuthRequest, res: Response) => {
       res.status(404).json({ error: "الصنف غير موجود أو لا يتبع هذا الفرع" });
       return;
     }
+
+    notifyBranchMenuChanged(branchId);
 
     res.json({ success: true });
   } catch (error) {
@@ -649,6 +678,8 @@ router.post("/modifier-groups", async (req: AuthRequest, res: Response) => {
       include: { options: true },
     });
 
+    notifyBranchMenuChanged(branchId);
+
     res.status(201).json(group);
   } catch (error) {
     console.error("Create modifier group error:", error);
@@ -676,6 +707,8 @@ router.post("/modifier-groups/:groupId/options", async (req: AuthRequest, res: R
       },
     });
 
+    notifyBranchMenuChanged(req.branch!.branchId);
+
     res.status(201).json(option);
   } catch (error) {
     res.status(500).json({ error: "فشل إضافة خيار الإضافة" });
@@ -697,6 +730,8 @@ router.put("/modifier-options/:id", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    notifyBranchMenuChanged(req.branch!.branchId);
+
     res.json(option);
   } catch (error) {
     res.status(500).json({ error: "فشل تعديل خيار الإضافة" });
@@ -715,6 +750,9 @@ router.delete("/modifier-groups/:id", async (req: AuthRequest, res: Response) =>
       res.status(404).json({ error: "مجموعة الإضافات غير موجودة أو لا تتبع هذا الفرع" });
       return;
     }
+
+    notifyBranchMenuChanged(branchId);
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "فشل حذف مجموعة الإضافات" });
@@ -758,6 +796,8 @@ router.post("/items/:id/link-modifiers", async (req: AuthRequest, res: Response)
         },
       },
     });
+
+    notifyBranchMenuChanged(req.branch!.branchId);
 
     res.json({ success: true, item: updatedItem });
   } catch (error) {
@@ -1206,6 +1246,12 @@ router.put("/settings/working-hours", async (req: AuthRequest, res: Response) =>
       },
     });
 
+    notifyBranchStatusChanged(branchId, {
+      openingTime: updated.openingTime,
+      closingTime: updated.closingTime,
+      workingDays: updated.workingDays,
+    });
+
     res.json({
       success: true,
       openingTime: updated.openingTime,
@@ -1243,6 +1289,14 @@ router.put("/quick-toggle-stock", async (req: AuthRequest, res: Response) => {
           unavailableUntil,
         },
       });
+
+      notifyMenuItemAvailabilityChanged(branchId, {
+        type: "ITEM",
+        id,
+        isAvailable: avail,
+        unavailableUntil,
+      });
+
       res.json({ success: true, item: updated });
     } else if (normalizedType === "MODIFIER") {
       const option = await prisma.modifierOption.findFirst({
@@ -1259,6 +1313,14 @@ router.put("/quick-toggle-stock", async (req: AuthRequest, res: Response) => {
           unavailableUntil,
         },
       });
+
+      notifyMenuItemAvailabilityChanged(branchId, {
+        type: "MODIFIER",
+        id,
+        isAvailable: avail,
+        unavailableUntil,
+      });
+
       res.json({ success: true, modifierOption: updated });
     } else {
       res.status(400).json({ error: "نوع الصنف غير محدد" });

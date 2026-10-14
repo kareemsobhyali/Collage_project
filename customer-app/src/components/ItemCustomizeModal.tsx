@@ -111,7 +111,14 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
 
   const linkedGroups = item.modifierGroupLinks?.map((l: any) => l.group).filter(Boolean) || [];
 
+  const isItemAvailable = item.isAvailable !== false && (!item.unavailableUntil || new Date() >= new Date(item.unavailableUntil));
+
   const handleAdd = () => {
+    if (!isItemAvailable) {
+      alert('عذراً، هذا الصنف غير متوفر حالياً بالمطعم.');
+      return;
+    }
+
     // التحقق من المجموعات الإجبارية
     for (const group of linkedGroups) {
       if (group.isRequired) {
@@ -195,6 +202,12 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
           >
             <X className="w-5 h-5" />
           </button>
+
+          {!isItemAvailable && (
+            <div className="absolute top-4 right-4 bg-rose-600/95 backdrop-blur-md text-white px-3 py-1 rounded-xl text-xs font-black shadow-md border border-white/20">
+              غير متوفر حالياً
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -440,10 +453,15 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
           {/* Add to Cart button */}
           <button
             onClick={handleAdd}
-            className="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-between"
+            disabled={!isItemAvailable}
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-black transition-all flex items-center justify-between ${
+              !isItemAvailable
+                ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 active:scale-95'
+            }`}
           >
-            <span>إضافة إلى السلة</span>
-            <span>{totalPrice} ج.م</span>
+            <span>{isItemAvailable ? 'إضافة إلى السلة' : 'الصنف غير متوفر حالياً'}</span>
+            {isItemAvailable && <span>{totalPrice} ج.م</span>}
           </button>
         </div>
       </div>

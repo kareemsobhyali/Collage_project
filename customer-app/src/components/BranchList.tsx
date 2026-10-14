@@ -104,11 +104,18 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
 
   useEffect(() => {
-    api.getBanners().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setBanners(data);
-      }
-    }).catch(err => console.error('Failed to load banners:', err));
+    const fetchBanners = () => {
+      api.getBanners().then((data) => {
+        if (Array.isArray(data)) {
+          setBanners(data);
+        }
+      }).catch(err => console.error('Failed to load banners:', err));
+    };
+
+    fetchBanners();
+
+    window.addEventListener('banners_updated', fetchBanners);
+    return () => window.removeEventListener('banners_updated', fetchBanners);
   }, []);
 
   useEffect(() => {

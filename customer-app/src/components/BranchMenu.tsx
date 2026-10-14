@@ -170,6 +170,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
       >
         {items.map((item: any, idx: number) => {
           const isCenter = items.length === 1 || idx === activeIndex;
+          const isItemAvailable = item.isAvailable !== false && (!item.unavailableUntil || new Date() >= new Date(item.unavailableUntil));
           return (
             <div
               key={item.id}
@@ -178,13 +179,17 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                 if (!isCenter && items.length > 1) {
                   scrollToCard(idx);
                 }
+                if (!isItemAvailable) {
+                  alert(`عذراً، صنف "${item.name}" غير متوفر حالياً بالمطعم.`);
+                  return;
+                }
                 onItemClick(item);
               }}
               className={`w-[68vw] max-w-[250px] sm:w-[240px] shrink-0 snap-center bg-white rounded-3xl border p-3 flex flex-col justify-between cursor-pointer select-none transition-all duration-300 ${
                 isCenter
                   ? 'scale-100 opacity-100 shadow-lg border-indigo-200 ring-2 ring-indigo-500/15 z-10'
                   : 'scale-[0.92] opacity-75 shadow-sm border-slate-200/80 hover:opacity-95'
-              } ${!isBranchOpen ? 'grayscale-[15%]' : ''}`}
+              } ${(!isBranchOpen || !isItemAvailable) ? 'grayscale-[20%] opacity-75' : ''}`}
             >
               <div>
                 {/* Card Top Image */}
@@ -199,6 +204,13 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
                       <ImageIcon className="w-9 h-9 mb-1" />
                       <span className="text-[10px] font-bold text-slate-400">بدون صورة</span>
+                    </div>
+                  )}
+
+                  {/* Unavailable / Sold Out Badge */}
+                  {!isItemAvailable && (
+                    <div className="absolute top-2 right-2 bg-rose-600/95 backdrop-blur-md text-white px-2.5 py-0.5 rounded-xl text-[10px] font-black shadow-md border border-white/20">
+                      غير متوفر الآن
                     </div>
                   )}
 
@@ -228,14 +240,23 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
               {/* Action Button */}
               <button
                 type="button"
+                disabled={!isItemAvailable}
                 className={`mt-3 w-full py-2 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm ${
-                  isCenter
+                  !isItemAvailable
+                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                    : isCenter
                     ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20'
                     : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
                 }`}
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>اختيار الصنف</span>
+                {isItemAvailable ? (
+                  <>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>اختيار الصنف</span>
+                  </>
+                ) : (
+                  <span>نفد مؤقتاً</span>
+                )}
               </button>
             </div>
           );
@@ -319,6 +340,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   );
 
   const isBranchOpen =
+    branch?.isActive !== false &&
     (branch?.operationalStatus === 'OPEN' ||
       !branch?.operationalStatus ||
       (branch?.operationalStatus === 'BUSY' && secondsLeft <= 0)) &&
@@ -339,7 +361,9 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
   const handleItemSelection = (item: any) => {
     if (!isBranchOpen) {
-      if (branch.operationalStatus === 'BUSY' && secondsLeft > 0) {
+      if (branch?.isActive === false) {
+        alert('عذراً، هذا المطعم موقوف حالياً من قِبل إدارة المنظومة.');
+      } else if (branch.operationalStatus === 'BUSY' && secondsLeft > 0) {
         alert(
           `المطعم مغلق مؤقتاً لضغط الطلبات أو التجهيز.\nسيعاد فتح استقبال الطلبات تلقائياً بعد ${formatCountdown(secondsLeft)}.`
         );
@@ -368,7 +392,11 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             <span>العودة لقائمة المطاعم</span>
           </button>
 
-          {branch.operationalStatus === 'CLOSED' ? (
+          {branch?.isActive === false ? (
+            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300 shrink-0">
+              موقوف مؤقتاً
+            </span>
+          ) : branch.operationalStatus === 'CLOSED' ? (
             <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
               مغلق حالياً
             </span>

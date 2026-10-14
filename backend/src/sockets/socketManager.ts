@@ -56,6 +56,18 @@ export function initSocket(server: any): SocketIOServer {
       }
     });
 
+    // انضمام المستخدم (طالب / عميل) لغرفته الخاصة لاستقبال تحديثات المحفظة والاشتراكات والحظر
+    if (authUser && (authUser.userId || authUser.id)) {
+      const uid = authUser.userId || authUser.id;
+      socket.join(`user_${uid}`);
+    }
+
+    socket.on("join_user", (userId: string) => {
+      if (userId) {
+        socket.join(`user_${userId}`);
+      }
+    });
+
     // الطلاب في السلة الجماعية التشاركية (متاح عبر كود المشاركة)
     socket.on("join_group_cart", (shareCode: string) => {
       if (shareCode) {
@@ -114,6 +126,51 @@ export function notifyBranchStatusChanged(branchId: string, statusData: any): vo
   if (io) {
     // بث عام لجميع العملاء وتطبيق الديسكتوب
     io.emit("branch_status_updated", { branchId, ...statusData });
+  }
+}
+
+export function notifyBranchesListChanged(): void {
+  if (io) {
+    // إشعار فوري للعملاء بإعادة استعلام قائمة الفروع (إضافة/حذف/تغيير حالة)
+    io.emit("branches_list_changed");
+  }
+}
+
+export function notifyBranchMenuChanged(branchId: string): void {
+  if (io) {
+    // إشعار العملاء بتحديث محتوى منيو الفرع (إضافة/تعديل/حذف صنف أو قسم أو إضافة)
+    io.emit("branch_menu_updated", { branchId });
+    io.to(`branch_${branchId}`).emit("branch_menu_updated", { branchId });
+  }
+}
+
+export function notifyMenuItemAvailabilityChanged(branchId: string, itemData: any): void {
+  if (io) {
+    // تغيير فوري لحالة توفر الصنف أو الإضافة (متوفر / غير متوفر / نفد لفترة)
+    io.emit("menu_item_availability_changed", { branchId, ...itemData });
+    io.to(`branch_${branchId}`).emit("menu_item_availability_changed", { branchId, ...itemData });
+  }
+}
+
+export function notifyBannersUpdated(): void {
+  if (io) {
+    // إشعار فوري بتحديث البانرات الإعلانية في الصفحة الرئيسية للطلاب
+    io.emit("banners_updated");
+  }
+}
+
+export function notifyPromosUpdated(): void {
+  if (io) {
+    // إشعار فوري بتحديث كوبونات الخصم
+    io.emit("promos_updated");
+  }
+}
+
+export function notifyUserUpdated(userId: string, userData: any): void {
+  if (io) {
+    // إشعار فوري للطالب بتحديث رصيد المحفظة أو نقاط الولاء أو حظر الحساب
+    io.to(`user_${userId}`).emit("user_profile_updated", { userId, ...userData });
+    io.emit("user_profile_updated", { userId, ...userData });
   }
 }
 

@@ -35,24 +35,36 @@ export const isBranchOpenByHours = (
   closingTime?: string | null,
   serverIsWithinWorkingHours?: boolean
 ): boolean => {
-  if (typeof serverIsWithinWorkingHours === 'boolean') return serverIsWithinWorkingHours;
-  if (!openingTime || !closingTime) return true;
+  if (!openingTime || !closingTime) {
+    if (typeof serverIsWithinWorkingHours === 'boolean') return serverIsWithinWorkingHours;
+    return true;
+  }
   const openParts = openingTime.split(':').map(Number);
   const closeParts = closingTime.split(':').map(Number);
   if (openParts.length < 2 || closeParts.length < 2 || isNaN(openParts[0]) || isNaN(closeParts[0])) {
+    if (typeof serverIsWithinWorkingHours === 'boolean') return serverIsWithinWorkingHours;
     return true;
   }
   const openMins = openParts[0] * 60 + (openParts[1] || 0);
   const closeMins = closeParts[0] * 60 + (closeParts[1] || 0);
   if (openMins === closeMins) return true;
 
-  const now = new Date();
-  const currentMins = now.getHours() * 60 + now.getMinutes();
-
-  if (closeMins > openMins) {
-    return currentMins >= openMins && currentMins <= closeMins;
-  } else {
-    return currentMins >= openMins || currentMins <= closeMins;
+  try {
+    const cairoDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Africa/Cairo' }));
+    const currentMins = cairoDate.getHours() * 60 + cairoDate.getMinutes();
+    if (closeMins > openMins) {
+      return currentMins >= openMins && currentMins <= closeMins;
+    } else {
+      return currentMins >= openMins || currentMins <= closeMins;
+    }
+  } catch {
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    if (closeMins > openMins) {
+      return currentMins >= openMins && currentMins <= closeMins;
+    } else {
+      return currentMins >= openMins || currentMins <= closeMins;
+    }
   }
 };
 
