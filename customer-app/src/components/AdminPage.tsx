@@ -748,30 +748,80 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  // Helper to trigger Excel CSV download with UTF-8 BOM for perfect Arabic display
-  const downloadCsv = (filename: string, rows: (string | number)[][]) => {
-    const csvContent = rows
-      .map(row =>
-        row
-          .map(val => {
-            const str = String(val ?? '').replace(/"/g, '""');
-            return `"${str}"`;
-          })
-          .join(',')
-      )
-      .join('\r\n');
+  // Helper to trigger Excel CSV download with UTF-8 BOM for perfect Arabic display on Desktop & Mobile
+  const downloadCsv = async (filename: string, rows: (string | number)[][]) => {
+    try {
+      const csvContent = rows
+        .map(row =>
+          row
+            .map(val => {
+              const str = String(val ?? '').replace(/"/g, '""');
+              return `"${str}"`;
+            })
+            .join(',')
+        )
+        .join('\r\n');
 
-    // UTF-8 BOM so Excel opens Arabic correctly
-    const bom = '\uFEFF';
-    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${filename}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      // UTF-8 BOM so Excel opens Arabic correctly
+      const bom = '\uFEFF';
+      const fullContent = bom + csvContent;
+      const fullFilename = `${filename}.csv`;
+
+      // 1. Mobile Detection & Web Share API (Allows opening directly in Excel, WhatsApp, or Downloads on Android/iOS)
+      const isMobileDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+      if (isMobileDevice && typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
+        try {
+          const file = new File([fullContent], fullFilename, { type: 'text/csv;charset=utf-8' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: filename,
+              text: `تقرير إكسل: ${filename}`,
+              files: [file],
+            });
+            return;
+          }
+        } catch (shareErr: any) {
+          // If the user cancelled the native share sheet, stop gracefully
+          if (shareErr.name === 'AbortError') return;
+          console.warn('Native share failed, falling back to direct download:', shareErr);
+        }
+      }
+
+      // 2. Standard Blob Download with prolonged URL lifetime for mobile browsers
+      const blob = new Blob([fullContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fullFilename);
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+
+      // Mobile fix: Never revokeObjectURL immediately! Mobile Chrome & Safari download managers
+      // process object URLs asynchronously. Revoking after 45 seconds gives ample time.
+      setTimeout(() => {
+        try {
+          if (document.body.contains(link)) {
+            document.body.removeChild(link);
+          }
+          URL.revokeObjectURL(url);
+        } catch (_) {}
+      }, 45000);
+    } catch (err: any) {
+      console.error('Download CSV error:', err);
+      // Fallback Data URI in case Blob creation or permissions failed
+      try {
+        const encodedUri = encodeURI(`data:text/csv;charset=utf-8,\uFEFF${rows.map(r => r.join(',')).join('\r\n')}`);
+        const fallbackLink = document.createElement('a');
+        fallbackLink.setAttribute('href', encodedUri);
+        fallbackLink.setAttribute('download', `${filename}.csv`);
+        document.body.appendChild(fallbackLink);
+        fallbackLink.click();
+        setTimeout(() => document.body.removeChild(fallbackLink), 10000);
+      } catch (fallbackErr) {
+        alert('تعذر تحميل الملف على هذا الجهاز: ' + (err.message || err));
+      }
+    }
   };
 
   // 1. Export Shifts & Branch Sales
