@@ -19,7 +19,12 @@ import {
   ShieldCheck,
   Building2,
   Clock,
-  Smartphone
+  Smartphone,
+  X,
+  ChevronDown,
+  Eye,
+  MessageSquare,
+  Store
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
@@ -45,6 +50,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [incomingAssignedOrders, setIncomingAssignedOrders] = useState<any[]>([]);
 
   // Delivery PIN dialog
   const [deliveringOrder, setDeliveringOrder] = useState<any | null>(null);
@@ -148,6 +154,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     socket.on('new_order_assigned', (order: any) => {
       startRepeatingAlarm();
       setOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
+      setIncomingAssignedOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
       sendWebNotification(
         `🛵 طلب توصيل جديد مسند لك #${order.orderNumber || ''}!`,
         `العميل: ${order.customerName || 'طالب'} • العنوان: ${order.addressText || ''}`,
@@ -159,6 +166,10 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       setOrders((prev) =>
         prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o))
       );
+      if (updated.status === 'COMPLETED' || updated.status === 'REJECTED') {
+        setIncomingAssignedOrders((prev) => prev.filter((o) => o.id !== updated.id));
+      }
+      setSelectedOrder((prev: any) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
     });
 
     return () => {
@@ -397,6 +408,103 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
         </div>
       </header>
 
+      {/* Floating Incoming Assigned Orders Dock / Stack */}
+      {incomingAssignedOrders.length > 0 && (
+        <aside aria-label="طلبات جديدة واردة" className="fixed top-3 left-3 right-3 z-40 max-w-lg mx-auto animate-slideDown" dir="rtl">
+          <div className="bg-slate-900/95 backdrop-blur-md border-2 border-indigo-500 rounded-3xl p-3 sm:p-4 shadow-2xl text-white space-y-2.5">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span className="text-xs font-black text-emerald-400 flex items-center gap-1.5">
+                  <Truck className="w-4 h-4 text-emerald-400 animate-bounce" />
+                  <span>
+                    {incomingAssignedOrders.length === 1
+                      ? 'طلب توصيل جديد مسند إليك الآن!'
+                      : `${incomingAssignedOrders.length} طلبات توصيل مسندة إليك!`}
+                  </span>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  stopAlarm();
+                  setIncomingAssignedOrders([]);
+                }}
+                className="text-[11px] text-slate-400 hover:text-white px-2 py-0.5 rounded-lg bg-slate-800 transition-colors"
+              >
+                تجاهل الكروت
+              </button>
+            </div>
+
+            {/* Organized Small Cards Stack */}
+            <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+              {incomingAssignedOrders.map((incOrder) => (
+                <div
+                  key={incOrder.id}
+                  onClick={() => {
+                    stopAlarm();
+                    setSelectedOrder(incOrder);
+                    setIncomingAssignedOrders((prev) => prev.filter((o) => o.id !== incOrder.id));
+                  }}
+                  className="bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-indigo-400 rounded-2xl p-3 cursor-pointer transition-all active:scale-98 flex items-center justify-between gap-3 group shadow-md"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-mono font-black text-sm shrink-0 group-hover:scale-105 transition-transform">
+                      #{incOrder.orderNumber}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-white">
+                          {incOrder.customerName || 'طالب'}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-950 text-indigo-300 font-bold border border-indigo-800/60">
+                          {incOrder.branch?.name || 'المطعم'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-300 flex items-center gap-1 mt-0.5">
+                        <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+                        <span className="truncate max-w-[190px] sm:max-w-xs">
+                          {incOrder.deliveryZoneName || incOrder.addressText || 'الحرم الجامعي'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <div className="text-left shrink-0">
+                      <span className="text-xs font-mono font-black text-emerald-400 block">
+                        {incOrder.total} ج.م
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-bold block">
+                        {incOrder.paymentMethod === 'CASH' ? '💵 كاش' : '💳 أونلاين'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIncomingAssignedOrders((prev) => prev.filter((o) => o.id !== incOrder.id));
+                      }}
+                      className="p-1 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-700/60"
+                      title="إخفاء الكارت"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-center text-indigo-300 font-medium">
+              👆 اضغط على أي كارت لفتح شاشة وتفاصيل الطلب وبدء التوصيل
+            </p>
+          </div>
+        </aside>
+      )}
+
       {/* Main Container */}
       <main className="flex-1 p-4 max-w-2xl w-full mx-auto space-y-4">
         {/* Active Orders Count Badge */}
@@ -634,6 +742,15 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                         <span>تأكيد التسليم للعميل (إدخال PIN)</span>
                       </button>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOrder(order)}
+                      className="w-full mt-2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Eye className="w-4 h-4 text-indigo-600" />
+                      <span>عرض تفاصيل الطلب والأصناف</span>
+                    </button>
                   </div>
                 </div>
               );
@@ -693,6 +810,195 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Full Order Details Modal for Driver */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slideUp">
+            {/* Modal Header */}
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-mono font-black text-sm text-white">
+                  #{selectedOrder.orderNumber}
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-white flex items-center gap-2">
+                    <span>تفاصيل طلب التوصيل</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold">
+                      {selectedOrder.branch?.name || 'المطعم'}
+                    </span>
+                  </h3>
+                  <span className="text-[11px] text-slate-400">
+                    {selectedOrder.status === 'PREPARING' && 'المطبخ يقوم بالتحضير 👨‍🍳'}
+                    {selectedOrder.status === 'READY' && 'جاهز للاستلام من الفرع 📦'}
+                    {selectedOrder.status === 'COMPLETED' && 'تم تسليمه بنجاح ✅'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
+              {/* Customer Contact & Call */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold block">بيانات العميل (الطالب):</span>
+                  <span className="text-sm font-black text-slate-800">{selectedOrder.customerName}</span>
+                  <span className="text-xs font-mono text-slate-600 block">{selectedOrder.customerPhone}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://wa.me/20${selectedOrder.customerPhone.replace(/^0+/, '')}?text=${encodeURIComponent(
+                      `مرحباً أستاذ ${selectedOrder.customerName}، كابتن التوصيل معك بخصوص طلبك رقم #${selectedOrder.orderNumber}...`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-colors flex items-center gap-1 font-bold"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>واتساب</span>
+                  </a>
+                  <a
+                    href={`tel:${selectedOrder.customerPhone}`}
+                    className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition-colors flex items-center gap-1 font-bold"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span>اتصال</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Delivery Address & Zone */}
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 space-y-1.5 shadow-xs">
+                {selectedOrder.deliveryZoneName && (
+                  <div className="font-bold text-indigo-700 flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span>منطقة التوصيل: {selectedOrder.deliveryZoneName}</span>
+                  </div>
+                )}
+                <div className="flex items-start gap-2 text-slate-700">
+                  <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-black text-slate-800">العنوان الجامعي المحدد: </span>
+                    <span className="text-slate-600">{selectedOrder.addressText}</span>
+                  </div>
+                </div>
+                {selectedOrder.notes && (
+                  <div className="mt-2 p-2 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] font-bold">
+                    <span>ملاحظات الطالب: </span>
+                    <span>{selectedOrder.notes}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Group Cart / Bag Division if present */}
+              {selectedOrder.groupCartDetails && (() => {
+                try {
+                  const bags = typeof selectedOrder.groupCartDetails === 'string'
+                    ? JSON.parse(selectedOrder.groupCartDetails)
+                    : selectedOrder.groupCartDetails;
+                  if (Array.isArray(bags) && bags.length > 0) {
+                    return (
+                      <div className="p-3 bg-purple-50 rounded-2xl border border-purple-200 space-y-1.5">
+                        <span className="font-black text-purple-900 block">🛍️ الطلب مقسم أكياس منفصلة للطلاب:</span>
+                        {bags.map((b: any, bIdx: number) => (
+                          <div key={bIdx} className="bg-white p-2 rounded-xl text-[11px] font-bold text-slate-700 flex justify-between border border-purple-100">
+                            <span>كيس: {b.label || `طالب ${bIdx + 1}`}</span>
+                            <span className="font-mono text-purple-700">{b.totalAmount || b.subtotal || ''} ج.م</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+                } catch (_e) {}
+                return null;
+              })()}
+
+              {/* Order Items Breakdown */}
+              <div className="space-y-1.5">
+                <span className="font-black text-slate-700 block text-xs">أصناف ومحتويات الوجبة:</span>
+                <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 space-y-2">
+                  {selectedOrder.items?.map((it: any) => (
+                    <div key={it.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-200/60 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 font-mono text-[10px] flex items-center justify-center font-black">
+                          {it.quantity}x
+                        </span>
+                        <span className="font-bold text-slate-800">{it.itemName}</span>
+                        {it.sizeName && <span className="text-[10px] text-slate-500">({it.sizeName})</span>}
+                      </div>
+                      <span className="font-mono font-bold text-slate-700">{it.totalPrice} ج.م</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Financial Breakdown */}
+              <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-emerald-800 font-bold block">المبلغ المطلوب تحصيله من الطالب:</span>
+                  <span className="text-xl font-black text-emerald-700 font-mono">
+                    {selectedOrder.paymentMethod === 'CASH' ? `${selectedOrder.total} ج.م` : '0.00 ج.م (مدفوع أونلاين)'}
+                  </span>
+                </div>
+                <div className="text-left font-bold text-xs text-emerald-900">
+                  <span className="block">{selectedOrder.paymentMethod === 'CASH' ? '💵 تحصيل نقدي' : '💳 مدفوع إلكترونياً'}</span>
+                  <span className="text-[10px] text-emerald-700">إجمالي الفاتورة: {selectedOrder.total} ج.م</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0">
+              {/* Pickup button */}
+              {selectedOrder.status !== 'COMPLETED' && !selectedOrder.driverPickedUpAt && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePickup(selectedOrder);
+                    setSelectedOrder(null);
+                  }}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <Truck className="w-4 h-4" />
+                  <span>تأكيد الاستلام من المطعم وبدء التوصيل</span>
+                </button>
+              )}
+
+              {/* Deliver button with PIN */}
+              {selectedOrder.status !== 'COMPLETED' && selectedOrder.driverPickedUpAt && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeliveringOrder(selectedOrder);
+                    setSelectedOrder(null);
+                  }}
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  <span>تأكيد التسليم للطالب (PIN)</span>
+                </button>
+              )}
+
+              {/* Close button */}
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="px-4 py-3 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl font-bold text-xs"
+              >
+                إغلاق
+              </button>
+            </div>
           </div>
         </div>
       )}
