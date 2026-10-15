@@ -22,6 +22,7 @@ import driverRoutes from "./routes/driver.routes.js";
 import { authLimiter, orderLimiter, generalApiLimiter, uploadLimiter } from "./middleware/rateLimiter.js";
 import prisma from "./prisma.js";
 import { getNotificationSoundSettings } from "./services/settings.service.js";
+import { seedMockDatabase } from "./services/mockData.service.js";
 
 
 const app = express();
@@ -285,7 +286,20 @@ server.listen(PORT, "0.0.0.0", () => {
       console.warn("[Backup] Image auto-sync to DB encountered:", err);
     }
   }, 5000);
-});
 
+  // فحص ما إذا كانت قاعدة البيانات جديدة/فارغة وحقن البيانات التجريبية تلقائياً
+  setTimeout(async () => {
+    try {
+      const branchesCount = await prisma.branch.count();
+      if (branchesCount === 0) {
+        console.log("[AutoSeed] قاعدة البيانات فارغة (0 مطاعم)، جاري حقن البيانات التجريبية تلقائياً...");
+        await seedMockDatabase();
+        console.log("[AutoSeed] اكتمل حقن البيانات التجريبية بنجاح على السيرفر!");
+      }
+    } catch (seedErr) {
+      console.warn("[AutoSeed] Auto seeding skipped or encountered:", seedErr);
+    }
+  }, 2000);
+});
 
 export default app;

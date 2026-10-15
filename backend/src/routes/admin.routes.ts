@@ -27,6 +27,7 @@ import {
   setDriverBranchConfig, 
   deleteDriverBranchConfig 
 } from "../services/driver.service.js";
+import { seedMockDatabase } from "../services/mockData.service.js";
 
 
 
@@ -2076,6 +2077,20 @@ router.get("/finance/export-excel", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Admin finance export-excel error:", error);
     res.status(500).json({ error: "فشل تصدير ملف الإكسل" });
+  }
+});
+
+// حقن البيانات التجريبية الشاملة بضغطة زر من لوحة الأدمن
+router.post("/seed-mock-data", async (_req: AuthRequest, res: Response) => {
+  try {
+    const result = await seedMockDatabase();
+    notifyBranchesListChanged();
+    notifyBannersUpdated();
+    notifyPromosUpdated();
+    res.json(result);
+  } catch (error) {
+    console.error("Admin seed-mock-data error:", error);
+    res.status(500).json({ error: "فشل حقن البيانات التجريبية" });
   }
 });
 

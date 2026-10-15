@@ -1,33 +1,16 @@
-import bcrypt from "bcryptjs";
 import prisma from "./prisma.js";
+import { seedMockDatabase } from "./services/mockData.service.js";
 
 async function main() {
-  console.log("🌱 Initializing UniFood Production Environment...");
-
-  // إنشاء أو تحديث حساب مدير المنظومة (Super Admin) الرئيسي
-  const adminPassword = await bcrypt.hash("123", 10);
-  const admin = await prisma.user.upsert({
-    where: { phone: "admin" },
-    update: {
-      name: "مدير المنظومة (Admin)",
-      role: "SUPERADMIN",
-    },
-    create: {
-
-      name: "مدير المنظومة (Admin)",
-      phone: "admin",
-      password: adminPassword,
-      role: "SUPERADMIN",
-    },
-  });
-
-  console.log(`✅ SuperAdmin account active: ${admin.name} (username: ${admin.phone})`);
-  console.log("🚀 Database is clean and ready for real operations!");
+  console.log("🌱 بدء تشغيل عملية Seed لمنظومة UniFood...");
+  const result = await seedMockDatabase();
+  console.log(`✅ ${result.message}`);
+  console.log("🚀 قاعدة البيانات جاهزة وكاملة بكافة المطاعم والأصناف والبانرات والكوبونات!");
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error("❌ فشل تشغيل seed:", e);
     process.exit(1);
   })
   .finally(async () => {

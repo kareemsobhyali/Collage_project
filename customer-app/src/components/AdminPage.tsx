@@ -335,6 +335,11 @@ export const AdminPage: React.FC = () => {
   const [editStudentPassword, setEditStudentPassword] = useState('');
   const [savingStudentWallet, setSavingStudentWallet] = useState(false);
 
+  // Mock Data Seeding States
+  const [seedingMockData, setSeedingMockData] = useState(false);
+  const [seedMockSuccess, setSeedMockSuccess] = useState<string | null>(null);
+  const [seedMockError, setSeedMockError] = useState<string | null>(null);
+
   // Add Branch Form
   const [newName, setNewName] = useState('');
   const [newSlug, setNewSlug] = useState('');
@@ -702,6 +707,27 @@ export const AdminPage: React.FC = () => {
       setFactoryResetError(err.message || 'فشل تنفيذ عملية تصفير المشروع');
     } finally {
       setFactoryResetLoading(false);
+    }
+  };
+
+  const handleTriggerSeedMockData = async () => {
+    if (!window.confirm("هل تريد حقن وتوليد البيانات التجريبية الشاملة؟\n\nسيتم توليد:\n- 4 مطاعم جامعية واقعية\n- منيو كامل بالأصناف والأحجام والصور والإضافات\n- 4 بانرات عروض تفاعلية\n- كوبونات خصم عامة ولكل مطعم\n- 3 كباتن توصيل وحسابات طلاب\n- طلبات حية ومكتملة لتغذية تقارير المالية والورديات فوراً.")) {
+      return;
+    }
+    setSeedMockError(null);
+    setSeedMockSuccess(null);
+    try {
+      setSeedingMockData(true);
+      const res = await api.seedMockData();
+      setSeedMockSuccess(res.message || "تم حقن البيانات التجريبية الشاملة بنجاح! 🚀");
+      fetchDashboardData();
+      setTimeout(() => {
+        setSeedMockSuccess(null);
+      }, 7000);
+    } catch (err: any) {
+      setSeedMockError(err.message || "فشل حقن البيانات التجريبية");
+    } finally {
+      setSeedingMockData(false);
     }
   };
 
@@ -5747,6 +5773,91 @@ export const AdminPage: React.FC = () => {
                   <span className="font-bold text-slate-200 block">🔔 دعم التنبيهات والإشعارات</span>
                   <p className="text-[10px] text-slate-400 leading-relaxed">
                     استقبال إشعارات فورية بالطلبات الجديدة والتنبيهات الحساسة للمطاعم على الهاتف.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Card: Mock Data Seeding (حقن وتوليد البيانات التجريبية الشاملة) */}
+            <div className="bg-slate-900 border border-indigo-800/60 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-900/40 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <span>حقن وتوليد البيانات التجريبية الشاملة (Mock Data)</span>
+                      <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] font-black rounded-md border border-indigo-500/30">
+                        موصى به للاختبار 🚀
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      توليد 4 مطاعم كاملة بالمنيو والأصناف، 4 بانرات تفاعلية، كوبونات عامة وخاصة، كباتن توصيل، وحسابات طلاب وطلبات لتغذية تقارير المالية
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={seedingMockData}
+                  onClick={handleTriggerSeedMockData}
+                  className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 shrink-0 disabled:opacity-50"
+                >
+                  {seedingMockData ? (
+                    <>
+                      <RotateCw className="w-4 h-4 animate-spin" />
+                      <span>جاري حقن البيانات...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>حقن البيانات التجريبية الآن</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {seedMockSuccess && (
+                <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{seedMockSuccess}</span>
+                </div>
+              )}
+
+              {seedMockError && (
+                <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{seedMockError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-indigo-300 block">🍔 4 مطاعم ومنيو كامل</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    برجر فاكتوري، شاورما الحرم (ورديات ليلية)، سبيشيالتي كافيه، رويال بيتزا مع صور وأحجام وإضافات.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-purple-300 block">🖼️ 4 بانرات عروض تفاعلية</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    بانرات إعلانية تفتح المطاعم والعروض مباشرة بنقرة واحدة داخل تطبيق الطلاب.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-amber-300 block">🎟️ كوبونات عامة وخاصة</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    كوبونات عامة (CAMPUS20, WELCOME50) وكوبونات محددة لمطاعم معينة (BURGER15, CAFE10, SHAWARMA10).
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-emerald-300 block">🛵 3 كباتن وطلبات تقارير</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    طيارين عامين ومخصصين، وحسابات طلاب وطلبات جاهزة ومكتملة لعرض تقارير المالية والورديات فوراً.
                   </p>
                 </div>
               </div>

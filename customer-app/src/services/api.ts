@@ -781,6 +781,17 @@ export const api = {
     return data;
   },
 
+  // 40.5 حقن البيانات التجريبية الشاملة (مطاعم + منيو + بانرات + كوبونات + طيارين)
+  async seedMockData() {
+    const res = await fetch(`${API_BASE_URL}/admin/seed-mock-data`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حقن البيانات التجريبية');
+    return data;
+  },
+
   // 41. إعدادات الصوت العامة وإدارة النغمات المخصصة
   async getPublicSoundSettings() {
     try {
