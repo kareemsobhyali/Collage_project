@@ -623,7 +623,19 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         for (const mod of itemInput.selectedModifiers) {
           let realModPrice = 0;
           let optionName = String(mod.optionName || mod.name || "").trim();
-          if (mod.optionId) {
+          if (mod.groupId === 'combo' && dbItem.comboItems) {
+            try {
+              const combos = typeof dbItem.comboItems === 'string' ? JSON.parse(dbItem.comboItems) : dbItem.comboItems;
+              if (Array.isArray(combos)) {
+                const foundCombo = combos.find((c: any) => c.id === mod.optionId || c.title === mod.optionName || mod.optionName?.startsWith(c.title));
+                if (foundCombo) {
+                  const qty = Math.max(1, Number(mod.quantity) || 1);
+                  realModPrice = Math.max(0, Number(foundCombo.price) || 0) * qty;
+                  optionName = foundCombo.title + (qty > 1 ? ` (×${qty})` : "");
+                }
+              }
+            } catch (_e) {}
+          } else if (mod.optionId) {
             const dbOption = await prisma.modifierOption.findUnique({
               where: { id: mod.optionId },
             });
