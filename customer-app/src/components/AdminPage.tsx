@@ -335,6 +335,54 @@ export const AdminPage: React.FC = () => {
   const [editStudentPassword, setEditStudentPassword] = useState('');
   const [savingStudentWallet, setSavingStudentWallet] = useState(false);
 
+  // Custom Dark Branch Selector Modals (مظهر داكن مخصص يمنع النوافذ البيضاء الافتراضية للنظام)
+  const [showOrderBranchSelectModal, setShowOrderBranchSelectModal] = useState(false);
+  const [showFinanceBranchSelectModal, setShowFinanceBranchSelectModal] = useState(false);
+  const [financeShowExactHours, setFinanceShowExactHours] = useState(false);
+
+  // قفل تمرير الشاشة الخلفية تلقائياً عند فتح أي نافذة منبثقة في لوحة الإدارة (Scroll Lock)
+  const isAnyAdminModalOpen = Boolean(
+    showAddBranchModal ||
+    editingBranch ||
+    editingPaymentBranch ||
+    editingCredentialsBranch ||
+    editingStudentWallet ||
+    selectedDriverOrdersModal ||
+    showMobileMoreMenu ||
+    showOrderBranchSelectModal ||
+    showFinanceBranchSelectModal ||
+    selectedOrderDetails ||
+    adminCancellingOrder ||
+    adminConfirmDialog ||
+    showFactoryResetModal ||
+    showAddBannerModal ||
+    editingBanner ||
+    showAddPromoModal ||
+    editingPromo ||
+    showAddDriverModal ||
+    editingDriver
+  );
+
+  useEffect(() => {
+    if (isAnyAdminModalOpen) {
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevHtmlOverflow = document.documentElement.style.overflow;
+      const prevBodyOverscroll = document.body.style.overscrollBehavior;
+
+      document.body.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'contain';
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.overscrollBehavior = 'contain';
+
+      return () => {
+        document.body.style.overflow = prevBodyOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow;
+        document.body.style.overscrollBehavior = prevBodyOverscroll;
+        document.documentElement.style.overscrollBehavior = '';
+      };
+    }
+  }, [isAnyAdminModalOpen]);
+
   // Mock Data Seeding States
   const [seedingMockData, setSeedingMockData] = useState(false);
   const [seedMockSuccess, setSeedMockSuccess] = useState<string | null>(null);
@@ -758,12 +806,21 @@ export const AdminPage: React.FC = () => {
     try {
       setFinanceLoading(true);
       setFinanceError(null);
+
+      let sDate = financeStartDate;
+      let eDate = financeEndDate;
+      if (!financeShowExactHours) {
+        const sOnly = financeStartDate.split('T')[0];
+        const eOnly = financeEndDate.split('T')[0];
+        sDate = `${sOnly}T00:00:00`;
+        eDate = `${eOnly}T23:59:59`;
+      }
+
       const data = await api.getFinanceReport({
         branchId: financeBranchFilter,
-        shiftMode: financeShiftMode,
-        shiftDate: financeShiftMode === 'SHIFT' ? financeShiftDate : undefined,
-        startDate: financeShiftMode === 'CUSTOM' ? financeStartDate : undefined,
-        endDate: financeShiftMode === 'CUSTOM' ? financeEndDate : undefined,
+        shiftMode: 'CUSTOM',
+        startDate: sDate,
+        endDate: eDate,
       });
       setFinanceReportData(data);
     } catch (err: any) {
@@ -777,13 +834,20 @@ export const AdminPage: React.FC = () => {
   // Helper to generate direct server download URL for Mobile and Desktop
   const getBackendExportUrl = (exportType: 'shifts' | 'drivers' | 'orders') => {
     const token = localStorage.getItem('admin_token') || '';
+    let sDate = financeStartDate;
+    let eDate = financeEndDate;
+    if (!financeShowExactHours) {
+      const sOnly = financeStartDate.split('T')[0];
+      const eOnly = financeEndDate.split('T')[0];
+      sDate = `${sOnly}T00:00:00`;
+      eDate = `${eOnly}T23:59:59`;
+    }
     const params = new URLSearchParams({
       type: exportType,
       branchId: financeBranchFilter || 'ALL',
-      shiftMode: financeShiftMode || 'SHIFT',
-      shiftDate: financeShiftDate || '',
-      startDate: financeStartDate || '',
-      endDate: financeEndDate || '',
+      shiftMode: 'CUSTOM',
+      startDate: sDate,
+      endDate: eDate,
       token,
     });
     return `${API_BASE_URL}/admin/finance/export-excel?${params.toString()}`;
@@ -792,38 +856,6 @@ export const AdminPage: React.FC = () => {
   // Helper to trigger Excel CSV download with UTF-8 BOM for perfect Arabic display on Desktop & Mobile
   const downloadCsv = async (filename: string, rows: (string | number)[][], exportType?: 'shifts' | 'drivers' | 'orders') => {
     try {
-      // 1. Direct Server Download (Best & Most Reliable for Mobile Browsers, Android WebViews, and Desktop)
-      if (exportType) {
-        const serverDownloadUrl = getBackendExportUrl(exportType);
-
-        // A. Trigger direct anchor click
-        const link = document.createElement('a');
-        link.href = serverDownloadUrl;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.setAttribute('download', `${filename}.csv`);
-        document.body.appendChild(link);
-        link.click();
-
-        setTimeout(() => {
-          if (document.body.contains(link)) {
-            document.body.removeChild(link);
-          }
-        }, 3000);
-
-        // B. On Mobile devices (Android / iOS), also trigger navigation as fallback
-        const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-        if (isMobile) {
-          setTimeout(() => {
-            try {
-              window.location.href = serverDownloadUrl;
-            } catch (_) {}
-          }, 400);
-        }
-        return;
-      }
-
-      // 2. Client-side fallback if no exportType was passed
       const csvContent = rows
         .map(row =>
           row
@@ -839,6 +871,25 @@ export const AdminPage: React.FC = () => {
       const fullContent = bom + csvContent;
       const fullFilename = `${filename}.csv`;
 
+      // 1. Mobile First: Web Share API allows saving directly to Files / Google Drive / Excel / WhatsApp on Android & iOS
+      const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+      if (isMobile && typeof navigator !== 'undefined' && (navigator as any).share) {
+        try {
+          const file = new File([fullContent], fullFilename, { type: 'text/csv;charset=utf-8' });
+          if ((navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
+            await (navigator as any).share({
+              files: [file],
+              title: filename,
+            });
+            return;
+          }
+        } catch (shareErr: any) {
+          if (shareErr.name === 'AbortError') return; // User simply closed share sheet
+          console.warn('Navigator share error, falling back to blob/direct download:', shareErr);
+        }
+      }
+
+      // 2. Direct Blob Download (Standard on Desktop Chrome/Firefox/Edge)
       const blob = new Blob([fullContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -855,20 +906,20 @@ export const AdminPage: React.FC = () => {
           }
           URL.revokeObjectURL(url);
         } catch (_) {}
-      }, 45000);
+      }, 10000);
+
+      // 3. Optional direct server URL fallback if exportType provided
+      if (exportType && isMobile) {
+        const serverDownloadUrl = getBackendExportUrl(exportType);
+        setTimeout(() => {
+          try {
+            window.open(serverDownloadUrl, '_blank');
+          } catch (_) {}
+        }, 600);
+      }
     } catch (err: any) {
       console.error('Download CSV error:', err);
-      try {
-        const encodedUri = encodeURI(`data:text/csv;charset=utf-8,\uFEFF${rows.map(r => r.join(',')).join('\r\n')}`);
-        const fallbackLink = document.createElement('a');
-        fallbackLink.setAttribute('href', encodedUri);
-        fallbackLink.setAttribute('download', `${filename}.csv`);
-        document.body.appendChild(fallbackLink);
-        fallbackLink.click();
-        setTimeout(() => document.body.removeChild(fallbackLink), 10000);
-      } catch (fallbackErr) {
-        alert('تعذر تحميل الملف على هذا الجهاز: ' + (err.message || err));
-      }
+      alert('تعذر تحميل الملف: ' + (err.message || err));
     }
   };
 
@@ -1953,8 +2004,8 @@ export const AdminPage: React.FC = () => {
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 pb-24 sm:pb-8">
         
-        {/* 2. Top Analytics Metric Cards */}
-        {stats && (
+        {/* 2. Top Analytics Metric Cards (Only shown on Branches tab) */}
+        {activeTab === 'BRANCHES' && stats && (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
             <div className="p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
               <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
@@ -2438,19 +2489,24 @@ export const AdminPage: React.FC = () => {
                 ))}
               </div>
 
-              {/* Branch Filter dropdown */}
+              {/* Branch Filter Button */}
               <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
                 <span className="text-xs text-slate-400 font-bold shrink-0">الفرع:</span>
-                <select
-                  value={orderBranchFilter}
-                  onChange={e => setOrderBranchFilter(e.target.value)}
-                  className="bg-slate-800 border border-slate-700 text-white text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full sm:w-auto"
+                <button
+                  type="button"
+                  onClick={() => setShowOrderBranchSelectModal(true)}
+                  className="flex items-center justify-between gap-2 bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-purple-500 text-white text-xs font-bold rounded-xl px-3 py-2 transition-all shadow-sm max-w-[210px]"
                 >
-                  <option value="ALL">جميع فروع الجامعة</option>
-                  {branches.map(b => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span className="truncate">
+                      {orderBranchFilter === 'ALL'
+                        ? 'جميع فروع الجامعة'
+                        : branches.find(b => b.id === orderBranchFilter)?.name || 'الفرع المحدد'}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </button>
               </div>
             </div>
 
@@ -2655,164 +2711,126 @@ export const AdminPage: React.FC = () => {
 
             {/* 2. Filter & Shift Control Box */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
-              {/* Row 1: Mode Switch & Branch Selection */}
+              {/* Row 1: Branch Selection & Quick Presets */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-                {/* Mode Selector Tabs */}
-                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0">
+                {/* Branch Selection Custom Button */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400 whitespace-nowrap">المطعم / الفرع:</span>
                   <button
                     type="button"
-                    onClick={() => setFinanceShiftMode('SHIFT')}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${
-                      financeShiftMode === 'SHIFT'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    onClick={() => setShowFinanceBranchSelectModal(true)}
+                    className="flex items-center justify-between gap-2 bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500 text-white text-xs font-bold rounded-xl px-3 py-2 transition-all shadow-sm"
                   >
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>نظام شيفت الفرع (من الفتح للإغلاق)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFinanceShiftMode('CUSTOM')}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${
-                      financeShiftMode === 'CUSTOM'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>فترة مخصصة (بالتاريخ والساعة)</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Store className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span className="truncate max-w-[200px]">
+                        {financeBranchFilter === 'ALL'
+                          ? `جميع الفروع والمطاعم (${branches.length})`
+                          : branches.find((b) => b.id === financeBranchFilter)?.name || 'الفرع المحدد'}
+                      </span>
+                    </div>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   </button>
                 </div>
 
-                {/* Branch Selection */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400 whitespace-nowrap">المطعم / الفرع:</span>
-                  <select
-                    value={financeBranchFilter}
-                    onChange={(e) => setFinanceBranchFilter(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                {/* Quick Presets */}
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start md:self-auto overflow-x-auto no-scrollbar">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date().toISOString().split('T')[0];
+                      setFinanceStartDate(`${today}T00:00`);
+                      setFinanceEndDate(`${today}T23:59`);
+                    }}
+                    className="px-2.5 py-1 text-xs font-bold text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap"
                   >
-                    <option value="ALL">جميع الفروع والمطاعم ({branches.length})</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} {b.openingTime && b.closingTime ? `(${b.openingTime} - ${b.closingTime})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    اليوم
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() - 1);
+                      const yest = d.toISOString().split('T')[0];
+                      setFinanceStartDate(`${yest}T00:00`);
+                      setFinanceEndDate(`${yest}T23:59`);
+                    }}
+                    className="px-2.5 py-1 text-xs font-bold text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap"
+                  >
+                    أمس
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() - 7);
+                      const past7 = d.toISOString().split('T')[0];
+                      const today = new Date().toISOString().split('T')[0];
+                      setFinanceStartDate(`${past7}T00:00`);
+                      setFinanceEndDate(`${today}T23:59`);
+                    }}
+                    className="px-2.5 py-1 text-xs font-bold text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap"
+                  >
+                    آخر 7 أيام
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date();
+                      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                      const today = now.toISOString().split('T')[0];
+                      setFinanceStartDate(`${firstDay}T00:00`);
+                      setFinanceEndDate(`${today}T23:59`);
+                    }}
+                    className="px-2.5 py-1 text-xs font-bold text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap"
+                  >
+                    هذا الشهر
+                  </button>
                 </div>
               </div>
 
-              {/* Row 2: Inputs depending on mode */}
+              {/* Row 2: Date Range Inputs ("من ... إلى ...") */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                {financeShiftMode === 'SHIFT' ? (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-400">تاريخ الشيفت:</span>
-                      <input
-                        type="date"
-                        value={financeShiftDate}
-                        onChange={(e) => setFinanceShiftDate(e.target.value)}
-                        className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-
-                    {/* Operational Shift Info */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/40 border border-emerald-800/40 rounded-xl text-[11px] text-emerald-300">
-                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                      {financeBranchFilter === 'ALL' ? (
-                        <span>يتم احتساب مبيعات كل فرع بناءً على مواعيد فتحه وإغلاقه الرسمية للشيفت</span>
-                      ) : (
-                        (() => {
-                          const currB = branches.find((b) => b.id === financeBranchFilter);
-                          return (
-                            <span>
-                              ساعات تشغيل الفرع: من {currB?.openingTime || '08:00'} حتى {currB?.closingTime || '22:00'} (تلقائياً)
-                            </span>
-                          );
-                        })()
-                      )}
-                    </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* From Date */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400 whitespace-nowrap">من تاريخ:</span>
+                    <input
+                      type={financeShowExactHours ? 'datetime-local' : 'date'}
+                      value={financeShowExactHours ? financeStartDate : financeStartDate.split('T')[0]}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFinanceStartDate(financeShowExactHours ? val : `${val}T00:00`);
+                      }}
+                      className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
                   </div>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-400">من (تاريخ وساعة):</span>
-                      <input
-                        type="datetime-local"
-                        value={financeStartDate}
-                        onChange={(e) => setFinanceStartDate(e.target.value)}
-                        className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-400">إلى (تاريخ وساعة):</span>
-                      <input
-                        type="datetime-local"
-                        value={financeEndDate}
-                        onChange={(e) => setFinanceEndDate(e.target.value)}
-                        className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-
-                    {/* Quick Presets */}
-                    <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const today = new Date().toISOString().split('T')[0];
-                          setFinanceStartDate(`${today}T00:00`);
-                          setFinanceEndDate(`${today}T23:59`);
-                        }}
-                        className="px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-white rounded-md hover:bg-slate-800"
-                      >
-                        اليوم
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const d = new Date();
-                          d.setDate(d.getDate() - 1);
-                          const yest = d.toISOString().split('T')[0];
-                          setFinanceStartDate(`${yest}T00:00`);
-                          setFinanceEndDate(`${yest}T23:59`);
-                        }}
-                        className="px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-white rounded-md hover:bg-slate-800"
-                      >
-                        أمس
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const d = new Date();
-                          d.setDate(d.getDate() - 7);
-                          const past7 = d.toISOString().split('T')[0];
-                          const today = new Date().toISOString().split('T')[0];
-                          setFinanceStartDate(`${past7}T00:00`);
-                          setFinanceEndDate(`${today}T23:59`);
-                        }}
-                        className="px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-white rounded-md hover:bg-slate-800"
-                      >
-                        آخر 7 أيام
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const now = new Date();
-                          const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-                          const today = now.toISOString().split('T')[0];
-                          setFinanceStartDate(`${firstDay}T00:00`);
-                          setFinanceEndDate(`${today}T23:59`);
-                        }}
-                        className="px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-white rounded-md hover:bg-slate-800"
-                      >
-                        هذا الشهر
-                      </button>
-                    </div>
+                  {/* To Date */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400 whitespace-nowrap">إلى تاريخ:</span>
+                    <input
+                      type={financeShowExactHours ? 'datetime-local' : 'date'}
+                      value={financeShowExactHours ? financeEndDate : financeEndDate.split('T')[0]}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFinanceEndDate(financeShowExactHours ? val : `${val}T23:59`);
+                      }}
+                      className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
                   </div>
-                )}
+
+                  {/* Exact Hours Toggle */}
+                  <label className="flex items-center gap-2 cursor-pointer select-none bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-xs text-slate-300 font-bold hover:border-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={financeShowExactHours}
+                      onChange={(e) => setFinanceShowExactHours(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700 cursor-pointer"
+                    />
+                    <span>تحديد الساعات بدقة (بالوقت والدقائق) ⏱️</span>
+                  </label>
+                </div>
 
                 {/* Apply Button */}
                 <button
@@ -3350,35 +3368,50 @@ export const AdminPage: React.FC = () => {
                     </div>
 
                     {/* Drivers Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                       {financeReportData.driversBreakdown?.map((d: any) => (
                         <div
                           key={d.driverId}
-                          className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 shadow-md"
+                          className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5 shadow-md hover:border-slate-700/80 transition-all"
                         >
                           <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
                               <div className="w-11 h-11 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center font-bold text-base shrink-0">
                                 <Truck className="w-5 h-5" />
                               </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-black text-base text-white">{d.driverName}</h3>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  <h3 className="font-black text-sm sm:text-base text-white leading-tight truncate">
+                                    {d.driverName}
+                                  </h3>
                                   {d.isActive ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 shrink-0">
                                       نشط
                                     </span>
                                   ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 shrink-0">
                                       معطل
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5 font-mono">
-                                  <Phone className="w-3.5 h-3.5 text-slate-500" />
-                                  <span>{d.driverPhone}</span>
-                                  <span className="text-slate-600">|</span>
-                                  <span>@{d.driverUsername}</span>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400 font-mono">
+                                  {d.driverPhone && (
+                                    <a
+                                      href={`tel:${d.driverPhone}`}
+                                      className="flex items-center gap-1 hover:text-indigo-300 transition-colors shrink-0"
+                                    >
+                                      <Phone className="w-3.5 h-3.5 text-slate-500" />
+                                      <span>{d.driverPhone}</span>
+                                    </a>
+                                  )}
+                                  {d.driverUsername && (
+                                    <span
+                                      className="px-1.5 py-0.2 rounded-md bg-slate-800/80 text-slate-300 text-[10px] border border-slate-700/60 shrink-0"
+                                      dir="ltr"
+                                    >
+                                      @{d.driverUsername}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -3386,7 +3419,8 @@ export const AdminPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setSelectedDriverOrdersModal(d)}
-                              className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shrink-0"
+                              className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shrink-0 shadow-sm"
+                              title="عرض تفاصيل طلبات هذا الكابتن"
                             >
                               <Eye className="w-3.5 h-3.5" />
                               <span>الطلبات ({d.deliveredOrdersCount || 0})</span>
@@ -3394,28 +3428,28 @@ export const AdminPage: React.FC = () => {
                           </div>
 
                           {/* Driver Financial Breakdown */}
-                          <div className="grid grid-cols-2 gap-2 p-3 bg-slate-950/70 rounded-xl text-xs font-mono border border-slate-800">
-                            <div>
-                              <span className="text-[10px] text-slate-500 font-sans block">الطلبات المسلمة:</span>
+                          <div className="grid grid-cols-2 gap-2 p-2.5 sm:p-3 bg-slate-950/80 rounded-xl text-xs font-mono border border-slate-800/80">
+                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                              <span className="text-[10px] text-slate-500 font-sans block mb-0.5">الطلبات المسلمة:</span>
                               <span className="font-bold text-white text-sm">
                                 {d.deliveredOrdersCount || 0} طلب
                               </span>
                             </div>
-                            <div>
-                              <span className="text-[10px] text-slate-500 font-sans block">إجمالي قيمة الطلبات:</span>
+                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                              <span className="text-[10px] text-slate-500 font-sans block mb-0.5">إجمالي قيمة الطلبات:</span>
                               <span className="font-bold text-slate-200 text-sm">
                                 {Number(d.totalOrdersValue || 0).toFixed(2)} ج.م
                               </span>
                             </div>
-                            <div>
-                              <span className="text-[10px] text-slate-500 font-sans block">الكاش في يد الكابتن:</span>
-                              <span className="font-bold text-amber-400">
+                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                              <span className="text-[10px] text-slate-500 font-sans block mb-0.5">الكاش في يد الكابتن:</span>
+                              <span className="font-bold text-amber-400 text-sm">
                                 {Number(d.cashCollectedInHand || 0).toFixed(2)} ج.م
                               </span>
                             </div>
-                            <div>
-                              <span className="text-[10px] text-slate-500 font-sans block">أجرة التوصيل المستحقة:</span>
-                              <span className="font-bold text-indigo-400">
+                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                              <span className="text-[10px] text-slate-500 font-sans block mb-0.5">أجرة التوصيل المستحقة:</span>
+                              <span className="font-bold text-indigo-400 text-sm">
                                 {Number(d.totalDeliveryFeesEarned || 0).toFixed(2)} ج.م
                               </span>
                             </div>
@@ -3423,17 +3457,17 @@ export const AdminPage: React.FC = () => {
 
                           {/* Settlement Verdict Card */}
                           <div
-                            className={`p-3 rounded-xl border flex items-center justify-between text-xs font-bold ${
+                            className={`p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition-all ${
                               d.netCashToDeliver > 0
                                 ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300'
                                 : d.netCashToDeliver < 0
                                 ? 'bg-sky-950/60 border-sky-800/80 text-sky-300'
-                                : 'bg-slate-950 border-slate-800 text-slate-400'
+                                : 'bg-slate-950/80 border-slate-800 text-slate-400'
                             }`}
                           >
-                            <div className="flex items-center gap-2">
-                              <Wallet className="w-4 h-4" />
-                              <span>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Wallet className="w-4 h-4 shrink-0" />
+                              <span className="truncate">
                                 {d.netCashToDeliver > 0
                                   ? 'المطلوب توريده للإدارة:'
                                   : d.netCashToDeliver < 0
@@ -3441,7 +3475,7 @@ export const AdminPage: React.FC = () => {
                                   : 'الحساب مصفى تماماً:'}
                               </span>
                             </div>
-                            <span className="text-base font-black font-mono">
+                            <span className="text-sm sm:text-base font-black font-mono shrink-0">
                               {Math.abs(Number(d.netCashToDeliver || 0)).toFixed(2)} ج.م
                             </span>
                           </div>
@@ -8482,6 +8516,232 @@ export const AdminPage: React.FC = () => {
               >
                 إغلاق النافذة
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* G. Custom Dark Branch Selector Modal for Orders */}
+      {showOrderBranchSelectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overscroll-contain">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[85vh] shadow-2xl overflow-hidden overscroll-contain">
+            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <Building className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-white">تصفية الطلبات حسب الفرع</h3>
+                  <p className="text-[11px] text-slate-400">اختر الفرع لعرض طلباته فقط</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOrderBranchSelectModal(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 sm:p-4 space-y-2 overflow-y-auto flex-1 custom-scrollbar overscroll-contain">
+              <button
+                type="button"
+                onClick={() => {
+                  setOrderBranchFilter('ALL');
+                  setShowOrderBranchSelectModal(false);
+                }}
+                className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
+                  orderBranchFilter === 'ALL'
+                    ? 'bg-purple-950/60 border-purple-600/80 text-white shadow-sm ring-1 ring-purple-500/30'
+                    : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    orderBranchFilter === 'ALL' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="font-black text-xs sm:text-sm block">جميع فروع الجامعة</span>
+                    <span className="text-[10px] text-slate-400">عرض الطلبات من كافة المطاعم ({branches.length} فروع)</span>
+                  </div>
+                </div>
+                {orderBranchFilter === 'ALL' && (
+                  <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white shrink-0 mr-2">
+                    <Check className="w-3.5 h-3.5" />
+                  </div>
+                )}
+              </button>
+
+              {branches.map((b) => {
+                const isSelected = orderBranchFilter === b.id;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => {
+                      setOrderBranchFilter(b.id);
+                      setShowOrderBranchSelectModal(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
+                      isSelected
+                        ? 'bg-purple-950/60 border-purple-600/80 text-white shadow-sm ring-1 ring-purple-500/30'
+                        : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {b.logoUrl ? (
+                        <img
+                          src={getFullImageUrl(b.logoUrl)}
+                          alt={b.name}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0 bg-slate-800"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-purple-950/60 border border-purple-800/80 flex items-center justify-center text-purple-400 shrink-0">
+                          <Store className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-xs sm:text-sm text-white truncate">{b.name}</span>
+                          {b.isActive ? (
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 shrink-0">
+                              نشط
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-950 text-rose-400 border border-rose-800 shrink-0">
+                              معطل
+                            </span>
+                          )}
+                        </div>
+                        {b.address && (
+                          <span className="text-[10px] text-slate-400 block truncate mt-0.5">{b.address}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white shrink-0 mr-2">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* H. Custom Dark Branch Selector Modal for Financials */}
+      {showFinanceBranchSelectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overscroll-contain">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[85vh] shadow-2xl overflow-hidden overscroll-contain">
+            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Building className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-white">تصفية الحسابات حسب المطعم</h3>
+                  <p className="text-[11px] text-slate-400">اختر الفرع لحساب مبيعاته وشيفتاته</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFinanceBranchSelectModal(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 sm:p-4 space-y-2 overflow-y-auto flex-1 custom-scrollbar overscroll-contain">
+              <button
+                type="button"
+                onClick={() => {
+                  setFinanceBranchFilter('ALL');
+                  setShowFinanceBranchSelectModal(false);
+                }}
+                className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
+                  financeBranchFilter === 'ALL'
+                    ? 'bg-emerald-950/60 border-emerald-600/80 text-white shadow-sm ring-1 ring-emerald-500/30'
+                    : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    financeBranchFilter === 'ALL' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="font-black text-xs sm:text-sm block">جميع الفروع والمطاعم</span>
+                    <span className="text-[10px] text-slate-400">حسابات مجمعة لكافة فروع الحرم ({branches.length} فروع)</span>
+                  </div>
+                </div>
+                {financeBranchFilter === 'ALL' && (
+                  <div className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white shrink-0 mr-2">
+                    <Check className="w-3.5 h-3.5" />
+                  </div>
+                )}
+              </button>
+
+              {branches.map((b) => {
+                const isSelected = financeBranchFilter === b.id;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => {
+                      setFinanceBranchFilter(b.id);
+                      setShowFinanceBranchSelectModal(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
+                      isSelected
+                        ? 'bg-emerald-950/60 border-emerald-600/80 text-white shadow-sm ring-1 ring-emerald-500/30'
+                        : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {b.logoUrl ? (
+                        <img
+                          src={getFullImageUrl(b.logoUrl)}
+                          alt={b.name}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0 bg-slate-800"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-800/80 flex items-center justify-center text-emerald-400 shrink-0">
+                          <Store className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-xs sm:text-sm text-white truncate">{b.name}</span>
+                          {b.isActive ? (
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 shrink-0">
+                              نشط
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-950 text-rose-400 border border-rose-800 shrink-0">
+                              معطل
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                          {b.openingTime && b.closingTime ? `مواعيد العمل: ${b.openingTime} - ${b.closingTime}` : b.address}
+                        </span>
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <div className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white shrink-0 mr-2">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

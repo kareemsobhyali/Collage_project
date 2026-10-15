@@ -125,6 +125,37 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [activationToast, setActivationToast] = useState<string | null>(null);
 
+  // قفل تمرير الشاشة الخلفية تلقائياً عند فتح أي نافذة منبثقة (Scroll Lock)
+  const isAnyModalOpen = Boolean(
+    customizingItem ||
+    showCartModal ||
+    showGroupCartModal ||
+    showProfileModal ||
+    trackingOrder ||
+    showMyOrdersModal ||
+    showAuthModal
+  );
+
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevHtmlOverflow = document.documentElement.style.overflow;
+      const prevBodyOverscroll = document.body.style.overscrollBehavior;
+
+      document.body.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'contain';
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.overscrollBehavior = 'contain';
+
+      return () => {
+        document.body.style.overflow = prevBodyOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow;
+        document.body.style.overscrollBehavior = prevBodyOverscroll;
+        document.documentElement.style.overscrollBehavior = '';
+      };
+    }
+  }, [isAnyModalOpen]);
+
   // فحص روابط التفعيل السريع من الواتساب (WhatsApp Magic Link Auto-Activation)
   useEffect(() => {
     if (typeof window === 'undefined') return;

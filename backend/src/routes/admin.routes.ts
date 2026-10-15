@@ -1643,8 +1643,18 @@ router.get("/finance/report", async (req: AuthRequest, res: Response) => {
         end = new Date(`${shiftDate}T${String(closeH).padStart(2, "0")}:${String(closeM).padStart(2, "0")}:59`);
       }
     } else {
-      start = startDate ? new Date(startDate as string) : new Date(new Date().setHours(0, 0, 0, 0));
-      end = endDate ? new Date(endDate as string) : new Date(new Date().setHours(23, 59, 59, 999));
+      if (startDate) {
+        const sStr = String(startDate);
+        start = sStr.includes("T") ? new Date(sStr) : new Date(`${sStr}T00:00:00`);
+      } else {
+        start = new Date(new Date().setHours(0, 0, 0, 0));
+      }
+      if (endDate) {
+        const eStr = String(endDate);
+        end = eStr.includes("T") ? new Date(eStr) : new Date(`${eStr}T23:59:59.999`);
+      } else {
+        end = new Date(new Date().setHours(23, 59, 59, 999));
+      }
     }
 
     const whereClause: any = {
@@ -1884,8 +1894,18 @@ router.get("/finance/export-excel", async (req: AuthRequest, res: Response) => {
         end = new Date(`${shiftDate}T${String(closeH).padStart(2, "0")}:${String(closeM).padStart(2, "0")}:59`);
       }
     } else {
-      start = startDate ? new Date(startDate as string) : new Date(new Date().setHours(0, 0, 0, 0));
-      end = endDate ? new Date(endDate as string) : new Date(new Date().setHours(23, 59, 59, 999));
+      if (startDate) {
+        const sStr = String(startDate);
+        start = sStr.includes("T") ? new Date(sStr) : new Date(`${sStr}T00:00:00`);
+      } else {
+        start = new Date(new Date().setHours(0, 0, 0, 0));
+      }
+      if (endDate) {
+        const eStr = String(endDate);
+        end = eStr.includes("T") ? new Date(eStr) : new Date(`${eStr}T23:59:59.999`);
+      } else {
+        end = new Date(new Date().setHours(23, 59, 59, 999));
+      }
     }
 
     const whereClause: any = {
@@ -2071,8 +2091,10 @@ router.get("/finance/export-excel", async (req: AuthRequest, res: Response) => {
       .map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
       .join("\r\n");
 
+    const safeAsciiName = `${type}_${dateTag}.csv`;
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}.csv"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${safeAsciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}.csv`);
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
     res.send("\uFEFF" + csvContent);
   } catch (error) {
     console.error("Admin finance export-excel error:", error);

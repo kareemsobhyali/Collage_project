@@ -68,11 +68,15 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
     const cards = container.querySelectorAll('[data-carousel-card="true"]');
     const target = cards[bounded] as HTMLElement | undefined;
     if (target) {
-      target.scrollIntoView({
-        behavior: smooth ? 'smooth' : ('instant' as ScrollBehavior),
-        inline: 'center',
-        block: 'nearest',
-      });
+      const cRect = container.getBoundingClientRect();
+      const tRect = target.getBoundingClientRect();
+      const diff = (tRect.left + tRect.width / 2) - (cRect.left + cRect.width / 2);
+      if (Math.abs(diff) > 2) {
+        container.scrollBy({
+          left: diff,
+          behavior: smooth ? 'smooth' : ('instant' as ScrollBehavior),
+        });
+      }
       setActiveIndex(bounded);
     }
   };
@@ -355,10 +359,30 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   const displayedCategories = nonEmptyCategories;
 
   const isManualScrolling = useRef<boolean>(false);
+  const categoryPillsRef = useRef<HTMLDivElement | null>(null);
+  const activeCategoryRef = useRef<string>(activeCategoryId);
+
+  useEffect(() => {
+    activeCategoryRef.current = activeCategoryId;
+  }, [activeCategoryId]);
+
+  const centerPillInContainer = (catId: string) => {
+    const container = categoryPillsRef.current;
+    const pill = document.getElementById(`pill-${catId}`);
+    if (container && pill) {
+      const cRect = container.getBoundingClientRect();
+      const pRect = pill.getBoundingClientRect();
+      const diff = (pRect.left + pRect.width / 2) - (cRect.left + cRect.width / 2);
+      if (Math.abs(diff) > 15) {
+        container.scrollBy({ left: diff, behavior: 'smooth' });
+      }
+    }
+  };
 
   // التمرير السلس إلى القسم المطلوب عند الضغط عليه دون إخفاء باقي الأقسام
   const handleCategoryClick = (catId: string) => {
     setActiveCategoryId(catId);
+    activeCategoryRef.current = catId;
     isManualScrolling.current = true;
 
     if (catId === 'ALL') {
@@ -373,43 +397,77 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       }
     }
 
-    const pill = document.getElementById(`pill-${catId}`);
-    pill?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    centerPillInContainer(catId);
 
     setTimeout(() => {
       isManualScrolling.current = false;
-    }, 800);
+    }, 850);
   };
 
-  // مراقبة السكرول التلقائي لتحديد وتنشيط القسم المعروض أمام المستخدم حالياً
+  // مراقبة السكرول بالاتجاهين (لأعلى ولأسفل) لتحديد القسم المعروض أمام المستخدم حالياً
   useEffect(() => {
     if (nonEmptyCategories.length === 0) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (isManualScrolling.current) return;
-        const visibleEntry = entries.find((e) => e.isIntersecting);
-        if (visibleEntry) {
-          const catId = visibleEntry.target.getAttribute('data-category-id');
-          if (catId) {
-            setActiveCategoryId(catId);
-            const pill = document.getElementById(`pill-${catId}`);
-            pill?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (isManualScrolling.current) return;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          if (isManualScrolling.current) {
+            ticking = false;
+            return;
           }
-        }
-      },
-      {
-        rootMargin: '-80px 0px -60% 0px',
-        threshold: 0.1,
+
+          const anchorY = 170; // نقطة استشعار القسم الحالي على الشاشة (أسفل الهيدر)
+          const firstCatEl = document.getElementById(`category-section-${nonEmptyCategories[0]?.id}`);
+
+          // إذا صعد المستخدم لأعلى فوق الأقسام، ننشط زر "كافة الأقسام"
+          if (firstCatEl) {
+            const firstRect = firstCatEl.getBoundingClientRect();
+            if (firstRect.top > anchorY) {
+              if (activeCategoryRef.current !== 'ALL') {
+                setActiveCategoryId('ALL');
+                activeCategoryRef.current = 'ALL';
+                centerPillInContainer('ALL');
+              }
+              ticking = false;
+              return;
+            }
+          }
+
+          // فحص القسم الذي يغطي نقطة الاستشعار سواء أثناء التمرير لأعلى أو لأسفل
+          let currentCatId: string | null = null;
+          for (let i = 0; i < nonEmptyCategories.length; i++) {
+            const cat = nonEmptyCategories[i];
+            const el = document.getElementById(`category-section-${cat.id}`);
+            if (!el) continue;
+            const rect = el.getBoundingClientRect();
+            if (rect.top <= anchorY && rect.bottom > anchorY) {
+              currentCatId = cat.id;
+              break;
+            }
+          }
+
+          // عند الوصول لنهاية الصفحة ننشط آخر قسم
+          if (!currentCatId && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 60) {
+            currentCatId = nonEmptyCategories[nonEmptyCategories.length - 1]?.id;
+          }
+
+          if (currentCatId && currentCatId !== activeCategoryRef.current) {
+            setActiveCategoryId(currentCatId);
+            activeCategoryRef.current = currentCatId;
+            centerPillInContainer(currentCatId);
+          }
+
+          ticking = false;
+        });
+        ticking = true;
       }
-    );
+    };
 
-    nonEmptyCategories.forEach((cat) => {
-      const el = document.getElementById(`category-section-${cat.id}`);
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [nonEmptyCategories]);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -517,7 +575,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
         {/* Categories selector pills (Only non-empty categories) */}
         {nonEmptyCategories.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto pt-2.5 border-t border-slate-100 no-scrollbar">
+          <div ref={categoryPillsRef} className="flex items-center gap-2 overflow-x-auto pt-2.5 border-t border-slate-100 no-scrollbar">
             <button
               id="pill-ALL"
               onClick={() => handleCategoryClick('ALL')}
