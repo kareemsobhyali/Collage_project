@@ -1847,6 +1847,238 @@ router.get("/finance/report", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// تصدير التقارير المالية والشيفتات مباشرة كملف إكسل عبر السيرفر للموبايل والديسكتوب
+router.get("/finance/export-excel", async (req: AuthRequest, res: Response) => {
+  try {
+    const { branchId, startDate, endDate, shiftMode, shiftDate, type = "shifts" } = req.query;
+
+    let start: Date;
+    let end: Date;
+
+    if (shiftMode === "SHIFT" && shiftDate) {
+      let openH = 8, openM = 0;
+      let closeH = 23, closeM = 59;
+      if (branchId && branchId !== "ALL") {
+        const b = await prisma.branch.findUnique({ where: { id: branchId as string } });
+        if (b) {
+          if (b.openingTime) {
+            const [h, m] = b.openingTime.split(":").map(Number);
+            if (!isNaN(h)) openH = h;
+            if (!isNaN(m)) openM = m;
+          }
+          if (b.closingTime) {
+            const [h, m] = b.closingTime.split(":").map(Number);
+            if (!isNaN(h)) closeH = h;
+            if (!isNaN(m)) closeM = m;
+          }
+        }
+      }
+      start = new Date(`${shiftDate}T${String(openH).padStart(2, "0")}:${String(openM).padStart(2, "0")}:00`);
+      if (closeH < openH) {
+        const nextDay = new Date(start);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayStr = nextDay.toISOString().split("T")[0];
+        end = new Date(`${nextDayStr}T${String(closeH).padStart(2, "0")}:${String(closeM).padStart(2, "0")}:59`);
+      } else {
+        end = new Date(`${shiftDate}T${String(closeH).padStart(2, "0")}:${String(closeM).padStart(2, "0")}:59`);
+      }
+    } else {
+      start = startDate ? new Date(startDate as string) : new Date(new Date().setHours(0, 0, 0, 0));
+      end = endDate ? new Date(endDate as string) : new Date(new Date().setHours(23, 59, 59, 999));
+    }
+
+    const whereClause: any = {
+      createdAt: {
+        gte: start,
+        lte: end,
+      },
+    };
+
+    if (branchId && branchId !== "ALL") {
+      whereClause.branchId = branchId as string;
+    }
+
+    const [orders, allBranches, allDrivers] = await Promise.all([
+      prisma.order.findMany({
+        where: whereClause,
+        include: {
+          branch: { select: { id: true, name: true, openingTime: true, closingTime: true, phone: true } },
+          driver: { select: { id: true, name: true, phone: true, username: true } },
+          items: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.branch.findMany({
+        select: { id: true, name: true, openingTime: true, closingTime: true, phone: true, isActive: true },
+      }),
+      prisma.deliveryDriver.findMany({
+        select: { id: true, name: true, phone: true, username: true, isActive: true },
+      }),
+    ]);
+
+    const completedOrders = orders.filter(o => o.status === "COMPLETED");
+    const dateTag = new Date().toISOString().split("T")[0];
+    let rows: (string | number)[][] = [];
+    let filename = `تقرير_${dateTag}`;
+
+    if (type === "shifts") {
+      filename = `تقرير_شيفتات_ومبيعات_الفروع_${dateTag}`;
+      rows = [
+        ["تقرير مبيعات وشيفتات فروع UniFood"],
+        ["الفترة من", start.toLocaleString("ar-EG"), "إلى", end.toLocaleString("ar-EG")],
+        ["نظام الفلترة", shiftMode === "SHIFT" ? "شيفت يومي للفرع" : "فترة مخصصة بالوقت"],
+        [],
+        [
+          "اسم المطعم / الفرع",
+          "وقت الفتح",
+          "وقت الإغلاق",
+          "إجمالي المبيعات (ج.م)",
+          "صافي مبيعات الوجبات (ج.م)",
+          "رسوم التوصيل (ج.م)",
+          "المحصل كاش (ج.م)",
+          "المحصل إلكتروني / محافظ (ج.م)",
+          "الطلبات المكتملة",
+          "الطلبات الملغاة",
+          "إجمالي الطلبات",
+        ],
+      ];
+
+      allBranches.forEach(b => {
+        const bOrders = orders.filter(o => o.branchId === b.id);
+        const bCompleted = bOrders.filter(o => o.status === "COMPLETED");
+        const bRejected = bOrders.filter(o => o.status === "REJECTED");
+        const gross = bCompleted.reduce((acc, o) => acc + (o.total || 0), 0);
+        const food = bCompleted.reduce((acc, o) => acc + (o.subtotal || 0), 0);
+        const deliv = bCompleted.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
+        const cash = bCompleted.filter(o => o.paymentMethod === "CASH").reduce((acc, o) => acc + (o.total || 0), 0);
+        const elec = bCompleted.filter(o => o.paymentMethod !== "CASH").reduce((acc, o) => acc + (o.total || 0), 0);
+
+        rows.push([
+          b.name,
+          b.openingTime || "08:00",
+          b.closingTime || "22:00",
+          gross.toFixed(2),
+          food.toFixed(2),
+          deliv.toFixed(2),
+          cash.toFixed(2),
+          elec.toFixed(2),
+          bCompleted.length,
+          bRejected.length,
+          bOrders.length,
+        ]);
+      });
+    } else if (type === "drivers") {
+      filename = `كشف_حساب_الطيارين_والتوصيل_${dateTag}`;
+      rows = [
+        ["كشف حسابات وتصفية كباتن التوصيل (الطيارين) - UniFood"],
+        ["الفترة من", start.toLocaleString("ar-EG"), "إلى", end.toLocaleString("ar-EG")],
+        [],
+        [
+          "اسم كابتن التوصيل",
+          "رقم الهاتف",
+          "اسم المستخدم",
+          "عدد الطلبات المسلمة بنجاح",
+          "إجمالي مبالغ الطلبات (ج.م)",
+          "الكاش المحصل في يد الطيار (ج.م)",
+          "مبالغ الدفع الإلكتروني (ج.م)",
+          "إجمالي رسوم التوصيل المستحقة للطيار (أجرة التوصيل)",
+          "صافي الحساب (الكاش المطلوب تسليمه للإدارة)",
+        ],
+      ];
+
+      allDrivers.forEach(d => {
+        const dOrders = orders.filter(o => o.driverId === d.id);
+        const dCompleted = dOrders.filter(o => o.status === "COMPLETED");
+        const totalVal = dCompleted.reduce((acc, o) => acc + (o.total || 0), 0);
+        const cashInHand = dCompleted.filter(o => o.paymentMethod === "CASH").reduce((acc, o) => acc + (o.total || 0), 0);
+        const elecVal = dCompleted.filter(o => o.paymentMethod !== "CASH").reduce((acc, o) => acc + (o.total || 0), 0);
+        const fees = dCompleted.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
+        const net = cashInHand - fees;
+
+        rows.push([
+          d.name,
+          d.phone,
+          d.username,
+          dCompleted.length,
+          totalVal.toFixed(2),
+          cashInHand.toFixed(2),
+          elecVal.toFixed(2),
+          fees.toFixed(2),
+          net.toFixed(2),
+        ]);
+      });
+    } else if (type === "orders") {
+      filename = `سجل_طلبات_الفترة_${dateTag}`;
+      const pmMap: Record<string, string> = {
+        CASH: "كاش",
+        VODAFONE_CASH: "فودافون كاش",
+        INSTAPAY: "إنستاباي",
+        CARD: "فيزا",
+      };
+      const stMap: Record<string, string> = {
+        COMPLETED: "مكتمل",
+        REJECTED: "ملغي",
+        PENDING: "جديد",
+        ACCEPTED: "مقبول",
+        PREPARING: "قيد التجهيز",
+        READY: "جاهز",
+      };
+
+      rows = [
+        ["سجل كافة طلبات الفترة - UniFood"],
+        ["الفترة من", start.toLocaleString("ar-EG"), "إلى", end.toLocaleString("ar-EG")],
+        [],
+        [
+          "رقم الطلب",
+          "المطعم / الفرع",
+          "اسم العميل",
+          "رقم الهاتف",
+          "مكان ومبنى التسليم",
+          "طريقة الدفع",
+          "قيمة الوجبات (ج.م)",
+          "رسوم التوصيل (ج.م)",
+          "الخصم (ج.م)",
+          "الإجمالي الكلي (ج.م)",
+          "حالة الطلب",
+          "كابتن التوصيل",
+          "وقت إنشاء الطلب",
+          "وقت التسليم",
+        ],
+      ];
+
+      orders.forEach(o => {
+        rows.push([
+          `#${o.orderNumber}`,
+          o.branch?.name || "",
+          o.customerName,
+          o.customerPhone,
+          o.addressText || o.deliveryZoneName || "",
+          pmMap[o.paymentMethod] || o.paymentMethod,
+          (o.subtotal || 0).toFixed(2),
+          (o.deliveryFee || 0).toFixed(2),
+          ((o.discount || 0) + (o.walletDiscount || 0)).toFixed(2),
+          (o.total || 0).toFixed(2),
+          stMap[o.status] || o.status,
+          o.driver?.name || "غير مسند",
+          new Date(o.createdAt).toLocaleString("ar-EG"),
+          o.completedAt ? new Date(o.completedAt).toLocaleString("ar-EG") : "-",
+        ]);
+      });
+    }
+
+    const csvContent = rows
+      .map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\r\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}.csv"`);
+    res.send("\uFEFF" + csvContent);
+  } catch (error) {
+    console.error("Admin finance export-excel error:", error);
+    res.status(500).json({ error: "فشل تصدير ملف الإكسل" });
+  }
+});
+
 export default router;
 
 

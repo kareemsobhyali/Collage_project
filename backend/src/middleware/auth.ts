@@ -38,13 +38,18 @@ export function generateToken(payload: object, expiresIn: string = "30d"): strin
 
 // حماية مسارات العملاء والأدمن مع التحقق من عدم حظر الحساب
 export async function authenticateUser(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  let token: string | undefined;
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (req.query.token && typeof req.query.token === "string") {
+    token = req.query.token;
+  }
+
+  if (!token) {
     res.status(401).json({ error: "غير مصرح، يرجى تسجيل الدخول" });
     return;
   }
-
-  const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUserPayload;
     if (!decoded.userId) {

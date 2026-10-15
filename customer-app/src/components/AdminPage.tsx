@@ -748,9 +748,56 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  // Helper to generate direct server download URL for Mobile and Desktop
+  const getBackendExportUrl = (exportType: 'shifts' | 'drivers' | 'orders') => {
+    const token = localStorage.getItem('admin_token') || '';
+    const params = new URLSearchParams({
+      type: exportType,
+      branchId: financeBranchFilter || 'ALL',
+      shiftMode: financeShiftMode || 'SHIFT',
+      shiftDate: financeShiftDate || '',
+      startDate: financeStartDate || '',
+      endDate: financeEndDate || '',
+      token,
+    });
+    return `${API_BASE_URL}/admin/finance/export-excel?${params.toString()}`;
+  };
+
   // Helper to trigger Excel CSV download with UTF-8 BOM for perfect Arabic display on Desktop & Mobile
-  const downloadCsv = async (filename: string, rows: (string | number)[][]) => {
+  const downloadCsv = async (filename: string, rows: (string | number)[][], exportType?: 'shifts' | 'drivers' | 'orders') => {
     try {
+      // 1. Direct Server Download (Best & Most Reliable for Mobile Browsers, Android WebViews, and Desktop)
+      if (exportType) {
+        const serverDownloadUrl = getBackendExportUrl(exportType);
+
+        // A. Trigger direct anchor click
+        const link = document.createElement('a');
+        link.href = serverDownloadUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.setAttribute('download', `${filename}.csv`);
+        document.body.appendChild(link);
+        link.click();
+
+        setTimeout(() => {
+          if (document.body.contains(link)) {
+            document.body.removeChild(link);
+          }
+        }, 3000);
+
+        // B. On Mobile devices (Android / iOS), also trigger navigation as fallback
+        const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+        if (isMobile) {
+          setTimeout(() => {
+            try {
+              window.location.href = serverDownloadUrl;
+            } catch (_) {}
+          }, 400);
+        }
+        return;
+      }
+
+      // 2. Client-side fallback if no exportType was passed
       const csvContent = rows
         .map(row =>
           row
@@ -762,32 +809,10 @@ export const AdminPage: React.FC = () => {
         )
         .join('\r\n');
 
-      // UTF-8 BOM so Excel opens Arabic correctly
       const bom = '\uFEFF';
       const fullContent = bom + csvContent;
       const fullFilename = `${filename}.csv`;
 
-      // 1. Mobile Detection & Web Share API (Allows opening directly in Excel, WhatsApp, or Downloads on Android/iOS)
-      const isMobileDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-      if (isMobileDevice && typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
-        try {
-          const file = new File([fullContent], fullFilename, { type: 'text/csv;charset=utf-8' });
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              title: filename,
-              text: `تقرير إكسل: ${filename}`,
-              files: [file],
-            });
-            return;
-          }
-        } catch (shareErr: any) {
-          // If the user cancelled the native share sheet, stop gracefully
-          if (shareErr.name === 'AbortError') return;
-          console.warn('Native share failed, falling back to direct download:', shareErr);
-        }
-      }
-
-      // 2. Standard Blob Download with prolonged URL lifetime for mobile browsers
       const blob = new Blob([fullContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -797,8 +822,6 @@ export const AdminPage: React.FC = () => {
       document.body.appendChild(link);
       link.click();
 
-      // Mobile fix: Never revokeObjectURL immediately! Mobile Chrome & Safari download managers
-      // process object URLs asynchronously. Revoking after 45 seconds gives ample time.
       setTimeout(() => {
         try {
           if (document.body.contains(link)) {
@@ -809,7 +832,6 @@ export const AdminPage: React.FC = () => {
       }, 45000);
     } catch (err: any) {
       console.error('Download CSV error:', err);
-      // Fallback Data URI in case Blob creation or permissions failed
       try {
         const encodedUri = encodeURI(`data:text/csv;charset=utf-8,\uFEFF${rows.map(r => r.join(',')).join('\r\n')}`);
         const fallbackLink = document.createElement('a');
@@ -880,7 +902,7 @@ export const AdminPage: React.FC = () => {
     ]);
 
     const dateTag = new Date().toISOString().split('T')[0];
-    downloadCsv(`تقرير_شيفتات_ومبيعات_الفروع_${dateTag}`, rows);
+    downloadCsv(`تقرير_شيفتات_ومبيعات_الفروع_${dateTag}`, rows, 'shifts');
   };
 
   // 2. Export Delivery Drivers Settlements
@@ -918,7 +940,7 @@ export const AdminPage: React.FC = () => {
     });
 
     const dateTag = new Date().toISOString().split('T')[0];
-    downloadCsv(`كشف_حساب_الطيارين_والتوصيل_${dateTag}`, rows);
+    downloadCsv(`كشف_حساب_الطيارين_والتوصيل_${dateTag}`, rows, 'drivers');
   };
 
   // 3. Export All Orders Detail
@@ -981,7 +1003,7 @@ export const AdminPage: React.FC = () => {
     });
 
     const dateTag = new Date().toISOString().split('T')[0];
-    downloadCsv(`سجل_طلبات_الفترة_${dateTag}`, rows);
+    downloadCsv(`سجل_طلبات_الفترة_${dateTag}`, rows, 'orders');
   };
 
 
