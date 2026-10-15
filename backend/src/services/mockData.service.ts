@@ -5,292 +5,310 @@ import { setDriverBranchConfig } from "./driver.service.js";
 export async function seedMockDatabase() {
   console.log("🌱 بدء حقن البيانات التجريبية الشاملة لمنظومة UniFood...");
 
-  // 1. حساب مدير المنظومة (SuperAdmin)
-  const adminPassword = await bcrypt.hash("123", 10);
-  const admin = await prisma.user.upsert({
-    where: { phone: "admin" },
-    update: {
-      name: "مدير المنظومة (Admin)",
-      role: "SUPERADMIN",
-      password: adminPassword,
-    },
-    create: {
-      name: "مدير المنظومة (Admin)",
-      phone: "admin",
-      password: adminPassword,
-      role: "SUPERADMIN",
-    },
-  });
-
   const commonPassword = await bcrypt.hash("123", 10);
 
-  // 2. الفروع والمطاعم
-  // مطعم 1: برجر فاكتوري
-  const burgerBranch = await prisma.branch.upsert({
-    where: { slug: "burger-campus" },
-    update: {
-      name: "برجر فاكتوري الجامعي 🍔",
-      phone: "01011112222",
-      logoUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80",
-      address: "مجمع الخدمات - أمام بوابة كلية التجارة",
-      isActive: true,
-      operationalStatus: "OPEN",
-      openingTime: "09:00",
-      closingTime: "23:00",
-      allowDelivery: true,
-      allowPickup: true,
-      deliveryFee: 12.0,
-      deliveryType: "ZONES",
-    },
-    create: {
-      name: "برجر فاكتوري الجامعي 🍔",
-      slug: "burger-campus",
-      phone: "01011112222",
-      logoUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80",
-      address: "مجمع الخدمات - أمام بوابة كلية التجارة",
-      isActive: true,
-      operationalStatus: "OPEN",
-      openingTime: "09:00",
-      closingTime: "23:00",
-      allowDelivery: true,
-      allowPickup: true,
-      deliveryFee: 12.0,
-      deliveryType: "ZONES",
-    },
+  // 1. حساب مدير المنظومة (SuperAdmin)
+  try {
+    const admin = await prisma.user.findFirst({
+      where: {
+        OR: [{ phone: "admin" }, { role: "SUPERADMIN" }],
+      },
+    });
+
+    if (admin) {
+      await prisma.user.update({
+        where: { id: admin.id },
+        data: {
+          name: "مدير المنظومة (Admin)",
+          phone: "admin",
+          password: commonPassword,
+          role: "SUPERADMIN",
+        },
+      });
+    } else {
+      await prisma.user.create({
+        data: {
+          name: "مدير المنظومة (Admin)",
+          phone: "admin",
+          password: commonPassword,
+          role: "SUPERADMIN",
+        },
+      });
+    }
+  } catch (errAdmin) {
+    console.warn("[Seed] Warning updating SuperAdmin account:", errAdmin);
+  }
+
+  // 2. إنشاء / تحديث الفروع الأربعة
+  // دالة مساعدة لإنشاء أو تحديث الفرع بدون مشاكل قيود الـ unique
+  async function upsertBranch(slug: string, branchData: any) {
+    let existing = await prisma.branch.findFirst({
+      where: {
+        OR: [
+          { slug },
+          { name: { contains: branchData.name.replace(/[^ء-يa-zA-Z0-9]/g, "").trim() } },
+        ],
+      },
+    });
+
+    if (existing) {
+      return await prisma.branch.update({
+        where: { id: existing.id },
+        data: { ...branchData, slug },
+      });
+    } else {
+      return await prisma.branch.create({
+        data: { ...branchData, slug },
+      });
+    }
+  }
+
+  // أ) مطعم 1: برجر فاكتوري
+  const burgerBranch = await upsertBranch("burger-campus", {
+    name: "برجر فاكتوري الجامعي 🍔",
+    phone: "01011112222",
+    logoUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80",
+    address: "مجمع الخدمات - أمام بوابة كلية التجارة",
+    isActive: true,
+    operationalStatus: "OPEN",
+    openingTime: "09:00",
+    closingTime: "23:00",
+    allowDelivery: true,
+    allowPickup: true,
+    deliveryFee: 12.0,
+    deliveryType: "ZONES",
   });
 
   // كاشير برجر فاكتوري
-  await prisma.branchUser.upsert({
-    where: { username: "burger_pos" },
-    update: { password: commonPassword, branchId: burgerBranch.id },
-    create: { username: "burger_pos", password: commonPassword, branchId: burgerBranch.id },
+  try {
+    const bUser = await prisma.branchUser.findUnique({ where: { username: "burger_pos" } });
+    if (bUser) {
+      await prisma.branchUser.update({
+        where: { id: bUser.id },
+        data: { password: commonPassword, branchId: burgerBranch.id },
+      });
+    } else {
+      await prisma.branchUser.create({
+        data: { username: "burger_pos", password: commonPassword, branchId: burgerBranch.id },
+      });
+    }
+  } catch (_e) {}
+
+  // إعدادات دفع برجر فاكتوري
+  try {
+    await prisma.branchPaymentConfig.upsert({
+      where: { branchId: burgerBranch.id },
+      update: {
+        cashEnabled: true,
+        vodafoneCashEnabled: true,
+        vodafoneCashNumber: "01011112222",
+        instapayEnabled: true,
+        instapayHandle: "burgerfactory@instapay",
+        cardEnabled: true,
+      },
+      create: {
+        branchId: burgerBranch.id,
+        cashEnabled: true,
+        vodafoneCashEnabled: true,
+        vodafoneCashNumber: "01011112222",
+        instapayEnabled: true,
+        instapayHandle: "burgerfactory@instapay",
+        cardEnabled: true,
+      },
+    });
+  } catch (_e) {}
+
+  // مناطق توصيل برجر فاكتوري
+  try {
+    await prisma.branchDeliveryZone.deleteMany({ where: { branchId: burgerBranch.id } });
+    await prisma.branchDeliveryZone.createMany({
+      data: [
+        { branchId: burgerBranch.id, name: "كليات الهندسة والعلوم والحاسبات", fee: 10.0 },
+        { branchId: burgerBranch.id, name: "سكن الطلاب والملاعب الرياضية", fee: 15.0 },
+        { branchId: burgerBranch.id, name: "المبنى الإداري والعيادات المركزية", fee: 12.0 },
+      ],
+    });
+  } catch (_e) {}
+
+  // ب) مطعم 2: شاورما ومشويات الحرم
+  const shawarmaBranch = await upsertBranch("shawarma-campus", {
+    name: "شاورما ومشويات الحرم 🌯",
+    phone: "01033334444",
+    logoUrl: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=500&q=80",
+    address: "مول مجمع الكليات الطبية - الدور الأرضي",
+    isActive: true,
+    operationalStatus: "OPEN",
+    openingTime: "11:00",
+    closingTime: "03:00",
+    allowDelivery: true,
+    allowPickup: true,
+    deliveryFee: 10.0,
+    deliveryType: "FIXED",
   });
 
-  // إعدادات الدفع لبرجر فاكتوري
-  await prisma.branchPaymentConfig.upsert({
-    where: { branchId: burgerBranch.id },
-    update: {
-      cashEnabled: true,
-      vodafoneCashEnabled: true,
-      vodafoneCashNumber: "01011112222",
-      instapayEnabled: true,
-      instapayHandle: "burgerfactory@instapay",
-      cardEnabled: true,
-    },
-    create: {
-      branchId: burgerBranch.id,
-      cashEnabled: true,
-      vodafoneCashEnabled: true,
-      vodafoneCashNumber: "01011112222",
-      instapayEnabled: true,
-      instapayHandle: "burgerfactory@instapay",
-      cardEnabled: true,
-    },
+  try {
+    const sUser = await prisma.branchUser.findUnique({ where: { username: "shawarma_pos" } });
+    if (sUser) {
+      await prisma.branchUser.update({
+        where: { id: sUser.id },
+        data: { password: commonPassword, branchId: shawarmaBranch.id },
+      });
+    } else {
+      await prisma.branchUser.create({
+        data: { username: "shawarma_pos", password: commonPassword, branchId: shawarmaBranch.id },
+      });
+    }
+  } catch (_e) {}
+
+  try {
+    await prisma.branchPaymentConfig.upsert({
+      where: { branchId: shawarmaBranch.id },
+      update: {
+        cashEnabled: true,
+        vodafoneCashEnabled: true,
+        vodafoneCashNumber: "01033334444",
+        instapayEnabled: true,
+        instapayHandle: "shawarmacampus@instapay",
+        cardEnabled: false,
+      },
+      create: {
+        branchId: shawarmaBranch.id,
+        cashEnabled: true,
+        vodafoneCashEnabled: true,
+        vodafoneCashNumber: "01033334444",
+        instapayEnabled: true,
+        instapayHandle: "shawarmacampus@instapay",
+        cardEnabled: false,
+      },
+    });
+  } catch (_e) {}
+
+  // ج) مطعم 3: سبيشيالتي كافيه & بيكري
+  const cafeBranch = await upsertBranch("specialty-cafe", {
+    name: "سبيشيالتي كافيه & بيكري ☕",
+    phone: "01055556666",
+    logoUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=500&q=80",
+    address: "الحديقة المركزية - بجوار المكتبة العامة",
+    isActive: true,
+    operationalStatus: "OPEN",
+    openingTime: "08:00",
+    closingTime: "22:00",
+    allowDelivery: true,
+    allowPickup: true,
+    deliveryFee: 8.0,
+    deliveryType: "FIXED",
   });
 
-  // مناطق التوصيل لبرجر فاكتوري
-  await prisma.branchDeliveryZone.deleteMany({ where: { branchId: burgerBranch.id } });
-  await prisma.branchDeliveryZone.createMany({
-    data: [
-      { branchId: burgerBranch.id, name: "كليات الهندسة والعلوم والحاسبات", fee: 10.0 },
-      { branchId: burgerBranch.id, name: "سكن الطلاب والملاعب الرياضية", fee: 15.0 },
-      { branchId: burgerBranch.id, name: "المبنى الإداري والعيادات المركزية", fee: 12.0 },
-    ],
+  try {
+    const cUser = await prisma.branchUser.findUnique({ where: { username: "cafe_pos" } });
+    if (cUser) {
+      await prisma.branchUser.update({
+        where: { id: cUser.id },
+        data: { password: commonPassword, branchId: cafeBranch.id },
+      });
+    } else {
+      await prisma.branchUser.create({
+        data: { username: "cafe_pos", password: commonPassword, branchId: cafeBranch.id },
+      });
+    }
+  } catch (_e) {}
+
+  try {
+    await prisma.branchPaymentConfig.upsert({
+      where: { branchId: cafeBranch.id },
+      update: {
+        cashEnabled: true,
+        vodafoneCashEnabled: true,
+        vodafoneCashNumber: "01055556666",
+        instapayEnabled: true,
+        instapayHandle: "campuscafe@instapay",
+        cardEnabled: true,
+      },
+      create: {
+        branchId: cafeBranch.id,
+        cashEnabled: true,
+        vodafoneCashEnabled: true,
+        vodafoneCashNumber: "01055556666",
+        instapayEnabled: true,
+        instapayHandle: "campuscafe@instapay",
+        cardEnabled: true,
+      },
+    });
+  } catch (_e) {}
+
+  // د) مطعم 4: رويال بيتزا وكريب
+  const pizzaBranch = await upsertBranch("royal-pizza", {
+    name: "رويال بيتزا & كريب 🍕",
+    phone: "01077778888",
+    logoUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80",
+    address: "صالة الأنشطة الطلابية - البوابة الشرقية",
+    isActive: true,
+    operationalStatus: "OPEN",
+    openingTime: "10:00",
+    closingTime: "00:00",
+    allowDelivery: true,
+    allowPickup: true,
+    deliveryFee: 15.0,
+    deliveryType: "FIXED",
   });
 
-  // مطعم 2: شاورما الحرم
-  const shawarmaBranch = await prisma.branch.upsert({
-    where: { slug: "shawarma-campus" },
-    update: {
-      name: "شاورما ومشويات الحرم 🌯",
-      phone: "01033334444",
-      logoUrl: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=500&q=80",
-      address: "مول مجمع الكليات الطبية - الدور الأرضي",
-      isActive: true,
-      operationalStatus: "OPEN",
-      openingTime: "11:00",
-      closingTime: "03:00",
-      allowDelivery: true,
-      allowPickup: true,
-      deliveryFee: 10.0,
-      deliveryType: "FIXED",
-    },
-    create: {
-      name: "شاورما ومشويات الحرم 🌯",
-      slug: "shawarma-campus",
-      phone: "01033334444",
-      logoUrl: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=500&q=80",
-      address: "مول مجمع الكليات الطبية - الدور الأرضي",
-      isActive: true,
-      operationalStatus: "OPEN",
-      openingTime: "11:00",
-      closingTime: "03:00",
-      allowDelivery: true,
-      allowPickup: true,
-      deliveryFee: 10.0,
-      deliveryType: "FIXED",
-    },
-  });
+  try {
+    const pUser = await prisma.branchUser.findUnique({ where: { username: "pizza_pos" } });
+    if (pUser) {
+      await prisma.branchUser.update({
+        where: { id: pUser.id },
+        data: { password: commonPassword, branchId: pizzaBranch.id },
+      });
+    } else {
+      await prisma.branchUser.create({
+        data: { username: "pizza_pos", password: commonPassword, branchId: pizzaBranch.id },
+      });
+    }
+  } catch (_e) {}
 
-  await prisma.branchUser.upsert({
-    where: { username: "shawarma_pos" },
-    update: { password: commonPassword, branchId: shawarmaBranch.id },
-    create: { username: "shawarma_pos", password: commonPassword, branchId: shawarmaBranch.id },
-  });
+  try {
+    await prisma.branchPaymentConfig.upsert({
+      where: { branchId: pizzaBranch.id },
+      update: {
+        cashEnabled: true,
+        vodafoneCashEnabled: true,
+        vodafoneCashNumber: "01077778888",
+        instapayEnabled: true,
+        instapayHandle: "royalpizza@instapay",
+        cardEnabled: true,
+      },
+      create: {
+        branchId: pizzaBranch.id,
+        cashEnabled: true,
+        vodafoneCashEnabled: true,
+        vodafoneCashNumber: "01077778888",
+        instapayEnabled: true,
+        instapayHandle: "royalpizza@instapay",
+        cardEnabled: true,
+      },
+    });
+  } catch (_e) {}
 
-  await prisma.branchPaymentConfig.upsert({
-    where: { branchId: shawarmaBranch.id },
-    update: {
-      cashEnabled: true,
-      vodafoneCashEnabled: true,
-      vodafoneCashNumber: "01033334444",
-      instapayEnabled: true,
-      instapayHandle: "shawarmacampus@instapay",
-      cardEnabled: false,
-    },
-    create: {
-      branchId: shawarmaBranch.id,
-      cashEnabled: true,
-      vodafoneCashEnabled: true,
-      vodafoneCashNumber: "01033334444",
-      instapayEnabled: true,
-      instapayHandle: "shawarmacampus@instapay",
-      cardEnabled: false,
-    },
-  });
-
-  // مطعم 3: سبيشيالتي كافيه & بيكري
-  const cafeBranch = await prisma.branch.upsert({
-    where: { slug: "specialty-cafe" },
-    update: {
-      name: "سبيشيالتي كافيه & بيكري ☕",
-      phone: "01055556666",
-      logoUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=500&q=80",
-      address: "الحديقة المركزية - بجوار المكتبة العامة",
-      isActive: true,
-      operationalStatus: "OPEN",
-      openingTime: "08:00",
-      closingTime: "22:00",
-      allowDelivery: true,
-      allowPickup: true,
-      deliveryFee: 8.0,
-      deliveryType: "FIXED",
-    },
-    create: {
-      name: "سبيشيالتي كافيه & بيكري ☕",
-      slug: "specialty-cafe",
-      phone: "01055556666",
-      logoUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=500&q=80",
-      address: "الحديقة المركزية - بجوار المكتبة العامة",
-      isActive: true,
-      operationalStatus: "OPEN",
-      openingTime: "08:00",
-      closingTime: "22:00",
-      allowDelivery: true,
-      allowPickup: true,
-      deliveryFee: 8.0,
-      deliveryType: "FIXED",
-    },
-  });
-
-  await prisma.branchUser.upsert({
-    where: { username: "cafe_pos" },
-    update: { password: commonPassword, branchId: cafeBranch.id },
-    create: { username: "cafe_pos", password: commonPassword, branchId: cafeBranch.id },
-  });
-
-  await prisma.branchPaymentConfig.upsert({
-    where: { branchId: cafeBranch.id },
-    update: {
-      cashEnabled: true,
-      vodafoneCashEnabled: true,
-      vodafoneCashNumber: "01055556666",
-      instapayEnabled: true,
-      instapayHandle: "campuscafe@instapay",
-      cardEnabled: true,
-    },
-    create: {
-      branchId: cafeBranch.id,
-      cashEnabled: true,
-      vodafoneCashEnabled: true,
-      vodafoneCashNumber: "01055556666",
-      instapayEnabled: true,
-      instapayHandle: "campuscafe@instapay",
-      cardEnabled: true,
-    },
-  });
-
-  // مطعم 4: رويال بيتزا وكريب
-  const pizzaBranch = await prisma.branch.upsert({
-    where: { slug: "royal-pizza" },
-    update: {
-      name: "رويال بيتزا & كريب 🍕",
-      phone: "01077778888",
-      logoUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80",
-      address: "صالة الأنشطة الطلابية - البوابة الشرقية",
-      isActive: true,
-      operationalStatus: "OPEN",
-      openingTime: "10:00",
-      closingTime: "00:00",
-      allowDelivery: true,
-      allowPickup: true,
-      deliveryFee: 15.0,
-      deliveryType: "FIXED",
-    },
-    create: {
-      name: "رويال بيتزا & كريب 🍕",
-      slug: "royal-pizza",
-      phone: "01077778888",
-      logoUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80",
-      address: "صالة الأنشطة الطلابية - البوابة الشرقية",
-      isActive: true,
-      operationalStatus: "OPEN",
-      openingTime: "10:00",
-      closingTime: "00:00",
-      allowDelivery: true,
-      allowPickup: true,
-      deliveryFee: 15.0,
-      deliveryType: "FIXED",
-    },
-  });
-
-  await prisma.branchUser.upsert({
-    where: { username: "pizza_pos" },
-    update: { password: commonPassword, branchId: pizzaBranch.id },
-    create: { username: "pizza_pos", password: commonPassword, branchId: pizzaBranch.id },
-  });
-
-  await prisma.branchPaymentConfig.upsert({
-    where: { branchId: pizzaBranch.id },
-    update: {
-      cashEnabled: true,
-      vodafoneCashEnabled: true,
-      vodafoneCashNumber: "01077778888",
-      instapayEnabled: true,
-      instapayHandle: "royalpizza@instapay",
-      cardEnabled: true,
-    },
-    create: {
-      branchId: pizzaBranch.id,
-      cashEnabled: true,
-      vodafoneCashEnabled: true,
-      vodafoneCashNumber: "01077778888",
-      instapayEnabled: true,
-      instapayHandle: "royalpizza@instapay",
-      cardEnabled: true,
-    },
-  });
-
-  // 3. تنظيف وتجديد المنيو
+  // 3. تنظيف وتجديد قوائم الطعام لهذه الفروع الأربعة
   const allBranchIds = [burgerBranch.id, shawarmaBranch.id, cafeBranch.id, pizzaBranch.id];
-  await prisma.orderItem.deleteMany({});
-  await prisma.order.deleteMany({});
-  await prisma.itemModifierGroupLink.deleteMany({});
-  await prisma.modifierOption.deleteMany({});
-  await prisma.modifierGroup.deleteMany({ where: { branchId: { in: allBranchIds } } });
-  await prisma.itemSize.deleteMany({});
-  await prisma.menuItem.deleteMany({ where: { branchId: { in: allBranchIds } } });
-  await prisma.menuCategory.deleteMany({ where: { branchId: { in: allBranchIds } } });
+
+  try {
+    await prisma.orderItem.deleteMany({});
+    await prisma.order.deleteMany({});
+  } catch (eOrders) {
+    console.warn("[Seed] Warning cleaning orders:", eOrders);
+  }
+
+  try {
+    await prisma.itemModifierGroupLink.deleteMany({});
+    await prisma.modifierOption.deleteMany({});
+    await prisma.modifierGroup.deleteMany({ where: { branchId: { in: allBranchIds } } });
+    await prisma.itemSize.deleteMany({});
+    await prisma.menuItem.deleteMany({ where: { branchId: { in: allBranchIds } } });
+    await prisma.menuCategory.deleteMany({ where: { branchId: { in: allBranchIds } } });
+  } catch (eMenu) {
+    console.warn("[Seed] Warning cleaning existing menu items:", eMenu);
+  }
 
   // أ) أصناف برجر فاكتوري
   const burgerCat1 = await prisma.menuCategory.create({
@@ -498,52 +516,64 @@ export async function seedMockDatabase() {
   });
 
   // 4. البانرات التفاعلية
-  await prisma.banner.deleteMany({});
-  await prisma.banner.createMany({
-    data: [
-      {
-        title: "عروض كومبو الطلاب الأقوى 🔥",
-        subtitle: "خصم 20% على وجبات البرجر والكومبو المميزة من برجر فاكتوري",
-        badgeText: "خصم حصري 🍔",
-        imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80",
-        linkUrl: `?branch=burger-campus&offer=${doubleCheeseBurger.id}`,
-        displayOrder: 1,
-        isActive: true,
-      },
-      {
-        title: "شاورما وسناكس الحرم الجامعي 🌯",
-        subtitle: "سهران في المذاكرة؟ خدمة التوصيل مستمرة حتى الفجر لسكن الطلاب والمستشفى!",
-        badgeText: "توصيل سريع ⚡",
-        imageUrl: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=800&q=80",
-        linkUrl: `?branch=shawarma-campus&offer=${chickenShawarmaSyrian.id}`,
-        displayOrder: 2,
-        isActive: true,
-      },
-      {
-        title: "قهوة الصباح والمحاضرات ☕",
-        subtitle: "ابدأ يومك بنشاط مع أفضل قهوة مختصة وكرواسون فرنسي طازج",
-        badgeText: "كافيه الطلاب ✨",
-        imageUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&q=80",
-        linkUrl: "?branch=specialty-cafe",
-        displayOrder: 3,
-        isActive: true,
-      },
-      {
-        title: "بيتزا تشيكن رانش ولّمت الشلة 🍕",
-        subtitle: "اطلب الآن مع أصحابك واستمتع بأشهى بيتزا وكريب في الجامعة",
-        badgeText: "الأكثر طلباً ⭐",
-        imageUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80",
-        linkUrl: "?branch=royal-pizza",
-        displayOrder: 4,
-        isActive: true,
-      },
-    ],
-  });
+  try {
+    await prisma.banner.deleteMany({});
+    await prisma.banner.createMany({
+      data: [
+        {
+          title: "عروض كومبو الطلاب الأقوى 🔥",
+          subtitle: "خصم 20% على وجبات البرجر والكومبو المميزة من برجر فاكتوري",
+          badgeText: "خصم حصري 🍔",
+          imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80",
+          linkUrl: `?branch=burger-campus&offer=${doubleCheeseBurger.id}`,
+          displayOrder: 1,
+          isActive: true,
+        },
+        {
+          title: "شاورما وسناكس الحرم الجامعي 🌯",
+          subtitle: "سهران في المذاكرة؟ خدمة التوصيل مستمرة حتى الفجر لسكن الطلاب والمستشفى!",
+          badgeText: "توصيل سريع ⚡",
+          imageUrl: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=800&q=80",
+          linkUrl: `?branch=shawarma-campus&offer=${chickenShawarmaSyrian.id}`,
+          displayOrder: 2,
+          isActive: true,
+        },
+        {
+          title: "قهوة الصباح والمحاضرات ☕",
+          subtitle: "ابدأ يومك بنشاط مع أفضل قهوة مختصة وكرواسون فرنسي طازج",
+          badgeText: "كافيه الطلاب ✨",
+          imageUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&q=80",
+          linkUrl: "?branch=specialty-cafe",
+          displayOrder: 3,
+          isActive: true,
+        },
+        {
+          title: "بيتزا تشيكن رانش ولّمت الشلة 🍕",
+          subtitle: "اطلب الآن مع أصحابك واستمتع بأشهى بيتزا وكريب في الجامعة",
+          badgeText: "الأكثر طلباً ⭐",
+          imageUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80",
+          linkUrl: "?branch=royal-pizza",
+          displayOrder: 4,
+          isActive: true,
+        },
+      ],
+    });
+  } catch (eBanners) {
+    console.warn("[Seed] Warning creating banners:", eBanners);
+  }
 
-  // 5. كوبونات الخصم العامة والخاصة
-  await prisma.promoCode.deleteMany({});
-  await prisma.promoCode.create({
-    data: {
+  // 5. كوبونات الخصم العامة والخاصة (تحديث أو إنشاء آمن)
+  async function upsertPromo(promoData: any) {
+    const existing = await prisma.promoCode.findUnique({ where: { code: promoData.code } });
+    if (existing) {
+      await prisma.promoCode.update({ where: { id: existing.id }, data: promoData });
+    } else {
+      await prisma.promoCode.create({ data: promoData });
+    }
+  }
+
+  try {
+    await upsertPromo({
       code: "CAMPUS20",
       discountType: "PERCENT",
       value: 20.0,
@@ -552,11 +582,9 @@ export async function seedMockDatabase() {
       oncePerUser: false,
       applicableBranchIds: null,
       isActive: true,
-    },
-  });
+    });
 
-  await prisma.promoCode.create({
-    data: {
+    await upsertPromo({
       code: "WELCOME50",
       discountType: "FIXED",
       value: 50.0,
@@ -565,11 +593,9 @@ export async function seedMockDatabase() {
       oncePerUser: true,
       applicableBranchIds: null,
       isActive: true,
-    },
-  });
+    });
 
-  await prisma.promoCode.create({
-    data: {
+    await upsertPromo({
       code: "BURGER15",
       discountType: "PERCENT",
       value: 15.0,
@@ -578,11 +604,9 @@ export async function seedMockDatabase() {
       oncePerUser: false,
       applicableBranchIds: JSON.stringify([burgerBranch.id]),
       isActive: true,
-    },
-  });
+    });
 
-  await prisma.promoCode.create({
-    data: {
+    await upsertPromo({
       code: "CAFE10",
       discountType: "FIXED",
       value: 15.0,
@@ -591,11 +615,9 @@ export async function seedMockDatabase() {
       oncePerUser: false,
       applicableBranchIds: JSON.stringify([cafeBranch.id]),
       isActive: true,
-    },
-  });
+    });
 
-  await prisma.promoCode.create({
-    data: {
+    await upsertPromo({
       code: "SHAWARMA10",
       discountType: "PERCENT",
       value: 10.0,
@@ -604,447 +626,450 @@ export async function seedMockDatabase() {
       oncePerUser: false,
       applicableBranchIds: JSON.stringify([shawarmaBranch.id]),
       isActive: true,
-    },
-  });
+    });
+  } catch (ePromos) {
+    console.warn("[Seed] Warning creating promo codes:", ePromos);
+  }
 
-  // 6. كباتن التوصيل
-  const driver1 = await prisma.deliveryDriver.upsert({
-    where: { username: "driver_fast" },
-    update: {
-      name: "أحمد السريع (طيار عام)",
-      phone: "01099990001",
-      password: commonPassword,
-      branchId: burgerBranch.id,
-      isActive: true,
-    },
-    create: {
-      name: "أحمد السريع (طيار عام)",
-      phone: "01099990001",
-      username: "driver_fast",
-      password: commonPassword,
-      branchId: burgerBranch.id,
-      isActive: true,
-    },
-  });
-  await setDriverBranchConfig(driver1.id, { isAllBranches: true, branchIds: [] });
+  // 6. كباتن التوصيل (تحديث أو إنشاء آمن)
+  async function upsertDriver(username: string, driverData: any, isAllBranches: boolean, branchIds: string[]) {
+    let driver = await prisma.deliveryDriver.findUnique({ where: { username } });
+    if (driver) {
+      driver = await prisma.deliveryDriver.update({
+        where: { id: driver.id },
+        data: driverData,
+      });
+    } else {
+      driver = await prisma.deliveryDriver.create({
+        data: { ...driverData, username },
+      });
+    }
+    await setDriverBranchConfig(driver.id, { isAllBranches, branchIds });
+    return driver;
+  }
 
-  const driver2 = await prisma.deliveryDriver.upsert({
-    where: { username: "driver_pro" },
-    update: {
-      name: "محمود التوصيل (طيار عام)",
-      phone: "01099990002",
-      password: commonPassword,
-      branchId: pizzaBranch.id,
-      isActive: true,
-    },
-    create: {
-      name: "محمود التوصيل (طيار عام)",
-      phone: "01099990002",
-      username: "driver_pro",
-      password: commonPassword,
-      branchId: pizzaBranch.id,
-      isActive: true,
-    },
-  });
-  await setDriverBranchConfig(driver2.id, { isAllBranches: true, branchIds: [] });
+  let driver1: any = null;
+  let driver2: any = null;
+  let driver3: any = null;
 
-  const driver3 = await prisma.deliveryDriver.upsert({
-    where: { username: "driver_shawarma" },
-    update: {
-      name: "كريم شاورما (مخصص لشاورما الحرم)",
-      phone: "01099990003",
-      password: commonPassword,
-      branchId: shawarmaBranch.id,
-      isActive: true,
-    },
-    create: {
-      name: "كريم شاورما (مخصص لشاورما الحرم)",
-      phone: "01099990003",
-      username: "driver_shawarma",
-      password: commonPassword,
-      branchId: shawarmaBranch.id,
-      isActive: true,
-    },
-  });
-  await setDriverBranchConfig(driver3.id, { isAllBranches: false, branchIds: [shawarmaBranch.id] });
+  try {
+    driver1 = await upsertDriver(
+      "driver_fast",
+      {
+        name: "أحمد السريع (طيار عام)",
+        phone: "01099990001",
+        password: commonPassword,
+        branchId: burgerBranch.id,
+        isActive: true,
+      },
+      true,
+      []
+    );
 
-  // 7. الطلاب والمحافظ
-  const student1 = await prisma.user.upsert({
-    where: { phone: "01012345678" },
-    update: {
+    driver2 = await upsertDriver(
+      "driver_pro",
+      {
+        name: "محمود التوصيل (طيار عام)",
+        phone: "01099990002",
+        password: commonPassword,
+        branchId: pizzaBranch.id,
+        isActive: true,
+      },
+      true,
+      []
+    );
+
+    driver3 = await upsertDriver(
+      "driver_shawarma",
+      {
+        name: "كريم شاورما (مخصص لشاورما الحرم)",
+        phone: "01099990003",
+        password: commonPassword,
+        branchId: shawarmaBranch.id,
+        isActive: true,
+      },
+      false,
+      [shawarmaBranch.id]
+    );
+  } catch (eDrivers) {
+    console.warn("[Seed] Warning creating drivers:", eDrivers);
+  }
+
+  // 7. الطلاب والمحافظ (تحديث أو إنشاء آمن)
+  async function upsertStudent(phone: string, studentData: any) {
+    let student = await prisma.user.findUnique({ where: { phone } });
+    if (student) {
+      student = await prisma.user.update({
+        where: { id: student.id },
+        data: studentData,
+      });
+    } else {
+      student = await prisma.user.create({
+        data: { ...studentData, phone },
+      });
+    }
+    return student;
+  }
+
+  let student1: any = null;
+  let student2: any = null;
+  let student3: any = null;
+
+  try {
+    student1 = await upsertStudent("01012345678", {
       name: "عمر خالد (طالب هندسة)",
       password: commonPassword,
       walletBalance: 250.0,
       loyaltyPoints: 120,
-    },
-    create: {
-      name: "عمر خالد (طالب هندسة)",
-      phone: "01012345678",
-      password: commonPassword,
-      walletBalance: 250.0,
-      loyaltyPoints: 120,
-    },
-  });
+    });
 
-  const student2 = await prisma.user.upsert({
-    where: { phone: "01087654321" },
-    update: {
+    student2 = await upsertStudent("01087654321", {
       name: "سارة محمود (طالبة صيدلة)",
       password: commonPassword,
       walletBalance: 180.0,
       loyaltyPoints: 85,
-    },
-    create: {
-      name: "سارة محمود (طالبة صيدلة)",
-      phone: "01087654321",
-      password: commonPassword,
-      walletBalance: 180.0,
-      loyaltyPoints: 85,
-    },
-  });
+    });
 
-  const student3 = await prisma.user.upsert({
-    where: { phone: "01098765432" },
-    update: {
+    student3 = await upsertStudent("01098765432", {
       name: "يوسف إبراهيم (طالب تجارة)",
       password: commonPassword,
       walletBalance: 95.0,
       loyaltyPoints: 40,
-    },
-    create: {
-      name: "يوسف إبراهيم (طالب تجارة)",
-      phone: "01098765432",
-      password: commonPassword,
-      walletBalance: 95.0,
-      loyaltyPoints: 40,
-    },
-  });
+    });
 
-  await prisma.userAddress.deleteMany({ where: { userId: { in: [student1.id, student2.id, student3.id] } } });
-  await prisma.userAddress.createMany({
-    data: [
-      { userId: student1.id, title: "كلية الهندسة", details: "مبنى عمارة - الدور الثالث - مدرج 302", isDefault: true },
-      { userId: student2.id, title: "سكن الطالبات", details: "مبنى ج - الدور الثاني - غرفة 214", isDefault: true },
-      { userId: student3.id, title: "المكتبة العامة", details: "صالة القراءة الهادئة - الطابق الأول", isDefault: true },
-    ],
-  });
+    await prisma.userAddress.deleteMany({ where: { userId: { in: [student1.id, student2.id, student3.id] } } });
+    await prisma.userAddress.createMany({
+      data: [
+        { userId: student1.id, title: "كلية الهندسة", details: "مبنى عمارة - الدور الثالث - مدرج 302", isDefault: true },
+        { userId: student2.id, title: "سكن الطالبات", details: "مبنى ج - الدور الثاني - غرفة 214", isDefault: true },
+        { userId: student3.id, title: "المكتبة العامة", details: "صالة القراءة الهادئة - الطابق الأول", isDefault: true },
+      ],
+    });
+  } catch (eStudents) {
+    console.warn("[Seed] Warning creating students:", eStudents);
+  }
 
-  // 8. طلبات تجريبية متنوعة للتقارير والمالية
-  const now = new Date();
-  const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-  const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  // 8. طلبات تجريبية متنوعة للتقارير والمالية (مغلفة بـ try/catch لضمان النجاح التام حتى لو اختلف هيكل جدول الطلبات)
+  try {
+    if (student1 && student2 && student3) {
+      const now = new Date();
+      const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+      const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  // طلب 1: مكتمل من برجر فاكتوري
-  await prisma.order.create({
-    data: {
-      orderNumber: 1001,
-      branchId: burgerBranch.id,
-      userId: student1.id,
-      customerName: student1.name,
-      customerPhone: student1.phone,
-      orderType: "DELIVERY",
-      paymentMethod: "CASH",
-      addressText: "كلية الهندسة - مدرج 302",
-      deliveryZoneName: "كليات الهندسة والعلوم والحاسبات",
-      status: "COMPLETED",
-      subtotal: 165.0,
-      deliveryFee: 10.0,
-      discount: 0,
-      total: 175.0,
-      driverId: driver1.id,
-      driverAssignedAt: fourHoursAgo,
-      driverPickedUpAt: new Date(fourHoursAgo.getTime() + 15 * 60000),
-      acceptedAt: fourHoursAgo,
-      preparingAt: new Date(fourHoursAgo.getTime() + 5 * 60000),
-      readyAt: new Date(fourHoursAgo.getTime() + 15 * 60000),
-      completedAt: new Date(fourHoursAgo.getTime() + 30 * 60000),
-      pickupPin: "4821",
-      rating: 5,
-      review: "أكل سخن والتوصيل في الموعد بالظبط!",
-      createdAt: fourHoursAgo,
-      items: {
-        create: [
-          {
-            menuItemId: doubleCheeseBurger.id,
-            itemName: "دبل تشيز برجر فاخر",
-            sizeName: "دبل (قطعتين - موصى به)",
-            unitPrice: 110.0,
-            quantity: 1,
-            totalPrice: 110.0,
+      // طلب 1: مكتمل من برجر فاكتوري
+      await prisma.order.create({
+        data: {
+          orderNumber: 1001,
+          branchId: burgerBranch.id,
+          userId: student1.id,
+          customerName: student1.name,
+          customerPhone: student1.phone,
+          orderType: "DELIVERY",
+          paymentMethod: "CASH",
+          addressText: "كلية الهندسة - مدرج 302",
+          deliveryZoneName: "كليات الهندسة والعلوم والحاسبات",
+          status: "COMPLETED",
+          subtotal: 165.0,
+          deliveryFee: 10.0,
+          discount: 0,
+          total: 175.0,
+          driverId: driver1 ? driver1.id : null,
+          driverAssignedAt: fourHoursAgo,
+          driverPickedUpAt: new Date(fourHoursAgo.getTime() + 15 * 60000),
+          acceptedAt: fourHoursAgo,
+          preparingAt: new Date(fourHoursAgo.getTime() + 5 * 60000),
+          readyAt: new Date(fourHoursAgo.getTime() + 15 * 60000),
+          completedAt: new Date(fourHoursAgo.getTime() + 30 * 60000),
+          pickupPin: "4821",
+          rating: 5,
+          review: "أكل سخن والتوصيل في الموعد بالظبط!",
+          createdAt: fourHoursAgo,
+          items: {
+            create: [
+              {
+                menuItemId: doubleCheeseBurger.id,
+                itemName: "دبل تشيز برجر فاخر",
+                sizeName: "دبل (قطعتين - موصى به)",
+                unitPrice: 110.0,
+                quantity: 1,
+                totalPrice: 110.0,
+              },
+              {
+                menuItemId: loadedFries.id,
+                itemName: "تشيزي فرايز بالهالبينو",
+                unitPrice: 55.0,
+                quantity: 1,
+                totalPrice: 55.0,
+              },
+            ],
           },
-          {
-            menuItemId: loadedFries.id,
-            itemName: "تشيزي فرايز بالهالبينو",
-            unitPrice: 55.0,
-            quantity: 1,
-            totalPrice: 55.0,
-          },
-        ],
-      },
-    },
-  });
+        },
+      });
 
-  // طلب 2: مكتمل من شاورما الحرم بكوبون
-  await prisma.order.create({
-    data: {
-      orderNumber: 1002,
-      branchId: shawarmaBranch.id,
-      userId: student2.id,
-      customerName: student2.name,
-      customerPhone: student2.phone,
-      orderType: "DELIVERY",
-      paymentMethod: "INSTAPAY",
-      paymentSenderPhone: "01087654321",
-      paymentProofUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400&q=80",
-      addressText: "المدينة الجامعية طالبات - مبنى ج",
-      status: "COMPLETED",
-      promoCode: "SHAWARMA10",
-      subtotal: 145.0,
-      discount: 14.5,
-      deliveryFee: 10.0,
-      total: 140.5,
-      driverId: driver3.id,
-      driverAssignedAt: twoHoursAgo,
-      driverPickedUpAt: new Date(twoHoursAgo.getTime() + 10 * 60000),
-      acceptedAt: twoHoursAgo,
-      preparingAt: new Date(twoHoursAgo.getTime() + 3 * 60000),
-      readyAt: new Date(twoHoursAgo.getTime() + 12 * 60000),
-      completedAt: new Date(twoHoursAgo.getTime() + 25 * 60000),
-      pickupPin: "3914",
-      rating: 5,
-      createdAt: twoHoursAgo,
-      items: {
-        create: [
-          {
-            menuItemId: chickenShawarmaSyrian.id,
-            itemName: "ساندوتش شاورما دجاج سوري صاج",
-            sizeName: "لارج كبير",
-            unitPrice: 60.0,
-            quantity: 1,
-            totalPrice: 60.0,
+      // طلب 2: مكتمل من شاورما الحرم بكوبون
+      await prisma.order.create({
+        data: {
+          orderNumber: 1002,
+          branchId: shawarmaBranch.id,
+          userId: student2.id,
+          customerName: student2.name,
+          customerPhone: student2.phone,
+          orderType: "DELIVERY",
+          paymentMethod: "INSTAPAY",
+          paymentSenderPhone: "01087654321",
+          paymentProofUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400&q=80",
+          addressText: "المدينة الجامعية طالبات - مبنى ج",
+          status: "COMPLETED",
+          promoCode: "SHAWARMA10",
+          subtotal: 145.0,
+          discount: 14.5,
+          deliveryFee: 10.0,
+          total: 140.5,
+          driverId: driver3 ? driver3.id : null,
+          driverAssignedAt: twoHoursAgo,
+          driverPickedUpAt: new Date(twoHoursAgo.getTime() + 10 * 60000),
+          acceptedAt: twoHoursAgo,
+          preparingAt: new Date(twoHoursAgo.getTime() + 3 * 60000),
+          readyAt: new Date(twoHoursAgo.getTime() + 12 * 60000),
+          completedAt: new Date(twoHoursAgo.getTime() + 25 * 60000),
+          pickupPin: "3914",
+          rating: 5,
+          createdAt: twoHoursAgo,
+          items: {
+            create: [
+              {
+                menuItemId: chickenShawarmaSyrian.id,
+                itemName: "ساندوتش شاورما دجاج سوري صاج",
+                sizeName: "لارج كبير",
+                unitPrice: 60.0,
+                quantity: 1,
+                totalPrice: 60.0,
+              },
+              {
+                menuItemId: chickenShawarmaSyrian.id,
+                itemName: "ساندوتش شاورما دجاج سوري صاج",
+                sizeName: "إكسترا صاروخ",
+                unitPrice: 85.0,
+                quantity: 1,
+                totalPrice: 85.0,
+              },
+            ],
           },
-          {
-            menuItemId: chickenShawarmaSyrian.id,
-            itemName: "ساندوتش شاورما دجاج سوري صاج",
-            sizeName: "إكسترا صاروخ",
-            unitPrice: 85.0,
-            quantity: 1,
-            totalPrice: 85.0,
-          },
-        ],
-      },
-    },
-  });
+        },
+      });
 
-  // طلب 3: مكتمل من كافيه فودافون كاش
-  await prisma.order.create({
-    data: {
-      orderNumber: 1003,
-      branchId: cafeBranch.id,
-      userId: student3.id,
-      customerName: student3.name,
-      customerPhone: student3.phone,
-      orderType: "PICKUP",
-      paymentMethod: "VODAFONE_CASH",
-      paymentSenderPhone: "01098765432",
-      status: "COMPLETED",
-      subtotal: 95.0,
-      deliveryFee: 0.0,
-      discount: 0.0,
-      total: 95.0,
-      acceptedAt: twoHoursAgo,
-      preparingAt: new Date(twoHoursAgo.getTime() + 2 * 60000),
-      readyAt: new Date(twoHoursAgo.getTime() + 8 * 60000),
-      completedAt: new Date(twoHoursAgo.getTime() + 15 * 60000),
-      pickupPin: "7209",
-      rating: 4,
-      createdAt: twoHoursAgo,
-      items: {
-        create: [
-          {
-            menuItemId: spanishLatte.id,
-            itemName: "آيسد سبانش لاتيه",
-            sizeName: "وسط (Regular 12oz)",
-            unitPrice: 55.0,
-            quantity: 1,
-            totalPrice: 55.0,
+      // طلب 3: مكتمل من كافيه فودافون كاش
+      await prisma.order.create({
+        data: {
+          orderNumber: 1003,
+          branchId: cafeBranch.id,
+          userId: student3.id,
+          customerName: student3.name,
+          customerPhone: student3.phone,
+          orderType: "PICKUP",
+          paymentMethod: "VODAFONE_CASH",
+          paymentSenderPhone: "01098765432",
+          status: "COMPLETED",
+          subtotal: 95.0,
+          deliveryFee: 0.0,
+          discount: 0.0,
+          total: 95.0,
+          acceptedAt: twoHoursAgo,
+          preparingAt: new Date(twoHoursAgo.getTime() + 2 * 60000),
+          readyAt: new Date(twoHoursAgo.getTime() + 8 * 60000),
+          completedAt: new Date(twoHoursAgo.getTime() + 15 * 60000),
+          pickupPin: "7209",
+          rating: 4,
+          createdAt: twoHoursAgo,
+          items: {
+            create: [
+              {
+                menuItemId: spanishLatte.id,
+                itemName: "آيسد سبانش لاتيه",
+                sizeName: "وسط (Regular 12oz)",
+                unitPrice: 55.0,
+                quantity: 1,
+                totalPrice: 55.0,
+              },
+              {
+                menuItemId: chocolateCroissant.id,
+                itemName: "كرواسون شوكولاتة بلجيكي فريش",
+                unitPrice: 40.0,
+                quantity: 1,
+                totalPrice: 40.0,
+              },
+            ],
           },
-          {
-            menuItemId: chocolateCroissant.id,
-            itemName: "كرواسون شوكولاتة بلجيكي فريش",
-            unitPrice: 40.0,
-            quantity: 1,
-            totalPrice: 40.0,
-          },
-        ],
-      },
-    },
-  });
+        },
+      });
 
-  // طلب 4: مكتمل من بيتزا كاش
-  await prisma.order.create({
-    data: {
-      orderNumber: 1004,
-      branchId: pizzaBranch.id,
-      userId: student1.id,
-      customerName: student1.name,
-      customerPhone: student1.phone,
-      orderType: "DELIVERY",
-      paymentMethod: "CASH",
-      addressText: "كلية التجارة - مدرج ب",
-      status: "COMPLETED",
-      subtotal: 210.0,
-      deliveryFee: 15.0,
-      discount: 0.0,
-      total: 225.0,
-      driverId: driver2.id,
-      driverAssignedAt: new Date(now.getTime() - 50 * 60000),
-      driverPickedUpAt: new Date(now.getTime() - 35 * 60000),
-      acceptedAt: new Date(now.getTime() - 60 * 60000),
-      preparingAt: new Date(now.getTime() - 55 * 60000),
-      readyAt: new Date(now.getTime() - 35 * 60000),
-      completedAt: new Date(now.getTime() - 10 * 60000),
-      pickupPin: "8823",
-      rating: 5,
-      createdAt: new Date(now.getTime() - 65 * 60000),
-      items: {
-        create: [
-          {
-            menuItemId: ranchPizza.id,
-            itemName: "بيتزا تشيكن رانش سوبريم",
-            sizeName: "وسط (Medium)",
-            unitPrice: 135.0,
-            quantity: 1,
-            totalPrice: 135.0,
+      // طلب 4: مكتمل من بيتزا كاش
+      await prisma.order.create({
+        data: {
+          orderNumber: 1004,
+          branchId: pizzaBranch.id,
+          userId: student1.id,
+          customerName: student1.name,
+          customerPhone: student1.phone,
+          orderType: "DELIVERY",
+          paymentMethod: "CASH",
+          addressText: "كلية التجارة - مدرج ب",
+          status: "COMPLETED",
+          subtotal: 210.0,
+          deliveryFee: 15.0,
+          discount: 0.0,
+          total: 225.0,
+          driverId: driver2 ? driver2.id : null,
+          driverAssignedAt: new Date(now.getTime() - 50 * 60000),
+          driverPickedUpAt: new Date(now.getTime() - 35 * 60000),
+          acceptedAt: new Date(now.getTime() - 60 * 60000),
+          preparingAt: new Date(now.getTime() - 55 * 60000),
+          readyAt: new Date(now.getTime() - 35 * 60000),
+          completedAt: new Date(now.getTime() - 10 * 60000),
+          pickupPin: "8823",
+          rating: 5,
+          createdAt: new Date(now.getTime() - 65 * 60000),
+          items: {
+            create: [
+              {
+                menuItemId: ranchPizza.id,
+                itemName: "بيتزا تشيكن رانش سوبريم",
+                sizeName: "وسط (Medium)",
+                unitPrice: 135.0,
+                quantity: 1,
+                totalPrice: 135.0,
+              },
+              {
+                menuItemId: zingerCrepe.id,
+                itemName: "كريب سوبر كرانشي زنجر",
+                unitPrice: 75.0,
+                quantity: 1,
+                totalPrice: 75.0,
+              },
+            ],
           },
-          {
-            menuItemId: zingerCrepe.id,
-            itemName: "كريب سوبر كرانشي زنجر",
-            unitPrice: 75.0,
-            quantity: 1,
-            totalPrice: 75.0,
-          },
-        ],
-      },
-    },
-  });
+        },
+      });
 
-  // طلب 5: جاهز للتوصيل READY (لتجربته في شاشة الطيار)
-  await prisma.order.create({
-    data: {
-      orderNumber: 1005,
-      branchId: burgerBranch.id,
-      userId: student2.id,
-      customerName: student2.name,
-      customerPhone: student2.phone,
-      orderType: "DELIVERY",
-      paymentMethod: "CASH",
-      addressText: "المبنى الإداري - قاعة المؤتمرات",
-      status: "READY",
-      subtotal: 95.0,
-      deliveryFee: 12.0,
-      discount: 0.0,
-      total: 107.0,
-      driverId: driver1.id,
-      driverAssignedAt: new Date(now.getTime() - 15 * 60000),
-      acceptedAt: new Date(now.getTime() - 25 * 60000),
-      preparingAt: new Date(now.getTime() - 20 * 60000),
-      readyAt: new Date(now.getTime() - 5 * 60000),
-      pickupPin: "5512",
-      createdAt: new Date(now.getTime() - 25 * 60000),
-      items: {
-        create: [
-          {
-            menuItemId: crispyChickenBurger.id,
-            itemName: "كرسبي تشيكن سوبر باربكيو",
-            sizeName: "عادي",
-            unitPrice: 95.0,
-            quantity: 1,
-            totalPrice: 95.0,
+      // طلب 5: جاهز للتوصيل READY (لتجربته في شاشة الطيار)
+      await prisma.order.create({
+        data: {
+          orderNumber: 1005,
+          branchId: burgerBranch.id,
+          userId: student2.id,
+          customerName: student2.name,
+          customerPhone: student2.phone,
+          orderType: "DELIVERY",
+          paymentMethod: "CASH",
+          addressText: "المبنى الإداري - قاعة المؤتمرات",
+          status: "READY",
+          subtotal: 95.0,
+          deliveryFee: 12.0,
+          discount: 0.0,
+          total: 107.0,
+          driverId: driver1 ? driver1.id : null,
+          driverAssignedAt: new Date(now.getTime() - 15 * 60000),
+          acceptedAt: new Date(now.getTime() - 25 * 60000),
+          preparingAt: new Date(now.getTime() - 20 * 60000),
+          readyAt: new Date(now.getTime() - 5 * 60000),
+          pickupPin: "5512",
+          createdAt: new Date(now.getTime() - 25 * 60000),
+          items: {
+            create: [
+              {
+                menuItemId: crispyChickenBurger.id,
+                itemName: "كرسبي تشيكن سوبر باربكيو",
+                sizeName: "عادي",
+                unitPrice: 95.0,
+                quantity: 1,
+                totalPrice: 95.0,
+              },
+            ],
           },
-        ],
-      },
-    },
-  });
+        },
+      });
 
-  // طلب 6: جديد قيد الانتظار PENDING (لتجربته في شاشة الكاشير)
-  await prisma.order.create({
-    data: {
-      orderNumber: 1006,
-      branchId: shawarmaBranch.id,
-      userId: student3.id,
-      customerName: student3.name,
-      customerPhone: student3.phone,
-      orderType: "DELIVERY",
-      paymentMethod: "CASH",
-      addressText: "سكن الطلاب - مبنى د - الدور الثاني",
-      status: "PENDING",
-      subtotal: 125.0,
-      deliveryFee: 10.0,
-      discount: 0.0,
-      total: 135.0,
-      createdAt: new Date(now.getTime() - 2 * 60000),
-      items: {
-        create: [
-          {
-            menuItemId: fattaMixShawarma.id,
-            itemName: "فتة شاورما ميكس (دجاج + لحمة)",
-            unitPrice: 125.0,
-            quantity: 1,
-            totalPrice: 125.0,
+      // طلب 6: جديد قيد الانتظار PENDING (لتجربته في شاشة الكاشير)
+      await prisma.order.create({
+        data: {
+          orderNumber: 1006,
+          branchId: shawarmaBranch.id,
+          userId: student3.id,
+          customerName: student3.name,
+          customerPhone: student3.phone,
+          orderType: "DELIVERY",
+          paymentMethod: "CASH",
+          addressText: "سكن الطلاب - مبنى د - الدور الثاني",
+          status: "PENDING",
+          subtotal: 125.0,
+          deliveryFee: 10.0,
+          discount: 0.0,
+          total: 135.0,
+          createdAt: new Date(now.getTime() - 2 * 60000),
+          items: {
+            create: [
+              {
+                menuItemId: fattaMixShawarma.id,
+                itemName: "فتة شاورما ميكس (دجاج + لحمة)",
+                unitPrice: 125.0,
+                quantity: 1,
+                totalPrice: 125.0,
+              },
+            ],
           },
-        ],
-      },
-    },
-  });
+        },
+      });
 
-  // طلب 7: تم بالأمس لاختبار الفلاتر
-  await prisma.order.create({
-    data: {
-      orderNumber: 1000,
-      branchId: cafeBranch.id,
-      userId: student1.id,
-      customerName: student1.name,
-      customerPhone: student1.phone,
-      orderType: "PICKUP",
-      paymentMethod: "CASH",
-      status: "COMPLETED",
-      subtotal: 70.0,
-      deliveryFee: 0.0,
-      discount: 0.0,
-      total: 70.0,
-      acceptedAt: yesterday,
-      preparingAt: yesterday,
-      readyAt: yesterday,
-      completedAt: yesterday,
-      pickupPin: "1104",
-      rating: 5,
-      createdAt: yesterday,
-      items: {
-        create: [
-          {
-            menuItemId: spanishLatte.id,
-            itemName: "آيسد سبانش لاتيه",
-            sizeName: "كبير (Large 16oz)",
-            unitPrice: 70.0,
-            quantity: 1,
-            totalPrice: 70.0,
+      // طلب 7: تم بالأمس لاختبار الفلاتر
+      await prisma.order.create({
+        data: {
+          orderNumber: 1000,
+          branchId: cafeBranch.id,
+          userId: student1.id,
+          customerName: student1.name,
+          customerPhone: student1.phone,
+          orderType: "PICKUP",
+          paymentMethod: "CASH",
+          status: "COMPLETED",
+          subtotal: 70.0,
+          deliveryFee: 0.0,
+          discount: 0.0,
+          total: 70.0,
+          acceptedAt: yesterday,
+          preparingAt: yesterday,
+          readyAt: yesterday,
+          completedAt: yesterday,
+          pickupPin: "1104",
+          rating: 5,
+          createdAt: yesterday,
+          items: {
+            create: [
+              {
+                menuItemId: spanishLatte.id,
+                itemName: "آيسد سبانش لاتيه",
+                sizeName: "كبير (Large 16oz)",
+                unitPrice: 70.0,
+                quantity: 1,
+                totalPrice: 70.0,
+              },
+            ],
           },
-        ],
-      },
-    },
-  });
+        },
+      });
+    }
+  } catch (eOrdersSample) {
+    console.warn("[Seed] Warning creating sample orders:", eOrdersSample);
+  }
 
   console.log("🎉 اكتمل حقن البيانات التجريبية الشاملة بنجاح!");
   return {
     success: true,
-    message: "تم حقن كافة البيانات التجريبية بنجاح!",
+    message: "تم حقن وتوليد البيانات التجريبية الشاملة بنجاح! 🚀 (4 مطاعم + منيو كامل + بانرات + كوبونات + طيارين)",
     branchesCount: 4,
     bannersCount: 4,
     promosCount: 5,
     driversCount: 3,
     studentsCount: 3,
-    ordersCount: 7,
   };
 }

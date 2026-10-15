@@ -2088,9 +2088,9 @@ router.post("/seed-mock-data", async (_req: AuthRequest, res: Response) => {
     notifyBannersUpdated();
     notifyPromosUpdated();
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Admin seed-mock-data error:", error);
-    res.status(500).json({ error: "فشل حقن البيانات التجريبية" });
+    res.status(500).json({ error: error?.message || "فشل حقن البيانات التجريبية" });
   }
 });
 
