@@ -351,10 +351,66 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     (cat) => Array.isArray(cat.items) && cat.items.length > 0
   );
 
-  const displayedCategories =
-    activeCategoryId === 'ALL'
-      ? nonEmptyCategories
-      : nonEmptyCategories.filter((c) => c.id === activeCategoryId);
+  // عرض كافة الأقسام دائماً في الصفحة دون إخفاء أي قسم
+  const displayedCategories = nonEmptyCategories;
+
+  const isManualScrolling = useRef<boolean>(false);
+
+  // التمرير السلس إلى القسم المطلوب عند الضغط عليه دون إخفاء باقي الأقسام
+  const handleCategoryClick = (catId: string) => {
+    setActiveCategoryId(catId);
+    isManualScrolling.current = true;
+
+    if (catId === 'ALL') {
+      const topTarget = document.getElementById('menu-categories-top') || document.getElementById(`category-section-${nonEmptyCategories[0]?.id}`);
+      if (topTarget) {
+        topTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      const target = document.getElementById(`category-section-${catId}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    const pill = document.getElementById(`pill-${catId}`);
+    pill?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+
+    setTimeout(() => {
+      isManualScrolling.current = false;
+    }, 800);
+  };
+
+  // مراقبة السكرول التلقائي لتحديد وتنشيط القسم المعروض أمام المستخدم حالياً
+  useEffect(() => {
+    if (nonEmptyCategories.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isManualScrolling.current) return;
+        const visibleEntry = entries.find((e) => e.isIntersecting);
+        if (visibleEntry) {
+          const catId = visibleEntry.target.getAttribute('data-category-id');
+          if (catId) {
+            setActiveCategoryId(catId);
+            const pill = document.getElementById(`pill-${catId}`);
+            pill?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+          }
+        }
+      },
+      {
+        rootMargin: '-80px 0px -60% 0px',
+        threshold: 0.1,
+      }
+    );
+
+    nonEmptyCategories.forEach((cat) => {
+      const el = document.getElementById(`category-section-${cat.id}`);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [nonEmptyCategories]);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -380,7 +436,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   };
 
   return (
-    <div className="space-y-5 pb-36 w-full max-w-full overflow-x-hidden">
+    <div className="space-y-5 pb-36 w-full max-w-full overflow-x-clip">
       {/* Top Navigation & Branch Info */}
       <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
@@ -463,7 +519,8 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         {nonEmptyCategories.length > 0 && (
           <div className="flex items-center gap-2 overflow-x-auto pt-2.5 border-t border-slate-100 no-scrollbar">
             <button
-              onClick={() => setActiveCategoryId('ALL')}
+              id="pill-ALL"
+              onClick={() => handleCategoryClick('ALL')}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                 activeCategoryId === 'ALL'
                   ? 'bg-indigo-600 text-white shadow-sm'
@@ -475,7 +532,8 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             {nonEmptyCategories.map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => setActiveCategoryId(cat.id)}
+                id={`pill-${cat.id}`}
+                onClick={() => handleCategoryClick(cat.id)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                   activeCategoryId === cat.id
                     ? 'bg-indigo-600 text-white shadow-sm'
@@ -548,14 +606,20 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
           <p className="text-xs text-slate-500 mt-1">سيتم عرض الأصناف هنا فور إضافتها من إدارة المطعم</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div id="menu-categories-top" className="space-y-6">
           {displayedCategories.map((cat) => (
-            <CategoryCarousel
+            <div
               key={cat.id}
-              category={cat}
-              isBranchOpen={isBranchOpen}
-              onItemClick={handleItemSelection}
-            />
+              id={`category-section-${cat.id}`}
+              data-category-id={cat.id}
+              className="scroll-mt-24 sm:scroll-mt-28"
+            >
+              <CategoryCarousel
+                category={cat}
+                isBranchOpen={isBranchOpen}
+                onItemClick={handleItemSelection}
+              />
+            </div>
           ))}
         </div>
       )}

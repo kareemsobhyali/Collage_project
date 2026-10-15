@@ -2002,7 +2002,7 @@ export const AdminPage: React.FC = () => {
         )}
 
         {/* 3. Navigation Tabs Bar */}
-        <div className="border-b border-slate-800 pb-2">
+        <div className="hidden sm:block border-b border-slate-800 pb-2">
           {/* Scroll Navigation Buttons for Desktop / Tablet */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
@@ -2223,89 +2223,117 @@ export const AdminPage: React.FC = () => {
                 return (
                   <div
                     key={branch.id}
-                    className={`p-5 rounded-2xl border transition-all bg-slate-900/60 ${
+                    className={`p-4 sm:p-5 rounded-2xl border transition-all bg-slate-900/70 shadow-sm ${
                       branch.isActive 
                         ? 'border-slate-800 hover:border-slate-700' 
-                        : 'border-rose-950/40 bg-slate-950/40 opacity-75'
+                        : 'border-rose-950/40 bg-slate-950/40 opacity-80'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-3">
+                    {/* Header: Logo + Info + Actions */}
+                    <div className="flex items-start justify-between gap-3 mb-3.5">
+                      {/* Right Side: Logo & Info */}
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
                         {branch.logoUrl ? (
                           <img
                             src={getFullImageUrl(branch.logoUrl)}
                             alt={branch.name}
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-700 shrink-0 bg-slate-800"
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-700 shrink-0 bg-slate-800 shadow-sm"
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-xl bg-purple-950/60 border border-purple-800/80 flex items-center justify-center text-purple-400 shrink-0">
                             <Store className="w-6 h-6" />
                           </div>
                         )}
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-black text-base text-white">{branch.name}</h3>
+
+                        <div className="min-w-0 flex-1">
+                          {/* Branch Title & Status Badge */}
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <h3 className="font-black text-base text-white leading-tight">
+                              {branch.name}
+                            </h3>
                             {branch.isActive ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 shrink-0">
                                 نشط
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800 shrink-0">
                                 معطل
                               </span>
                             )}
-                            {branch.slug && (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-purple-950/80 text-purple-300 border border-purple-800" dir="ltr">
+                          </div>
+
+                          {/* Slug pill - on its own clean line */}
+                          {branch.slug && (
+                            <div className="mb-1.5">
+                              <span 
+                                className="inline-block px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-purple-950/70 text-purple-300 border border-purple-800/80 whitespace-nowrap"
+                                dir="ltr"
+                              >
                                 ?branch={branch.slug}
                               </span>
+                            </div>
+                          )}
+
+                          {/* Address and Phone */}
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+                            {branch.address && (
+                              <span className="flex items-center gap-1 min-w-0">
+                                <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <span className="truncate max-w-[200px]">{branch.address}</span>
+                              </span>
+                            )}
+                            {branch.phone && (
+                              <a 
+                                href={`tel:${branch.phone}`} 
+                                className="flex items-center gap-1 font-mono hover:text-purple-300 transition-colors shrink-0"
+                              >
+                                <Phone className="w-3.5 h-3.5 text-slate-500" />
+                                <span>{branch.phone}</span>
+                              </a>
                             )}
                           </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
-                          {branch.address && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                              <span>{branch.address}</span>
-                            </span>
-                          )}
-                          {branch.phone && (
-                            <a href={`tel:${branch.phone}`} className="flex items-center gap-1 font-mono hover:text-purple-300 transition-colors">
-                              <Phone className="w-3.5 h-3.5 text-slate-500" />
-                              <span>{branch.phone}</span>
-                            </a>
-                          )}
                         </div>
                       </div>
+
+                      {/* Left Side: Header Controls (Toggle Active + Delete) */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => handleToggleStatus(branch.id, branch.isActive)}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                            branch.isActive
+                              ? 'bg-emerald-950/60 text-emerald-400 hover:bg-emerald-900 border border-emerald-800'
+                              : 'bg-rose-950/60 text-rose-400 hover:bg-rose-900 border border-rose-800'
+                          }`}
+                          title={branch.isActive ? 'إيقاف الفرع مؤقتاً' : 'تفعيل الفرع'}
+                        >
+                          <Power className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteBranch(branch)}
+                          className="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl border border-transparent hover:border-rose-900 transition-colors"
+                          title="حذف الفرع"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
-                      {/* Quick Toggle Switch */}
-                      <button
-                        onClick={() => handleToggleStatus(branch.id, branch.isActive)}
-                        className={`p-2 rounded-xl transition-all ${
-                          branch.isActive
-                            ? 'bg-emerald-950/60 text-emerald-400 hover:bg-emerald-900 border border-emerald-800'
-                            : 'bg-rose-950/60 text-rose-400 hover:bg-rose-900 border border-rose-800'
-                        }`}
-                        title={branch.isActive ? 'إيقاف الفرع مؤقتاً' : 'تفعيل الفرع'}
-                      >
-                        <Power className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Meta info */}
-                    <div className="grid grid-cols-2 gap-2 p-3 bg-slate-950/60 rounded-xl text-xs mb-3 font-mono border border-slate-900">
-                      <div>
-                        <span className="text-slate-500 block text-[10px] font-sans">رسوم التوصيل:</span>
+                    {/* Meta info grid */}
+                    <div className="grid grid-cols-2 gap-2 p-2.5 sm:p-3 bg-slate-950/60 rounded-xl text-xs mb-3 font-mono border border-slate-900">
+                      <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                        <span className="text-slate-500 block text-[10px] font-sans mb-0.5">رسوم التوصيل:</span>
                         <span className="font-bold text-slate-200">{branch.deliveryFee} ج.م</span>
                       </div>
-                      <div>
-                        <span className="text-slate-500 block text-[10px] font-sans">يوزر الديسكتوب:</span>
-                        <span className="font-bold text-purple-400">{user?.username || 'غير معين'}</span>
+                      <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                        <span className="text-slate-500 block text-[10px] font-sans mb-0.5">يوزر الديسكتوب:</span>
+                        <span className="font-bold text-purple-400 truncate block">{user?.username || 'غير معين'}</span>
                       </div>
                     </div>
 
                     {/* Payment methods badges */}
-                    <div className="flex flex-wrap items-center gap-1.5 mb-4">
-                      <span className="text-[10px] text-slate-500 font-bold ml-1">طرق الدفع:</span>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-3.5 bg-slate-950/40 p-2 rounded-xl border border-slate-900/60">
+                      <span className="text-[10px] text-slate-500 font-bold ml-1 shrink-0">طرق الدفع:</span>
                       {payment?.cashEnabled && (
                         <span className="px-2 py-0.5 rounded-lg text-[10px] bg-slate-800 text-slate-300 font-bold">
                           كاش
@@ -2326,35 +2354,38 @@ export const AdminPage: React.FC = () => {
                           فيزا/بطاقة
                         </span>
                       )}
+                      {!payment?.cashEnabled && !payment?.vodafoneCashEnabled && !payment?.instapayEnabled && !payment?.cardEnabled && (
+                        <span className="text-[10px] text-slate-600 italic">لم تحدد بعد</span>
+                      )}
                     </div>
 
-                    {/* Action buttons */}
-                    <div className="flex flex-wrap items-center justify-between pt-3 border-t border-slate-800 gap-2">
-                      <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Action buttons (Clean responsive grid) */}
+                    <div className="pt-3 border-t border-slate-800">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button
                           onClick={() => handleOpenEditBranch(branch)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-colors"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
                           title="تعديل بيانات الفرع"
                         >
-                          <Edit2 className="w-3.5 h-3.5 text-sky-400" />
+                          <Edit2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                           <span>تعديل</span>
                         </button>
 
                         <button
                           onClick={() => handleOpenPaymentSettings(branch)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-colors"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
                           title="تخصيص طرق الدفع"
                         >
-                          <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                          <CreditCard className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                           <span>طرق الدفع</span>
                         </button>
 
                         <button
                           onClick={() => handleOpenCredentials(branch)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-colors"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
                           title="تغيير يوزر وباسورد الديسكتوب"
                         >
-                          <Key className="w-3.5 h-3.5 text-purple-400" />
+                          <Key className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                           <span>دخول الديسكتوب</span>
                         </button>
 
@@ -2365,21 +2396,13 @@ export const AdminPage: React.FC = () => {
                             navigator.clipboard.writeText(link);
                             alert(`تم نسخ رابط الطلب المباشر لمطعم (${branch.name}) بنجاح:\n${link}`);
                           }}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-purple-950/70 hover:bg-purple-900/80 text-purple-300 border border-purple-800/80 rounded-lg text-xs font-bold transition-colors"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-950/70 hover:bg-purple-900/80 text-purple-300 border border-purple-800/80 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
                           title="نسخ الرابط المباشر للمطعم لمشاركته على السوشيال ميديا أو وضعه في بانر"
                         >
-                          <Share2 className="w-3.5 h-3.5" />
+                          <Share2 className="w-3.5 h-3.5 shrink-0" />
                           <span>رابط مباشر</span>
                         </button>
                       </div>
-
-                      <button
-                        onClick={() => handleDeleteBranch(branch)}
-                        className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors"
-                        title="حذف الفرع"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
                 );
