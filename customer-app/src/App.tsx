@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { 
   Store, 
@@ -124,6 +124,7 @@ export function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activationToast, setActivationToast] = useState<string | null>(null);
+  const [showExitAppDialog, setShowExitAppDialog] = useState(false);
 
   // قفل تمرير الشاشة الخلفية تلقائياً عند فتح أي نافذة منبثقة (Scroll Lock)
   const isAnyModalOpen = Boolean(
@@ -133,28 +134,155 @@ export function App() {
     showProfileModal ||
     trackingOrder ||
     showMyOrdersModal ||
-    showAuthModal
+    showAuthModal ||
+    showExitAppDialog
   );
 
   useEffect(() => {
     if (isAnyModalOpen) {
-      const prevBodyOverflow = document.body.style.overflow;
-      const prevHtmlOverflow = document.documentElement.style.overflow;
-      const prevBodyOverscroll = document.body.style.overscrollBehavior;
-
       document.body.style.overflow = 'hidden';
-      document.body.style.overscrollBehavior = 'contain';
       document.documentElement.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'contain';
       document.documentElement.style.overscrollBehavior = 'contain';
-
-      return () => {
-        document.body.style.overflow = prevBodyOverflow;
-        document.documentElement.style.overflow = prevHtmlOverflow;
-        document.body.style.overscrollBehavior = prevBodyOverscroll;
-        document.documentElement.style.overscrollBehavior = '';
-      };
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overscrollBehavior = '';
     }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overscrollBehavior = '';
+    };
   }, [isAnyModalOpen]);
+
+  // إدارة زر الرجوع في الهاتف (Android Back Button & In-App Navigation)
+  const isHandlingPopstateRef = useRef(false);
+  const historyDepthRef = useRef(0);
+
+  // تهيئة حارس الرجوع الأولي لمنع الخروج المفاجئ
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.history.replaceState({ uniFoodRoot: true, depth: 0 }, '');
+      window.history.pushState({ uniFoodStep: 1, depth: 1 }, '');
+      historyDepthRef.current = 1;
+    } catch (_e) {}
+  }, []);
+
+  // تتبع فتح الشاشات الفرعية والنوافذ لدفع خطوة في الـ History
+  const currentNavStateKey = [
+    Boolean(selectedBranch),
+    Boolean(customizingItem),
+    Boolean(showCartModal),
+    Boolean(showGroupCartModal),
+    Boolean(showProfileModal),
+    Boolean(trackingOrder),
+    Boolean(showMyOrdersModal),
+    Boolean(showAuthModal),
+    Boolean(showExitAppDialog)
+  ].filter(Boolean).length;
+
+  const prevNavCountRef = useRef(0);
+
+  useEffect(() => {
+    if (isHandlingPopstateRef.current) return;
+    if (currentNavStateKey > prevNavCountRef.current) {
+      try {
+        window.history.pushState({ uniFoodStep: historyDepthRef.current + 1 }, '');
+        historyDepthRef.current += 1;
+      } catch (_e) {}
+    }
+    prevNavCountRef.current = currentNavStateKey;
+  }, [currentNavStateKey]);
+
+  // الاستماع لحدث الرجوع (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      isHandlingPopstateRef.current = true;
+      historyDepthRef.current = Math.max(0, historyDepthRef.current - 1);
+
+      // أولاً: إذا كانت نافذة الخروج مفتوحة، أغلقها
+      if (showExitAppDialog) {
+        setShowExitAppDialog(false);
+      }
+      // ثانياً: إغلاق النوافذ المنبثقة بترتيب أسبقيتها (الأحدث فالأقدم)
+      else if (customizingItem) {
+        setCustomizingItem(null);
+      } else if (showCartModal) {
+        setShowCartModal(false);
+      } else if (showGroupCartModal) {
+        setShowGroupCartModal(false);
+      } else if (showProfileModal) {
+        setShowProfileModal(false);
+      } else if (trackingOrder) {
+        setTrackingOrder(null);
+      } else if (showMyOrdersModal) {
+        setShowMyOrdersModal(false);
+      } else if (showAuthModal) {
+        setShowAuthModal(false);
+      }
+      // ثالثاً: إذا كان المستخدم داخل منيو فرع، الرجوع لشاشة الفروع الرئيسية
+      else if (selectedBranch) {
+        setSelectedBranch(null);
+      }
+      // رابعاً: إذا كان في الشاشة الرئيسية ولا توجد أي شاشة فرعية -> إظهار تأكيد الخروج
+      else {
+        try {
+          window.history.pushState({ uniFoodStep: 1 }, '');
+          historyDepthRef.current = 1;
+        } catch (_e) {}
+        setShowExitAppDialog(true);
+      }
+
+      setTimeout(() => {
+        isHandlingPopstateRef.current = false;
+        prevNavCountRef.current = [
+          Boolean(selectedBranch),
+          Boolean(customizingItem),
+          Boolean(showCartModal),
+          Boolean(showGroupCartModal),
+          Boolean(showProfileModal),
+          Boolean(trackingOrder),
+          Boolean(showMyOrdersModal),
+          Boolean(showAuthModal),
+          Boolean(showExitAppDialog)
+        ].filter(Boolean).length;
+      }, 50);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [
+    showExitAppDialog,
+    customizingItem,
+    showCartModal,
+    showGroupCartModal,
+    showProfileModal,
+    trackingOrder,
+    showMyOrdersModal,
+    showAuthModal,
+    selectedBranch
+  ]);
+
+  const handleConfirmExit = () => {
+    setShowExitAppDialog(false);
+    if (typeof window !== 'undefined') {
+      if ((window.navigator as any)?.app?.exitApp) {
+        (window.navigator as any).app.exitApp();
+        return;
+      }
+      try {
+        window.close();
+      } catch (_e) {}
+      try {
+        window.history.go(-10);
+      } catch (_e) {}
+    }
+  };
 
   // فحص روابط التفعيل السريع من الواتساب (WhatsApp Magic Link Auto-Activation)
   useEffect(() => {
@@ -853,6 +981,43 @@ export function App() {
           isReady={!loading || branches.length > 0}
           onFinish={() => setShowSplash(false)}
         />
+      )}
+
+      {/* Exit App Confirmation Dialog */}
+      {showExitAppDialog && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-fadeIn overscroll-contain" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-scaleUp border border-slate-100 text-center overscroll-contain">
+            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+              <LogOut className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="font-black text-slate-900 text-base">
+                الخروج من تطبيق UniFood
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                هل أنت متأكد من رغبتك في إغلاق التطبيق والخروج الآن؟
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowExitAppDialog(false)}
+                className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors"
+              >
+                البقاء في التطبيق
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmExit}
+                className="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs shadow-md shadow-rose-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <span>نعم، إغلاق</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

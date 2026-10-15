@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Plus, 
   Power, 
+  LogOut,
   Key, 
   CreditCard, 
   Settings, 
@@ -340,6 +341,8 @@ export const AdminPage: React.FC = () => {
   const [showFinanceBranchSelectModal, setShowFinanceBranchSelectModal] = useState(false);
   const [financeShowExactHours, setFinanceShowExactHours] = useState(false);
 
+  const [showAdminExitDialog, setShowAdminExitDialog] = useState(false);
+
   // قفل تمرير الشاشة الخلفية تلقائياً عند فتح أي نافذة منبثقة في لوحة الإدارة (Scroll Lock)
   const isAnyAdminModalOpen = Boolean(
     showAddBranchModal ||
@@ -360,28 +363,176 @@ export const AdminPage: React.FC = () => {
     showAddPromoModal ||
     editingPromo ||
     showAddDriverModal ||
-    editingDriver
+    editingDriver ||
+    showAdminExitDialog
   );
 
   useEffect(() => {
     if (isAnyAdminModalOpen) {
-      const prevBodyOverflow = document.body.style.overflow;
-      const prevHtmlOverflow = document.documentElement.style.overflow;
-      const prevBodyOverscroll = document.body.style.overscrollBehavior;
-
       document.body.style.overflow = 'hidden';
-      document.body.style.overscrollBehavior = 'contain';
       document.documentElement.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'contain';
       document.documentElement.style.overscrollBehavior = 'contain';
-
-      return () => {
-        document.body.style.overflow = prevBodyOverflow;
-        document.documentElement.style.overflow = prevHtmlOverflow;
-        document.body.style.overscrollBehavior = prevBodyOverscroll;
-        document.documentElement.style.overscrollBehavior = '';
-      };
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overscrollBehavior = '';
     }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overscrollBehavior = '';
+    };
   }, [isAnyAdminModalOpen]);
+
+  // إدارة زر الرجوع في الهاتف للوحة الإدارة (Android Back Button Handling)
+  const isHandlingAdminPopstateRef = useRef(false);
+  const adminHistoryDepthRef = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.history.replaceState({ uniFoodAdminRoot: true }, '');
+      window.history.pushState({ uniFoodAdminStep: 1 }, '');
+      adminHistoryDepthRef.current = 1;
+    } catch (_e) {}
+  }, []);
+
+  const adminNavCount = [
+    activeTab !== 'BRANCHES',
+    Boolean(showAdminExitDialog),
+    Boolean(selectedOrderDetails),
+    Boolean(selectedDriverOrdersModal),
+    Boolean(showAddBranchModal),
+    Boolean(editingBranch),
+    Boolean(editingPaymentBranch),
+    Boolean(editingCredentialsBranch),
+    Boolean(editingStudentWallet),
+    Boolean(showOrderBranchSelectModal),
+    Boolean(showFinanceBranchSelectModal),
+    Boolean(showMobileMoreMenu),
+    Boolean(adminCancellingOrder),
+    Boolean(adminConfirmDialog),
+    Boolean(showFactoryResetModal),
+    Boolean(showAddBannerModal),
+    Boolean(editingBanner),
+    Boolean(showAddPromoModal),
+    Boolean(editingPromo),
+    Boolean(showAddDriverModal),
+    Boolean(editingDriver)
+  ].filter(Boolean).length;
+
+  const prevAdminNavCountRef = useRef(0);
+
+  useEffect(() => {
+    if (isHandlingAdminPopstateRef.current) return;
+    if (adminNavCount > prevAdminNavCountRef.current) {
+      try {
+        window.history.pushState({ uniFoodAdminStep: adminHistoryDepthRef.current + 1 }, '');
+        adminHistoryDepthRef.current += 1;
+      } catch (_e) {}
+    }
+    prevAdminNavCountRef.current = adminNavCount;
+  }, [adminNavCount]);
+
+  useEffect(() => {
+    const handleAdminPopState = () => {
+      isHandlingAdminPopstateRef.current = true;
+      adminHistoryDepthRef.current = Math.max(0, adminHistoryDepthRef.current - 1);
+
+      // أولاً: إذا كانت نافذة تأكيد الخروج مفتوحة
+      if (showAdminExitDialog) {
+        setShowAdminExitDialog(false);
+      }
+      // ثانياً: إغلاق النوافذ المنبثقة
+      else if (selectedOrderDetails) setSelectedOrderDetails(null);
+      else if (selectedDriverOrdersModal) setSelectedDriverOrdersModal(null);
+      else if (showOrderBranchSelectModal) setShowOrderBranchSelectModal(false);
+      else if (showFinanceBranchSelectModal) setShowFinanceBranchSelectModal(false);
+      else if (showMobileMoreMenu) setShowMobileMoreMenu(false);
+      else if (editingPaymentBranch) setEditingPaymentBranch(null);
+      else if (editingCredentialsBranch) setEditingCredentialsBranch(null);
+      else if (editingStudentWallet) setEditingStudentWallet(null);
+      else if (editingBranch) setEditingBranch(null);
+      else if (showAddBranchModal) setShowAddBranchModal(false);
+      else if (adminCancellingOrder) setAdminCancellingOrder(null);
+      else if (adminConfirmDialog) setAdminConfirmDialog(null);
+      else if (showFactoryResetModal) setShowFactoryResetModal(false);
+      else if (editingBanner) setEditingBanner(null);
+      else if (showAddBannerModal) setShowAddBannerModal(false);
+      else if (editingPromo) setEditingPromo(null);
+      else if (showAddPromoModal) setShowAddPromoModal(false);
+      else if (editingDriver) setEditingDriver(null);
+      else if (showAddDriverModal) setShowAddDriverModal(false);
+      // ثالثاً: إذا كان في تبويب غير الفروع -> الرجوع لتبويب الفروع الرئيسي
+      else if (activeTab !== 'BRANCHES') {
+        setActiveTab('BRANCHES');
+      }
+      // رابعاً: في الشاشة الرئيسية للإدارة -> إظهار تأكيد الخروج
+      else {
+        try {
+          window.history.pushState({ uniFoodAdminStep: 1 }, '');
+          adminHistoryDepthRef.current = 1;
+        } catch (_e) {}
+        setShowAdminExitDialog(true);
+      }
+
+      setTimeout(() => {
+        isHandlingAdminPopstateRef.current = false;
+        prevAdminNavCountRef.current = [
+          activeTab !== 'BRANCHES',
+          Boolean(showAdminExitDialog),
+          Boolean(selectedOrderDetails),
+          Boolean(selectedDriverOrdersModal),
+          Boolean(showAddBranchModal),
+          Boolean(editingBranch),
+          Boolean(editingPaymentBranch),
+          Boolean(editingCredentialsBranch),
+          Boolean(editingStudentWallet),
+          Boolean(showOrderBranchSelectModal),
+          Boolean(showFinanceBranchSelectModal),
+          Boolean(showMobileMoreMenu),
+          Boolean(adminCancellingOrder),
+          Boolean(adminConfirmDialog),
+          Boolean(showFactoryResetModal),
+          Boolean(showAddBannerModal),
+          Boolean(editingBanner),
+          Boolean(showAddPromoModal),
+          Boolean(editingPromo),
+          Boolean(showAddDriverModal),
+          Boolean(editingDriver)
+        ].filter(Boolean).length;
+      }, 50);
+    };
+
+    window.addEventListener('popstate', handleAdminPopState);
+    return () => window.removeEventListener('popstate', handleAdminPopState);
+  }, [
+    showAdminExitDialog,
+    selectedOrderDetails,
+    selectedDriverOrdersModal,
+    showOrderBranchSelectModal,
+    showFinanceBranchSelectModal,
+    showMobileMoreMenu,
+    editingPaymentBranch,
+    editingCredentialsBranch,
+    editingStudentWallet,
+    editingBranch,
+    showAddBranchModal,
+    adminCancellingOrder,
+    adminConfirmDialog,
+    showFactoryResetModal,
+    editingBanner,
+    showAddBannerModal,
+    editingPromo,
+    showAddPromoModal,
+    editingDriver,
+    showAddDriverModal,
+    activeTab
+  ]);
 
   // Mock Data Seeding States
   const [seedingMockData, setSeedingMockData] = useState(false);
@@ -8742,6 +8893,46 @@ export const AdminPage: React.FC = () => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Exit Confirmation Dialog */}
+      {showAdminExitDialog && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn overscroll-contain" dir="rtl">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-scaleUp text-center overscroll-contain">
+            <div className="w-14 h-14 bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+              <LogOut className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="font-black text-white text-base">
+                الخروج من لوحة الإدارة
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                هل تريد مغادرة لوحة التحكم أو تسجيل الخروج؟
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAdminExitDialog(false)}
+                className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs transition-colors border border-slate-700/60"
+              >
+                البقاء في اللوحة
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminExitDialog(false);
+                  handleLogout();
+                }}
+                className="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs shadow-md shadow-rose-600/20 transition-all active:scale-95"
+              >
+                تسجيل الخروج
+              </button>
             </div>
           </div>
         </div>

@@ -25,7 +25,12 @@ import {
   Eye,
   MessageSquare,
   Store,
-  Check
+  Check,
+  CheckCheck,
+  CheckCircle2,
+  Wallet,
+  Sparkles,
+  Radio
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
@@ -79,7 +84,10 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   };
 
   // Audio alerts & Custom sound settings
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    return localStorage.getItem('driver_muted') === 'true';
+  });
+  const [driverTab, setDriverTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
   const [customSoundUrl, setCustomSoundUrl] = useState<string | null>(null);
   const [customVolume, setCustomVolume] = useState<number>(1.0);
   const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean>(() => {
@@ -90,6 +98,118 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   });
   const audioContextRef = useRef<AudioContext | null>(null);
   const alarmIntervalRef = useRef<any>(null);
+
+  const [showDriverExitDialog, setShowDriverExitDialog] = useState(false);
+
+  // قفل تمرير الشاشة الخلفية تلقائياً عند فتح أي نافذة منبثقة للطيار (Universal Scroll Lock)
+  const isDriverModalOpen = Boolean(selectedOrder || deliveringOrder || driverConfirmDialog || showDriverExitDialog);
+
+  useEffect(() => {
+    if (isDriverModalOpen) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'contain';
+      document.documentElement.style.overscrollBehavior = 'contain';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overscrollBehavior = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overscrollBehavior = '';
+    };
+  }, [isDriverModalOpen]);
+
+  // إدارة زر الرجوع في الهاتف للطيار (Android Back Button Handling)
+  const isHandlingDriverPopstateRef = useRef(false);
+  const driverHistoryDepthRef = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.history.replaceState({ uniFoodDriverRoot: true }, '');
+      window.history.pushState({ uniFoodDriverStep: 1 }, '');
+      driverHistoryDepthRef.current = 1;
+    } catch (_e) {}
+  }, []);
+
+  const driverNavCount = [
+    driverTab !== 'ACTIVE',
+    Boolean(showDriverExitDialog),
+    Boolean(selectedOrder),
+    Boolean(deliveringOrder),
+    Boolean(driverConfirmDialog)
+  ].filter(Boolean).length;
+
+  const prevDriverNavCountRef = useRef(0);
+
+  useEffect(() => {
+    if (isHandlingDriverPopstateRef.current) return;
+    if (driverNavCount > prevDriverNavCountRef.current) {
+      try {
+        window.history.pushState({ uniFoodDriverStep: driverHistoryDepthRef.current + 1 }, '');
+        driverHistoryDepthRef.current += 1;
+      } catch (_e) {}
+    }
+    prevDriverNavCountRef.current = driverNavCount;
+  }, [driverNavCount]);
+
+  useEffect(() => {
+    const handleDriverPopState = () => {
+      isHandlingDriverPopstateRef.current = true;
+      driverHistoryDepthRef.current = Math.max(0, driverHistoryDepthRef.current - 1);
+
+      // أولاً: إذا كانت نافذة تأكيد الخروج مفتوحة
+      if (showDriverExitDialog) {
+        setShowDriverExitDialog(false);
+      }
+      // ثانياً: إغلاق الموديلات المنبثقة
+      else if (deliveringOrder) {
+        setDeliveringOrder(null);
+      } else if (selectedOrder) {
+        setSelectedOrder(null);
+      } else if (driverConfirmDialog) {
+        setDriverConfirmDialog(null);
+      }
+      // ثالثاً: إذا كان في تبويب الأرشيف/السجل -> الرجوع لتبويب الطلبات الجارية
+      else if (driverTab === 'HISTORY') {
+        setDriverTab('ACTIVE');
+      }
+      // رابعاً: في الشاشة الرئيسية للطيار -> إظهار تأكيد الخروج
+      else {
+        try {
+          window.history.pushState({ uniFoodDriverStep: 1 }, '');
+          driverHistoryDepthRef.current = 1;
+        } catch (_e) {}
+        setShowDriverExitDialog(true);
+      }
+
+      setTimeout(() => {
+        isHandlingDriverPopstateRef.current = false;
+        prevDriverNavCountRef.current = [
+          driverTab !== 'ACTIVE',
+          Boolean(showDriverExitDialog),
+          Boolean(selectedOrder),
+          Boolean(deliveringOrder),
+          Boolean(driverConfirmDialog)
+        ].filter(Boolean).length;
+      }, 50);
+    };
+
+    window.addEventListener('popstate', handleDriverPopState);
+    return () => window.removeEventListener('popstate', handleDriverPopState);
+  }, [
+    showDriverExitDialog,
+    deliveringOrder,
+    selectedOrder,
+    driverConfirmDialog,
+    driverTab
+  ]);
 
   // فك حظر تشغيل الصوت تلقائياً فور أول نقرة أو لمس للشاشة
   useEffect(() => {
@@ -321,6 +441,35 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     stopAlarm();
   };
 
+  const confirmLogout = () => {
+    setDriverConfirmDialog({
+      isOpen: true,
+      title: 'تسجيل الخروج وإنهاء الوردية',
+      message: 'هل أنت متأكد من تسجيل الخروج من حساب الكابتن وإنهاء وردية التوصيل الحالية؟',
+      confirmText: 'نعم، تسجيل الخروج',
+      cancelText: 'إلغاء واستمرار',
+      isDanger: true,
+      onConfirm: () => {
+        handleLogout();
+        showToast('تم تسجيل الخروج بنجاح 👋', 'info');
+      },
+    });
+  };
+
+  const toggleMute = () => {
+    if (!isMuted) {
+      setIsMuted(true);
+      localStorage.setItem('driver_muted', 'true');
+      stopAlarm();
+      showToast('تم كتم صوت التنبيهات 🔕', 'info');
+    } else {
+      setIsMuted(false);
+      localStorage.setItem('driver_muted', 'false');
+      playAlertSound();
+      showToast('تم تفعيل صوت التنبيهات 🔔', 'success');
+    }
+  };
+
   // Accept order
   const handleAccept = async (orderId: string) => {
     try {
@@ -514,110 +663,152 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans" dir="rtl">
-      {/* Top Driver Header */}
-      <header className="bg-indigo-900 text-white sticky top-0 z-40 px-3.5 sm:px-6 py-2.5 shadow-md">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-700 flex items-center justify-center font-black shrink-0 shadow-inner">
-              <Truck className="w-5 h-5 text-indigo-200" />
+      {/* Top Driver Header - تصميم داكن عصري وأنيق بدون زحام أزرار */}
+      <header className="bg-slate-900/95 backdrop-blur-md text-white sticky top-0 z-40 px-3.5 sm:px-6 py-3 shadow-lg border-b border-slate-800">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+          {/* Driver identity & status */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center font-black shrink-0 shadow-md shadow-indigo-600/30 text-white">
+              <Truck className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-sm font-black leading-tight truncate">كابتن: {driver.name}</h1>
-              <span className="text-[11px] text-indigo-300 font-mono block truncate" dir="ltr">
-                @{driver.username} • {driver.phone}
-              </span>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-800/90 text-indigo-200 border border-indigo-700/60 inline-flex items-center gap-1">
-                  {driver.isAllBranches ? '🌐 طيار عام لجميع المطاعم' : `🏪 ${driver.servedBranchNames?.length ? `${driver.servedBranchNames.length} مطاعم مخصصة` : (driver.branch?.name || 'مطعم محدد')}`}
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm sm:text-base font-black leading-tight truncate">
+                  كابتن: {driver.name}
+                </h1>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" title="متصل بالخدمة" />
+              </div>
+              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400">
+                <span className="font-mono truncate" dir="ltr">
+                  @{driver.username}
+                </span>
+                <span>•</span>
+                <span className="font-mono truncate" dir="ltr">
+                  {driver.phone}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Test sound button */}
+          {/* Clean Action buttons (3 compact buttons only: Smart Audio Toggle, Refresh, Safe Logout) */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Unified Smart Audio Toggle with preview on enable */}
             <button
-              onClick={() => {
-                if (isMuted) setIsMuted(false);
-                playAlertSound();
-              }}
-              className="h-9 px-2.5 bg-indigo-800 hover:bg-indigo-700 text-indigo-200 rounded-xl transition-colors shrink-0 flex items-center gap-1.5 text-[11px] font-bold"
-              title="تجربة صوت التنبيه"
-            >
-              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">تجربة الصوت</span>
-            </button>
-
-            {/* Audio toggle */}
-            <button
-              onClick={() => {
-                setIsMuted(!isMuted);
-                stopAlarm();
-              }}
-              className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors shrink-0 ${
-                isMuted ? 'bg-rose-500/20 text-rose-300' : 'bg-indigo-800 text-indigo-200 hover:bg-indigo-700'
+              type="button"
+              onClick={toggleMute}
+              className={`h-9 px-2.5 sm:px-3 rounded-xl transition-all shrink-0 flex items-center gap-1.5 text-xs font-bold shadow-xs active:scale-95 ${
+                isMuted
+                  ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25'
+                  : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
               }`}
-              title={isMuted ? 'الصوت مكتوم' : 'الصوت مفعل'}
+              title={isMuted ? 'الصوت مكتوم - اضغط للتشغيل' : 'الصوت مفعّل - اضغط للكتم'}
             >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {isMuted ? (
+                <>
+                  <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span className="hidden sm:inline">الصوت مكتوم</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="hidden sm:inline">الصوت مفعّل</span>
+                </>
+              )}
             </button>
 
-            {/* Refresh */}
+            {/* Manual Refresh */}
             <button
-              onClick={loadDriverData}
+              type="button"
+              onClick={() => {
+                loadDriverData();
+                showToast('تم تحديث قائمة الطلبات 🔄', 'info');
+              }}
               disabled={loadingOrders}
-              className="w-9 h-9 flex items-center justify-center bg-indigo-800 hover:bg-indigo-700 rounded-xl transition-colors shrink-0"
-              title="تحديث"
+              className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 rounded-xl transition-all shrink-0 active:scale-95 disabled:opacity-50"
+              title="تحديث البيانات"
             >
               <RotateCw className={`w-4 h-4 ${loadingOrders ? 'animate-spin' : ''}`} />
             </button>
 
-            {/* Logout */}
+            {/* Safe Logout with Confirmation Dialog */}
             <button
-              onClick={handleLogout}
-              className="w-9 h-9 flex items-center justify-center bg-rose-600/30 hover:bg-rose-600 text-rose-200 rounded-xl transition-colors shrink-0"
-              title="تسجيل خروج"
+              type="button"
+              onClick={confirmLogout}
+              className="w-9 h-9 flex items-center justify-center bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 rounded-xl transition-all shrink-0 active:scale-95"
+              title="تسجيل خروج وإنهاء الوردية"
             >
               <LogOut className="w-4 h-4" />
             </button>
-
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="h-9 px-3 bg-indigo-800 hover:bg-indigo-700 rounded-xl text-indigo-200 text-xs font-bold whitespace-nowrap shrink-0 flex items-center justify-center"
-              >
-                إغلاق
-              </button>
-            )}
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 p-4 max-w-2xl w-full mx-auto space-y-4">
-        {/* Scope Banner */}
-        <div className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between gap-2 shadow-sm ${
-          driver.isAllBranches
-            ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 text-indigo-900'
-            : 'bg-white border-slate-200 text-slate-800'
-        }`}>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${driver.isAllBranches ? 'bg-purple-600 animate-pulse' : 'bg-indigo-600'}`} />
-            <div className="min-w-0">
-              <span className="font-black block text-xs">
-                {driver.isAllBranches ? '🌐 طيار عام لجميع المطاعم والفروع' : '🏪 مطاعم وفروع محددة:'}
+      <main className="flex-1 p-3.5 sm:p-5 max-w-3xl w-full mx-auto space-y-4">
+        {/* Urgent Ringing Alarm Banner */}
+        {alarmIntervalRef.current && (
+          <div className="bg-gradient-to-r from-rose-600 via-amber-600 to-rose-600 text-white p-3.5 rounded-2xl shadow-lg flex items-center justify-between gap-3 animate-pulse border border-rose-400">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <BellRing className="w-5 h-5 text-white animate-bounce shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-black truncate">🔔 طلب توصيل جديد بانتظار قبولك!</p>
+                <p className="text-[10px] text-white/90 truncate">يرجى مراجعة تفاصيل الطلب وقبوله سريعاً للتوجه للمطعم</p>
+              </div>
+            </div>
+            <button
+              onClick={stopAlarm}
+              className="px-3.5 py-1.5 bg-white text-rose-700 hover:bg-rose-50 font-black rounded-xl text-xs shrink-0 shadow-sm transition-all active:scale-95"
+            >
+              كتم الرنين
+            </button>
+          </div>
+        )}
+
+        {/* Unified Driver Status & Shift KPI Bar */}
+        <div className="bg-white rounded-3xl border border-slate-200/90 p-4 shadow-sm space-y-3.5">
+          {/* Scope row */}
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${driver.isAllBranches ? 'bg-purple-600 animate-pulse' : 'bg-indigo-600'}`} />
+              <div className="min-w-0">
+                <span className="font-black block text-xs text-slate-800">
+                  {driver.isAllBranches ? '🌐 طيار عام لجميع المطاعم والفروع' : '🏪 مطاعم وفروع محددة:'}
+                </span>
+                <span className="text-[11px] font-normal text-slate-500 truncate block">
+                  {driver.isAllBranches
+                    ? 'مؤهل لتوصيل الطلبات من كافة مطاعم الحرم الجامعي'
+                    : (driver.servedBranchNames?.length ? driver.servedBranchNames.join(' • ') : (driver.branch?.name || 'الفرع الأساسي'))}
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0">
+              {driver.isAllBranches ? 'تغطية شاملة' : `${driver.servedBranchNames?.length || 1} فروع`}
+            </span>
+          </div>
+
+          {/* Quick 3 KPIs */}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-slate-50/80 p-2.5 rounded-2xl border border-slate-100">
+              <span className="text-[10px] text-slate-500 font-bold block mb-0.5">الطلبات الجارية</span>
+              <span className="text-base sm:text-lg font-black text-indigo-700 font-mono">
+                {activeOrders.length}
               </span>
-              <span className="text-[11px] font-normal text-slate-600 truncate block">
-                {driver.isAllBranches
-                  ? 'مؤهل لاستقبال وتوصيل الطلبات من كافة مطاعم الحرم الجامعي'
-                  : (driver.servedBranchNames?.length ? driver.servedBranchNames.join(' • ') : (driver.branch?.name || 'الفرع الأساسي'))}
+            </div>
+            <div className="bg-slate-50/80 p-2.5 rounded-2xl border border-slate-100">
+              <span className="text-[10px] text-slate-500 font-bold block mb-0.5">المسلّمة اليوم</span>
+              <span className="text-base sm:text-lg font-black text-emerald-700 font-mono">
+                {finishedOrders.length}
+              </span>
+            </div>
+            <div className="bg-slate-50/80 p-2.5 rounded-2xl border border-slate-100">
+              <span className="text-[10px] text-slate-500 font-bold block mb-0.5">تحصيل نقدي</span>
+              <span className="text-base sm:text-lg font-black text-slate-900 font-mono">
+                {finishedOrders.filter(o => o.paymentMethod === 'CASH').reduce((acc: number, o: any) => acc + (o.total || 0), 0)} <span className="text-[10px] font-normal">ج.م</span>
               </span>
             </div>
           </div>
-          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-800 shrink-0">
-            {driver.isAllBranches ? 'نطاق شامل' : `${driver.servedBranchNames?.length || 1} فروع`}
-          </span>
         </div>
+
         {/* Permission Banner if notifications not granted */}
         {!hasNotificationPermission && typeof window !== 'undefined' && 'Notification' in window && (
           <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 text-white p-3 sm:p-3.5 rounded-3xl shadow-md flex items-center justify-between gap-3 animate-pulse">
@@ -643,176 +834,311 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
             </button>
           </div>
         )}
-        {/* Active Orders Count Badge */}
-        <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
-              {activeOrders.length}
-            </div>
-            <div>
-              <h3 className="font-black text-slate-800 text-xs">الطلبات المسندة إليك حالياً</h3>
-              <p className="text-[11px] text-slate-400">ستسمع تنبيهاً صوتياً فور إسناد أي طلب جديد</p>
-            </div>
-          </div>
-          {alarmIntervalRef.current && (
-            <button
-              onClick={stopAlarm}
-              className="px-3 py-1.5 bg-amber-500 text-white rounded-xl text-xs font-bold animate-pulse shadow-sm"
-            >
-              إيقاف صوت الجرس
-            </button>
-          )}
+
+        {/* Segmented Tab Switcher (الطلبات الحالية / سجل المكتملة) */}
+        <div className="flex items-center bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setDriverTab('ACTIVE')}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+              driverTab === 'ACTIVE'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <Truck className="w-4 h-4" />
+            <span>الطلبات الحالية</span>
+            {activeOrders.length > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                driverTab === 'ACTIVE' ? 'bg-white text-indigo-700' : 'bg-indigo-100 text-indigo-700'
+              }`}>
+                {activeOrders.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDriverTab('HISTORY')}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+              driverTab === 'HISTORY'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" />
+            <span>سجل المكتملة اليوم</span>
+            {finishedOrders.length > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                driverTab === 'HISTORY' ? 'bg-white text-indigo-700' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {finishedOrders.length}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Orders List */}
-        {loadingOrders ? (
-          <div className="py-12 text-center text-slate-400 text-xs">
-            <RotateCw className="w-6 h-6 mx-auto animate-spin mb-2" />
-            <span>جاري تحميل الطلبات...</span>
-          </div>
-        ) : activeOrders.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 text-slate-400 space-y-2">
-            <ShoppingBag className="w-12 h-12 mx-auto text-slate-300" />
-            <h4 className="font-bold text-slate-700 text-sm">لا توجد طلبات توصيل مسندة لك الآن</h4>
-            <p className="text-xs text-slate-400">عندما يسند إليك المطعم طلباً جديداً ستتلقى إشعاراً صوتياً فورياً</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {activeOrders.map((order) => {
-              const isPickedUp = Boolean(order.driverPickedUpAt);
-              const isReady = order.status === 'READY';
-              const itemsCount = order.items?.reduce((acc: number, it: any) => acc + (it.quantity || 1), 0) || order.items?.length || 0;
-
-              return (
-                <div
-                  key={order.id}
-                  onClick={() => setSelectedOrder(order)}
-                  className={`bg-white rounded-3xl border p-4 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-indigo-400 active:scale-[0.98] flex flex-col justify-between gap-3 ${
-                    isPickedUp
-                      ? 'border-indigo-300 ring-2 ring-indigo-100 bg-gradient-to-b from-indigo-50/30 to-white'
-                      : isReady
-                        ? 'border-emerald-300 ring-2 ring-emerald-100 bg-gradient-to-b from-emerald-50/40 to-white'
-                        : 'border-amber-300 ring-2 ring-amber-100 bg-gradient-to-b from-amber-50/30 to-white'
-                  }`}
-                >
-                  {/* 1. Header: Order #, Status Badge */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-black text-lg text-slate-900">
-                      #{order.orderNumber}
-                    </span>
-
-                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-black shrink-0 ${
-                      isPickedUp
-                        ? 'bg-indigo-600 text-white'
-                        : !order.isDriverAccepted
-                          ? 'bg-amber-500 text-white animate-pulse'
-                          : isReady
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-indigo-500 text-white'
-                    }`}>
-                      {isPickedUp
-                        ? '🛵 جاري التوصيل'
-                        : !order.isDriverAccepted
-                          ? '⚡ بانتظار قبولك'
-                          : isReady
-                            ? '✅ جاهز للاستلام'
-                            : '👍 تم القبول (قيد التجهيز)'}
-                    </span>
+        {/* TAB 1: ACTIVE ORDERS */}
+        {driverTab === 'ACTIVE' && (
+          <>
+            {loadingOrders ? (
+              <div className="py-12 text-center text-slate-400 text-xs">
+                <RotateCw className="w-6 h-6 mx-auto animate-spin mb-2" />
+                <span>جاري تحديث بيانات الطلبات...</span>
+              </div>
+            ) : activeOrders.length === 0 ? (
+              /* Enhanced Friendly Empty State with Radar pulse and Test sound button */
+              <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-200 text-slate-400 space-y-4 shadow-sm">
+                <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
+                  <span className="absolute inset-0 rounded-full bg-indigo-500/10 animate-ping" />
+                  <span className="absolute inset-2 rounded-full bg-indigo-500/20 animate-pulse" />
+                  <div className="relative w-14 h-14 bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <Truck className="w-7 h-7" />
                   </div>
-
-                  {/* 2. Prominent Restaurant Banner - اسم المطعم واضح وكامل جداً */}
-                  <div className="p-3 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-2xl border border-amber-300/80 shadow-xs flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-                      <Store className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block">
-                        المطعم المطلوب الاستلام منه:
-                      </span>
-                      <span className="text-sm font-black text-slate-900 block leading-tight break-words">
-                        {order.branch?.name || 'مطعم غير محدد'}
-                      </span>
-                      {order.branch?.address && (
-                        <span className="text-[10px] text-slate-500 block truncate mt-0.5 font-medium">
-                          📍 {order.branch.address}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 3. Customer & Campus Location */}
-                  <div className="flex items-center justify-between text-xs text-slate-600">
-                    <span className="font-bold truncate max-w-[160px]">
-                      👤 {order.customerName || 'طالب'}
-                    </span>
-                    <span className="text-[11px] font-mono text-slate-400">
-                      {new Date(order.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-
-                  {order.deliveryZoneName && (
-                    <div className="text-[11px] text-slate-500 flex items-center gap-1 truncate">
-                      <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                      <span className="truncate">{order.deliveryZoneName} {order.addressText ? `• ${order.addressText}` : ''}</span>
-                    </div>
-                  )}
-
-                  {/* 4. Items Count & Price (Requested: رقم الأوردر، عدد الأصناف، السعر) */}
-                  <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold">
-                      <ShoppingBag className="w-4 h-4 text-indigo-600 shrink-0" />
-                      <span>عدد الأصناف:</span>
-                      <span className="font-black text-indigo-700 font-mono bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                        {itemsCount}
-                      </span>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="font-black text-slate-900 text-sm sm:text-base font-mono">
-                        {order.total} ج.م
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 5. Actions: Accept/Reject quick buttons if not accepted, or open details */}
-                  {!isPickedUp && !order.isDriverAccepted ? (
-                    <div className="pt-2 flex items-center gap-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => handleAccept(order.id)}
-                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>قبول الطلب والتوجه للمطعم</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleReject(order)}
-                        className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all"
-                      >
-                        اعتذار
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="pt-1 flex items-center justify-between text-xs font-black text-indigo-600 border-t border-slate-100">
-                      <span className="flex items-center gap-1">
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>عرض تفاصيل الطلب والتوصيل</span>
-                      </span>
-                      <span className="text-slate-400">←</span>
-                    </div>
-                  )}
                 </div>
-              );
-            })}
+                <div className="space-y-1.5">
+                  <h4 className="font-black text-slate-800 text-base">في انتظار إسناد طلبات جديدة 🛵</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                    أنت متصل بالخدمة وجاهز لاستقبال الطلبات. سيصلك إشعار صوتي فوري بمجرد إسناد أي أوردر جديد لك من المطاعم.
+                  </p>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isMuted) setIsMuted(false);
+                      playAlertSound();
+                      showToast('تم تجربة نغمة الرنين بنجاح 🔔', 'success');
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-black transition-colors"
+                  >
+                    <Volume2 className="w-4 h-4 text-emerald-600" />
+                    <span>تجربة نغمة التنبيه الآن</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {activeOrders.map((order) => {
+                  const isPickedUp = Boolean(order.driverPickedUpAt);
+                  const isReady = order.status === 'READY';
+                  const itemsCount = order.items?.reduce((acc: number, it: any) => acc + (it.quantity || 1), 0) || order.items?.length || 0;
+
+                  return (
+                    <div
+                      key={order.id}
+                      onClick={() => setSelectedOrder(order)}
+                      className={`bg-white rounded-3xl border p-4 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-indigo-400 active:scale-[0.99] flex flex-col justify-between gap-3 ${
+                        isPickedUp
+                          ? 'border-indigo-300 ring-2 ring-indigo-100 bg-gradient-to-b from-indigo-50/30 to-white'
+                          : isReady
+                            ? 'border-emerald-300 ring-2 ring-emerald-100 bg-gradient-to-b from-emerald-50/40 to-white'
+                            : !order.isDriverAccepted
+                              ? 'border-amber-300 ring-2 ring-amber-100 bg-gradient-to-b from-amber-50/30 to-white'
+                              : 'border-slate-200'
+                      }`}
+                    >
+                      {/* 1. Header: Order #, Status Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-black text-lg text-slate-900">
+                          #{order.orderNumber}
+                        </span>
+
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-black shrink-0 ${
+                          isPickedUp
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : !order.isDriverAccepted
+                              ? 'bg-amber-500 text-white animate-pulse'
+                              : isReady
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'bg-indigo-600 text-white'
+                        }`}>
+                          {isPickedUp
+                            ? '🛵 جاري التوصيل'
+                            : !order.isDriverAccepted
+                              ? '⚡ بانتظار قبولك'
+                              : isReady
+                                ? '✅ جاهز للاستلام'
+                                : '👍 تم القبول (قيد التجهيز)'}
+                        </span>
+                      </div>
+
+                      {/* 2. Prominent Restaurant Banner */}
+                      <div className="p-3 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-2xl border border-amber-300/80 shadow-xs flex items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <Store className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block">
+                              المطعم المطلوب الاستلام منه:
+                            </span>
+                            <span className="text-sm font-black text-slate-900 block leading-tight break-words">
+                              {order.branch?.name || 'مطعم غير محدد'}
+                            </span>
+                            {order.branch?.address && (
+                              <span className="text-[10px] text-slate-500 block truncate mt-0.5 font-medium">
+                                📍 {order.branch.address}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {order.branch?.phone && (
+                          <a
+                            href={`tel:${order.branch.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl shadow-xs transition-colors shrink-0"
+                            title="اتصال بالمطعم"
+                          >
+                            <Phone className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
+
+                      {/* 3. Customer & Campus Location */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs text-slate-600">
+                          <span className="font-bold truncate max-w-[160px]">
+                            👤 {order.customerName || 'طالب'}
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {new Date(order.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        {order.deliveryZoneName && (
+                          <div className="text-[11px] text-slate-500 flex items-center gap-1 truncate">
+                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <span className="truncate">{order.deliveryZoneName} {order.addressText ? `• ${order.addressText}` : ''}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 4. Items Count & Price */}
+                      <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold">
+                          <ShoppingBag className="w-4 h-4 text-indigo-600 shrink-0" />
+                          <span>عدد الأصناف:</span>
+                          <span className="font-black text-indigo-700 font-mono bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                            {itemsCount}
+                          </span>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="font-black text-slate-900 text-sm sm:text-base font-mono">
+                            {order.total} ج.م
+                          </span>
+                          <span className="text-[10px] text-slate-500 block">
+                            {order.paymentMethod === 'CASH' ? '💵 كاش' : '💳 أونلاين'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 5. Direct Action Buttons */}
+                      <div className="pt-1 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                        {!isPickedUp && !order.isDriverAccepted ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleAccept(order.id)}
+                              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>قبول الطلب والتوجه للمطعم</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReject(order)}
+                              className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all"
+                            >
+                              اعتذار
+                            </button>
+                          </div>
+                        ) : !isPickedUp && order.isDriverAccepted ? (
+                          <button
+                            type="button"
+                            onClick={() => handlePickup(order)}
+                            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>تأكيد الاستلام وبدء التوصيل 🛵</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveringOrder(order);
+                              setSelectedOrder(null);
+                            }}
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                            <span>تأكيد التسليم للطالب (PIN) 🔑</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* TAB 2: HISTORY (COMPLETED ORDERS TODAY) */}
+        {driverTab === 'HISTORY' && (
+          <div className="space-y-3">
+            {finishedOrders.length === 0 ? (
+              <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 text-slate-400 space-y-2">
+                <CheckCircle className="w-12 h-12 mx-auto text-slate-300" />
+                <h4 className="font-bold text-slate-700 text-sm">لا توجد طلبات مكتملة حتى الآن</h4>
+                <p className="text-xs text-slate-400">الطلبات التي تقوم بتسليمها اليوم ستظهر هنا مع تفاصيل المبالغ</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {finishedOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    onClick={() => setSelectedOrder(order)}
+                    className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-xs hover:shadow-sm cursor-pointer space-y-2 hover:border-indigo-300 transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-black text-sm text-slate-900">#{order.orderNumber}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                        <CheckCheck className="w-3 h-3 text-emerald-600" />
+                        <span>تم التسليم</span>
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-700 font-bold truncate">
+                      🏪 {order.branch?.name || 'المطعم'}
+                    </div>
+
+                    <div className="text-[11px] text-slate-500 truncate">
+                      👤 {order.customerName} {order.deliveryZoneName ? `• ${order.deliveryZoneName}` : ''}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1.5 border-t border-slate-100 font-mono">
+                      <span className="text-slate-500 font-sans text-[11px]">
+                        {new Date(order.driverDeliveredAt || order.updatedAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="font-black text-slate-900">
+                        {order.total} ج.م {order.paymentMethod === 'CASH' ? '💵' : '💳'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>
 
       {/* PIN Verification Modal */}
       {deliveringOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fadeIn" dir="rtl">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fadeIn overscroll-contain" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 overscroll-contain">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto">
                 <KeyRound className="w-6 h-6" />
@@ -866,8 +1192,8 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
       {/* Full Order Details Modal for Driver */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn" dir="rtl">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slideUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn overscroll-contain" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slideUp overscroll-contain">
             {/* Modal Header */}
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -899,7 +1225,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs overscroll-contain">
               {/* Prominent Restaurant Pickup Header Card - اسم المطعم واضح وكامل */}
               <div className="p-4 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-2xl border-2 border-amber-400/70 shadow-xs flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -1114,8 +1440,8 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
       {/* Custom Confirmation / Alert Dialog */}
       {driverConfirmDialog && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn" dir="rtl">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-5 shadow-2xl space-y-4 animate-scaleUp border border-slate-100">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn overscroll-contain" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-5 shadow-2xl space-y-4 animate-scaleUp border border-slate-100 overscroll-contain">
             <div className="flex items-center gap-3">
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
                 driverConfirmDialog.isDanger 
@@ -1181,6 +1507,46 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
             <button onClick={() => setToast(null)} className="p-1 hover:opacity-75">
               <X className="w-3.5 h-3.5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Driver Exit Confirmation Dialog */}
+      {showDriverExitDialog && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn overscroll-contain" dir="rtl">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-scaleUp text-center overscroll-contain">
+            <div className="w-14 h-14 bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+              <LogOut className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="font-black text-white text-base">
+                الخروج من تطبيق الكابتن
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                هل تريد إنهاء وردية التوصيل وتسجيل الخروج من التطبيق؟
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDriverExitDialog(false)}
+                className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs transition-colors border border-slate-700/60"
+              >
+                البقاء في الخدمة
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDriverExitDialog(false);
+                  handleLogout();
+                }}
+                className="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs shadow-md shadow-rose-600/20 transition-all active:scale-95"
+              >
+                إنهاء وخروج
+              </button>
+            </div>
           </div>
         </div>
       )}
