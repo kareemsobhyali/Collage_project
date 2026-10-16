@@ -445,34 +445,33 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
     let watchId: number | null = null;
     if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+      const handleLocationSuccess = (pos: GeolocationPosition) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setCurrentCoords({ lat, lng });
+        socketRef.current?.emit('driver_location_update', {
+          driverId: driver.id,
+          lat,
+          lng,
+        });
+      };
+
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          setCurrentCoords({ lat, lng });
-          socketRef.current?.emit('driver_location_update', {
-            driverId: driver.id,
-            lat,
-            lng,
-          });
+        handleLocationSuccess,
+        () => {
+          navigator.geolocation.getCurrentPosition(
+            handleLocationSuccess,
+            () => {},
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+          );
         },
-        () => {},
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 8000 }
       );
 
       watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          setCurrentCoords({ lat, lng });
-          socketRef.current?.emit('driver_location_update', {
-            driverId: driver.id,
-            lat,
-            lng,
-          });
-        },
+        handleLocationSuccess,
         () => {},
-        { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+        { enableHighAccuracy: false, maximumAge: 5000, timeout: 15000 }
       );
     }
 

@@ -82,10 +82,10 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
       attributionControl: false
     });
 
-    // استخدام بلاطات خرائط مجانية وسريعة جداً CartoDB Voyager تدعم اللغة العربية والنمط العصري
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    // استخدام بلاطات OpenStreetMap المجانية 100% بدون أي مفاتيح API أو علامات مائية
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      subdomains: 'abcd',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
     mapRef.current = map;

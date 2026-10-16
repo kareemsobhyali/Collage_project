@@ -28,6 +28,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
+import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -45,11 +46,14 @@ public class MainActivity extends Activity {
 
     private static final int FILE_CHOOSER_RESULT_CODE = 1001;
     private static final int NOTIFICATION_PERMISSION_CODE = 1002;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1003;
     private static final String CHANNEL_ID = "unifood_alerts_channel";
 
     private WebView webView;
     private LinearLayout errorOverlay;
     private ValueCallback<Uri[]> filePathCallback;
+    private GeolocationPermissions.Callback pendingGeoCallback;
+    private String pendingGeoOrigin;
     private boolean hasLoadError = false;
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
@@ -163,6 +167,11 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setGeolocationEnabled(true);
+        try {
+            settings.setGeolocationDatabasePath(getFilesDir().getPath());
+        } catch (Exception ignored) {
+        }
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
@@ -207,6 +216,24 @@ public class MainActivity extends Activity {
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                        callback.invoke(origin, true, false);
+                    } else {
+                        pendingGeoCallback = callback;
+                        pendingGeoOrigin = origin;
+                        requestPermissions(new String[]{
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                        }, LOCATION_PERMISSION_REQUEST_CODE);
+                    }
+                } else {
+                    callback.invoke(origin, true, false);
+                }
+            }
+
             @Override
             public boolean onShowFileChooser(
                     WebView webView,
@@ -288,6 +315,20 @@ public class MainActivity extends Activity {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_PERMISSION_CODE);
             }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (pendingGeoCallback != null && pendingGeoOrigin != null) {
+                pendingGeoCallback.invoke(pendingGeoOrigin, granted, false);
+            }
+            pendingGeoCallback = null;
+            pendingGeoOrigin = null;
+        } else {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
     }
 
