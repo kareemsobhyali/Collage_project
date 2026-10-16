@@ -341,6 +341,8 @@ public class MainActivity extends Activity {
                 manager.notify(notificationId, builder.build());
             } catch (Exception ignored) {
             }
+        }
+
         @JavascriptInterface
         public void downloadFile(String filename, String content, String mimeType) {
             try {
