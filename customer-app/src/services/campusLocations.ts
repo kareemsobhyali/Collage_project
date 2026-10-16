@@ -30,6 +30,25 @@ export const CAMPUS_LANDMARKS: CampusLandmark[] = [
 // موقع افتراضي لمطاعم الجامعة إذا لم يكن للفرع إحداثيات
 export const DEFAULT_CAMPUS_RESTAURANT_COORDS = { lat: 30.0262, lng: 31.2088 };
 
+export function getStoredRestaurantCoords(): { lat: number; lng: number } {
+  try {
+    const saved = localStorage.getItem('unifood_restaurant_coords');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number') {
+        return { lat: parsed.lat, lng: parsed.lng };
+      }
+    }
+  } catch (_) {}
+  return DEFAULT_CAMPUS_RESTAURANT_COORDS;
+}
+
+export function setStoredRestaurantCoords(coords: { lat: number; lng: number }): void {
+  try {
+    localStorage.setItem('unifood_restaurant_coords', JSON.stringify(coords));
+  } catch (_) {}
+}
+
 /**
  * حساب المسافة بدقة الأمتار بين نقطتين جغرافيين بمعادلة Haversine الرياضية (مجانية وسريعة 100%)
  */

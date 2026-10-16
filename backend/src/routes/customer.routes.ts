@@ -3,10 +3,20 @@ import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
 import { authenticateUser, AuthRequest } from "../middleware/auth.js";
 import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated } from "../sockets/socketManager.js";
-import { getLoyaltySettings, awardLoyaltyPointsIfCompleted } from "../services/settings.service.js";
+import { getLoyaltySettings, awardLoyaltyPointsIfCompleted, getRestaurantLocationSettings } from "../services/settings.service.js";
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-campus-delivery-2026";
+
+// جلب موقع المطعم الرئيسي والخرائط للعملاء والطيارين
+router.get("/public/restaurant-location", async (_req: Request, res: Response) => {
+  try {
+    const settings = await getRestaurantLocationSettings();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: "فشل استرجاع موقع المطعم" });
+  }
+});
 
 // 0. استعراض البانرات الإعلانية الترويجية
 router.get("/banners", async (_req: Request, res: Response) => {

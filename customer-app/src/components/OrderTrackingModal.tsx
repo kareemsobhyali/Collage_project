@@ -22,7 +22,7 @@ import {
 import { api, API_BASE_URL } from '../services/api';
 import { notifyOrderStatusPush } from '../services/notifications';
 import { LiveOrderMap } from './LiveOrderMap';
-import { extractCoordinatesFromAddress, cleanAddressText, DEFAULT_CAMPUS_RESTAURANT_COORDS } from '../services/campusLocations';
+import { extractCoordinatesFromAddress, cleanAddressText, DEFAULT_CAMPUS_RESTAURANT_COORDS, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
 
 interface OrderTrackingModalProps {
   order: any;
@@ -112,7 +112,52 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
 
   const [liveDriverCoords, setLiveDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // الاتصال بـ Socket.io لمتابعة التحديثات الحية لحالة الطلب والموقع الجغرافي للطيار
+  // موقع المطعم الفعلي (من إعدادات المنظومة أو عنوان الفرع أو المخزن محلياً)
+  const [restaurantCoords, setRestaurantCoords] = useState<{ lat: number; lng: number }>(() => {
+    if (order.branch?.address) {
+      const branchCoords = extractCoordinatesFromAddress(order.branch.address);
+      if (branchCoords) return branchCoords;
+    }
+    return getStoredRestaurantCoords();
+  });
+
+  // موقع الطالب الفعلي (من إحداثيات الطلب أو قراءة GPS الجهاز اللحظي في حال عدم وجود إحداثيات سابقة)
+  const [studentCoords, setStudentCoords] = useState<{ lat: number; lng: number }>(() => {
+    const extracted = extractCoordinatesFromAddress(order.addressText);
+    if (extracted) return extracted;
+    return { lat: 30.0275, lng: 31.2110 };
+  });
+
+  // جلب موقع المطعم الفعلي المسجل من لوحة الإدارة
+  useEffect(() => {
+    api.getPublicRestaurantLocation()
+      .then(res => {
+        if (res && typeof res.lat === 'number' && typeof res.lng === 'number') {
+          setRestaurantCoords({ lat: res.lat, lng: res.lng });
+          setStoredRestaurantCoords({ lat: res.lat, lng: res.lng });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // في حال كان الطلب قديماً أو مسجلاً بدون إحداثيات GPS، نقرأ موقع جهاز الطالب الفعلي لوضعه على الخريطة
+  useEffect(() => {
+    const hasExistingCoords = extractCoordinatesFromAddress(order.addressText);
+    if (!hasExistingCoords && typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setStudentCoords({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          });
+        },
+        () => {},
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+      );
+    }
+  }, [order.addressText]);
+
+  // الاتصال بـ Socket.io لمتابعة التحديثات الحية لحالة الطلب والموقع الجغرافي للطيار والمطعم
   useEffect(() => {
     if (!order?.id) return;
 
@@ -142,6 +187,13 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
     socket.on('driver_location_updated', (locData: any) => {
       if (locData && (locData.orderId === order.id || locData.driverId === order.driverId || locData.driverId === order.driver?.id)) {
         setLiveDriverCoords({ lat: locData.lat, lng: locData.lng });
+      }
+    });
+
+    // استقبال تحديث موقع المطعم في حال قام الآدمن بتعديله
+    socket.on('restaurant_location_updated', (locData: any) => {
+      if (locData && typeof locData.lat === 'number' && typeof locData.lng === 'number') {
+        setRestaurantCoords({ lat: locData.lat, lng: locData.lng });
       }
     });
 
@@ -374,7 +426,8 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 driverPhone={order.driver.phone}
                 restaurantName={order.branch?.name || 'مطعم الجامعة'}
                 orderStatus={status}
-                studentCoords={extractCoordinatesFromAddress(order.addressText) || { lat: 30.0275, lng: 31.2110 }}
+                restaurantCoords={restaurantCoords}
+                studentCoords={studentCoords}
                 liveDriverCoords={liveDriverCoords}
                 pickupPin={order.pickupPin}
               />

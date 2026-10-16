@@ -97,7 +97,35 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   const [gpsBroadcasting, setGpsBroadcasting] = useState(false);
   const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null);
 
+  const handleBroadcastRealLocation = () => {
+    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setCurrentCoords({ lat, lng });
+          setGpsBroadcasting(true);
+          const activeOrder = selectedOrder || orders.find(o => o.status !== 'COMPLETED' && o.status !== 'REJECTED' && o.status !== 'CANCELLED');
+          socketRef.current?.emit('driver_location_update', {
+            driverId: driver?.id,
+            lat,
+            lng,
+            orderId: activeOrder?.id,
+          });
+          showToast(`تم بث موقعك الفعلي بنجاح (${lat.toFixed(4)}, ${lng.toFixed(4)}) 🛰️`, 'success');
+        },
+        (_err) => {
+          handleSimulateOrSendLocation();
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } else {
+      handleSimulateOrSendLocation();
+    }
+  };
+
   const handleSimulateOrSendLocation = (manualLat?: number, manualLng?: number) => {
+    const activeOrder = selectedOrder || orders.find(o => o.status !== 'COMPLETED' && o.status !== 'REJECTED' && o.status !== 'CANCELLED');
     const lat = manualLat || (currentCoords ? currentCoords.lat + (Math.random() - 0.5) * 0.001 : 30.0268);
     const lng = manualLng || (currentCoords ? currentCoords.lng + (Math.random() - 0.5) * 0.001 : 31.2090);
     setCurrentCoords({ lat, lng });
@@ -106,7 +134,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       driverId: driver?.id,
       lat,
       lng,
-      orderId: selectedOrder?.id,
+      orderId: activeOrder?.id,
     });
     showToast('تم بث وتحديث موقعك على خريطة الطالب بنجاح 🛰️', 'success');
   };
@@ -428,20 +456,15 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     };
   }, [driver?.id, token]);
 
-  // مراقبة وبث موقع الطيار عبر الـ GPS الحي للطالب والفرع طالما لديه طلبات جاري توصيلها
+  // مراقبة وبث موقع الطيار عبر الـ GPS الحي للطلبات والعملاء والفرع
   useEffect(() => {
     if (!driver?.id || !token) return;
 
-    const hasActiveDelivery = orders.some(
-      (o) => o.status !== 'COMPLETED' && o.status !== 'REJECTED' && o.driverPickedUpAt
-    );
-
-    if (!hasActiveDelivery) {
-      setGpsBroadcasting(false);
-      return;
-    }
-
     setGpsBroadcasting(true);
+
+    const activeOrder = orders.find(
+      (o) => o.status !== 'COMPLETED' && o.status !== 'REJECTED' && o.status !== 'CANCELLED'
+    );
 
     let watchId: number | null = null;
     if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
@@ -451,6 +474,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
         setCurrentCoords({ lat, lng });
         socketRef.current?.emit('driver_location_update', {
           driverId: driver.id,
+          orderId: activeOrder?.id,
           lat,
           lng,
         });
@@ -838,6 +862,39 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
             </button>
           </div>
         )}
+
+        {/* Live GPS Broadcast Status Banner */}
+        <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 rounded-2xl border border-emerald-500/30 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="relative flex h-3 w-3 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-slate-800">بث الـ GPS المباشر للخرائط والعملاء</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  {gpsBroadcasting ? 'بث نشط 🛰️' : 'بانتظار الإشارة ⏳'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 truncate mt-0.5">
+                {currentCoords ? `موقعك الحالي: ${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}` : 'يتم تحديد موقعك وبثه لحظياً للفرع والطالب على الخريطة'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleBroadcastRealLocation}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+              title="تحديث وبث موقعي الفعلي الحالي عبر الـ GPS"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>تحديث موقعي 🔄</span>
+            </button>
+          </div>
+        </div>
 
         {/* Unified Driver Status & Shift KPI Bar */}
         <div className="bg-white rounded-3xl border border-slate-200/90 p-4 shadow-sm space-y-3.5">

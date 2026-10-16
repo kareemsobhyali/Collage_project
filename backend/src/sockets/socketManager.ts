@@ -223,4 +223,11 @@ export function notifySoundSettingsChanged(soundSettings: any): void {
   }
 }
 
+export function notifyRestaurantLocationChanged(locationSettings: any): void {
+  if (io) {
+    // بث فوري لجميع شاشات التتبع والخرائط والعملاء بتحديث موقع المطعم الجغرافي
+    io.emit("restaurant_location_updated", locationSettings);
+  }
+}
+
 

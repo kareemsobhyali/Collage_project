@@ -61,14 +61,15 @@ import {
   FileSpreadsheet,
   Download,
   Wallet,
-  Coins
+  Coins,
+  Navigation
 } from 'lucide-react';
 
 
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
 import { Logo } from './Logo';
-import { cleanAddressText, extractCoordinatesFromAddress } from '../services/campusLocations';
+import { cleanAddressText, extractCoordinatesFromAddress, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark } from '../services/campusLocations';
 const QUICK_ADMIN_CANCEL_REASONS = [
   'المطعم مغلق حالياً',
   'نفاد الكمية في المطعم',
@@ -165,6 +166,25 @@ export const AdminPage: React.FC = () => {
   const [audioUploadError, setAudioUploadError] = useState<string | null>(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+
+  // Restaurant Location Settings State
+  const [restaurantLocation, setRestaurantLocation] = useState<{
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+    isCustom: boolean;
+  }>({
+    name: 'مطعم ومطبخ الجامعة المركزي',
+    address: 'الحرم الجامعي - مجمع الأنشطة والخدمات الطلابية',
+    lat: 30.0262,
+    lng: 31.2088,
+    isCustom: false,
+  });
+  const [loadingRestaurantLocation, setLoadingRestaurantLocation] = useState(false);
+  const [savingRestaurantLocation, setSavingRestaurantLocation] = useState(false);
+  const [restaurantLocationMsg, setRestaurantLocationMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [detectingAdminGps, setDetectingAdminGps] = useState(false);
 
   // WhatsApp Alert Settings states
   const [whatsAppAlertSettings, setWhatsAppAlertSettings] = useState<{
@@ -1449,10 +1469,82 @@ export const AdminPage: React.FC = () => {
     });
   };
 
+  // Restaurant Location Handlers
+  const fetchRestaurantLocation = async () => {
+    try {
+      setLoadingRestaurantLocation(true);
+      const data = await api.getRestaurantLocationSettings();
+      if (data) {
+        setRestaurantLocation(data);
+        setStoredRestaurantCoords({ lat: data.lat, lng: data.lng });
+      }
+    } catch (err) {
+      console.error('Fetch restaurant location error:', err);
+    } finally {
+      setLoadingRestaurantLocation(false);
+    }
+  };
+
+  const handleSaveRestaurantLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSavingRestaurantLocation(true);
+      setRestaurantLocationMsg(null);
+      const res = await api.updateRestaurantLocationSettings(restaurantLocation);
+      if (res && res.settings) {
+        setRestaurantLocation(res.settings);
+        setStoredRestaurantCoords({ lat: res.settings.lat, lng: res.settings.lng });
+      }
+      setRestaurantLocationMsg({ type: 'success', text: 'تم حفظ وتحديث موقع المطعم على الخريطة بنجاح ✅' });
+      setTimeout(() => setRestaurantLocationMsg(null), 4000);
+    } catch (err: any) {
+      setRestaurantLocationMsg({ type: 'error', text: err.message || 'فشل حفظ موقع المطعم' });
+    } finally {
+      setSavingRestaurantLocation(false);
+    }
+  };
+
+  const handleDetectAdminLocationForRestaurant = () => {
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      alert('خاصية تحديد الموقع غير مدعومة على هذا الجهاز.');
+      return;
+    }
+    setDetectingAdminGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setDetectingAdminGps(false);
+        const lat = Number(pos.coords.latitude.toFixed(6));
+        const lng = Number(pos.coords.longitude.toFixed(6));
+        setRestaurantLocation(prev => ({
+          ...prev,
+          lat,
+          lng,
+        }));
+        setRestaurantLocationMsg({ type: 'success', text: 'تم التقاط إحداثيات موقعك الحالي بنجاح! اضغط زر الحفظ لاعتمادها.' });
+      },
+      (_err) => {
+        setDetectingAdminGps(false);
+        alert('تعذر قراءة GPS الجهاز. يُرجى التأكد من تشغيل الموقع بالهاتف أو إدخال الإحداثيات يدوياً.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  const handleSelectLandmarkForRestaurant = (landmark: CampusLandmark) => {
+    setRestaurantLocation(prev => ({
+      ...prev,
+      name: landmark.name,
+      address: landmark.name,
+      lat: landmark.lat,
+      lng: landmark.lng,
+    }));
+  };
+
   useEffect(() => {
     if (activeTab === 'SETTINGS') {
       fetchLoyaltySettings();
       fetchSoundSettings();
+      fetchRestaurantLocation();
     }
   }, [activeTab]);
 
@@ -5825,6 +5917,185 @@ export const AdminPage: React.FC = () => {
                   </ul>
                 </div>
               </div>
+            </div>
+
+            {/* Card: Restaurant GPS Location & Live Map Settings */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center shrink-0">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <span>موقع المطعم الرئيسي والخرائط الجغرافية (GPS)</span>
+                      <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 text-[10px] font-black rounded-md border border-cyan-500/30">
+                        تحديث لحظي للخرائط 🗺️
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      تحديد موقع المطعم الفعلي داخل الحرم الجامعي ليظهر دبوس المطعم 🏪 بدقة فائقة وتُحسب المسافة للطلاب والطيارين بدقة
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={`https://www.google.com/maps?q=${restaurantLocation.lat},${restaurantLocation.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                  >
+                    <span>معاينة في خرائط Google ↗</span>
+                  </a>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveRestaurantLocation} className="space-y-5">
+                {/* Status or Success/Error Alert */}
+                {restaurantLocationMsg && (
+                  <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 animate-fadeIn ${
+                    restaurantLocationMsg.type === 'success'
+                      ? 'bg-emerald-950/70 border-emerald-800 text-emerald-300'
+                      : 'bg-rose-950/70 border-rose-800 text-rose-300'
+                  }`}>
+                    {restaurantLocationMsg.type === 'success' ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                    )}
+                    <span>{restaurantLocationMsg.text}</span>
+                  </div>
+                )}
+
+                {/* Quick GPS auto-detect bar */}
+                <div className="p-4 bg-gradient-to-r from-cyan-950/40 to-slate-950/70 border border-cyan-800/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-black text-cyan-300 block">تحديد موقع المطعم بالـ GPS اللحظي 🛰️</span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      إذا كنت متواجداً حالياً داخل المطعم، يمكنك التقاط إحداثياتك بضغطة زر
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDetectAdminLocationForRestaurant}
+                    disabled={detectingAdminGps}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-black shadow-lg shadow-cyan-600/20 transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
+                  >
+                    <Navigation className={`w-4 h-4 ${detectingAdminGps ? 'animate-spin' : ''}`} />
+                    <span>{detectingAdminGps ? 'جاري التقاط الإحداثيات...' : '📍 التقاط موقعي الحالي للمطعم'}</span>
+                  </button>
+                </div>
+
+                {/* Campus Landmarks quick selector */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Building className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>أو اختر موقع المطعم بالقرب من معالم الحرم الجامعي:</span>
+                  </label>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    {CAMPUS_LANDMARKS.map(lm => {
+                      const isSelected = Math.abs(restaurantLocation.lat - lm.lat) < 0.0001 && Math.abs(restaurantLocation.lng - lm.lng) < 0.0001;
+                      return (
+                        <button
+                          key={lm.id}
+                          type="button"
+                          onClick={() => handleSelectLandmarkForRestaurant(lm)}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 border transition-all flex items-center gap-1.5 active:scale-95 ${
+                            isSelected
+                              ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md font-black'
+                              : 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700'
+                          }`}
+                        >
+                          <span>🏛️</span>
+                          <span>{lm.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Coordinates & Info Form */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      اسم المطعم / المطبخ المركزي:
+                    </label>
+                    <input
+                      type="text"
+                      value={restaurantLocation.name}
+                      onChange={(e) => setRestaurantLocation({ ...restaurantLocation, name: e.target.value })}
+                      placeholder="مطعم ومطبخ الجامعة المركزي"
+                      className="w-full h-11 px-3.5 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      وصف العنوان بالحرم الجامعي:
+                    </label>
+                    <input
+                      type="text"
+                      value={restaurantLocation.address}
+                      onChange={(e) => setRestaurantLocation({ ...restaurantLocation, address: e.target.value })}
+                      placeholder="الحرم الجامعي - مجمع الأنشطة الطلابية"
+                      className="w-full h-11 px-3.5 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      خط العرض الجغرافي (Latitude):
+                    </label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={restaurantLocation.lat}
+                      onChange={(e) => setRestaurantLocation({ ...restaurantLocation, lat: parseFloat(e.target.value) || 0 })}
+                      placeholder="30.026200"
+                      className="w-full h-11 px-3.5 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-cyan-300 placeholder-slate-600 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      خط الطول الجغرافي (Longitude):
+                    </label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={restaurantLocation.lng}
+                      onChange={(e) => setRestaurantLocation({ ...restaurantLocation, lng: parseFloat(e.target.value) || 0 })}
+                      placeholder="31.208800"
+                      className="w-full h-11 px-3.5 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-cyan-300 placeholder-slate-600 focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={savingRestaurantLocation || loadingRestaurantLocation}
+                    className="h-11 px-6 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-black shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {savingRestaurantLocation ? (
+                      <>
+                        <RotateCw className="w-4 h-4 animate-spin" />
+                        <span>جاري حفظ وتحديث موقع المطعم...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>حفظ موقع المطعم واعتماده للخرائط ✅</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
 
             {/* Card 3: Notification Sound Customization */}

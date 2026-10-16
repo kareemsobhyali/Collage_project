@@ -12,7 +12,9 @@ import {
   sendBranchShiftWhatsAppReport,
   getNotificationSoundSettings,
   updateNotificationSoundSettings,
-  DEFAULT_SOUND_SETTINGS
+  DEFAULT_SOUND_SETTINGS,
+  getRestaurantLocationSettings,
+  updateRestaurantLocationSettings
 } from "../services/settings.service.js";
 import { 
   notifyBranchStatusChanged,
@@ -20,7 +22,8 @@ import {
   notifyBannersUpdated,
   notifyPromosUpdated,
   notifyUserUpdated,
-  notifySoundSettingsChanged
+  notifySoundSettingsChanged,
+  notifyRestaurantLocationChanged
 } from "../sockets/socketManager.js";
 import { 
   getDriverBranchConfig, 
@@ -1294,6 +1297,45 @@ router.post("/settings/sound/reset", async (_req: AuthRequest, res: Response) =>
   } catch (error) {
     console.error("Reset sound settings error:", error);
     res.status(500).json({ error: "فشل استعادة نغمة الإشعارات الافتراضية" });
+  }
+});
+
+// 12.5. استرجاع إعدادات موقع المطعم الرئيسي والخرائط
+router.get("/settings/restaurant-location", async (_req: AuthRequest, res: Response) => {
+  try {
+    const settings = await getRestaurantLocationSettings();
+    res.json(settings);
+  } catch (error) {
+    console.error("Get restaurant location error:", error);
+    res.status(500).json({ error: "فشل استرجاع إعدادات موقع المطعم" });
+  }
+});
+
+// 12.6. تحديث وحفظ إعدادات موقع المطعم الرئيسي والخرائط
+router.put("/settings/restaurant-location", async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, address, lat, lng } = req.body;
+    if (lat === undefined || lng === undefined) {
+      res.status(400).json({ error: "إحداثيات خط العرض والطول مطلوبة" });
+      return;
+    }
+    const updated = await updateRestaurantLocationSettings({
+      name,
+      address,
+      lat: Number(lat),
+      lng: Number(lng),
+    });
+
+    notifyRestaurantLocationChanged(updated);
+
+    res.json({
+      success: true,
+      message: "تم حفظ وتحديث موقع المطعم الجغرافي بنجاح ✅",
+      settings: updated,
+    });
+  } catch (error) {
+    console.error("Update restaurant location error:", error);
+    res.status(500).json({ error: "فشل حفظ إعدادات موقع المطعم" });
   }
 });
 

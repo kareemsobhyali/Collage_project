@@ -207,6 +207,31 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
     }
   }, [liveDriverCoords?.lat, liveDriverCoords?.lng, studentCoords.lat, studentCoords.lng]);
 
+  // 3. تحديث موقع الطالب الفعلي في حال قراءة الـ GPS اللحظي لجهازه
+  useEffect(() => {
+    if (studentMarkerRef.current && studentCoords) {
+      studentMarkerRef.current.setLatLng([studentCoords.lat, studentCoords.lng]);
+    }
+    const driverPos = liveDriverCoords || initialDriverCoords || restaurantCoords || DEFAULT_CAMPUS_RESTAURANT_COORDS;
+    const newDist = calculateDistanceMeters(driverPos.lat, driverPos.lng, studentCoords.lat, studentCoords.lng);
+    setDistanceMeters(newDist);
+    setEtaMinutes(calculateEtaMinutes(newDist));
+
+    if (polylineRef.current) {
+      polylineRef.current.setLatLngs([
+        [driverPos.lat, driverPos.lng],
+        [studentCoords.lat, studentCoords.lng],
+      ]);
+    }
+  }, [studentCoords.lat, studentCoords.lng]);
+
+  // 4. تحديث موقع المطعم في حال تعديله من شاشة الإعدادات
+  useEffect(() => {
+    if (restaurantMarkerRef.current && restaurantCoords) {
+      restaurantMarkerRef.current.setLatLng([restaurantCoords.lat, restaurantCoords.lng]);
+    }
+  }, [restaurantCoords?.lat, restaurantCoords?.lng]);
+
   // التركيز على موقع الطيار
   const handleCenterOnDriver = () => {
     if (!mapRef.current) return;
@@ -238,10 +263,12 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
       <div className="absolute top-3 inset-x-3 z-10 flex items-center justify-between gap-2 pointer-events-none">
         <div className="bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 shadow-lg flex items-center gap-2 pointer-events-auto">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${liveDriverCoords ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+            <span className={`relative inline-flex rounded-full h-2 w-2 ${liveDriverCoords ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
           </span>
-          <span className="text-[11px] font-black text-white">تتبع GPS حي ومباشر</span>
+          <span className="text-[11px] font-black text-white">
+            {liveDriverCoords ? 'تتبع GPS حي ومباشر' : 'الكابتن يستعد في المطعم 🛵'}
+          </span>
         </div>
 
         {/* أزرار التحكم بالخريطة */}

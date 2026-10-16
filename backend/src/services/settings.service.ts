@@ -880,5 +880,56 @@ export async function updateNotificationSoundSettings(settings: Partial<Notifica
   return updated;
 }
 
+export interface RestaurantLocationSettings {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  isCustom: boolean;
+  updatedAt?: string;
+}
+
+export const DEFAULT_RESTAURANT_LOCATION: RestaurantLocationSettings = {
+  name: "مطعم ومطبخ الجامعة المركزي",
+  address: "الحرم الجامعي - مجمع الأنشطة الطلابية والخدمات",
+  lat: 30.0262,
+  lng: 31.2088,
+  isCustom: false,
+};
+
+export async function getRestaurantLocationSettings(): Promise<RestaurantLocationSettings> {
+  try {
+    const record = await prisma.systemSetting.findUnique({
+      where: { key: "restaurant_location_settings" },
+    });
+    if (record && record.value) {
+      return { ...DEFAULT_RESTAURANT_LOCATION, ...JSON.parse(record.value) };
+    }
+  } catch (_e) {}
+  return DEFAULT_RESTAURANT_LOCATION;
+}
+
+export async function updateRestaurantLocationSettings(settings: Partial<RestaurantLocationSettings>): Promise<RestaurantLocationSettings> {
+  const current = await getRestaurantLocationSettings();
+  const updated: RestaurantLocationSettings = {
+    ...current,
+    ...settings,
+    name: settings.name ? String(settings.name).trim() : current.name,
+    address: settings.address ? String(settings.address).trim() : current.address,
+    lat: typeof settings.lat === "number" ? settings.lat : Number(settings.lat ?? current.lat),
+    lng: typeof settings.lng === "number" ? settings.lng : Number(settings.lng ?? current.lng),
+    isCustom: true,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await prisma.systemSetting.upsert({
+    where: { key: "restaurant_location_settings" },
+    update: { value: JSON.stringify(updated) },
+    create: { key: "restaurant_location_settings", value: JSON.stringify(updated) },
+  });
+
+  return updated;
+}
+
 
 

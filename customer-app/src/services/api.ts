@@ -932,6 +932,34 @@ export const api = {
     if (!res.ok) throw new Error(data.error || 'فشل جلب التقرير المالي وحسابات الشيفتات');
     return data;
   },
+
+  // 47. إعدادات موقع المطعم الرئيسي والخرائط الجغرافية (GPS)
+  async getRestaurantLocationSettings() {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/restaurant-location`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب إعدادات موقع المطعم');
+    return data;
+  },
+
+  async updateRestaurantLocationSettings(settings: { name?: string; address?: string; lat: number; lng: number }) {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/restaurant-location`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(settings),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ إعدادات موقع المطعم');
+    return data;
+  },
+
+  async getPublicRestaurantLocation() {
+    const res = await fetch(`${API_BASE_URL}/customer/public/restaurant-location`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب موقع المطعم');
+    return data;
+  },
 };
 
 
