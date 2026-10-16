@@ -1196,6 +1196,11 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
       return;
     }
 
+    if (driverId && order.status === "PENDING") {
+      res.status(400).json({ error: "لا يمكن إسناد كابتن توصيل للطلب قبل قبول الطلب وتأكيده أولاً" });
+      return;
+    }
+
     let assignedDriver: any = null;
     if (driverId) {
       assignedDriver = await prisma.deliveryDriver.findUnique({

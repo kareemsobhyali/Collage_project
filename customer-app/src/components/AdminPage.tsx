@@ -77,6 +77,16 @@ const QUICK_ADMIN_CANCEL_REASONS = [
   'تأخر تحضير الطلب في المطعم',
 ];
 
+const DAYS_OF_WEEK = [
+  { key: 'SAT', label: 'السبت' },
+  { key: 'SUN', label: 'الأحد' },
+  { key: 'MON', label: 'الإثنين' },
+  { key: 'TUE', label: 'الثلاثاء' },
+  { key: 'WED', label: 'الأربعاء' },
+  { key: 'THU', label: 'الخميس' },
+  { key: 'FRI', label: 'الجمعة' },
+];
+
 export const AdminPage: React.FC = () => {
   const [adminUser, setAdminUser] = useState<any | null>(() => {
     const saved = localStorage.getItem('admin_user');
@@ -368,22 +378,21 @@ export const AdminPage: React.FC = () => {
   );
 
   useEffect(() => {
-    if (isAnyAdminModalOpen) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-      document.body.style.overscrollBehavior = 'contain';
-      document.documentElement.style.overscrollBehavior = 'contain';
-    } else {
-      document.body.style.overflow = '';
+    // Clear any previous documentElement lock to ensure smooth scrolling
+    if (document.documentElement.style.overflow) {
       document.documentElement.style.overflow = '';
-      document.body.style.overscrollBehavior = '';
       document.documentElement.style.overscrollBehavior = '';
     }
 
+    if (isAnyAdminModalOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+
     return () => {
-      document.body.style.overflow = '';
+      document.body.classList.remove('modal-open');
       document.documentElement.style.overflow = '';
-      document.body.style.overscrollBehavior = '';
       document.documentElement.style.overscrollBehavior = '';
     };
   }, [isAnyAdminModalOpen]);
@@ -909,25 +918,32 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleTriggerSeedMockData = async () => {
-    if (!window.confirm("هل تريد حقن وتوليد البيانات التجريبية الشاملة؟\n\nسيتم توليد:\n- 4 مطاعم جامعية واقعية\n- منيو كامل بالأصناف والأحجام والصور والإضافات\n- 4 بانرات عروض تفاعلية\n- كوبونات خصم عامة ولكل مطعم\n- 3 كباتن توصيل وحسابات طلاب\n- طلبات حية ومكتملة لتغذية تقارير المالية والورديات فوراً.")) {
-      return;
-    }
-    setSeedMockError(null);
-    setSeedMockSuccess(null);
-    try {
-      setSeedingMockData(true);
-      const res = await api.seedMockData();
-      setSeedMockSuccess(res.message || "تم حقن البيانات التجريبية الشاملة بنجاح! 🚀");
-      fetchDashboardData();
-      setTimeout(() => {
+  const handleTriggerSeedMockData = () => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: "حقن وتوليد البيانات التجريبية الشاملة",
+      message: "هل تريد حقن وتوليد البيانات التجريبية الشاملة؟\n\nسيتم توليد:\n- 4 مطاعم جامعية واقعية\n- منيو كامل بالأصناف والأحجام والصور والإضافات\n- 4 بانرات عروض تفاعلية\n- كوبونات خصم عامة ولكل مطعم\n- 3 كباتن توصيل وحسابات طلاب\n- طلبات حية ومكتملة لتغذية تقارير المالية والورديات فوراً.",
+      confirmText: "بدء الحقن الآن 🚀",
+      cancelText: "إلغاء",
+      isDanger: false,
+      onConfirm: async () => {
+        setSeedMockError(null);
         setSeedMockSuccess(null);
-      }, 7000);
-    } catch (err: any) {
-      setSeedMockError(err.message || "فشل حقن البيانات التجريبية");
-    } finally {
-      setSeedingMockData(false);
-    }
+        try {
+          setSeedingMockData(true);
+          const res = await api.seedMockData();
+          setSeedMockSuccess(res.message || "تم حقن البيانات التجريبية الشاملة بنجاح! 🚀");
+          fetchDashboardData();
+          setTimeout(() => {
+            setSeedMockSuccess(null);
+          }, 7000);
+        } catch (err: any) {
+          setSeedMockError(err.message || "فشل حقن البيانات التجريبية");
+        } finally {
+          setSeedingMockData(false);
+        }
+      }
+    });
   };
 
 
@@ -1022,8 +1038,27 @@ export const AdminPage: React.FC = () => {
       const fullContent = bom + csvContent;
       const fullFilename = `${filename}.csv`;
 
-      // 1. Mobile First: Web Share API allows saving directly to Files / Google Drive / Excel / WhatsApp on Android & iOS
+      // 1. Android Native APK Bridge: Save directly to Android Downloads directory with system notification
+      if (typeof (window as any).AndroidBridge !== 'undefined' && typeof (window as any).AndroidBridge.downloadFile === 'function') {
+        (window as any).AndroidBridge.downloadFile(fullFilename, fullContent, 'text/csv');
+        alert(`تم تنزيل التقرير (${fullFilename}) وحفظه بنجاح في مجلد التنزيلات (Downloads) بجهازك! 📁`);
+        return;
+      }
+
       const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
+      // 2. Direct Server Export URL for Mobile Browsers / WebViews
+      if (exportType && isMobile) {
+        const serverDownloadUrl = getBackendExportUrl(exportType);
+        if (typeof (window as any).AndroidBridge !== 'undefined' && typeof (window as any).AndroidBridge.openExternalUrl === 'function') {
+          (window as any).AndroidBridge.openExternalUrl(serverDownloadUrl);
+          return;
+        }
+        window.location.href = serverDownloadUrl;
+        return;
+      }
+
+      // 3. Web Share API fallback on mobile devices
       if (isMobile && typeof navigator !== 'undefined' && (navigator as any).share) {
         try {
           const file = new File([fullContent], fullFilename, { type: 'text/csv;charset=utf-8' });
@@ -1040,7 +1075,7 @@ export const AdminPage: React.FC = () => {
         }
       }
 
-      // 2. Direct Blob Download (Standard on Desktop Chrome/Firefox/Edge)
+      // 4. Direct Blob Download (Standard on Desktop Chrome/Firefox/Edge)
       const blob = new Blob([fullContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -1058,16 +1093,6 @@ export const AdminPage: React.FC = () => {
           URL.revokeObjectURL(url);
         } catch (_) {}
       }, 10000);
-
-      // 3. Optional direct server URL fallback if exportType provided
-      if (exportType && isMobile) {
-        const serverDownloadUrl = getBackendExportUrl(exportType);
-        setTimeout(() => {
-          try {
-            window.open(serverDownloadUrl, '_blank');
-          } catch (_) {}
-        }, 600);
-      }
     } catch (err: any) {
       console.error('Download CSV error:', err);
       alert('تعذر تحميل الملف: ' + (err.message || err));
@@ -1639,14 +1664,23 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleDeletePromo = async (promoId: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الكوبون؟')) return;
-    try {
-      await api.deleteAdminPromoCode(promoId);
-      setPromos(promos.filter(p => p.id !== promoId));
-    } catch (err: any) {
-      alert(err.message || 'فشل حذف الكوبون');
-    }
+  const handleDeletePromo = (promoId: string) => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'حذف كوبون الخصم',
+      message: 'هل أنت متأكد من حذف هذا الكوبون بشكل نهائي؟',
+      confirmText: 'نعم، احذف',
+      cancelText: 'إلغاء',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await api.deleteAdminPromoCode(promoId);
+          setPromos(promos.filter(p => p.id !== promoId));
+        } catch (err: any) {
+          alert(err.message || 'فشل حذف الكوبون');
+        }
+      }
+    });
   };
 
   // Student Wallet, Loyalty Points, Notes & Account Block Handlers
@@ -2946,29 +2980,57 @@ export const AdminPage: React.FC = () => {
                   {/* From Date */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-400 whitespace-nowrap">من تاريخ:</span>
-                    <input
-                      type={financeShowExactHours ? 'datetime-local' : 'date'}
-                      value={financeShowExactHours ? financeStartDate : financeStartDate.split('T')[0]}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFinanceStartDate(financeShowExactHours ? val : `${val}T00:00`);
+                    <div 
+                      onClick={(e) => {
+                        const inp = e.currentTarget.querySelector('input');
+                        try { (inp as any)?.showPicker?.(); } catch(_) { inp?.focus(); }
                       }}
-                      className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono"
-                    />
+                      className="relative flex items-center bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-2.5 py-1.5 focus-within:border-emerald-500 cursor-pointer"
+                    >
+                      <Calendar className="w-4 h-4 text-emerald-400 shrink-0 ml-1.5" />
+                      <input
+                        type={financeShowExactHours ? 'datetime-local' : 'date'}
+                        value={financeShowExactHours ? financeStartDate : financeStartDate.split('T')[0]}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFinanceStartDate(financeShowExactHours ? val : `${val}T00:00`);
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try { (e.currentTarget as any).showPicker?.(); } catch (_) {}
+                        }}
+                        style={{ colorScheme: 'dark' }}
+                        className="bg-transparent text-white text-xs font-bold focus:outline-none font-mono cursor-pointer"
+                      />
+                    </div>
                   </div>
 
                   {/* To Date */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-400 whitespace-nowrap">إلى تاريخ:</span>
-                    <input
-                      type={financeShowExactHours ? 'datetime-local' : 'date'}
-                      value={financeShowExactHours ? financeEndDate : financeEndDate.split('T')[0]}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFinanceEndDate(financeShowExactHours ? val : `${val}T23:59`);
+                    <div 
+                      onClick={(e) => {
+                        const inp = e.currentTarget.querySelector('input');
+                        try { (inp as any)?.showPicker?.(); } catch(_) { inp?.focus(); }
                       }}
-                      className="bg-slate-950 border border-slate-800 text-white text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono"
-                    />
+                      className="relative flex items-center bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-2.5 py-1.5 focus-within:border-emerald-500 cursor-pointer"
+                    >
+                      <Calendar className="w-4 h-4 text-emerald-400 shrink-0 ml-1.5" />
+                      <input
+                        type={financeShowExactHours ? 'datetime-local' : 'date'}
+                        value={financeShowExactHours ? financeEndDate : financeEndDate.split('T')[0]}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFinanceEndDate(financeShowExactHours ? val : `${val}T23:59`);
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try { (e.currentTarget as any).showPicker?.(); } catch (_) {}
+                        }}
+                        style={{ colorScheme: 'dark' }}
+                        className="bg-transparent text-white text-xs font-bold focus:outline-none font-mono cursor-pointer"
+                      />
+                    </div>
                   </div>
 
                   {/* Exact Hours Toggle */}
@@ -6608,56 +6670,66 @@ export const AdminPage: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-300 mb-1">
                   معرف الرابط المباشر للمطعم (Slug / Endpoint)
                 </label>
-                <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-purple-500">
-                  <span className="text-xs font-mono text-purple-400 select-none" dir="ltr">?branch=</span>
+                <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-purple-500" dir="ltr">
+                  <span className="text-xs font-mono font-bold text-purple-400 select-none whitespace-nowrap shrink-0">?branch=</span>
                   <input
                     type="text"
                     value={newSlug}
                     onChange={e => setNewSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, ''))}
-                    placeholder="مثال: shawarma-elreem"
+                    placeholder="shawarma-elreem"
                     className="w-full bg-transparent text-xs text-white focus:outline-none font-mono"
                     dir="ltr"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">يسمح بمشاركة رابط مباشر للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
+                <p className="text-[10px] text-slate-400 mt-1">يسمح بمشاركة رابط مباشر ومخصص للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">موقع المبنى بالجامعة</label>
-                  <input
-                    type="text"
-                    value={newAddress}
-                    onChange={e => setNewAddress(e.target.value)}
-                    placeholder="مجمع الكليات النظرية"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
-                  />
+                  <div className="relative">
+                    <MapPin className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={newAddress}
+                      onChange={e => setNewAddress(e.target.value)}
+                      placeholder="مثال: مجمع الكليات النظرية"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">رقم هاتف الفرع</label>
-                  <input
-                    type="tel"
-                    value={newPhone}
-                    onChange={e => setNewPhone(e.target.value)}
-                    placeholder="01XXXXXXXXX"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                  />
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="tel"
+                      value={newPhone}
+                      onChange={e => setNewPhone(e.target.value)}
+                      placeholder="01XXXXXXXXX"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                      dir="ltr"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">رسوم التوصيل لمباني الكليات (ج.م)</label>
-                <input
-                  type="number"
-                  value={newDeliveryFee}
-                  onChange={e => setNewDeliveryFee(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                />
+                <div className="relative">
+                  <Coins className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="number"
+                    value={newDeliveryFee}
+                    onChange={e => setNewDeliveryFee(e.target.value)}
+                    className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                  />
+                </div>
               </div>
 
               <div className="p-3 bg-purple-950/40 border border-purple-800/60 rounded-xl space-y-3">
                 <span className="text-[11px] font-bold text-purple-300 block">بيانات دخول تطبيق الديسكتوب للكاشير:</span>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <input
                       type="text"
@@ -6765,117 +6837,247 @@ export const AdminPage: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-300 mb-1">
                   معرف الرابط المباشر للمطعم (Slug / Endpoint)
                 </label>
-                <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-purple-500">
-                  <span className="text-xs font-mono text-purple-400 select-none" dir="ltr">?branch=</span>
+                <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-purple-500" dir="ltr">
+                  <span className="text-xs font-mono font-bold text-purple-400 select-none whitespace-nowrap shrink-0">?branch=</span>
                   <input
                     type="text"
                     value={editSlug}
                     onChange={e => setEditSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, ''))}
-                    placeholder="مثال: shawarma-elreem"
+                    placeholder="shawarma-elreem"
                     className="w-full bg-transparent text-xs text-white focus:outline-none font-mono"
                     dir="ltr"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">يسمح بمشاركة رابط مباشر للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
+                <p className="text-[10px] text-slate-400 mt-1">يسمح بمشاركة رابط مباشر ومخصص للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">موقع المبنى بالحرم الجامعي</label>
-                  <input
-                    type="text"
-                    value={editAddress}
-                    onChange={e => setEditAddress(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
-                  />
+                  <div className="relative">
+                    <MapPin className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={editAddress}
+                      onChange={e => setEditAddress(e.target.value)}
+                      placeholder="مثال: مجمع الكليات النظرية"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">رقم الهاتف</label>
-                  <input
-                    type="tel"
-                    value={editPhone}
-                    onChange={e => setEditPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                  />
+                  <label className="block text-xs font-bold text-slate-300 mb-1">رقم الهاتف للتواصل</label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="tel"
+                      value={editPhone}
+                      onChange={e => setEditPhone(e.target.value)}
+                      placeholder="01XXXXXXXXX"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                      dir="ltr"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">رسوم التوصيل (ج.م)</label>
-                <input
-                  type="number"
-                  value={editDeliveryFee}
-                  onChange={e => setEditDeliveryFee(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                />
+                <label className="block text-xs font-bold text-slate-300 mb-1">رسوم التوصيل لمباني الجامعة (ج.م)</label>
+                <div className="relative">
+                  <Coins className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="number"
+                    value={editDeliveryFee}
+                    onChange={e => setEditDeliveryFee(e.target.value)}
+                    className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">وقت بدء العمل (فتح المطعم)</label>
-                  <input
-                    type="time"
-                    value={editOpeningTime}
-                    onChange={e => setEditOpeningTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                  />
+                  <div className="relative">
+                    <Clock className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="time"
+                      value={editOpeningTime}
+                      onChange={e => setEditOpeningTime(e.target.value)}
+                      style={{ colorScheme: 'dark' }}
+                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono cursor-pointer"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">وقت إغلاق العمل اليومي</label>
-                  <input
-                    type="time"
-                    value={editClosingTime}
-                    onChange={e => setEditClosingTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                  />
+                  <div className="relative">
+                    <Clock className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="time"
+                      value={editClosingTime}
+                      onChange={e => setEditClosingTime(e.target.value)}
+                      style={{ colorScheme: 'dark' }}
+                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200">أيام العمل المتاحة للفرع</label>
+                  <span className="text-[11px] text-purple-400 font-bold">
+                    {editWorkingDays ? editWorkingDays.split(',').filter(Boolean).length : 0} أيام محددة
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {DAYS_OF_WEEK.map(day => {
+                    const isSelected = (editWorkingDays || '')
+                      .split(',')
+                      .map(d => d.trim().toUpperCase())
+                      .includes(day.key);
+                    return (
+                      <button
+                        type="button"
+                        key={day.key}
+                        onClick={() => {
+                          const current = (editWorkingDays || '')
+                            .split(',')
+                            .map(d => d.trim().toUpperCase())
+                            .filter(Boolean);
+                          let nextDays: string[];
+                          if (current.includes(day.key)) {
+                            nextDays = current.filter(d => d !== day.key);
+                          } else {
+                            nextDays = DAYS_OF_WEEK.map(d => d.key).filter(k => current.includes(k) || k === day.key);
+                          }
+                          setEditWorkingDays(nextDays.join(','));
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 active:scale-95 ${
+                          isSelected
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-sm shadow-purple-600/30'
+                            : 'bg-slate-800/80 text-slate-400 border-slate-700/60 hover:border-slate-600 hover:text-slate-200'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
+                        <span>{day.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-2 pt-1 flex-wrap border-t border-slate-800/80">
+                  <button
+                    type="button"
+                    onClick={() => setEditWorkingDays(DAYS_OF_WEEK.map(d => d.key).join(','))}
+                    className="text-[11px] text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors font-medium"
+                  >
+                    طوال الأسبوع (7 أيام)
+                  </button>
+                  <span className="text-slate-600 text-[10px]">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditWorkingDays(['SUN', 'MON', 'TUE', 'WED', 'THU'].join(','))}
+                    className="text-[11px] text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors font-medium"
+                  >
+                    أيام الدراسة (الأحد - الخميس)
+                  </button>
+                  <span className="text-slate-600 text-[10px]">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditWorkingDays(['FRI', 'SAT'].join(','))}
+                    className="text-[11px] text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors font-medium"
+                  >
+                    عطلة نهاية الأسبوع (الجمعة والسبت)
+                  </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">أيام العمل المتاحة</label>
-                <input
-                  type="text"
-                  value={editWorkingDays}
-                  onChange={e => setEditWorkingDays(e.target.value)}
-                  placeholder="SUN,MON,TUE,WED,THU,FRI,SAT"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                  dir="ltr"
-                />
-                <p className="text-[10px] text-slate-500 mt-1">الأيام مفصولة بفواصل (SUN, MON, TUE, WED, THU, FRI, SAT)</p>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">حالة التشغيل اللحظية للفرع</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditOperationalStatus('OPEN')}
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
+                      editOperationalStatus === 'OPEN'
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-md shadow-emerald-500/20 ring-1 ring-emerald-500'
+                        : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-xs font-black">مفتوح للطلب</span>
+                    <span className="text-[9px] opacity-75">يستقبل الطلبات</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditOperationalStatus('BUSY')}
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
+                      editOperationalStatus === 'BUSY'
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-md shadow-amber-500/20 ring-1 ring-amber-500'
+                        : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    <span className="text-xs font-black">ضغط طلبات</span>
+                    <span className="text-[9px] opacity-75">مغلق مؤقتاً</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditOperationalStatus('CLOSED')}
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
+                      editOperationalStatus === 'CLOSED'
+                        ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-md shadow-rose-500/20 ring-1 ring-rose-500'
+                        : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    <span className="text-xs font-black">مغلق تماماً</span>
+                    <span className="text-[9px] opacity-75">خارج أوقات العمل</span>
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">حالة التشغيل اللحظية</label>
-                <select
-                  value={editOperationalStatus}
-                  onChange={e => setEditOperationalStatus(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="OPEN">مفتوح للطلب (OPEN)</option>
-                  <option value="BUSY">مغلق مؤقتاً / ضغط طلبات (BUSY)</option>
-                  <option value="CLOSED">مغلق تماماً (CLOSED)</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  editAllowDelivery
+                    ? 'bg-purple-950/40 border-purple-500/60 shadow-sm shadow-purple-900/30 ring-1 ring-purple-500/30'
+                    : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
+                }`}>
                   <input
                     type="checkbox"
                     checked={editAllowDelivery}
                     onChange={e => setEditAllowDelivery(e.target.checked)}
-                    className="rounded text-purple-600 focus:ring-0"
+                    className="w-4 h-4 rounded text-purple-600 focus:ring-0 bg-slate-900 border-slate-700 cursor-pointer"
                   />
-                  <span className="text-xs font-bold text-slate-300">إتاحة التوصيل لمباني الجامعة</span>
+                  <div className="flex items-center gap-2">
+                    <Truck className={`w-4 h-4 ${editAllowDelivery ? 'text-purple-400' : 'text-slate-500'}`} />
+                    <div>
+                      <span className="text-xs font-bold text-slate-200 block">إتاحة التوصيل للجامعة</span>
+                      <span className="text-[10px] text-slate-400">توصيل الطلبات للكليات والمباني</span>
+                    </div>
+                  </div>
                 </label>
 
-                <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer">
+                <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  editAllowPickup
+                    ? 'bg-purple-950/40 border-purple-500/60 shadow-sm shadow-purple-900/30 ring-1 ring-purple-500/30'
+                    : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
+                }`}>
                   <input
                     type="checkbox"
                     checked={editAllowPickup}
                     onChange={e => setEditAllowPickup(e.target.checked)}
-                    className="rounded text-purple-600 focus:ring-0"
+                    className="w-4 h-4 rounded text-purple-600 focus:ring-0 bg-slate-900 border-slate-700 cursor-pointer"
                   />
-                  <span className="text-xs font-bold text-slate-300">إتاحة الاستلام من الفرع</span>
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className={`w-4 h-4 ${editAllowPickup ? 'text-purple-400' : 'text-slate-500'}`} />
+                    <div>
+                      <span className="text-xs font-bold text-slate-200 block">إتاحة الاستلام من الفرع</span>
+                      <span className="text-[10px] text-slate-400">الاستلام المباشر ذاتياً من المنفذ</span>
+                    </div>
+                  </div>
                 </label>
               </div>
               </div>

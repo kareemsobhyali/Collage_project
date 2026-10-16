@@ -182,6 +182,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   }, [orders.length]);
 
   const handleAssignDriver = async (orderId: string, driverId: string | null) => {
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (driverId && targetOrder?.status === 'PENDING') {
+      alert('يجب قبول الطلب وتأكيده أولاً قبل إسناده لكابتن التوصيل (الطيار)');
+      return;
+    }
     if (driverId === '') {
       alert('يرجى اختيار كابتن التوصيل (الطيار) من القائمة أولاً');
       return;
@@ -223,6 +228,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       if (newStatus !== 'PENDING') {
         soundNotifier.stopRepeatingAlarm();
       }
+      if (detailedOrder && detailedOrder.id === orderId) {
+        setDetailedOrder(null);
+        onClearDetailedOrder?.();
+      }
       onRefreshOrders();
     } catch (error: any) {
       alert(error.message || 'فشل تحديث الحالة');
@@ -237,6 +246,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     const finalReason = rejectionReason.trim() || 'نفاد المكونات المطلوبة';
     setRejectingOrder(null);
     soundNotifier.stopRepeatingAlarm();
+    setDetailedOrder(null);
+    onClearDetailedOrder?.();
     await handleUpdateStatus(orderToReject.id, 'REJECTED', undefined, finalReason);
   };
 
@@ -247,17 +258,25 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     const driverToAssign = acceptDriverId;
     setAcceptingOrder(null);
 
+    // إغلاق شاشة تفاصيل الأوردر والرجوع فوراً لشاشة الأوردرات الرئيسية
+    setDetailedOrder(null);
+    onClearDetailedOrder?.();
+
     // إيقاف صوت التنبيه فور قبول الطلب
     soundNotifier.stopRepeatingAlarm();
 
-    // إذا اختار المطعم طياراً فورياً عند القبول
+    // 1. تحديث حالة الطلب إلى قيد التحضير أولاً (قبول الطلب وتأكيده)
+    await handleUpdateStatus(orderToAccept.id, 'PREPARING', minutes);
+
+    // 2. إذا اختار المطعم طياراً فورياً عند القبول، يتم إسناده الآن بعد أن تم قبول الطلب
     if (driverToAssign) {
       try {
         await api.assignDriver(orderToAccept.id, driverToAssign);
-      } catch (_err) {}
+        onRefreshOrders();
+      } catch (err: any) {
+        console.error('Assign driver on accept error:', err);
+      }
     }
-
-    await handleUpdateStatus(orderToAccept.id, 'PREPARING', minutes);
 
     // طباعة البون تلقائياً عند قبول الطلب
     if (getAutoPrintOnAccept() || getAutoPrintEnabled()) {
@@ -523,7 +542,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
               )}
 
-              {!isCompleted && !isRejected && (
+              {dOrder.status === 'PENDING' ? (
+                <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs font-bold text-amber-900 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>يجب قبول الطلب أولاً من الزر الأخضر بالأعلى لتتمكن من إسناد كابتن التوصيل (الطيار)</span>
+                </div>
+              ) : !isCompleted && !isRejected ? (
                 <div className="flex items-center gap-2 pt-1">
                   <select
                     value={selectedDriverMap[dOrder.id] !== undefined ? selectedDriverMap[dOrder.id] : (dOrder.driverId || '')}
@@ -549,7 +573,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     {assigningDriverOrderId === dOrder.id ? '...' : (assignedDriver ? 'تغيير الطيار' : 'إسناد للطيار')}
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Group Cart Details if present */}

@@ -16,7 +16,8 @@ import {
   Send,
   RotateCw,
   ShieldCheck,
-  Calendar
+  Calendar,
+  AlertTriangle
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { notifyOrderStatusPush } from '../services/notifications';
@@ -61,6 +62,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
 }) => {
   const [order, setOrder] = useState<any>(initialOrder);
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
   const [currentTime, setCurrentTime] = useState<number>(Date.now());
 
   // تحديث التوقيت الحي كل 10 ثوانٍ
@@ -128,7 +130,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   }, [order?.id]);
 
   const handleCancelOrder = async () => {
-    if (!confirm('هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟')) return;
+    setShowCancelConfirmModal(false);
     try {
       setCancelling(true);
       const res = await api.cancelOrder(order.id);
@@ -593,7 +595,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
         <div className="p-4 border-t bg-slate-50 pb-safe flex gap-2">
           {status === 'PENDING' && (
             <button
-              onClick={handleCancelOrder}
+              onClick={() => setShowCancelConfirmModal(true)}
               disabled={cancelling}
               className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5"
             >
@@ -609,6 +611,46 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
             إغلاق
           </button>
         </div>
+
+        {/* Cancel Confirmation Modal */}
+        {showCancelConfirmModal && (
+          <div 
+            className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200 overscroll-contain"
+            onClick={() => setShowCancelConfirmModal(false)}
+          >
+            <div 
+              className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 p-5 space-y-4 animate-in zoom-in-95 duration-200 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200/60 shadow-inner">
+                <AlertTriangle className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="font-black text-base text-slate-900">إلغاء الطلب؟</h3>
+                <p className="text-xs text-slate-500 font-medium mt-1.5 leading-relaxed">
+                  هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟ سيتم إرجاع أي مبالغ مدفوعة أو مخصومة من محفظتك فوراً.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelConfirmModal(false)}
+                  className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  تراجع
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelOrder}
+                  className="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl transition-colors shadow-sm shadow-rose-600/30 flex items-center justify-center gap-1.5"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>نعم، إلغاء الطلب</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

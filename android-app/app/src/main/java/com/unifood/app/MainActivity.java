@@ -7,6 +7,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -16,6 +17,12 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
@@ -332,6 +339,48 @@ public class MainActivity extends Activity {
 
                 int notificationId = (int) (System.currentTimeMillis() & 0xFFFFFFF);
                 manager.notify(notificationId, builder.build());
+            } catch (Exception ignored) {
+            }
+        @JavascriptInterface
+        public void downloadFile(String filename, String content, String mimeType) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
+                    values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType != null ? mimeType : "text/csv");
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+
+                    Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (uri != null) {
+                        try (OutputStream os = context.getContentResolver().openOutputStream(uri)) {
+                            if (os != null) {
+                                os.write(content.getBytes(StandardCharsets.UTF_8));
+                                os.flush();
+                            }
+                        }
+                    }
+                } else {
+                    File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (!downloadsDir.exists()) downloadsDir.mkdirs();
+                    File file = new File(downloadsDir, filename);
+                    try (FileOutputStream fos = new FileOutputStream(file)) {
+                        fos.write(content.getBytes(StandardCharsets.UTF_8));
+                        fos.flush();
+                    }
+                }
+
+                showNotification("تم تحميل التقرير بنجاح 📁", "تم حفظ " + filename + " في مجلد التنزيلات (Downloads)");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        @JavascriptInterface
+        public void openExternalUrl(String url) {
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
             } catch (Exception ignored) {
             }
         }

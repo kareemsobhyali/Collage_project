@@ -15,7 +15,9 @@ import {
   Clock,
   PowerOff,
   Truck,
-  Printer
+  Printer,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { api } from './services/api';
 import { soundNotifier } from './services/audioAlert';
@@ -48,6 +50,13 @@ export function App() {
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
   const [showQuickStock, setShowQuickStock] = useState<boolean>(false);
   const [showPrinterSettings, setShowPrinterSettings] = useState<boolean>(false);
+  const [targetedDetailedOrder, setTargetedDetailedOrder] = useState<any | null>(null);
+  const [driverRejectionAlert, setDriverRejectionAlert] = useState<{
+    orderNumber: number;
+    driverName: string;
+    orderId: string;
+    order?: any;
+  } | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
   // حساب العداد التنازلي وتحديثه كل ثانية عندما يكون الفرع مغلقاً مؤقتاً
@@ -165,6 +174,23 @@ export function App() {
     // تحديث حالة طلب
     socket.on('order_status_updated', (updatedOrder: any) => {
       setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+    });
+
+    // استلام تنبيه فوري وتشغيل جرس إنذار عند اعتذار/رفض الطيار لاستلام الطلب
+    socket.on('driver_rejected_order', (data: any) => {
+      if (data?.order) {
+        setOrders(prev => prev.map(o => o.id === data.order.id ? data.order : o));
+      }
+      // تشغيل جرس التنبيه المستمر فوراً لتنبيه الكاشير
+      soundNotifier.startRepeatingAlarm();
+
+      // إظهار نافذة التنبيه العاجل
+      setDriverRejectionAlert({
+        orderNumber: data.orderNumber || data.order?.orderNumber,
+        driverName: data.driverName || 'الطيار',
+        orderId: data.orderId || data.order?.id,
+        order: data.order,
+      });
     });
 
     // تحديث حالة عمل الفرع لحظياً
@@ -476,6 +502,8 @@ export function App() {
             orders={orders}
             branchName={branch.name}
             onRefreshOrders={loadData}
+            initialDetailedOrder={targetedDetailedOrder}
+            onClearDetailedOrder={() => setTargetedDetailedOrder(null)}
           />
         )}
 
@@ -534,6 +562,57 @@ export function App() {
           branchName={branch.name}
           onClose={() => setShowPrinterSettings(false)}
         />
+      )}
+
+      {/* Driver Rejection Urgent Alert Dialog */}
+      {driverRejectionAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border-2 border-rose-500 space-y-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto border-2 border-rose-300 animate-bounce">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+
+            <div>
+              <span className="text-xs font-black text-rose-600 uppercase tracking-wider block mb-1">
+                ⚠️ إنذار عاجل: اعتذار كابتن التوصيل
+              </span>
+              <h3 className="font-black text-lg text-slate-900">
+                الطيار اعتذر عن طلب #{driverRejectionAlert.orderNumber}
+              </h3>
+              <p className="text-xs text-slate-600 font-bold mt-2 leading-relaxed">
+                قام الكابتن <span className="text-rose-600 font-black">"{driverRejectionAlert.driverName}"</span> بالاعتذار عن استلام وتوصيل هذا الطلب. الطلب الآن بانتظار إسناده لطيار آخر فوراً لتجنب تأخير العميل!
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  soundNotifier.stopRepeatingAlarm();
+                  setActiveTab('ORDERS');
+                  const target = orders.find(o => o.id === driverRejectionAlert.orderId) || driverRejectionAlert.order;
+                  setTargetedDetailedOrder(target || null);
+                  setDriverRejectionAlert(null);
+                }}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs sm:text-sm font-black shadow-lg shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Truck className="w-4 h-4" />
+                <span>فتح الطلب الآن لإسناد طيار بديل</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  soundNotifier.stopRepeatingAlarm();
+                  setDriverRejectionAlert(null);
+                }}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors"
+              >
+                إيقاف الإنذار الصوتي وإغلاق
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

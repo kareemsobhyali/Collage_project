@@ -116,6 +116,13 @@ export function notifyDriverAssigned(driverId: string, order: any): void {
   }
 }
 
+export function notifyDriverRejectedOrder(branchId: string, payload: { orderId: string; orderNumber: number; driverName: string; order: any }): void {
+  if (io) {
+    // إشعار فوري للفرع مع تنبيه صوتي عاجل عند اعتذار/رفض الطيار لاستلام الطلب
+    io.to(`branch_${branchId}`).emit("driver_rejected_order", payload);
+  }
+}
+
 export function notifyGroupCartUpdated(shareCode: string, cartData: any): void {
   if (io) {
     io.to(`group_cart_${shareCode}`).emit("group_cart_updated", cartData);

@@ -139,22 +139,21 @@ export function App() {
   );
 
   useEffect(() => {
-    if (isAnyModalOpen) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-      document.body.style.overscrollBehavior = 'contain';
-      document.documentElement.style.overscrollBehavior = 'contain';
-    } else {
-      document.body.style.overflow = '';
+    // Clear any previous documentElement lock to ensure smooth scrolling
+    if (document.documentElement.style.overflow) {
       document.documentElement.style.overflow = '';
-      document.body.style.overscrollBehavior = '';
       document.documentElement.style.overscrollBehavior = '';
     }
 
+    if (isAnyModalOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+
     return () => {
-      document.body.style.overflow = '';
+      document.body.classList.remove('modal-open');
       document.documentElement.style.overflow = '';
-      document.body.style.overscrollBehavior = '';
       document.documentElement.style.overscrollBehavior = '';
     };
   }, [isAnyModalOpen]);

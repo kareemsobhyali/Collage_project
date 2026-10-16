@@ -12,7 +12,9 @@ import {
   Sparkles,
   UtensilsCrossed,
   LogOut,
-  Store
+  Store,
+  ChevronDown,
+  AlertTriangle
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 
@@ -44,6 +46,10 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(branchId || branches[0]?.id || '');
+  const [showBranchSelectModal, setShowBranchSelectModal] = useState(false);
+  const [showLeaveConfirmModal, setShowLeaveConfirmModal] = useState(false);
+
+  const selectedBranch = branches.find((b: any) => b.id === selectedBranchId) || branches[0];
 
   // Quick menu items inside modal so participants can add directly or browse full menu
   const [menuCategories, setMenuCategories] = useState<any[]>([]);
@@ -152,8 +158,16 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
   // Leave / Clear active group cart
   const handleLeaveGroupCart = () => {
     if (isHost) {
-      if (!window.confirm('تنبيه: أنت منشئ هذه السلة ومسؤولها. هل أنت متأكد من مغادرتها؟')) return;
+      setShowLeaveConfirmModal(true);
+      return;
     }
+    setCart(null);
+    setShareCode(null);
+    onActiveCodeChange(null);
+  };
+
+  const confirmLeaveGroupCart = () => {
+    setShowLeaveConfirmModal(false);
     setCart(null);
     setShareCode(null);
     onActiveCodeChange(null);
@@ -324,18 +338,32 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
 
               {branches.length > 1 && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">اختر المطعم:</label>
-                  <select
-                    value={selectedBranchId}
-                    onChange={(e) => setSelectedBranchId(e.target.value)}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">اختر المطعم:</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowBranchSelectModal(true)}
+                    className="w-full p-2.5 sm:p-3 bg-white border border-slate-300 hover:border-indigo-500 rounded-2xl text-xs font-bold text-slate-800 flex items-center justify-between shadow-xs transition-all text-right active:scale-[0.99]"
                   >
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                    <div className="flex items-center gap-2.5 truncate">
+                      {selectedBranch?.logo ? (
+                        <img src={selectedBranch.logo} alt="" className="w-8 h-8 rounded-xl object-cover border border-slate-100 shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 border border-indigo-100">
+                          <Store className="w-4 h-4" />
+                        </div>
+                      )}
+                      <div className="text-right truncate">
+                        <div className="font-black text-slate-800 text-xs truncate">{selectedBranch?.name || 'اختر المطعم'}</div>
+                        {selectedBranch?.cuisine && (
+                          <div className="text-[10px] text-slate-400 font-medium truncate">{selectedBranch.cuisine}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-indigo-600 bg-indigo-50/90 px-2.5 py-1.5 rounded-xl text-xs font-bold shrink-0">
+                      <span>تغيير</span>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </div>
+                  </button>
                 </div>
               )}
 
@@ -592,6 +620,144 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
                   <span>بانتظار منشئ السلة ({cart.hostName}) لإنهاء الطلب وتأكيده للمطعم</span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Branch Selection Custom Modal */}
+        {showBranchSelectModal && (
+          <div 
+            className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 overscroll-contain"
+            onClick={() => setShowBranchSelectModal(false)}
+          >
+            <div 
+              className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                    <Store className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm text-slate-800">اختر المطعم لسلة الشلة</h3>
+                    <p className="text-[10px] text-slate-500 font-bold">حدد المطعم الذي ستطلب منه أنت وأصدقاؤك</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBranchSelectModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-xl transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Branches List */}
+              <div className="p-3 space-y-2 overflow-y-auto max-h-[60vh] overscroll-contain">
+                {branches.map((b: any) => {
+                  const isSelected = b.id === selectedBranchId;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBranchId(b.id);
+                        setShowBranchSelectModal(false);
+                      }}
+                      className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between text-right active:scale-[0.99] ${
+                        isSelected 
+                          ? 'bg-indigo-50/80 border-indigo-500 shadow-xs ring-1 ring-indigo-500' 
+                          : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {b.logo ? (
+                          <img src={b.logo} alt="" className="w-10 h-10 rounded-xl object-cover border border-slate-100 shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0 border border-indigo-100">
+                            <Store className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className={`font-black text-xs sm:text-sm truncate ${isSelected ? 'text-indigo-900' : 'text-slate-800'}`}>
+                            {b.name}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {b.cuisine && (
+                              <span className="text-[11px] text-slate-500 font-medium truncate">{b.cuisine}</span>
+                            )}
+                            {b.isActive === false ? (
+                              <span className="text-[10px] bg-rose-100 text-rose-700 font-bold px-1.5 py-0.5 rounded-md">مغلق حالياً</span>
+                            ) : (
+                              <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-md">متاح الآن</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {isSelected ? (
+                        <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0 mr-2 shadow-xs">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full border-2 border-slate-200 shrink-0 mr-2" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="p-3 bg-slate-50 border-t border-slate-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowBranchSelectModal(false)}
+                  className="w-full py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Leave Group Cart Confirmation Modal */}
+        {showLeaveConfirmModal && (
+          <div 
+            className="fixed inset-0 z-[130] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200 overscroll-contain"
+            onClick={() => setShowLeaveConfirmModal(false)}
+          >
+            <div 
+              className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 p-5 space-y-4 animate-in zoom-in-95 duration-200 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200/60 shadow-inner">
+                <AlertTriangle className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="font-black text-base text-slate-900">مغادرة سلة الشلة؟</h3>
+                <p className="text-xs text-slate-500 font-medium mt-1.5 leading-relaxed">
+                  تنبيه: أنت منشئ هذه السلة ومسؤولها. إذا غادرت السلة فلن تتمكن من إدارة وتأكيد طلبات أصدقائك. هل أنت متأكد من رغبتك في المغادرة؟
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLeaveConfirmModal(false)}
+                  className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  البقاء في السلة
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmLeaveGroupCart}
+                  className="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl transition-colors shadow-sm shadow-rose-600/30 flex items-center justify-center gap-1.5"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>نعم، مغادرة</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

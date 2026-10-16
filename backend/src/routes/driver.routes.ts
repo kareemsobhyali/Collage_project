@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import prisma from "../prisma.js";
 import { generateToken, authenticateDriver, AuthRequest } from "../middleware/auth.js";
-import { notifyOrderStatusChanged } from "../sockets/socketManager.js";
+import { notifyOrderStatusChanged, notifyDriverRejectedOrder } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted } from "../services/settings.service.js";
 import { getDriverBranchConfig, markOrderAcceptedByDriver, isOrderAcceptedByDriver } from "../services/driver.service.js";
 
@@ -224,6 +224,12 @@ router.put("/orders/:id/reject", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    const driverInfo = await prisma.deliveryDriver.findUnique({
+      where: { id: driverId },
+      select: { name: true, phone: true },
+    });
+    const driverName = driverInfo?.name || "الطيار";
+
     const updated = await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -247,8 +253,14 @@ router.put("/orders/:id/reject", async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // إشعار الفرع فوراً لإعادة إسناد الطلب لكابتن آخر
+    // إشعار الفرع فوراً لإعادة إسناد الطلب لكابتن آخر وتفعيل التنبيه الصوتي
     notifyOrderStatusChanged(order.id, order.branchId, updated);
+    notifyDriverRejectedOrder(order.branchId, {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      driverName,
+      order: updated,
+    });
 
     res.json({
       success: true,
