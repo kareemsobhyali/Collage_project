@@ -792,6 +792,17 @@ export const api = {
     return data;
   },
 
+  // 40.6 حقن وتحديث منيو مطعم ديفادو بالكامل
+  async seedDivadoMenu() {
+    const res = await fetch(`${API_BASE_URL}/admin/seed-divado`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استيراد منيو ديفادو');
+    return data;
+  },
+
   // 41. إعدادات الصوت العامة وإدارة النغمات المخصصة
   async getPublicSoundSettings() {
     try {

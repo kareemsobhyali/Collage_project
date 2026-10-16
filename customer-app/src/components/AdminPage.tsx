@@ -62,7 +62,8 @@ import {
   Download,
   Wallet,
   Coins,
-  Navigation
+  Navigation,
+  Utensils
 } from 'lucide-react';
 
 
@@ -569,6 +570,11 @@ export const AdminPage: React.FC = () => {
   const [seedMockSuccess, setSeedMockSuccess] = useState<string | null>(null);
   const [seedMockError, setSeedMockError] = useState<string | null>(null);
 
+  // Divado Menu Seeding States
+  const [seedingDivado, setSeedingDivado] = useState(false);
+  const [seedDivadoSuccess, setSeedDivadoSuccess] = useState<string | null>(null);
+  const [seedDivadoError, setSeedDivadoError] = useState<string | null>(null);
+
   // Add Branch Form
   const [newName, setNewName] = useState('');
   const [newSlug, setNewSlug] = useState('');
@@ -962,6 +968,34 @@ export const AdminPage: React.FC = () => {
           setSeedMockError(err.message || "فشل حقن البيانات التجريبية");
         } finally {
           setSeedingMockData(false);
+        }
+      }
+    });
+  };
+
+  const handleTriggerSeedDivado = () => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: "استيراد وتحديث منيو ديفادو الرسمي 🧇",
+      message: "سيتم إنشاء وتحديث مطعم 'ديفادو وافل اند كريب' بكافة أقسامه الـ 14 وأصنافه الـ 78 مع الأسعار والأحجام طبقاً للمنيو الرسمي في قاعدة بيانات الاستضافة. هل تريد المتابعة؟",
+      confirmText: "استيراد المنيو الآن",
+      cancelText: "إلغاء",
+      isDanger: false,
+      onConfirm: async () => {
+        setSeedDivadoError(null);
+        setSeedDivadoSuccess(null);
+        try {
+          setSeedingDivado(true);
+          const res = await api.seedDivadoMenu();
+          setSeedDivadoSuccess(res.message || "تم استيراد منيو ديفادو بنجاح في قاعدة البيانات! 🥞");
+          fetchDashboardData();
+          setTimeout(() => {
+            setSeedDivadoSuccess(null);
+          }, 7000);
+        } catch (err: any) {
+          setSeedDivadoError(err.message || "فشل استيراد منيو ديفادو");
+        } finally {
+          setSeedingDivado(false);
         }
       }
     });
@@ -6417,6 +6451,91 @@ export const AdminPage: React.FC = () => {
                   <span className="font-bold text-emerald-300 block">🛵 3 كباتن وطلبات تقارير</span>
                   <p className="text-[10px] text-slate-400 leading-relaxed">
                     طيارين عامين ومخصصين، وحسابات طلاب وطلبات جاهزة ومكتملة لعرض تقارير المالية والورديات فوراً.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Card: Divado Restaurant Menu Seeding (استيراد وتحديث منيو مطعم ديفادو بالكامل) */}
+            <div className="bg-slate-900 border border-amber-800/60 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-amber-900/40 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                    <Utensils className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <span>استيراد وتحديث منيو مطعم ديفادو الرسمي (Divado Waffle & Crepe)</span>
+                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-black rounded-md border border-amber-500/30">
+                        المنيو الفعلي المعتمد 🧇
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      حقن وتحديث الـ 14 قسماً و 78 صنفاً وحجماً كاملاً لمطعم ديفادو مباشرة في قاعدة بيانات السيرفر الفعلي
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={seedingDivado}
+                  onClick={handleTriggerSeedDivado}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-600/30 shrink-0 disabled:opacity-50"
+                >
+                  {seedingDivado ? (
+                    <>
+                      <RotateCw className="w-4 h-4 animate-spin" />
+                      <span>جاري استيراد منيو ديفادو...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Utensils className="w-4 h-4" />
+                      <span>استيراد منيو ديفادو للسيرفر 🚀</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {seedDivadoSuccess && (
+                <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{seedDivadoSuccess}</span>
+                </div>
+              )}
+
+              {seedDivadoError && (
+                <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{seedDivadoError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-amber-300 block">🌯 41 كريب متنوع</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    كريبات الدجاج (13)، اللحوم (12)، اسبيشيال (9)، الجبنة (3)، الخضار (2)، والحلو (2).
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-orange-300 block">🍔 19 ساندوتش وبرجر</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    برجر (3)، فرايد تشيكن سنجل ودبل (7)، وسندوتشات فرنساوي (9) مع المخللات والصوصات.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-yellow-300 block">🍱 8 وجبات متكاملة</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    كرسبي، زنجر، شيش، شاورما، مشوي، كفتة، كوردن بلو وميكس مع الأرز والبطاطس والمخلل.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-pink-300 block">🧇 10 وافل وحلويات ومشروبات</span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    وافل أمريكان، ستيك نوتيلا، بوكس بان كيك، بطاطس ومقبلات، ومياه وكانز بيبسي مثلج.
                   </p>
                 </div>
               </div>

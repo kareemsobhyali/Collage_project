@@ -2158,6 +2158,19 @@ router.post("/seed-mock-data", async (_req: AuthRequest, res: Response) => {
   }
 });
 
+// حقن وتحديث منيو مطعم ديفادو بالكامل في قاعدة البيانات بضغطة زر
+router.post("/seed-divado", async (_req: AuthRequest, res: Response) => {
+  try {
+    const { seedDivadoBranchAndMenu } = await import("../services/divadoSeed.service.js");
+    const result = await seedDivadoBranchAndMenu();
+    notifyBranchesListChanged();
+    res.json(result);
+  } catch (error: any) {
+    console.error("Admin seed-divado error:", error);
+    res.status(500).json({ error: error?.message || "فشل حقن وتحديث منيو ديفادو في قاعدة البيانات" });
+  }
+});
+
 export default router;
 
 
