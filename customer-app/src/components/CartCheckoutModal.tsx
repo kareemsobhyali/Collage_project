@@ -24,10 +24,13 @@ import {
   Calendar,
   Sparkles,
   Wallet,
-  Gift
+  Gift,
+  Building2,
+  Navigation
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { requestPushPermission } from '../services/notifications';
+import { CAMPUS_LANDMARKS, formatAddressWithCoordinates, cleanAddressText } from '../services/campusLocations';
 
 interface CartCheckoutModalProps {
   cart: any[];
@@ -106,6 +109,29 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [walletBalance, setWalletBalance] = useState<number>(user?.walletBalance || 0);
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(user?.loyaltyPoints || 0);
   const [convertingPoints, setConvertingPoints] = useState(false);
+  const [detectingGps, setDetectingGps] = useState(false);
+
+  const handleDetectGpsLocation = () => {
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      alert('خاصية تحديد الموقع الجغرافي غير مدعومة على هذا المتصفح');
+      return;
+    }
+    setDetectingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setDetectingGps(false);
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setAddressText(formatAddressWithCoordinates(addressText || 'موقعي الحالي بالحرم الجامعي', lat, lng));
+        setSelectedAddressId(null);
+      },
+      (_err) => {
+        setDetectingGps(false);
+        alert('تعذر قراءة إحداثيات الـ GPS. يُرجى السماح بصلاحية الموقع في المتصفح أو اختيار المبنى من المعالم السريعة أدناه.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
 
   // تحديث بيانات المستخدم وعناوينه ومحفظته تلقائياً عند تسجيل الدخول
   useEffect(() => {
@@ -719,21 +745,70 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 </div>
               )}
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  تفاصيل العنوان والموقع:
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="اكتب رقم الدور - المدرج أو المعمل (مثال: مبنى ب - الدور الثالث - مدرج 5 بجوار الكافتيريا)"
-                  value={addressText}
-                  onChange={e => {
-                    setAddressText(e.target.value);
-                    setSelectedAddressId(null);
-                  }}
-                  className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                  required
-                />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span>مباني ومعالم الحرم الجامعي السريعة:</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleDetectGpsLocation}
+                    disabled={detectingGps}
+                    className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <Navigation className={`w-3.5 h-3.5 text-emerald-500 shrink-0 ${detectingGps ? 'animate-spin' : 'animate-pulse'}`} />
+                    <span>{detectingGps ? 'جاري تحديد الـ GPS...' : '📍 موقعي الحالي بالـ GPS'}</span>
+                  </button>
+                </div>
+
+                {/* شريط المعالم السريعة */}
+                <div className="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                  {CAMPUS_LANDMARKS.map(lm => (
+                    <button
+                      key={lm.id}
+                      type="button"
+                      onClick={() => {
+                        setAddressText(formatAddressWithCoordinates(lm.name, lm.lat, lm.lng));
+                        setSelectedAddressId(null);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0 border bg-white border-indigo-100 hover:border-indigo-400 hover:bg-indigo-50/70 text-slate-700 transition-all flex items-center gap-1 shadow-2xs active:scale-95"
+                    >
+                      <span className="text-xs">🏛️</span>
+                      <span>{lm.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-1">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    تفاصيل العنوان الإضافية (الدور / المدرج / المعمل):
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="اكتب رقم الدور - المدرج أو المعمل (مثال: مبنى ب - الدور الثالث - مدرج 5 بجوار الكافتيريا)"
+                    value={cleanAddressText(addressText) || addressText}
+                    onChange={e => {
+                      const newText = e.target.value;
+                      // الحفاظ على الإحداثيات إن كانت موجودة مسبقاً
+                      const existingGps = addressText.match(/\[GPS:[0-9.-]+,[0-9.-]+\]/);
+                      if (existingGps) {
+                        setAddressText(`${existingGps[0]} ${newText}`);
+                      } else {
+                        setAddressText(newText);
+                      }
+                      setSelectedAddressId(null);
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 shadow-2xs"
+                    required
+                  />
+                  {addressText.includes('[GPS:') && (
+                    <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>تم ربط إحداثيات الـ GPS لموقعك بنجاح! سيتم توجيه الطيار مباشرة لك على الخريطة.</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Save Address & Custom Title */}

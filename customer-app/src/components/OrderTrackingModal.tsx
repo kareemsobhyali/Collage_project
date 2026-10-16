@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { notifyOrderStatusPush } from '../services/notifications';
+import { LiveOrderMap } from './LiveOrderMap';
+import { extractCoordinatesFromAddress, cleanAddressText, DEFAULT_CAMPUS_RESTAURANT_COORDS } from '../services/campusLocations';
 
 interface OrderTrackingModalProps {
   order: any;
@@ -108,13 +110,25 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
     return () => clearInterval(timer);
   }, [order.estimatedMinutes, order.acceptedAt, order.status]);
 
-  // الاتصال بـ Socket.io لمتابعة التحديثات الحية لحالة الطلب
+  const [liveDriverCoords, setLiveDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // الاتصال بـ Socket.io لمتابعة التحديثات الحية لحالة الطلب والموقع الجغرافي للطيار
   useEffect(() => {
     if (!order?.id) return;
 
     const socketHost = API_BASE_URL.replace('/api', '');
     const socket: Socket = io(socketHost);
     socket.emit('join_order', order.id);
+
+    // طلب آخر موقع مسجل للطيار فور فتح الشاشة
+    const driverId = order.driverId || order.driver?.id;
+    if (driverId) {
+      socket.emit('get_driver_location', driverId, (loc: any) => {
+        if (loc && loc.lat && loc.lng) {
+          setLiveDriverCoords({ lat: loc.lat, lng: loc.lng });
+        }
+      });
+    }
 
     socket.on('order_status_updated', (updatedOrder: any) => {
       if (updatedOrder.id === order.id) {
@@ -124,10 +138,17 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
       }
     });
 
+    // استقبال تحديث موقع الطيار الحي على الخريطة
+    socket.on('driver_location_updated', (locData: any) => {
+      if (locData && (locData.orderId === order.id || locData.driverId === order.driverId || locData.driverId === order.driver?.id)) {
+        setLiveDriverCoords({ lat: locData.lat, lng: locData.lng });
+      }
+    });
+
     return () => {
       socket.disconnect();
     };
-  }, [order?.id]);
+  }, [order?.id, order?.driverId, order?.driver?.id]);
 
   const handleCancelOrder = async () => {
     setShowCancelConfirmModal(false);
@@ -332,8 +353,33 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
             </div>
           )}
 
-          {/* Assigned Driver Card */}
-          {order.driver && (
+          {/* Live GPS Campus Tracking Map */}
+          {order.orderType === 'DELIVERY' && order.driver ? (
+            <div className="space-y-1.5 animate-fadeIn">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span>تتبع وصول الكابتن مباشرة على الخريطة:</span>
+                </span>
+                <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  GPS مباشر 🛰️
+                </span>
+              </div>
+              <LiveOrderMap
+                orderId={order.id}
+                driverName={order.driver.name}
+                driverPhone={order.driver.phone}
+                restaurantName={order.branch?.name || 'مطعم الجامعة'}
+                orderStatus={status}
+                studentCoords={extractCoordinatesFromAddress(order.addressText) || { lat: 30.0275, lng: 31.2110 }}
+                liveDriverCoords={liveDriverCoords}
+                pickupPin={order.pickupPin}
+              />
+            </div>
+          ) : order.driver ? (
             <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center justify-between text-xs animate-fadeIn">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
@@ -355,7 +401,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 <span>اتصال</span>
               </a>
             </div>
-          )}
+          ) : null}
 
           {status === 'REJECTED' ? (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-center text-rose-700 space-y-2.5">
@@ -454,7 +500,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                   <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold text-slate-800">العنوان الجامعي: </span>
-                    <span className="text-slate-600">{order.addressText}</span>
+                    <span className="text-slate-600">{cleanAddressText(order.addressText) || order.addressText}</span>
                   </div>
                 </div>
               </div>

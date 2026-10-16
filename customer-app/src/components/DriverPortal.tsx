@@ -30,10 +30,12 @@ import {
   CheckCircle2,
   Wallet,
   Sparkles,
-  Radio
+  Radio,
+  Navigation
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
+import { cleanAddressText, extractCoordinatesFromAddress } from '../services/campusLocations';
 
 interface DriverPortalProps {
   onClose?: () => void;
@@ -83,13 +85,31 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     }, 4000);
   };
 
-  // Audio alerts & Custom sound settings
   const [isMuted, setIsMuted] = useState<boolean>(() => {
     return localStorage.getItem('driver_muted') === 'true';
   });
   const [driverTab, setDriverTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
   const [customSoundUrl, setCustomSoundUrl] = useState<string | null>(null);
   const [customVolume, setCustomVolume] = useState<number>(1.0);
+
+  // Live GPS Tracking states
+  const socketRef = useRef<Socket | null>(null);
+  const [gpsBroadcasting, setGpsBroadcasting] = useState(false);
+  const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  const handleSimulateOrSendLocation = (manualLat?: number, manualLng?: number) => {
+    const lat = manualLat || (currentCoords ? currentCoords.lat + (Math.random() - 0.5) * 0.001 : 30.0268);
+    const lng = manualLng || (currentCoords ? currentCoords.lng + (Math.random() - 0.5) * 0.001 : 31.2090);
+    setCurrentCoords({ lat, lng });
+    setGpsBroadcasting(true);
+    socketRef.current?.emit('driver_location_update', {
+      driverId: driver?.id,
+      lat,
+      lng,
+      orderId: selectedOrder?.id,
+    });
+    showToast('تم بث وتحديث موقعك على خريطة الطالب بنجاح 🛰️', 'success');
+  };
   const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       return Notification.permission === 'granted';
@@ -369,6 +389,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       auth: { token },
       transports: ['websocket', 'polling'],
     });
+    socketRef.current = socket;
 
     socket.on('connect', () => {
       socket.emit('join_driver', driver.id);
@@ -403,8 +424,64 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
     return () => {
       socket.disconnect();
+      socketRef.current = null;
     };
   }, [driver?.id, token]);
+
+  // مراقبة وبث موقع الطيار عبر الـ GPS الحي للطالب والفرع طالما لديه طلبات جاري توصيلها
+  useEffect(() => {
+    if (!driver?.id || !token) return;
+
+    const hasActiveDelivery = orders.some(
+      (o) => o.status !== 'COMPLETED' && o.status !== 'REJECTED' && o.driverPickedUpAt
+    );
+
+    if (!hasActiveDelivery) {
+      setGpsBroadcasting(false);
+      return;
+    }
+
+    setGpsBroadcasting(true);
+
+    let watchId: number | null = null;
+    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setCurrentCoords({ lat, lng });
+          socketRef.current?.emit('driver_location_update', {
+            driverId: driver.id,
+            lat,
+            lng,
+          });
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setCurrentCoords({ lat, lng });
+          socketRef.current?.emit('driver_location_update', {
+            driverId: driver.id,
+            lat,
+            lng,
+          });
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+      );
+    }
+
+    return () => {
+      if (watchId !== null && typeof navigator !== 'undefined') {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [driver?.id, token, orders]);
 
   // Login handler
   const handleLogin = async (e: React.FormEvent) => {
@@ -1009,7 +1086,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                         {order.deliveryZoneName && (
                           <div className="text-[11px] text-slate-500 flex items-center gap-1 truncate">
                             <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span className="truncate">{order.deliveryZoneName} {order.addressText ? `• ${order.addressText}` : ''}</span>
+                            <span className="truncate">{order.deliveryZoneName} {order.addressText ? `• ${cleanAddressText(order.addressText)}` : ''}</span>
                           </div>
                         )}
                       </div>
@@ -1297,9 +1374,28 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 )}
                 <div className="flex items-start gap-2 text-slate-700">
                   <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                  <div>
+                  <div className="w-full">
                     <span className="font-black text-slate-800">العنوان الجامعي المحدد: </span>
-                    <span className="text-slate-600">{selectedOrder.addressText}</span>
+                    <span className="text-slate-600">{cleanAddressText(selectedOrder.addressText) || selectedOrder.addressText}</span>
+                    {(() => {
+                      const studentCoords = extractCoordinatesFromAddress(selectedOrder.addressText);
+                      if (studentCoords) {
+                        return (
+                          <div className="mt-2">
+                            <a
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${studentCoords.lat},${studentCoords.lng}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition-colors"
+                            >
+                              <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                              <span>فتح التوجيه على خرائط Google 🗺️</span>
+                            </a>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
                 {selectedOrder.notes && (
@@ -1309,6 +1405,33 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   </div>
                 )}
               </div>
+
+              {/* Live GPS Broadcast Card when delivering */}
+              {selectedOrder.status !== 'COMPLETED' && selectedOrder.driverPickedUpAt && (
+                <div className="p-3.5 bg-gradient-to-r from-emerald-500/15 to-teal-500/10 border-2 border-emerald-500/40 rounded-2xl flex items-center justify-between gap-2 shadow-xs animate-fadeIn">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="relative flex h-3 w-3 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-xs font-black text-slate-900 block">بث الـ GPS الحي للعميل مفعل 🛰️</span>
+                      <span className="text-[10px] text-emerald-700 block truncate font-medium">
+                        {currentCoords ? `موقعك: ${currentCoords.lat.toFixed(4)}, ${currentCoords.lng.toFixed(4)}` : 'جاري بث تحركاتك للطالب على الخريطة'}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateOrSendLocation()}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition-all active:scale-95 flex items-center gap-1 shrink-0"
+                    title="تحديث وبث موقعي الحالي فوراً"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>تحديث الموقع</span>
+                  </button>
+                </div>
+              )}
 
               {/* Group Cart / Bag Division if present */}
               {selectedOrder.groupCartDetails && (() => {

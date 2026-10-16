@@ -68,6 +68,7 @@ import {
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
 import { Logo } from './Logo';
+import { cleanAddressText, extractCoordinatesFromAddress } from '../services/campusLocations';
 const QUICK_ADMIN_CANCEL_REASONS = [
   'المطعم مغلق حالياً',
   'نفاد الكمية في المطعم',
@@ -2747,8 +2748,25 @@ export const AdminPage: React.FC = () => {
                             📞 {order.customerPhone}
                           </a>
                           {order.addressText && (
-                            <span className="text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md">
-                              📍 {order.addressText}
+                            <span className="text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md inline-flex items-center gap-1.5">
+                              <span>📍 {cleanAddressText(order.addressText)}</span>
+                              {(() => {
+                                const coords = extractCoordinatesFromAddress(order.addressText);
+                                if (coords) {
+                                  return (
+                                    <a
+                                      href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title="فتح الإحداثيات على الخريطة"
+                                      className="text-[10px] text-cyan-400 hover:text-cyan-300 underline font-bold"
+                                    >
+                                      خريطة
+                                    </a>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </span>
                           )}
                           <span className="text-slate-500 font-mono">
@@ -3747,7 +3765,7 @@ export const AdminPage: React.FC = () => {
                                 <td className="py-3 px-4">
                                   <div className="font-bold text-white">{ord.customerName}</div>
                                   <div className="text-[10px] text-slate-400">
-                                    {ord.addressText || ord.deliveryZoneName || ord.customerPhone}
+                                    {cleanAddressText(ord.addressText) || ord.deliveryZoneName || ord.customerPhone}
                                   </div>
                                 </td>
                                 <td className="py-3 px-4">
@@ -4233,7 +4251,7 @@ export const AdminPage: React.FC = () => {
                         {review.addressText && (
                           <div className="flex items-center gap-1.5 text-[11px] text-slate-300">
                             <MapPin className="w-3 h-3 text-purple-400 shrink-0" />
-                            <span className="truncate">{review.addressText}</span>
+                            <span className="truncate">{cleanAddressText(review.addressText)}</span>
                           </div>
                         )}
 
@@ -7301,9 +7319,27 @@ export const AdminPage: React.FC = () => {
                 <span className="text-slate-200">{selectedOrderDetails.customerPhone}</span>
               </div>
               {selectedOrderDetails.addressText && (
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-400">المكان بالجامعة:</span>
-                  <span className="text-amber-300 font-bold">{selectedOrderDetails.addressText}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-300 font-bold">{cleanAddressText(selectedOrderDetails.addressText)}</span>
+                    {(() => {
+                      const coords = extractCoordinatesFromAddress(selectedOrderDetails.addressText);
+                      if (coords) {
+                        return (
+                          <a
+                            href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded text-[11px] font-bold border border-cyan-500/30 inline-flex items-center gap-1"
+                          >
+                            <span>🗺️ الخريطة</span>
+                          </a>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                 </div>
               )}
               <div className="flex justify-between">

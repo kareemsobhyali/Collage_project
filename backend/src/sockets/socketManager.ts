@@ -53,7 +53,11 @@ export function initSocket(server: any): SocketIOServer {
 
     socket.on("join_driver", (driverId: string) => {
       if (!driverId) return;
-      socket.join(`driver_${driverId}`);
+      if (authUser && (authUser.role === "SUPERADMIN" || authUser.driverId === driverId)) {
+        socket.join(`driver_${driverId}`);
+      } else {
+        console.warn(`[Socket Security] Unauthorized attempt to join driver_${driverId}`);
+      }
     });
 
     // انضمام المستخدم (طالب / عميل) لغرفته الخاصة لاستقبال تحديثات المحفظة والاشتراكات والحظر
@@ -63,8 +67,12 @@ export function initSocket(server: any): SocketIOServer {
     }
 
     socket.on("join_user", (userId: string) => {
-      if (userId) {
+      if (!userId) return;
+      const currentUid = authUser?.userId || authUser?.id;
+      if (authUser && (authUser.role === "SUPERADMIN" || currentUid === userId)) {
         socket.join(`user_${userId}`);
+      } else {
+        console.warn(`[Socket Security] Unauthorized attempt to join user_${userId}`);
       }
     });
 
@@ -75,6 +83,31 @@ export function initSocket(server: any): SocketIOServer {
       }
     });
 
+    // استقبال تحديث موقع الطيار اللحظي وبثه للطالب والفرع
+    socket.on("driver_location_update", (data: { driverId: string; lat: number; lng: number; orderId?: string }) => {
+      if (!data || typeof data.lat !== "number" || typeof data.lng !== "number") return;
+      latestDriverLocations.set(data.driverId, {
+        driverId: data.driverId,
+        lat: data.lat,
+        lng: data.lng,
+        orderId: data.orderId,
+        timestamp: Date.now(),
+      });
+      if (data.orderId) {
+        io?.to(`order_${data.orderId}`).emit("driver_location_updated", data);
+      }
+      io?.emit("driver_location_updated", data);
+    });
+
+    // جلب آخر موقع مسجل للطيار عند فتح شاشة التتبع
+    socket.on("get_driver_location", (driverId: string, callback?: (loc: any) => void) => {
+      if (driverId && latestDriverLocations.has(driverId)) {
+        const loc = latestDriverLocations.get(driverId);
+        if (typeof callback === "function") callback(loc);
+        socket.emit("driver_location_updated", loc);
+      }
+    });
+
     socket.on("disconnect", () => {
       // Disconnected
     });
@@ -82,6 +115,8 @@ export function initSocket(server: any): SocketIOServer {
 
   return io;
 }
+
+export const latestDriverLocations = new Map<string, { driverId: string; lat: number; lng: number; orderId?: string; timestamp: number }>();
 
 
 export function getIO(): SocketIOServer {
