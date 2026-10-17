@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit, Check, X, ToggleLeft, ToggleRight, Sliders, Tag, AlertCircle, Layers } from 'lucide-react';
 import { api } from '../services/api';
+import { toast } from '../utils/toast';
+import { ConfirmModal } from './ConfirmModal';
 import { useLockBodyScroll } from '../utils/scrollLock';
 
 interface ModifiersManagerProps {
@@ -26,8 +28,12 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
   const [optionError, setOptionError] = useState<string | null>(null);
   const [submittingOption, setSubmittingOption] = useState(false);
 
+  // Delete Group State
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<{ id: string; title: string } | null>(null);
+  const [deletingGroup, setDeletingGroup] = useState(false);
+
   // Lock background scroll when either modal is active
-  useLockBodyScroll(showGroupModal || showOptionModal);
+  useLockBodyScroll(showGroupModal || showOptionModal || !!confirmDeleteGroup);
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +52,7 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
         maxSelection: parseInt(maxSelection) || 1,
       });
 
+      toast.success(`تم إنشاء قسم "${groupTitle.trim()}" بنجاح`);
       setGroupTitle('');
       setIsRequired(false);
       setMinSelection('0');
@@ -59,13 +66,22 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
     }
   };
 
-  const handleDeleteGroup = async (id: string, title: string) => {
-    if (!confirm(`هل أنت متأكد من حذف مجموعة "${title}"؟`)) return;
+  const handleDeleteGroup = (id: string, title: string) => {
+    setConfirmDeleteGroup({ id, title });
+  };
+
+  const handleExecuteDeleteGroup = async () => {
+    if (!confirmDeleteGroup) return;
     try {
-      await api.deleteModifierGroup(id);
+      setDeletingGroup(true);
+      await api.deleteModifierGroup(confirmDeleteGroup.id);
+      toast.success(`تم حذف مجموعة "${confirmDeleteGroup.title}" بنجاح`);
+      setConfirmDeleteGroup(null);
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'فشل حذف المجموعة');
+      toast.error(err.message || 'فشل حذف المجموعة');
+    } finally {
+      setDeletingGroup(false);
     }
   };
 
@@ -85,6 +101,7 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
         price: parseFloat(optionPrice) || 0,
       });
 
+      toast.success(`تمت إضافة الخيار "${optionName.trim()}" بنجاح`);
       setOptionName('');
       setOptionPrice('');
       setShowOptionModal(false);
@@ -101,9 +118,10 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
       await api.updateModifierOption(option.id, {
         isAvailable: !option.isAvailable,
       });
+      toast.info(option.isAvailable ? `تم إيقاف تفعيل "${option.name}"` : `تم تفعيل "${option.name}"`);
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'فشل تعديل حالة الإضافة');
+      toast.error(err.message || 'فشل تعديل حالة الإضافة');
     }
   };
 
@@ -396,6 +414,19 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
           </div>
         </div>
       )}
+
+      {/* تأكيد حذف قسم الإضافات */}
+      <ConfirmModal
+        isOpen={!!confirmDeleteGroup}
+        title="حذف قسم إضافات"
+        message={`هل أنت متأكد من حذف قسم "${confirmDeleteGroup?.title}"؟ سيتم حذف جميع الخيارات المرتبطة به وفك ارتباطه بكافة الأصناف.`}
+        confirmText="نعم، احذف القسم"
+        cancelText="إلغاء"
+        variant="danger"
+        loading={deletingGroup}
+        onConfirm={handleExecuteDeleteGroup}
+        onClose={() => !deletingGroup && setConfirmDeleteGroup(null)}
+      />
     </div>
   );
 };

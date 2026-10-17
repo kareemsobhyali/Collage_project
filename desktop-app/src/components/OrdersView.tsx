@@ -29,6 +29,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { api, getFullImageUrl } from '../services/api';
+import { toast } from '../utils/toast';
+import { useLockBodyScroll } from '../utils/scrollLock';
 import { ReceiptModal } from './ReceiptModal';
 import { soundNotifier } from '../services/audioAlert';
 import { getAutoPrintEnabled, getAutoPrintOnAccept, printOrderReceipt } from '../services/printer';
@@ -130,10 +132,22 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [crmBlockedInput, setCrmBlockedInput] = useState<boolean>(false);
   const [savingCRM, setSavingCRM] = useState<boolean>(false);
 
+  // Synchronous scroll locking whenever any modal/dialog is visible
+  useLockBodyScroll(
+    Boolean(
+      acceptingOrder ||
+      rejectingOrder ||
+      viewingProofUrl ||
+      editingCustomerCRM ||
+      printingOrder ||
+      detailedOrder
+    )
+  );
+
   const handleOpenCustomerCRM = (order: any, orderCount: number) => {
     const userId = order.userId || order.user?.id;
     if (!userId) {
-      alert('هذا الطلب غير مرتبط بحساب مسجل');
+      toast.warning('هذا الطلب غير مرتبط بحساب مسجل');
       return;
     }
     const existingNotes = order.user?.restaurantNotes || '';
@@ -159,10 +173,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         restaurantNotes: crmNotesInput.trim(),
         isBlocked: crmBlockedInput,
       });
+      toast.success('تم حفظ بيانات وملاحظات العميل بنجاح');
       setEditingCustomerCRM(null);
       onRefreshOrders();
     } catch (err: any) {
-      alert(err.message || 'فشل حفظ ملاحظات أو حالة حساب العميل');
+      toast.error(err.message || 'فشل حفظ ملاحظات أو حالة حساب العميل');
     } finally {
       setSavingCRM(false);
     }
@@ -184,19 +199,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const handleAssignDriver = async (orderId: string, driverId: string | null) => {
     const targetOrder = orders.find(o => o.id === orderId);
     if (driverId && targetOrder?.status === 'PENDING') {
-      alert('يجب قبول الطلب وتأكيده أولاً قبل إسناده لكابتن التوصيل (الطيار)');
+      toast.warning('يجب قبول الطلب وتأكيده أولاً قبل إسناده لكابتن التوصيل (الطيار)');
       return;
     }
     if (driverId === '') {
-      alert('يرجى اختيار كابتن التوصيل (الطيار) من القائمة أولاً');
+      toast.warning('يرجى اختيار كابتن التوصيل (الطيار) من القائمة أولاً');
       return;
     }
     try {
       setAssigningDriverOrderId(orderId);
       await api.assignDriver(orderId, driverId || null);
+      toast.success(driverId ? 'تم إسناد الطلب للطيار بنجاح' : 'تم إلغاء إسناد الطلب');
       onRefreshOrders();
     } catch (error: any) {
-      alert(error.message || 'فشل إسناد الطلب للطيار');
+      toast.error(error.message || 'فشل إسناد الطلب للطيار');
     } finally {
       setAssigningDriverOrderId(null);
     }
@@ -234,7 +250,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       }
       onRefreshOrders();
     } catch (error: any) {
-      alert(error.message || 'فشل تحديث الحالة');
+      toast.error(error.message || 'فشل تحديث حالة الطلب');
     } finally {
       setUpdatingId(null);
     }

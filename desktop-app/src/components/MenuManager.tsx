@@ -13,6 +13,9 @@ import {
   Link2
 } from 'lucide-react';
 import { api, getFullImageUrl } from '../services/api';
+import { toast } from '../utils/toast';
+import { ConfirmModal } from './ConfirmModal';
+import { useLockBodyScroll } from '../utils/scrollLock';
 
 interface MenuManagerProps {
   categories: any[];
@@ -24,6 +27,8 @@ interface MenuManagerProps {
 export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGroups, onRefresh, branch }) => {
   const [activeCategoryId, setActiveCategoryId] = useState<string>('ALL');
   const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'item' | 'category'; id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   
   // Category Form Modal
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -31,6 +36,8 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   
   // Item Form Modal
   const [showItemModal, setShowItemModal] = useState(false);
+
+  useLockBodyScroll(showCategoryModal || showItemModal || !!confirmDelete);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [itemName, setItemName] = useState('');
   const [itemCategoryId, setItemCategoryId] = useState('');
@@ -101,8 +108,9 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
       setUploadingImage(true);
       const res = await api.uploadImage(file);
       setItemImageUrl(res.url);
+      toast.success('تم رفع الصورة بنجاح');
     } catch (err: any) {
-      alert(err.message || 'فشل رفع الصورة');
+      toast.error(err.message || 'فشل رفع الصورة');
     } finally {
       setUploadingImage(false);
     }
@@ -111,25 +119,52 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   // حفظ قسم جديد
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!categoryName.trim()) return;
+    if (!categoryName.trim()) {
+      toast.warning('يرجى كتابة اسم القسم أولاً');
+      return;
+    }
     try {
       await api.createCategory(categoryName.trim());
       setCategoryName('');
       setShowCategoryModal(false);
+      toast.success('تمت إضافة قسم المنيو بنجاح');
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'فشل إضافة القسم');
+      toast.error(err.message || 'فشل إضافة القسم');
     }
   };
 
-  // حذف قسم
-  const handleDeleteCategory = async (id: string, name: string) => {
-    if (!confirm(`هل أنت متأكد من حذف قسم "${name}" وجميع الأصناف التابعة له؟`)) return;
+  // بدء حذف قسم
+  const handleDeleteCategory = (id: string, name: string) => {
+    setConfirmDelete({ type: 'category', id, name });
+  };
+
+  // بدء حذف صنف
+  const handleDeleteItem = (id: string, name: string) => {
+    setConfirmDelete({ type: 'item', id, name });
+  };
+
+  // تنفيذ الحذف الفعلي بعد تأكيد المودال
+  const handleExecuteDelete = async () => {
+    if (!confirmDelete) return;
     try {
-      await api.deleteCategory(id);
+      setDeleting(true);
+      if (confirmDelete.type === 'item') {
+        await api.deleteItem(confirmDelete.id);
+        toast.success(`تم حذف صنف "${confirmDelete.name}" بنجاح`);
+      } else {
+        await api.deleteCategory(confirmDelete.id);
+        if (activeCategoryId === confirmDelete.id) {
+          setActiveCategoryId('ALL');
+        }
+        toast.success(`تم حذف قسم "${confirmDelete.name}" وجميع أصنافه`);
+      }
+      setConfirmDelete(null);
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'فشل حذف القسم');
+      toast.error(err.message || 'فشل تنفيذ عملية الحذف');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -137,7 +172,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemName.trim() || !itemCategoryId || !itemBasePrice) {
-      alert('يرجى ملء الحقول المطلوبة (الاسم، القسم، السعر)');
+      toast.warning('يرجى ملء الحقول المطلوبة (الاسم، القسم، السعر)');
       return;
     }
 
@@ -170,14 +205,16 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
         await api.updateItem(editingItem.id, payload);
         // تحديث روابط الإضافات
         await api.linkModifiersToItem(editingItem.id, selectedModifierGroupIds);
+        toast.success('تم حفظ تعديلات الصنف بنجاح');
       } else {
         await api.createItem(payload);
+        toast.success('تمت إضافة الصنف الجديد بنجاح');
       }
 
       setShowItemModal(false);
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'فشل حفظ الصنف');
+      toast.error(err.message || 'فشل حفظ الصنف');
     }
   };
 
@@ -185,20 +222,16 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   const handleToggleAvailability = async (item: any, durationMinutes?: number) => {
     try {
       await api.toggleItemAvailability(item.id, !item.isAvailable, durationMinutes);
+      if (durationMinutes) {
+        toast.info(`تم ضبط نفاد مؤقت للصنف لمدة ${durationMinutes} دقيقة`);
+      } else if (item.isAvailable) {
+        toast.info(`تم تعيين صنف "${item.name}" كغير متوفر`);
+      } else {
+        toast.success(`تم تفعيل توفر صنف "${item.name}"`);
+      }
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'فشل تحديث حالة الصنف');
-    }
-  };
-
-  // حذف صنف
-  const handleDeleteItem = async (id: string, name: string) => {
-    if (!confirm(`هل أنت متأكد من حذف صنف "${name}"؟`)) return;
-    try {
-      await api.deleteItem(id);
-      onRefresh();
-    } catch (err: any) {
-      alert(err.message || 'فشل حذف الصنف');
+      toast.error(err.message || 'فشل تحديث حالة الصنف');
     }
   };
 
@@ -223,8 +256,9 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     <div className="space-y-6">
       {/* Top Action Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 flex-1 min-w-0">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 flex-1 min-w-0">
           <button
+            type="button"
             onClick={() => setActiveCategoryId('ALL')}
             className={`h-9 px-4 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center justify-center ${
               activeCategoryId === 'ALL'
@@ -237,53 +271,43 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
           {categories.map(cat => {
             const isActive = activeCategoryId === cat.id;
             return (
-              <div
+              <button
                 key={cat.id}
-                className={`h-9 flex items-center shrink-0 rounded-xl transition-all ${
+                type="button"
+                onClick={() => setActiveCategoryId(cat.id)}
+                className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                <button
-                  onClick={() => setActiveCategoryId(cat.id)}
-                  className="h-full px-3 text-xs font-bold whitespace-nowrap flex items-center gap-1"
-                >
-                  <span>{cat.name}</span>
-                  <span className={`text-[11px] ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>
-                    ({cat.items?.length || 0})
-                  </span>
-                </button>
-                <button
-                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                  className={`h-full pl-2.5 pr-1.5 flex items-center justify-center transition-colors border-r ${
-                    isActive
-                      ? 'border-indigo-500/50 text-indigo-200 hover:text-white'
-                      : 'border-slate-200/80 text-slate-400 hover:text-rose-600'
-                  }`}
-                  title="حذف هذا القسم"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                <span>{cat.name}</span>
+                <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+                  isActive ? 'bg-indigo-500/60 text-white' : 'bg-slate-200/80 text-slate-600'
+                }`}>
+                  {cat.items?.length || 0}
+                </span>
+              </button>
             );
           })}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 self-end lg:self-auto">
+        <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto">
           <button
+            type="button"
             onClick={() => setShowCategoryModal(true)}
-            className="h-9 flex items-center gap-1.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0"
+            className="flex-1 lg:flex-initial h-9 flex items-center justify-center gap-1.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors whitespace-nowrap"
           >
             <FolderPlus className="w-4 h-4 text-indigo-600 shrink-0" />
-            <span>إضافة قسم منيو</span>
+            <span>إضافة قسم</span>
           </button>
           <button
+            type="button"
             onClick={handleOpenAddItem}
-            className="h-9 flex items-center gap-1.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm whitespace-nowrap shrink-0"
+            className="flex-1 lg:flex-initial h-9 flex items-center justify-center gap-1.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm whitespace-nowrap"
           >
             <Plus className="w-4 h-4 shrink-0" />
-            <span>إضافة صنف جديد</span>
+            <span>إضافة صنف</span>
           </button>
         </div>
       </div>
@@ -305,6 +329,15 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                   <span>{cat.name}</span>
                   <span className="text-xs text-slate-400 font-normal">({cat.items?.length || 0} أصناف)</span>
                 </h3>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-rose-100"
+                  title={`حذف قسم "${cat.name}" وجميع الأصناف التابعة له`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="text-[11px]">حذف القسم</span>
+                </button>
               </div>
 
               {/* Items Cards */}
@@ -803,17 +836,17 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t">
                 <button
                   type="button"
                   onClick={() => setShowItemModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors text-center"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow"
+                  className="flex-1 sm:flex-initial px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow transition-all active:scale-95 text-center"
                 >
                   حفظ الصنف
                 </button>
@@ -822,6 +855,23 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
           </div>
         </div>
       )}
+
+      {/* تأكيد حذف صنف أو قسم */}
+      <ConfirmModal
+        isOpen={!!confirmDelete}
+        title={confirmDelete?.type === 'item' ? 'حذف صنف من المنيو' : 'حذف قسم كامل'}
+        message={
+          confirmDelete?.type === 'item'
+            ? `هل أنت متأكد من حذف صنف "${confirmDelete?.name}" نهائياً من قائمة الطعام؟`
+            : `هل أنت متأكد من حذف قسم "${confirmDelete?.name}"؟ سيتم حذف جميع الأصناف التابعة له!`
+        }
+        confirmText="نعم، احذف"
+        cancelText="إلغاء"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleExecuteDelete}
+        onClose={() => !deleting && setConfirmDelete(null)}
+      />
     </div>
   );
 };

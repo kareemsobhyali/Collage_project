@@ -11,6 +11,8 @@ import {
   Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
+import { toast } from '../utils/toast';
+import { useLockBodyScroll } from '../utils/scrollLock';
 
 interface QuickStockModalProps {
   categories: any[];
@@ -25,6 +27,7 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
   onClose,
   onRefreshMenu,
 }) => {
+  useLockBodyScroll(true);
   const [activeTab, setActiveTab] = useState<'ITEMS' | 'MODIFIERS'>('ITEMS');
   const [searchQuery, setSearchQuery] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -64,9 +67,16 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
         isAvailable: !item.isAvailable,
         durationMinutes,
       });
+      if (durationMinutes) {
+        toast.info(`تم ضبط نفاد مؤقت للصنف "${item.name}" لمدة ${durationMinutes} دقيقة`);
+      } else if (item.isAvailable) {
+        toast.warning(`تم تعيين صنف "${item.name}" كغير متوفر`);
+      } else {
+        toast.success(`تم تفعيل توفر صنف "${item.name}"`);
+      }
       onRefreshMenu();
     } catch (err: any) {
-      alert(err.message || 'فشل تحديث حالة الصنف');
+      toast.error(err.message || 'فشل تحديث حالة الصنف');
     } finally {
       setUpdatingId(null);
     }
@@ -81,9 +91,16 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
         isAvailable: !option.isAvailable,
         durationMinutes,
       });
+      if (durationMinutes) {
+        toast.info(`تم ضبط نفاد مؤقت للإضافة "${option.name}" لمدة ${durationMinutes} دقيقة`);
+      } else if (option.isAvailable) {
+        toast.warning(`تم تعيين إضافة "${option.name}" كغير متوفر`);
+      } else {
+        toast.success(`تم تفعيل توفر إضافة "${option.name}"`);
+      }
       onRefreshMenu();
     } catch (err: any) {
-      alert(err.message || 'فشل تحديث حالة الإضافة');
+      toast.error(err.message || 'فشل تحديث حالة الإضافة');
     } finally {
       setUpdatingId(null);
     }

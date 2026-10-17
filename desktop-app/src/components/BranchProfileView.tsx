@@ -28,6 +28,8 @@ import {
   Copy
 } from 'lucide-react';
 import { api, getFullImageUrl } from '../services/api';
+import { toast } from '../utils/toast';
+import { ConfirmModal } from './ConfirmModal';
 import { 
   getAutoPrintEnabled, 
   setAutoPrintEnabled, 
@@ -93,6 +95,10 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [hoursSuccess, setHoursSuccess] = useState(false);
   const [hoursError, setHoursError] = useState<string | null>(null);
 
+  // Delivery Zone Delete State
+  const [confirmDeleteZone, setConfirmDeleteZone] = useState<{ id: string; name: string } | null>(null);
+  const [deletingZone, setDeletingZone] = useState(false);
+
   // Sync state if branch prop changes
   useEffect(() => {
     if (branch) {
@@ -130,9 +136,10 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       const res = await api.uploadImage(file);
       if (res.url) {
         setLogoUrl(res.url);
+        toast.success('تم رفع لوجو المطعم بنجاح');
       }
     } catch (err: any) {
-      alert(err.message || 'فشل رفع لوجو المطعم');
+      toast.error(err.message || 'فشل رفع لوجو المطعم');
     } finally {
       setUploadingLogo(false);
     }
@@ -150,22 +157,32 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         setDeliveryZones([...deliveryZones, res.zone]);
         setNewZoneName('');
         setNewZoneFee('10');
+        toast.success(`تمت إضافة منطقة التوصيل "${res.zone.name}"`);
       }
     } catch (err: any) {
-      alert(err.message || 'فشل إضافة منطقة التوصيل');
+      toast.error(err.message || 'فشل إضافة منطقة التوصيل');
     } finally {
       setAddingZone(false);
     }
   };
 
   // Handle Deleting Delivery Zone
-  const handleDeleteZone = async (zoneId: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذه المنطقة؟')) return;
+  const handleDeleteZone = (zoneId: string, zoneName: string) => {
+    setConfirmDeleteZone({ id: zoneId, name: zoneName });
+  };
+
+  const handleExecuteDeleteZone = async () => {
+    if (!confirmDeleteZone) return;
     try {
-      await api.deleteDeliveryZone(zoneId);
-      setDeliveryZones(deliveryZones.filter(z => z.id !== zoneId));
+      setDeletingZone(true);
+      await api.deleteDeliveryZone(confirmDeleteZone.id);
+      setDeliveryZones(deliveryZones.filter(z => z.id !== confirmDeleteZone.id));
+      toast.success(`تم حذف منطقة "${confirmDeleteZone.name}" بنجاح`);
+      setConfirmDeleteZone(null);
     } catch (err: any) {
-      alert(err.message || 'فشل حذف منطقة التوصيل');
+      toast.error(err.message || 'فشل حذف منطقة التوصيل');
+    } finally {
+      setDeletingZone(false);
     }
   };
 
@@ -535,7 +552,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                                 <span className="font-black text-indigo-600 font-mono">{zone.fee} ج.م</span>
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteZone(zone.id)}
+                                  onClick={() => handleDeleteZone(zone.id, zone.name)}
                                   className="text-slate-400 hover:text-rose-600 p-1"
                                   title="حذف المنطقة"
                                 >
@@ -974,6 +991,19 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
           </div>
         </form>
       </div>
+
+      {/* تأكيد حذف منطقة التوصيل */}
+      <ConfirmModal
+        isOpen={!!confirmDeleteZone}
+        title="حذف منطقة توصيل"
+        message={`هل أنت متأكد من حذف منطقة التوصيل "${confirmDeleteZone?.name}"؟`}
+        confirmText="نعم، احذف المنطقة"
+        cancelText="إلغاء"
+        variant="danger"
+        loading={deletingZone}
+        onConfirm={handleExecuteDeleteZone}
+        onClose={() => !deletingZone && setConfirmDeleteZone(null)}
+      />
     </div>
   );
 };

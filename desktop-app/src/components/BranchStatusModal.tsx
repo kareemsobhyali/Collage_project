@@ -9,6 +9,8 @@ import {
   RotateCw,
   Sparkles
 } from 'lucide-react';
+import { toast } from '../utils/toast';
+import { useLockBodyScroll } from '../utils/scrollLock';
 
 interface BranchStatusModalProps {
   currentStatus: 'OPEN' | 'BUSY' | 'CLOSED';
@@ -25,6 +27,7 @@ export const BranchStatusModal: React.FC<BranchStatusModalProps> = ({
   onSave,
   onClose,
 }) => {
+  useLockBodyScroll(true);
   const [selectedStatus, setSelectedStatus] = useState<'OPEN' | 'BUSY' | 'CLOSED'>(currentStatus || 'OPEN');
   const [durationMinutes, setDurationMinutes] = useState<number>(30);
   const [customMinutes, setCustomMinutes] = useState<string>('30');
@@ -55,9 +58,10 @@ export const BranchStatusModal: React.FC<BranchStatusModalProps> = ({
         selectedStatus === 'BUSY' ? durationMinutes : undefined, 
         reason.trim() || undefined
       );
+      toast.success('تم تحديث حالة عمل الفرع بنجاح');
       onClose();
     } catch (err: any) {
-      alert(err.message || 'فشل تحديث حالة عمل الفرع');
+      toast.error(err.message || 'فشل تحديث حالة عمل الفرع');
     } finally {
       setLoading(false);
     }

@@ -32,6 +32,7 @@ import { BranchStatusModal } from './components/BranchStatusModal';
 import { PrinterSettingsModal } from './components/PrinterSettingsModal';
 import { getAutoPrintOnNewOrder, printOrderReceipt } from './services/printer';
 import { Logo } from './components/Logo';
+import { ToastContainer } from './utils/toast';
 
 export function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('branch_token'));
@@ -692,6 +693,9 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* Global In-App Notifications Toast Container */}
+      <ToastContainer />
     </div>
   );
 }
