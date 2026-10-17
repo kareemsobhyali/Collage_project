@@ -613,7 +613,11 @@ export function App() {
       </main>
 
       {/* Bottom Navigation Bar (Docked at bottom on mobile / tablet) */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] pb-[max(env(safe-area-inset-bottom),0.35rem)] md:hidden">
+      <nav className={`fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] pb-[max(env(safe-area-inset-bottom),0.35rem)] md:hidden ${
+        showQuickStock || showStatusModal || showPrinterSettings || targetedDetailedOrder || driverRejectionAlert
+          ? 'hidden'
+          : 'grid'
+      }`}>
         <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1">
           {/* 1. الطلبات */}
           <button

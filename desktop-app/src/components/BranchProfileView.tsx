@@ -676,23 +676,30 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               <div className={`p-4 rounded-2xl border-2 transition-all ${
                 cashEnabled ? 'border-emerald-500/80 bg-emerald-50/30' : 'border-slate-200 bg-slate-50/50'
               }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-lg">💵</span>
-                    <div>
-                      <span className="font-bold text-xs text-slate-900 block">الدفع نقداً (كاش عند الاستلام)</span>
-                      <span className="text-[11px] text-slate-500">يدفع الطالب للكاشير أو المندوب عند استلام الوجبة</span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span className="text-xl shrink-0">💵</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-xs text-slate-900 block truncate">الدفع نقداً (كاش عند الاستلام)</span>
+                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">يدفع الطالب للكاشير أو المندوب عند استلام الوجبة</span>
                     </div>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cashEnabled}
-                      onChange={e => setCashEnabled(e.target.checked)}
-                      className="sr-only peer"
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={cashEnabled}
+                    onClick={() => setCashEnabled(!cashEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      cashEnabled ? 'bg-emerald-600' : 'bg-slate-200'
+                    }`}
+                    dir="ltr"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                        cashEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
                     />
-                    <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                  </label>
+                  </button>
                 </div>
               </div>
 
@@ -700,23 +707,32 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               <div className={`p-4 rounded-2xl border-2 transition-all space-y-2.5 ${
                 vodafoneCashEnabled ? 'border-rose-500/80 bg-rose-50/30' : 'border-slate-200 bg-slate-50/50'
               }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Smartphone className="w-5 h-5 text-rose-600" />
-                    <div>
-                      <span className="font-bold text-xs text-slate-900 block">فودافون كاش ومحافظ الهاتف</span>
-                      <span className="text-[11px] text-slate-500">تحويل المبلغ لمحفظة المطعم المحددة</span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                      <Smartphone className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-xs text-slate-900 block truncate">فودافون كاش ومحافظ الهاتف</span>
+                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل المبلغ لمحفظة المطعم المحددة</span>
                     </div>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={vodafoneCashEnabled}
-                      onChange={e => setVodafoneCashEnabled(e.target.checked)}
-                      className="sr-only peer"
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={vodafoneCashEnabled}
+                    onClick={() => setVodafoneCashEnabled(!vodafoneCashEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      vodafoneCashEnabled ? 'bg-rose-600' : 'bg-slate-200'
+                    }`}
+                    dir="ltr"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                        vodafoneCashEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
                     />
-                    <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
-                  </label>
+                  </button>
                 </div>
 
                 {vodafoneCashEnabled && (
@@ -740,23 +756,32 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               <div className={`p-4 rounded-2xl border-2 transition-all space-y-2.5 ${
                 instapayEnabled ? 'border-indigo-500/80 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50'
               }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Zap className="w-5 h-5 text-indigo-600" />
-                    <div>
-                      <span className="font-bold text-xs text-slate-900 block">إنستاباي (InstaPay)</span>
-                      <span className="text-[11px] text-slate-500">تحويل فوري عبر الحساب البنكي أو عنوان الدفع اللحظي</span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                      <Zap className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-xs text-slate-900 block truncate">إنستاباي (InstaPay)</span>
+                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل فوري عبر الحساب البنكي أو عنوان IPA</span>
                     </div>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={instapayEnabled}
-                      onChange={e => setInstapayEnabled(e.target.checked)}
-                      className="sr-only peer"
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={instapayEnabled}
+                    onClick={() => setInstapayEnabled(!instapayEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      instapayEnabled ? 'bg-indigo-600' : 'bg-slate-200'
+                    }`}
+                    dir="ltr"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                        instapayEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
                     />
-                    <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                  </label>
+                  </button>
                 </div>
 
                 {instapayEnabled && (
@@ -780,23 +805,32 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               <div className={`p-4 rounded-2xl border-2 transition-all ${
                 cardEnabled ? 'border-sky-500/80 bg-sky-50/30' : 'border-slate-200 bg-slate-50/50'
               }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <CreditCard className="w-5 h-5 text-sky-600" />
-                    <div>
-                      <span className="font-bold text-xs text-slate-900 block">الدفع ببطاقات فيزا / ماستركارد</span>
-                      <span className="text-[11px] text-slate-500">بوابة الدفع الإلكتروني المباشر</span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-xs text-slate-900 block truncate">الدفع ببطاقات فيزا / ماستركارد</span>
+                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">بوابة الدفع الإلكتروني المباشر</span>
                     </div>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cardEnabled}
-                      onChange={e => setCardEnabled(e.target.checked)}
-                      className="sr-only peer"
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={cardEnabled}
+                    onClick={() => setCardEnabled(!cardEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      cardEnabled ? 'bg-sky-600' : 'bg-slate-200'
+                    }`}
+                    dir="ltr"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                        cardEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
                     />
-                    <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-600"></div>
-                  </label>
+                  </button>
                 </div>
               </div>
             </form>
@@ -850,28 +884,35 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Auto-print toggle */}
-          <div className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${
+          <div className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 ${
             autoPrintEnabled ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50'
           }`}>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-xs text-slate-900">الطباعة التلقائية للبون</span>
                 <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">موصى بها</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-[11px] text-slate-500 mt-1 leading-tight">
                 طباعة بون المطبخ مباشرة وبشكل فوري عند الضغط على "قبول وبدء التجهيز"
               </p>
             </div>
 
-            <label className="relative inline-flex items-center cursor-pointer shrink-0 mr-3">
-              <input
-                type="checkbox"
-                checked={autoPrintEnabled}
-                onChange={e => handleToggleAutoPrint(e.target.checked)}
-                className="sr-only peer"
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoPrintEnabled}
+              onClick={() => handleToggleAutoPrint(!autoPrintEnabled)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                autoPrintEnabled ? 'bg-indigo-600' : 'bg-slate-200'
+              }`}
+              dir="ltr"
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                  autoPrintEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
               />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-            </label>
+            </button>
           </div>
 
           {/* Printer Selection / Name */}
