@@ -313,30 +313,25 @@ export function App() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
           {/* Top/Right on mobile: Branch identity + Mobile Status Pill */}
           <div className="flex items-center justify-between min-w-0 w-full md:w-auto">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <Logo size="sm" showSubtitle={false} />
               <div className="h-6 sm:h-7 w-px bg-slate-200 shrink-0" />
-              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-bold shrink-0">
-                  <Store className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h1 className="text-xs sm:text-base font-black text-slate-900 leading-tight truncate">
-                    {branch.name}
-                  </h1>
-                  <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5 whitespace-nowrap">
-                    {socketConnected ? (
-                      <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-600">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                        <span>متصل لحظياً</span>
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-rose-500">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                        <span>جاري الاتصال...</span>
-                      </span>
-                    )}
-                  </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xs sm:text-base font-black text-slate-900 leading-tight truncate" title={branch.name}>
+                  {branch.name}
+                </h1>
+                <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5 whitespace-nowrap">
+                  {socketConnected ? (
+                    <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-600">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span>متصل لحظياً</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-rose-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                      <span>جاري الاتصال...</span>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -467,8 +462,8 @@ export function App() {
           </div>
         </div>
 
-        {/* Tier 2: Navigation Tabs Bar */}
-        <div className="border-t border-slate-100 bg-slate-50/70 px-4 sm:px-6 py-2">
+        {/* Tier 2: Navigation Tabs Bar (Desktop / Large Screens only) */}
+        <div className="hidden md:block border-t border-slate-100 bg-slate-50/70 px-4 sm:px-6 py-2">
           <nav className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveTab('ORDERS')}
@@ -575,7 +570,7 @@ export function App() {
       )}
 
       {/* Main Workspace Body */}
-      <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+      <main className="flex-1 p-3 sm:p-6 max-w-7xl w-full mx-auto pb-24 md:pb-8">
         {activeTab === 'ORDERS' && (
           <OrdersView
             orders={orders}
@@ -616,6 +611,103 @@ export function App() {
           />
         )}
       </main>
+
+      {/* Bottom Navigation Bar (Docked at bottom on mobile / tablet) */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] pb-[max(env(safe-area-inset-bottom),0.35rem)] md:hidden">
+        <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1">
+          {/* 1. الطلبات */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('ORDERS')}
+            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+              activeTab === 'ORDERS'
+                ? 'text-indigo-600 font-black'
+                : 'text-slate-400 hover:text-slate-600 font-bold'
+            }`}
+          >
+            <div className="relative">
+              <ShoppingBag className={`w-5 h-5 transition-transform ${activeTab === 'ORDERS' ? 'scale-110' : ''}`} />
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full text-[10px] bg-amber-500 text-white font-black animate-bounce flex items-center justify-center leading-none shadow-xs">
+                  {pendingCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] leading-none">الطلبات</span>
+            {activeTab === 'ORDERS' && (
+              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
+            )}
+          </button>
+
+          {/* 2. المنيو */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('MENU')}
+            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+              activeTab === 'MENU'
+                ? 'text-indigo-600 font-black'
+                : 'text-slate-400 hover:text-slate-600 font-bold'
+            }`}
+          >
+            <UtensilsCrossed className={`w-5 h-5 transition-transform ${activeTab === 'MENU' ? 'scale-110' : ''}`} />
+            <span className="text-[11px] leading-none">المنيو</span>
+            {activeTab === 'MENU' && (
+              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
+            )}
+          </button>
+
+          {/* 3. الإضافات */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('MODIFIERS')}
+            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+              activeTab === 'MODIFIERS'
+                ? 'text-indigo-600 font-black'
+                : 'text-slate-400 hover:text-slate-600 font-bold'
+            }`}
+          >
+            <Sliders className={`w-5 h-5 transition-transform ${activeTab === 'MODIFIERS' ? 'scale-110' : ''}`} />
+            <span className="text-[11px] leading-none">الإضافات</span>
+            {activeTab === 'MODIFIERS' && (
+              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
+            )}
+          </button>
+
+          {/* 4. الطيارين */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('DRIVERS')}
+            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+              activeTab === 'DRIVERS'
+                ? 'text-indigo-600 font-black'
+                : 'text-slate-400 hover:text-slate-600 font-bold'
+            }`}
+          >
+            <Truck className={`w-5 h-5 transition-transform ${activeTab === 'DRIVERS' ? 'scale-110' : ''}`} />
+            <span className="text-[11px] leading-none">الطيارين</span>
+            {activeTab === 'DRIVERS' && (
+              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
+            )}
+          </button>
+
+          {/* 5. الفرع */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('PROFILE')}
+            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+              activeTab === 'PROFILE'
+                ? 'text-indigo-600 font-black'
+                : 'text-slate-400 hover:text-slate-600 font-bold'
+            }`}
+          >
+            <Store className={`w-5 h-5 transition-transform ${activeTab === 'PROFILE' ? 'scale-110' : ''}`} />
+            <span className="text-[11px] leading-none">الفرع</span>
+            {activeTab === 'PROFILE' && (
+              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
+            )}
+          </button>
+        </div>
+      </nav>
 
       {showQuickStock && (
         <QuickStockModal
