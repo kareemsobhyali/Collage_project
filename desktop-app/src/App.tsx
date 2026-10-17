@@ -280,42 +280,71 @@ export function App() {
       {/* Top Application Header (Two-tier responsive layout) */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm w-full">
         {/* Tier 1: Brand Identity & Quick Operational Actions */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
-          {/* Right: Branch identity with UniFood branding */}
-          <div className="flex items-center gap-3 min-w-0">
-            <Logo size="sm" showSubtitle={false} />
-            <div className="h-7 w-px bg-slate-200 shrink-0" />
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-bold shrink-0">
-                <Store className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-sm sm:text-base font-black text-slate-900 leading-tight truncate">
-                  {branch.name}
-                </h1>
-                <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
-                  {socketConnected ? (
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                      <span>متصل بالخادم لحظياً</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-rose-500">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                      <span>جاري إعادة الاتصال...</span>
-                    </span>
-                  )}
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          {/* Top/Right on mobile: Branch identity + Mobile Status Pill */}
+          <div className="flex items-center justify-between min-w-0 w-full md:w-auto">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <Logo size="sm" showSubtitle={false} />
+              <div className="h-6 sm:h-7 w-px bg-slate-200 shrink-0" />
+              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-bold shrink-0">
+                  <Store className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-xs sm:text-base font-black text-slate-900 leading-tight truncate">
+                    {branch.name}
+                  </h1>
+                  <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5 whitespace-nowrap">
+                    {socketConnected ? (
+                      <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-600">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                        <span>متصل لحظياً</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-rose-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                        <span>جاري الاتصال...</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Quick Status Pill right in row 1 on mobile */}
+            <button
+              onClick={() => setShowStatusModal(true)}
+              className={`md:hidden h-8 px-2.5 rounded-xl text-[11px] font-black transition-all border shadow-2xs flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                branch.operationalStatus === 'OPEN' || !branch.operationalStatus
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : branch.operationalStatus === 'BUSY'
+                  ? 'bg-amber-50 text-amber-800 border-amber-300 ring-1 ring-amber-400/40'
+                  : 'bg-rose-50 text-rose-700 border-rose-200'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  branch.operationalStatus === 'OPEN' || !branch.operationalStatus
+                    ? 'bg-emerald-500 animate-pulse'
+                    : branch.operationalStatus === 'BUSY'
+                    ? 'bg-amber-500 animate-ping'
+                    : 'bg-rose-500'
+                }`}
+              />
+              <span>
+                {branch.operationalStatus === 'OPEN' || !branch.operationalStatus ? 'المطعم مفتوح' : ''}
+                {branch.operationalStatus === 'BUSY' ? `مغلق (${formatCountdown(secondsLeft)})` : ''}
+                {branch.operationalStatus === 'CLOSED' ? 'المطعم مغلق' : ''}
+              </span>
+            </button>
           </div>
 
-          {/* Left: Quick Action Tools (All uniform h-9 sm:h-10 whitespace-nowrap shrink-0) */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Tools Row (on desktop: inline, on mobile: neat second row) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 shrink-0 justify-between md:justify-end w-full md:w-auto">
             {/* Quick Stock Toggle Button */}
             <button
               onClick={() => setShowQuickStock(true)}
-              className="h-9 sm:h-10 px-3 sm:px-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              className="h-8 sm:h-9 px-2.5 sm:px-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-xs transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap shrink-0"
               title="إيقاف وتشغيل الأصناف والإضافات فوراً"
             >
               <Sliders className="w-3.5 h-3.5 shrink-0" />
@@ -332,10 +361,10 @@ export function App() {
               })()}
             </button>
 
-            {/* Status Badge Button */}
+            {/* Desktop Status Badge Button */}
             <button
               onClick={() => setShowStatusModal(true)}
-              className={`h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl text-xs font-black transition-all border shadow-sm flex items-center gap-2 whitespace-nowrap shrink-0 ${
+              className={`hidden md:flex h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl text-xs font-black transition-all border shadow-sm items-center gap-2 whitespace-nowrap shrink-0 ${
                 branch.operationalStatus === 'OPEN' || !branch.operationalStatus
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                   : branch.operationalStatus === 'BUSY'
@@ -363,47 +392,47 @@ export function App() {
             {/* Printer Settings Button */}
             <button
               onClick={() => setShowPrinterSettings(true)}
-              className="h-9 sm:h-10 px-2.5 sm:px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-xs"
+              className="h-8 sm:h-9 px-2 sm:px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-2xs"
               title="إعدادات واختيار الطابعة الحرارية وتثبيتها والطباعة الصامتة"
             >
-              <Printer className="w-4 h-4 text-indigo-600 shrink-0" />
+              <Printer className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
               <span className="hidden sm:inline">الطابعة</span>
               {getAutoPrintOnNewOrder() && (
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="الطباعة الفورية مفعلة" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" title="الطباعة الفورية مفعلة" />
               )}
             </button>
 
             {/* Sound Mute/Unmute */}
             <button
               onClick={handleToggleMute}
-              className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl border flex items-center justify-center transition-colors shrink-0 ${
+              className={`h-8 w-8 sm:h-9 sm:w-9 rounded-xl border flex items-center justify-center transition-colors shrink-0 shadow-2xs ${
                 isMuted
                   ? 'bg-rose-50 text-rose-600 border-rose-200'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
               title={isMuted ? 'الصوت مكتوم - اضغط للتشغيل' : 'الصوت مفعل - اضغط لكتم التنبيهات'}
             >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
 
             {/* Refresh */}
             <button
               onClick={loadData}
               disabled={loading}
-              className="h-9 w-9 sm:h-10 sm:w-10 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center justify-center transition-colors shrink-0"
+              className="h-8 w-8 sm:h-9 sm:w-9 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center justify-center transition-colors shrink-0 shadow-2xs"
               title="تحديث البيانات"
             >
-              <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
             </button>
 
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="h-9 sm:h-10 px-3 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0"
+              className="h-8 sm:h-9 px-2.5 sm:px-3 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all whitespace-nowrap shrink-0 shadow-2xs"
               title="تسجيل الخروج من هذا الفرع"
             >
               <LogOut className="w-3.5 h-3.5 shrink-0" />
-              <span>خروج</span>
+              <span className="hidden xs:inline sm:inline">خروج</span>
             </button>
           </div>
         </div>
