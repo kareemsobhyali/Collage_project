@@ -546,6 +546,20 @@ export function App() {
       });
     });
 
+    // 7. تحديث شاشة تتبع الطلب المفتوحة لحظياً عند قبول الطلب أو إسناد الطيار أو تغيير الحالة
+    socket.on('order_status_updated', (updatedOrder: any) => {
+      if (!updatedOrder || !updatedOrder.id) return;
+      setTrackingOrder((prevOrder: any) => {
+        if (!prevOrder || prevOrder.id !== updatedOrder.id) return prevOrder;
+        return {
+          ...prevOrder,
+          ...updatedOrder,
+          branch: updatedOrder.branch || prevOrder.branch,
+          items: updatedOrder.items || prevOrder.items,
+        };
+      });
+    });
+
     return () => {
       socket.disconnect();
     };

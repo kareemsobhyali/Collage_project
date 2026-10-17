@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { 
   X, 
@@ -29,6 +29,11 @@ interface OrderTrackingModalProps {
   onClose: () => void;
   onOrderUpdated?: (updatedOrder: any) => void;
 }
+
+const cleanDriverDisplayName = (name?: string | null): string => {
+  if (!name) return 'كابتن التوصيل';
+  return name.replace(/\s*\(طيار عام\)\s*/g, '').trim() || name;
+};
 
 // دالات مساعدة لحساب الفترات الزمنية
 const formatDuration = (minutes: number | null | undefined): string => {
@@ -66,6 +71,20 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
   const [currentTime, setCurrentTime] = useState<number>(Date.now());
+  const [refreshingOrder, setRefreshingOrder] = useState<boolean>(false);
+  const socketRef = useRef<Socket | null>(null);
+
+  // مزامنة حالة الطلب فوراً عند تغير الـ prop من الشاشة الأب (App.tsx)
+  useEffect(() => {
+    if (initialOrder) {
+      setOrder((prev: any) => ({
+        ...prev,
+        ...initialOrder,
+        branch: initialOrder.branch || prev?.branch,
+        items: initialOrder.items || prev?.items,
+      }));
+    }
+  }, [initialOrder]);
 
   // تحديث التوقيت الحي كل 10 ثوانٍ
   useEffect(() => {
@@ -157,6 +176,58 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
     }
   }, [order.addressText]);
 
+  // دالة جلب أحدث حالة للطلب من السيرفر (تستخدم للتحديث الفوري والتحديث الدوري الاحتياطي)
+  const fetchLatestOrderState = async (showSpinner = false) => {
+    if (!order?.id) return;
+    try {
+      if (showSpinner) setRefreshingOrder(true);
+      const fresh = await api.getOrder(order.id);
+      if (fresh && fresh.id === order.id) {
+        setOrder((prev: any) => {
+          const hasChanged =
+            prev?.status !== fresh.status ||
+            prev?.driverId !== fresh.driverId ||
+            prev?.driver?.id !== fresh.driver?.id ||
+            prev?.driverPickedUpAt !== fresh.driverPickedUpAt ||
+            prev?.isDriverAccepted !== fresh.isDriverAccepted ||
+            prev?.estimatedMinutes !== fresh.estimatedMinutes ||
+            prev?.acceptedAt !== fresh.acceptedAt ||
+            prev?.readyAt !== fresh.readyAt ||
+            prev?.completedAt !== fresh.completedAt;
+
+          const merged = {
+            ...prev,
+            ...fresh,
+            branch: fresh.branch || prev?.branch,
+            items: fresh.items || prev?.items,
+          };
+
+          if (hasChanged) {
+            if (prev?.status && prev.status !== fresh.status) {
+              notifyOrderStatusPush(merged);
+            }
+            if (onOrderUpdated) onOrderUpdated(merged);
+          }
+          return merged;
+        });
+      }
+    } catch (_e) {
+      // Ignore transient network errors during background poll
+    } finally {
+      if (showSpinner) setRefreshingOrder(false);
+    }
+  };
+
+  // تحديث دوري تلقائي كل 3.5 ثانية طالما شاشة التتبع مفتوحة والطلب نشط
+  useEffect(() => {
+    if (!order?.id || order?.status === 'COMPLETED' || order?.status === 'REJECTED') return;
+    fetchLatestOrderState(false);
+    const pollTimer = setInterval(() => {
+      fetchLatestOrderState(false);
+    }, 3500);
+    return () => clearInterval(pollTimer);
+  }, [order?.id, order?.status]);
+
   // الاتصال بـ Socket.io لمتابعة التحديثات الحية لحالة الطلب والموقع الجغرافي للطيار والمطعم
   useEffect(() => {
     if (!order?.id) return;
@@ -166,30 +237,52 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
     const socket: Socket = io(socketHost, {
       auth: customerToken ? { token: customerToken } : undefined,
     });
-    socket.emit('join_order', order.id);
+    socketRef.current = socket;
 
-    // طلب آخر موقع مسجل للطيار فور فتح الشاشة
-    const driverId = order.driverId || order.driver?.id;
-    if (driverId) {
-      socket.emit('get_driver_location', driverId, (loc: any) => {
-        if (loc && loc.lat && loc.lng) {
-          setLiveDriverCoords({ lat: loc.lat, lng: loc.lng });
-        }
-      });
-    }
+    const joinRooms = () => {
+      socket.emit('join_order', order.id);
+      if (order.userId) {
+        socket.emit('join_user', order.userId);
+      }
+      const currentDriverId = order.driverId || order.driver?.id;
+      if (currentDriverId) {
+        socket.emit('get_driver_location', currentDriverId, (loc: any) => {
+          if (loc && loc.lat && loc.lng) {
+            setLiveDriverCoords({ lat: loc.lat, lng: loc.lng });
+          }
+        });
+      }
+    };
+
+    joinRooms();
+    socket.on('connect', joinRooms);
 
     socket.on('order_status_updated', (updatedOrder: any) => {
-      if (updatedOrder.id === order.id) {
-        setOrder(updatedOrder);
+      if (updatedOrder && updatedOrder.id === order.id) {
+        setOrder((prev: any) => {
+          const merged = {
+            ...prev,
+            ...updatedOrder,
+            branch: updatedOrder.branch || prev?.branch,
+            items: updatedOrder.items || prev?.items,
+          };
+          if (onOrderUpdated) onOrderUpdated(merged);
+          return merged;
+        });
         notifyOrderStatusPush(updatedOrder);
-        if (onOrderUpdated) onOrderUpdated(updatedOrder);
       }
     });
 
     // استقبال تحديث موقع الطيار الحي على الخريطة
     socket.on('driver_location_updated', (locData: any) => {
-      if (locData && (locData.orderId === order.id || locData.driverId === order.driverId || locData.driverId === order.driver?.id)) {
-        setLiveDriverCoords({ lat: locData.lat, lng: locData.lng });
+      if (locData && typeof locData.lat === 'number' && typeof locData.lng === 'number') {
+        setOrder((currOrder: any) => {
+          const activeDriverId = currOrder?.driverId || currOrder?.driver?.id;
+          if (locData.orderId === currOrder?.id || (activeDriverId && locData.driverId === activeDriverId)) {
+            setLiveDriverCoords({ lat: locData.lat, lng: locData.lng });
+          }
+          return currOrder;
+        });
       }
     });
 
@@ -201,9 +294,22 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
     });
 
     return () => {
+      socketRef.current = null;
       socket.disconnect();
     };
-  }, [order?.id, order?.driverId, order?.driver?.id]);
+  }, [order?.id]);
+
+  // عند تعيين طيار جديد للطلب أثناء فتح الشاشة، نطلب موقعه الحالي دون قطع اتصال السوكيت
+  useEffect(() => {
+    const activeDriverId = order?.driverId || order?.driver?.id;
+    if (activeDriverId && socketRef.current) {
+      socketRef.current.emit('get_driver_location', activeDriverId, (loc: any) => {
+        if (loc && loc.lat && loc.lng) {
+          setLiveDriverCoords({ lat: loc.lat, lng: loc.lng });
+        }
+      });
+    }
+  }, [order?.driverId, order?.driver?.id]);
 
   const handleCancelOrder = async () => {
     setShowCancelConfirmModal(false);
@@ -263,6 +369,8 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
     ? getDiffMins(createdAt, completedAt)
     : getDiffMins(createdAt, new Date(currentTime).toISOString());
 
+  const assignedDriverCleanName = order.driver ? cleanDriverDisplayName(order.driver.name) : null;
+
   const steps = [
     {
       key: 'PENDING',
@@ -271,7 +379,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
         ? `بانتظار موافقة المطعم (منذ ${formatDuration(waitMins)})`
         : acceptedAt
         ? `تم قبول الطلب وبدء التنفيذ (استغرق ${formatDuration(waitMins)})`
-        : 'تم تأكيد استلام الطلب',
+        : 'تم تأكيد استلام الطلب من المطعم',
       timeText: formatTimeOnly(createdAt),
       icon: Clock,
       isActive: status === 'PENDING',
@@ -281,7 +389,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
       key: 'PREPARING',
       title: 'جاري التحضير والطهي',
       subtitle: (status === 'PREPARING' || status === 'ACCEPTED')
-        ? `المطعم يجهز وجبتك الآن (منذ ${formatDuration(prepMins)})`
+        ? `المطعم يجهز وجبتك الآن (منذ ${formatDuration(prepMins)})${assignedDriverCleanName ? ` • تم تعيين ${assignedDriverCleanName} للتوصيل 🛵` : ''}`
         : readyAt
         ? `تم الانتهاء من التجهيز بالمطبخ (استغرق ${formatDuration(prepMins)})`
         : 'المطعم يقوم بتجهيز وجبتك',
@@ -295,7 +403,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
       title: order.orderType === 'DELIVERY' ? 'في الطريق للتوصيل' : 'جاهز للاستلام من الفرع',
       subtitle: status === 'READY'
         ? (order.orderType === 'DELIVERY'
-            ? `طلبك خرج للتوصيل لمبنى كليتك (منذ ${formatDuration(deliveryMins)})`
+            ? `طلبك خرج للتوصيل${assignedDriverCleanName ? ` مع ${assignedDriverCleanName}` : ''} (منذ ${formatDuration(deliveryMins)})`
             : `الوجبة جاهزة للاستلام بالفرع (منذ ${formatDuration(deliveryMins)})`)
         : completedAt
         ? `تم التسليم للعميل (استغرق ${formatDuration(deliveryMins)})`
@@ -332,14 +440,32 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold">
                 {order.orderType === 'DELIVERY' ? 'توصيل' : 'استلام من الفرع'}
               </span>
+              {status !== 'COMPLETED' && status !== 'REJECTED' && (
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>مباشر</span>
+                </span>
+              )}
             </div>
             <span className="text-[11px] text-slate-400">
               {order.branch?.name || 'مطعم الجامعة'}
             </span>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {status !== 'COMPLETED' && status !== 'REJECTED' && (
+              <button
+                type="button"
+                onClick={() => fetchLatestOrderState(true)}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                title="تحديث حالة الطلب الآن"
+              >
+                <RotateCw className={`w-4 h-4 ${refreshingOrder ? 'animate-spin text-indigo-600' : ''}`} />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -408,8 +534,46 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
             </div>
           )}
 
-          {/* Live GPS Campus Tracking Map */}
-          {order.orderType === 'DELIVERY' && order.driver ? (
+          {/* Assigned Driver Status Card + Live GPS Campus Tracking Map */}
+          {order.driver && (
+            <div className="p-3.5 bg-gradient-to-r from-indigo-50 via-blue-50 to-indigo-50 border border-indigo-200/90 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-xs animate-fadeIn">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm text-lg">
+                  🛵
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-indigo-600 font-black">كابتن التوصيل:</span>
+                    <span className="font-black text-indigo-950 text-sm truncate">{assignedDriverCleanName}</span>
+                  </div>
+                  <span className={`text-[11px] font-bold mt-0.5 block ${
+                    order.driverPickedUpAt || status === 'READY'
+                      ? 'text-emerald-700'
+                      : order.isDriverAccepted
+                      ? 'text-indigo-700'
+                      : 'text-amber-700'
+                  }`}>
+                    {order.driverPickedUpAt || status === 'READY'
+                      ? '🚀 استلم الطلب من المطعم وفي الطريق إليك الآن'
+                      : order.isDriverAccepted
+                      ? '✅ قبل الكابتن الطلب وفي طريقه للمطعم للاستلام'
+                      : '⏳ تم تعيين الكابتن من المطعم وبانتظار استلامه للوجبة'}
+                  </span>
+                </div>
+              </div>
+              {order.driver.phone && (
+                <a
+                  href={`tel:${order.driver.phone}`}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black font-mono shadow-xs transition-all active:scale-95 shrink-0"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>اتصال</span>
+                </a>
+              )}
+            </div>
+          )}
+
+          {order.orderType === 'DELIVERY' && order.driver && (
             <div className="space-y-1.5 animate-fadeIn">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
@@ -425,7 +589,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
               </div>
               <LiveOrderMap
                 orderId={order.id}
-                driverName={order.driver.name}
+                driverName={assignedDriverCleanName || order.driver.name}
                 driverPhone={order.driver.phone}
                 restaurantName={order.branch?.name || 'مطعم الجامعة'}
                 orderStatus={status}
@@ -435,29 +599,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 pickupPin={order.pickupPin}
               />
             </div>
-          ) : order.driver ? (
-            <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center justify-between text-xs animate-fadeIn">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
-                  <Truck className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[10px] text-indigo-500 font-bold block">كابتن التوصيل المعين:</span>
-                  <span className="font-black text-indigo-950 text-sm">{order.driver.name}</span>
-                  <span className="text-[10px] text-slate-500 block">
-                    {order.driverPickedUpAt ? '🛵 استلم الطلب وفي الطريق إليك' : '⏳ جاري استلام الطلب من المطعم'}
-                  </span>
-                </div>
-              </div>
-              <a
-                href={`tel:${order.driver.phone}`}
-                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold font-mono shadow-xs transition-colors"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>اتصال</span>
-              </a>
-            </div>
-          ) : null}
+          )}
 
           {status === 'REJECTED' ? (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-center text-rose-700 space-y-2.5">

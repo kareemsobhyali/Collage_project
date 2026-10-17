@@ -11,7 +11,7 @@ import {
   notifyMenuItemAvailabilityChanged
 } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert } from "../services/settings.service.js";
-import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig } from "../services/driver.service.js";
+import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver } from "../services/driver.service.js";
 
 
 const router = Router();
@@ -927,7 +927,14 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json(orders);
+    const enrichedOrders = await Promise.all(
+      orders.map(async (o) => ({
+        ...o,
+        isDriverAccepted: Boolean(o.driverPickedUpAt) || (o.driverId ? await isOrderAcceptedByDriver(o.id) : false),
+      }))
+    );
+
+    res.json(enrichedOrders);
   } catch (error) {
     console.error("Get branch orders error:", error);
     res.status(500).json({ error: "فشل استرجاع طلبات الفرع" });
@@ -1060,7 +1067,7 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
       }
     }
 
-    let updatedOrder;
+    let updatedOrder: any;
     if (status === "REJECTED" && existingOrder.status !== "REJECTED") {
       updatedOrder = await prisma.$transaction(async (tx) => {
         // تحديث ذري مشروط بعدم كون الطلب ملغى مسبقاً لمنع التكرار المتزامن (Race Condition)
@@ -1076,6 +1083,9 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
           where: { id },
           include: {
             items: true,
+            branch: {
+              select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+            },
             user: {
               select: {
                 id: true,
@@ -1128,6 +1138,9 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
         data: updateData,
         include: {
           items: true,
+          branch: {
+            select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+          },
           user: {
             select: {
               id: true,
@@ -1149,6 +1162,11 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
         await awardLoyaltyPointsIfCompleted(id);
       }
     }
+
+    updatedOrder = {
+      ...updatedOrder,
+      isDriverAccepted: Boolean(updatedOrder.driverPickedUpAt) || (updatedOrder.driverId ? await isOrderAcceptedByDriver(id) : false),
+    };
 
     // إشعار لحظي عبر Socket.io للعميل والديسكتوب والطيار
     notifyOrderStatusChanged(id, branchId, updatedOrder, updatedOrder.driverId || undefined);
@@ -1369,7 +1387,7 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
       }
     }
 
-    const updated = await prisma.order.update({
+    const rawUpdated = await prisma.order.update({
       where: { id },
       data: {
         driverId: driverId || null,
@@ -1377,6 +1395,9 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
       },
       include: {
         items: true,
+        branch: {
+          select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+        },
         user: {
           select: {
             id: true,
@@ -1392,6 +1413,11 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
         driver: { select: { id: true, name: true, phone: true } },
       },
     });
+
+    const updated = {
+      ...rawUpdated,
+      isDriverAccepted: Boolean(rawUpdated.driverPickedUpAt) || (driverId ? await isOrderAcceptedByDriver(id) : false),
+    };
 
     // إشعار الطيار المعين عبر Socket.io بصوت تنبيه فوري
     if (driverId) {

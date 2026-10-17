@@ -184,6 +184,9 @@ export function notifyOrderStatusChanged(orderId: string, branchId: string, orde
   if (io) {
     // تحديث العميل والديسكتوب
     io.to(`order_${orderId}`).emit("order_status_updated", order);
+    if (order?.userId) {
+      io.to(`user_${order.userId}`).emit("order_status_updated", order);
+    }
     io.to(`branch_${branchId}`).emit("order_status_updated", order);
     if (driverId || order?.driverId) {
       io.to(`driver_${driverId || order.driverId}`).emit("order_status_updated", sanitizeOrderForDriverSocket(order));

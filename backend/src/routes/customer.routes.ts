@@ -5,6 +5,7 @@ import prisma from "../prisma.js";
 import { authenticateUser, AuthRequest, JWT_SECRET } from "../middleware/auth.js";
 import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated } from "../sockets/socketManager.js";
 import { getLoyaltySettings, awardLoyaltyPointsIfCompleted, getRestaurantLocationSettings } from "../services/settings.service.js";
+import { isOrderAcceptedByDriver } from "../services/driver.service.js";
 
 const router = Router();
 
@@ -1085,7 +1086,7 @@ router.get("/orders/:id", async (req: AuthRequest, res: Response) => {
       include: {
         items: true,
         branch: {
-          select: { name: true, phone: true, address: true, logoUrl: true, paymentConfig: true },
+          select: { id: true, name: true, phone: true, address: true, logoUrl: true, paymentConfig: true },
         },
         driver: {
           select: { id: true, name: true, phone: true },
@@ -1098,7 +1099,12 @@ router.get("/orders/:id", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    res.json(order);
+    const isDriverAccepted = Boolean(order.driverPickedUpAt) || (order.driverId ? await isOrderAcceptedByDriver(order.id) : false);
+
+    res.json({
+      ...order,
+      isDriverAccepted,
+    });
   } catch (error) {
     res.status(500).json({ error: "فشل استرجاع بيانات الطلب" });
   }
@@ -1111,7 +1117,7 @@ router.get("/my-orders", async (req: AuthRequest, res: Response) => {
       where: { userId: req.user!.userId },
       include: {
         branch: {
-          select: { name: true, logoUrl: true },
+          select: { id: true, name: true, phone: true, address: true, logoUrl: true },
         },
         driver: {
           select: { id: true, name: true, phone: true },
@@ -1121,7 +1127,14 @@ router.get("/my-orders", async (req: AuthRequest, res: Response) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json(orders);
+    const enriched = await Promise.all(
+      orders.map(async (o) => ({
+        ...o,
+        isDriverAccepted: Boolean(o.driverPickedUpAt) || (o.driverId ? await isOrderAcceptedByDriver(o.id) : false),
+      }))
+    );
+
+    res.json(enriched);
   } catch (error) {
     res.status(500).json({ error: "فشل استرجاع سجل الطلبات" });
   }

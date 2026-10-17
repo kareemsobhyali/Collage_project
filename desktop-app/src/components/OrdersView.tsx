@@ -73,6 +73,11 @@ const getDiffMins = (start?: string | null, end?: string | null): number | null 
   return Math.max(0, Math.round(((e - s) / 60000) * 10) / 10);
 };
 
+const cleanDriverName = (name?: string | null): string => {
+  if (!name) return 'كابتن التوصيل';
+  return name.replace(/\s*\(طيار عام\)\s*/g, '').trim() || name;
+};
+
 export const OrdersView: React.FC<OrdersViewProps> = ({ 
   orders, 
   branchName, 
@@ -561,18 +566,22 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
               {assignedDriver ? (
                 <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50/70 rounded-2xl border border-slate-200/80">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black shrink-0 border border-indigo-200/60 shadow-2xs">
+                      <div className="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black shrink-0 border border-indigo-200/60 shadow-2xs text-lg">
                         🛵
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-slate-900 text-sm sm:text-base">{assignedDriver.name}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-black text-slate-900 text-sm sm:text-base">
+                            {cleanDriverName(assignedDriver.name)}
+                          </span>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${
-                            assignedDriver.isGeneralDriver ? 'bg-sky-100 text-sky-800' : 'bg-indigo-100 text-indigo-800'
+                            assignedDriver.isGeneralDriver || assignedDriver.name?.includes('طيار عام')
+                              ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                              : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                           }`}>
-                            {assignedDriver.isGeneralDriver ? '🌐 طيار عام' : '🛵 طيار الفرع'}
+                            {assignedDriver.isGeneralDriver || assignedDriver.name?.includes('طيار عام') ? '🌐 طيار عام' : '🛵 طيار الفرع'}
                           </span>
                         </div>
                         <span className="text-xs font-mono font-bold text-slate-600 mt-0.5 block" dir="ltr">
@@ -622,6 +631,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <CheckCircle className="w-4 h-4 text-emerald-700 shrink-0" />
                         <span>استلم الطيار الوجبة من الفرع وخرج للتوصيل ({formatTimeOnly(dOrder.driverPickedUpAt)})</span>
                       </div>
+                    ) : dOrder.isDriverAccepted ? (
+                      <div className="p-2.5 bg-indigo-50 text-indigo-900 rounded-2xl border border-indigo-300 font-bold flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-indigo-700 shrink-0" />
+                        <span>قبل الطيار الطلب وفي طريقه للفرع لاستلام الوجبة 🛵</span>
+                      </div>
                     ) : (
                       <div className="p-2.5 bg-amber-50 text-amber-900 rounded-2xl border border-amber-300 font-bold flex items-center gap-2">
                         <Clock className="w-4 h-4 text-amber-700 shrink-0 animate-pulse" />
@@ -642,38 +656,142 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
               )}
 
-              {/* Driver Picker Dropdown (Shows if no driver assigned or user clicked change) */}
-              {(!assignedDriver || showDriverPicker) && !isCompleted && !isRejected && (
-                <div className="pt-2 border-t border-slate-100 space-y-2">
-                  <span className="text-xs font-bold text-slate-700 block">اختر كابتن التوصيل:</span>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <select
-                      value={selectedDriverMap[dOrder.id] !== undefined ? selectedDriverMap[dOrder.id] : (dOrder.driverId || '')}
-                      onChange={(e) => setSelectedDriverMap({ ...selectedDriverMap, [dOrder.id]: e.target.value })}
-                      className="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                    >
-                      <option value="">{assignedDriver ? '-- اختيار طيار بديل --' : '-- اختر كابتن توصيل (طيار) --'}</option>
-                      {drivers.map((d: any) => (
-                        <option key={d.id} value={d.id} disabled={!d.isActive}>
-                          {d.name} ({d.phone}) {d.isGeneralDriver ? '🌐 [طيار عام]' : ''} {d.isActive ? '' : '(غير متاح)'}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={assigningDriverOrderId === dOrder.id}
-                      onClick={async () => {
-                        const chosen = selectedDriverMap[dOrder.id] ?? dOrder.driverId ?? '';
-                        await handleAssignDriver(dOrder.id, chosen);
-                        setShowDriverPicker(false);
-                      }}
-                      className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-sm shrink-0 active:scale-95 disabled:opacity-50 text-center"
-                    >
-                      {assigningDriverOrderId === dOrder.id ? 'جاري الحفظ...' : (assignedDriver ? 'تأكيد التغيير' : 'إسناد للطيار')}
-                    </button>
+              {/* Interactive Driver Cards Picker (Shows if no driver assigned or user clicked change) */}
+              {(!assignedDriver || showDriverPicker) && !isCompleted && !isRejected && (() => {
+                const currentSelectedDriverId = selectedDriverMap[dOrder.id] !== undefined
+                  ? selectedDriverMap[dOrder.id]
+                  : (dOrder.driverId || '');
+                const activeDriversCount = drivers.filter((d: any) => d.isActive).length;
+
+                return (
+                  <div className="pt-3 border-t border-slate-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-800">
+                        {assignedDriver ? 'اختر طياراً بديلاً لهذا الطلب:' : 'اختر كابتن التوصيل لإسناد الطلب:'}
+                      </span>
+                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                        {activeDriversCount} طيار متاح
+                      </span>
+                    </div>
+
+                    {drivers.length === 0 ? (
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xs text-slate-500 font-bold">
+                        لا يوجد طيارون مسجلون حالياً في الفرع.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-0.5">
+                        {drivers.map((d: any) => {
+                          const isSelected = currentSelectedDriverId === d.id;
+                          const isGeneral = Boolean(d.isGeneralDriver || d.name?.includes('طيار عام'));
+                          const driverActiveOrders = orders.filter(
+                            (o: any) =>
+                              o.driverId === d.id &&
+                              (o.status === 'PREPARING' || o.status === 'ACCEPTED' || o.status === 'READY')
+                          ).length;
+
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              disabled={!d.isActive}
+                              onClick={() => setSelectedDriverMap({ ...selectedDriverMap, [dOrder.id]: d.id })}
+                              className={`w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
+                                !d.isActive
+                                  ? 'bg-slate-100/70 border-slate-200 opacity-55 cursor-not-allowed'
+                                  : isSelected
+                                  ? 'bg-indigo-50/90 border-indigo-600 ring-2 ring-indigo-500/25 shadow-sm'
+                                  : 'bg-slate-50/70 hover:bg-white border-slate-200/90 hover:border-indigo-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-base shrink-0 border transition-colors ${
+                                  isSelected
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                    : isGeneral
+                                    ? 'bg-sky-100 text-sky-700 border-sky-200'
+                                    : 'bg-white text-slate-700 border-slate-200'
+                                }`}>
+                                  {isGeneral ? '🌐' : '🛵'}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-black text-xs sm:text-sm text-slate-900 truncate">
+                                      {cleanDriverName(d.name)}
+                                    </span>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap ${
+                                      isGeneral
+                                        ? 'bg-sky-100 text-sky-800'
+                                        : 'bg-indigo-100 text-indigo-800'
+                                    }`}>
+                                      {isGeneral ? 'طيار عام' : 'طيار الفرع'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span className="text-[11px] font-mono font-bold text-slate-500" dir="ltr">
+                                      {d.phone}
+                                    </span>
+                                    {!d.isActive ? (
+                                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
+                                        غير متاح
+                                      </span>
+                                    ) : driverActiveOrders === 0 ? (
+                                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                        متفرغ الآن ✓
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                                        معه {driverActiveOrders} طلب
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                                isSelected
+                                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
+                                  : 'border-slate-300 bg-white'
+                              }`}>
+                                {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      {showDriverPicker && (
+                        <button
+                          type="button"
+                          onClick={() => setShowDriverPicker(false)}
+                          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                        >
+                          إلغاء
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={assigningDriverOrderId === dOrder.id || !currentSelectedDriverId}
+                        onClick={async () => {
+                          await handleAssignDriver(dOrder.id, currentSelectedDriverId);
+                          setShowDriverPicker(false);
+                        }}
+                        className="flex-1 sm:flex-none px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-indigo-600/20 shrink-0 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        <Truck className="w-4 h-4" />
+                        <span>
+                          {assigningDriverOrderId === dOrder.id
+                            ? 'جاري الحفظ...'
+                            : assignedDriver
+                            ? 'تأكيد تغيير الطيار'
+                            : 'إسناد الطلب للكابتن المختار'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Group Cart Details if present */}
@@ -1215,85 +1333,225 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         </>
       )}
 
-      {/* Acceptance Modal: Estimated Time Chips */}
+      {/* Acceptance Modal: Estimated Time Chips & Interactive Driver Cards */}
       {acceptingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div className="flex items-center gap-2">
-                <Timer className="w-5 h-5 text-indigo-600" />
-                <h4 className="font-black text-slate-800 text-sm">تحديد وقت التجهيز والطيار</h4>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/65 backdrop-blur-xs p-0 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-2xs">
+                  <Timer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-900 text-sm">تحديد وقت التجهيز والطيار</h4>
+                  <span className="text-[11px] font-bold text-slate-400">
+                    طلب الطالب #{acceptingOrder.orderNumber} ({acceptingOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'})
+                  </span>
+                </div>
               </div>
-              <button onClick={() => setAcceptingOrder(null)} className="p-1 text-slate-400 hover:text-slate-600">
+              <button
+                type="button"
+                onClick={() => setAcceptingOrder(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500">
-              اختر الوقت المتوقع لإعداد وجبة الطالب #{acceptingOrder.orderNumber} ليظهر له عد تنازلي حي في شاشته:
-            </p>
+            {/* Scrollable Content */}
+            <div className="p-5 overflow-y-auto space-y-5 flex-1">
+              {/* 1. Prep Time Selection */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>الوقت المتوقع لتجهيز الوجبة:</span>
+                  </label>
+                  <span className="text-[11px] font-black text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
+                    {prepMinutes} دقيقة
+                  </span>
+                </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              {[10, 15, 20, 25, 30, 45].map((mins) => (
-                <button
-                  key={mins}
-                  type="button"
-                  onClick={() => setPrepMinutes(mins)}
-                  className={`py-2.5 rounded-xl text-xs font-black transition-all ${
-                    prepMinutes === mins
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-200'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
-                >
-                  {mins} دقيقة
-                </button>
-              ))}
+                <div className="grid grid-cols-3 gap-2">
+                  {[10, 15, 20, 25, 30, 45].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => setPrepMinutes(mins)}
+                      className={`py-2.5 rounded-xl text-xs font-black transition-all border ${
+                        prepMinutes === mins
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/25 ring-2 ring-indigo-200'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80'
+                      }`}
+                    >
+                      {mins} دقيقة
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">أو حدد يدوياً (دقيقة):</span>
+                  <input
+                    type="number"
+                    min="5"
+                    max="120"
+                    value={prepMinutes}
+                    onChange={e => setPrepMinutes(parseInt(e.target.value) || 15)}
+                    className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-black text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Interactive Driver Cards Selector */}
+              <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>إسناد كابتن التوصيل (الطيار):</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    اختياري عند القبول
+                  </span>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-0.5">
+                  {/* Option 0: Assign Later */}
+                  <button
+                    type="button"
+                    onClick={() => setAcceptDriverId('')}
+                    className={`w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
+                      acceptDriverId === ''
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 ${
+                        acceptDriverId === '' ? 'bg-white/15 text-white' : 'bg-white text-slate-500 border border-slate-200'
+                      }`}>
+                        ⏳
+                      </div>
+                      <div>
+                        <span className="font-black text-xs block">
+                          بدون تعيين طيار الآن
+                        </span>
+                        <span className={`text-[10px] font-medium block ${
+                          acceptDriverId === '' ? 'text-slate-300' : 'text-slate-400'
+                        }`}>
+                          قبول الطلب وبدء التجهيز وتعيين الطيار لاحقاً
+                        </span>
+                      </div>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border ${
+                      acceptDriverId === ''
+                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                        : 'border-slate-300 bg-white'
+                    }`}>
+                      {acceptDriverId === '' && <Check className="w-3 h-3 stroke-[3]" />}
+                    </div>
+                  </button>
+
+                  {/* Driver Cards */}
+                  {drivers.map((d: any) => {
+                    const isSelected = acceptDriverId === d.id;
+                    const isGeneral = Boolean(d.isGeneralDriver || d.name?.includes('طيار عام'));
+                    const driverActiveOrders = orders.filter(
+                      (o: any) =>
+                        o.driverId === d.id &&
+                        (o.status === 'PREPARING' || o.status === 'ACCEPTED' || o.status === 'READY')
+                    ).length;
+
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        disabled={!d.isActive}
+                        onClick={() => setAcceptDriverId(d.id)}
+                        className={`w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
+                          !d.isActive
+                            ? 'bg-slate-100/60 border-slate-200 opacity-50 cursor-not-allowed'
+                            : isSelected
+                            ? 'bg-indigo-50 border-indigo-600 ring-2 ring-indigo-500/20 shadow-sm'
+                            : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-indigo-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 border transition-colors ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : isGeneral
+                              ? 'bg-sky-50 text-sky-700 border-sky-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                            {isGeneral ? '🌐' : '🛵'}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-black text-xs sm:text-sm text-slate-900 truncate">
+                                {cleanDriverName(d.name)}
+                              </span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap ${
+                                isGeneral
+                                  ? 'bg-sky-100 text-sky-800'
+                                  : 'bg-indigo-100 text-indigo-800'
+                              }`}>
+                                {isGeneral ? 'طيار عام' : 'طيار الفرع'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className="text-[11px] font-mono font-bold text-slate-500" dir="ltr">
+                                {d.phone}
+                              </span>
+                              {!d.isActive ? (
+                                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
+                                  غير متاح
+                                </span>
+                              ) : driverActiveOrders === 0 ? (
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                  متفرغ الآن ✓
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                                  معه {driverActiveOrders} طلب
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                          isSelected
+                            ? 'bg-indigo-600 border-indigo-600 text-white'
+                            : 'border-slate-300 bg-white'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
-            <div className="pt-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1">أو حدد بالدقائق يدوياً:</label>
-              <input
-                type="number"
-                min="5"
-                max="120"
-                value={prepMinutes}
-                onChange={e => setPrepMinutes(parseInt(e.target.value) || 15)}
-                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-              />
-            </div>
-
-            {/* Optional immediate driver assignment on acceptance */}
-            <div className="pt-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                <Truck className="w-3.5 h-3.5 text-indigo-600" />
-                <span>إسناد كابتن توصيل فوراً (اختياري):</span>
-              </label>
-              <select
-                value={acceptDriverId}
-                onChange={e => setAcceptDriverId(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-              >
-                <option value="">-- بدون تعيين طيار الآن (يمكن التعيين لاحقاً) --</option>
-                {drivers.map(d => (
-                  <option key={d.id} value={d.id} disabled={!d.isActive}>
-                    {d.name} ({d.phone}) {d.isGeneralDriver ? '🌐 [طيار عام]' : ''} {d.isActive ? '' : '(غير متاح)'}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="pt-2 flex gap-2">
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={handleConfirmAccept}
-                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5"
               >
-                تأكيد القبول ({prepMinutes} دقيقة)
+                <Check className="w-4 h-4 stroke-[2.5]" />
+                <span>
+                  {acceptDriverId
+                    ? `قبول وإسناد للكابتن (${prepMinutes} د)`
+                    : `تأكيد القبول (${prepMinutes} دقيقة)`}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setAcceptingOrder(null)}
-                className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold"
+                className="px-4 py-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors"
               >
                 إلغاء
               </button>
