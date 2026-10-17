@@ -27,7 +27,8 @@ import {
 import { 
   getNearestLocationName, 
   formatAddressWithCoordinates, 
-  cleanAddressText 
+  cleanAddressText,
+  extractCoordinatesFromAddress
 } from '../services/campusLocations';
 
 interface ProfileModalProps {
@@ -65,6 +66,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [savingAddress, setSavingAddress] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detectingGps, setDetectingGps] = useState(false);
+  const [capturedGps, setCapturedGps] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsSuccessMsg, setGpsSuccessMsg] = useState<string | null>(null);
 
   // تحميل العناوين والبيانات المالية للمحفظة
@@ -150,19 +152,109 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     }
   };
 
+  const handleDetectGpsLocation = (options?: { silent?: boolean }): Promise<{ lat: number; lng: number } | null> => {
+    const silent = options?.silent ?? false;
+    return new Promise((resolve) => {
+      if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+        if (!silent) {
+          setError('خاصية تحديد الموقع الجغرافي غير مدعومة على هذا الجهاز أو المتصفح.');
+        }
+        resolve(null);
+        return;
+      }
+
+      setDetectingGps(true);
+      if (!silent) setGpsSuccessMsg(null);
+
+      const onGeoSuccess = async (pos: GeolocationPosition) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setCapturedGps({ lat, lng });
+        try {
+          const place = await getNearestLocationName(lat, lng);
+          setNewTitle((prev) => (prev.trim() ? prev : place.title));
+          setNewDetails((prev) => {
+            const cleanPrev = cleanAddressText(prev);
+            return formatAddressWithCoordinates(cleanPrev || place.details || place.title, lat, lng);
+          });
+          setGpsSuccessMsg(`✓ تم ربط موقعك بالـ GPS تلقائياً [${place.title}] مع العنوان المكتوب`);
+        } catch (_) {
+          setNewTitle((prev) => (prev.trim() ? prev : 'موقعي الحالي'));
+          setNewDetails((prev) => {
+            const cleanPrev = cleanAddressText(prev);
+            return formatAddressWithCoordinates(cleanPrev || 'موقعي الحالي عبر الـ GPS', lat, lng);
+          });
+          setGpsSuccessMsg('✓ تم ربط موقعك عبر الـ GPS مع العنوان المكتوب');
+        } finally {
+          setDetectingGps(false);
+          resolve({ lat, lng });
+        }
+      };
+
+      const onGeoFallback = (initialErr?: GeolocationPositionError) => {
+        navigator.geolocation.getCurrentPosition(
+          onGeoSuccess,
+          (fallbackErr) => {
+            setDetectingGps(false);
+            const errCode = fallbackErr?.code || initialErr?.code;
+            if (!silent) {
+              if (errCode === 1) {
+                setError('تم رفض إذن الوصول للموقع. يُرجى تفعيل صلاحية الـ GPS لربط العنوان المكتوب بالخريطة.');
+              } else {
+                setError('تعذر تحديد إشارة الـ GPS اللحظية. يرجى التأكد من تفعيل الـ GPS في هاتفك.');
+              }
+            }
+            resolve(null);
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+        );
+      };
+
+      navigator.geolocation.getCurrentPosition(
+        onGeoSuccess,
+        onGeoFallback,
+        { enableHighAccuracy: true, timeout: 7000, maximumAge: 15000 }
+      );
+    });
+  };
+
+  useEffect(() => {
+    if (showAddAddress && !capturedGps) {
+      handleDetectGpsLocation({ silent: true });
+    }
+  }, [showAddAddress]);
+
   const handleAddAddress = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newDetails.trim()) return;
+    if (!newTitle.trim() || !cleanAddressText(newDetails).trim()) return;
 
     try {
       setSavingAddress(true);
       setError(null);
-      const created = await api.addAddress(newTitle.trim(), newDetails.trim(), isDefault);
+
+      let coords = extractCoordinatesFromAddress(newDetails) || capturedGps;
+      if (!coords) {
+        coords = await handleDetectGpsLocation({ silent: false });
+      }
+      if (!coords) {
+        setError('لازم يتم التقاط موقعك بالـ GPS بجانب العنوان المكتوب حتى يظهر مكانك للكابتن على الخريطة.');
+        setSavingAddress(false);
+        return;
+      }
+
+      const finalDetailsWithGps = formatAddressWithCoordinates(
+        cleanAddressText(newDetails) || newTitle.trim(),
+        coords.lat,
+        coords.lng
+      );
+
+      const created = await api.addAddress(newTitle.trim(), finalDetailsWithGps, isDefault);
       setAddresses(prev => [created, ...prev]);
       setNewTitle('');
       setNewDetails('');
       setIsDefault(false);
       setShowAddAddress(false);
+      setGpsSuccessMsg(null);
     } catch (err: any) {
       setError(err.message || 'فشل حفظ العنوان');
     } finally {
@@ -177,55 +269,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     } catch (err: any) {
       alert(err.message || 'فشل حذف العنوان');
     }
-  };
-
-  const handleDetectGpsLocation = () => {
-    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
-      alert('خاصية تحديد الموقع الجغرافي غير مدعومة على هذا الجهاز أو المتصفح.');
-      return;
-    }
-
-    setDetectingGps(true);
-    setGpsSuccessMsg(null);
-
-    const onGeoSuccess = async (pos: GeolocationPosition) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      try {
-        const place = await getNearestLocationName(lat, lng);
-        setNewTitle(place.title);
-        setNewDetails(formatAddressWithCoordinates(place.details || place.title, lat, lng));
-        setGpsSuccessMsg(`✓ تم سحب الموقع وتسميته تلقائياً [${place.title}]، يمكنك تعديل التسمية أو التفاصيل`);
-      } catch (_) {
-        setNewTitle('موقعي الحالي');
-        setNewDetails(formatAddressWithCoordinates('موقعي الحالي عبر الـ GPS', lat, lng));
-        setGpsSuccessMsg('✓ تم سحب موقعك عبر الـ GPS، يمكنك كتابة تسمية مناسبة له');
-      } finally {
-        setDetectingGps(false);
-      }
-    };
-
-    const onGeoFallback = (initialErr?: GeolocationPositionError) => {
-      navigator.geolocation.getCurrentPosition(
-        onGeoSuccess,
-        (fallbackErr) => {
-          setDetectingGps(false);
-          const errCode = fallbackErr?.code || initialErr?.code;
-          if (errCode === 1) {
-            alert('تم رفض إذن الوصول للموقع. يُرجى تفعيل صلاحية الـ GPS من إعدادات المتصفح أو الهاتف.');
-          } else {
-            alert('تعذر تحديد إشارة الـ GPS اللحظية. يمكنك كتابة اسم وتفاصيل العنوان يدوياً.');
-          }
-        },
-        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
-      );
-    };
-
-    navigator.geolocation.getCurrentPosition(
-      onGeoSuccess,
-      onGeoFallback,
-      { enableHighAccuracy: true, timeout: 7000, maximumAge: 15000 }
-    );
   };
 
   return (
@@ -444,7 +487,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div className="space-y-1.5">
                   <button
                     type="button"
-                    onClick={handleDetectGpsLocation}
+                    onClick={() => handleDetectGpsLocation({ silent: false })}
                     disabled={detectingGps}
                     className="w-full py-2.5 px-3 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.99] disabled:opacity-50 bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border-emerald-500/40 text-emerald-800 hover:bg-emerald-100"
                   >
@@ -468,25 +511,42 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     type="text"
                     placeholder="مثال: سكن الطلبة، هايبر وان، كلية الهندسة..."
                     value={newTitle}
-                    onChange={e => setNewTitle(e.target.value)}
+                    onChange={e => {
+                      setNewTitle(e.target.value);
+                      if (!capturedGps && !detectingGps) {
+                        handleDetectGpsLocation({ silent: true });
+                      }
+                    }}
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    تفاصيل وموقع المكان بالتحديد
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-600">
+                      تفاصيل وموقع المكان بالتحديد
+                    </label>
+                    <span className="text-[10px] text-emerald-700 font-bold">
+                      {capturedGps || newDetails.includes('[GPS:') ? '✓ مرتبط بالـ GPS' : 'يرتبط بالـ GPS تلقائياً'}
+                    </span>
+                  </div>
                   <textarea
                     rows={2}
                     placeholder="المبنى، الدور، رقم الغرفة أو تفاصيل إضافية (مثال: مبنى ب - الدور الثالث - مدرج 302)"
                     value={cleanAddressText(newDetails) || newDetails}
+                    onFocus={() => {
+                      if (!capturedGps && !detectingGps) {
+                        handleDetectGpsLocation({ silent: true });
+                      }
+                    }}
                     onChange={e => {
                       const text = e.target.value;
                       const existingGps = newDetails.match(/\[GPS:[0-9.-]+,[0-9.-]+\]/);
                       if (existingGps) {
                         setNewDetails(`${existingGps[0]} ${text}`);
+                      } else if (capturedGps) {
+                        setNewDetails(formatAddressWithCoordinates(text, capturedGps.lat, capturedGps.lng));
                       } else {
                         setNewDetails(text);
                       }
