@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'app-config.json'
   workflow_dispatch:
     inputs:
       base_url:
-        description: 'رابط المنصة على Render'
+        description: 'رابط المنصة الافتراضي (اتركه فارغاً لقراءة الرابط من app-config.json)'
         required: false
-        default: 'https://collage-project-5zby.onrender.com'
+        default: ''
 
 permissions:
   contents: write
@@ -65,7 +67,9 @@ jobs:
         env:
           INPUT_BASE_URL: ${{ github.event.inputs.base_url }}
         run: |
-          SERVER_URL="${INPUT_BASE_URL:-https://collage-project-5zby.onrender.com}"
+          CONFIG_URL=$(node -e "try { console.log(require('../app-config.json').baseUrl || ''); } catch(e) { console.log(''); }")
+          SERVER_URL="${INPUT_BASE_URL:-${CONFIG_URL:-https://collage-project-5zby.onrender.com}}"
+          echo "Building APKs with fallback BASE_URL=$SERVER_URL (Dynamic config via GitHub app-config.json enabled)"
           gradle assembleRelease -PBASE_URL="$SERVER_URL" --no-daemon
 
       - name: Collect Built APKs

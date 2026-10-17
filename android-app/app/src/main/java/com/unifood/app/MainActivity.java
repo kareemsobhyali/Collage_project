@@ -10,6 +10,7 @@ import android.app.PendingIntent;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -18,11 +19,19 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.json.JSONObject;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
@@ -48,6 +57,9 @@ public class MainActivity extends Activity {
     private static final int NOTIFICATION_PERMISSION_CODE = 1002;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1003;
     private static final String CHANNEL_ID = "unifood_alerts_channel";
+    private static final String PREFS_NAME = "unifood_remote_config";
+    private static final String KEY_CACHED_START_URL = "cached_start_url_" + BuildConfig.FLAVOR_TYPE;
+    private static final String KEY_CACHED_BASE_URL = "cached_base_url";
 
     private WebView webView;
     private LinearLayout errorOverlay;
@@ -55,11 +67,167 @@ public class MainActivity extends Activity {
     private GeolocationPermissions.Callback pendingGeoCallback;
     private String pendingGeoOrigin;
     private boolean hasLoadError = false;
+    private volatile String activeStartUrl = BuildConfig.START_URL;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    private String getActiveStartUrl() {
+        return (activeStartUrl != null && !activeStartUrl.trim().isEmpty())
+                ? activeStartUrl
+                : BuildConfig.START_URL;
+    }
+
+    private String getActiveHost() {
+        try {
+            String host = Uri.parse(getActiveStartUrl()).getHost();
+            if (host != null && !host.isEmpty()) return host;
+        } catch (Exception ignored) {
+        }
+        try {
+            return Uri.parse(BuildConfig.START_URL).getHost();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private void loadCachedRemoteConfig() {
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            String savedStartUrl = prefs.getString(KEY_CACHED_START_URL, null);
+            if (savedStartUrl != null && (savedStartUrl.startsWith("https://") || savedStartUrl.startsWith("http://"))) {
+                activeStartUrl = savedStartUrl;
+            } else {
+                activeStartUrl = BuildConfig.START_URL;
+            }
+        } catch (Exception ignored) {
+            activeStartUrl = BuildConfig.START_URL;
+        }
+    }
+
+    private String fetchJsonText(String endpointUrl, boolean isGitHubApi) {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL(endpointUrl);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(2500);
+            conn.setReadTimeout(2500);
+            conn.setUseCaches(false);
+            conn.setRequestProperty("Cache-Control", "no-cache, no-store, must-revalidate");
+            conn.setRequestProperty("Pragma", "no-cache");
+            conn.setRequestProperty("User-Agent", "UniFood-Android-App");
+            if (isGitHubApi) {
+                conn.setRequestProperty("Accept", "application/vnd.github.raw");
+            }
+            int code = conn.getResponseCode();
+            if (code >= 200 && code < 300) {
+                StringBuilder sb = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line).append('\n');
+                    }
+                }
+                return sb.toString().trim();
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.disconnect();
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return null;
+    }
+
+    private String resolveFlavorStartUrlFromConfig(JSONObject json) {
+        if (json == null) return null;
+        String flavor = BuildConfig.FLAVOR_TYPE; // "student", "driver", "admin", "restaurant"
+
+        // 1. Check if a direct full URL for this flavor is specified (e.g. "studentUrl")
+        String directUrl = json.optString(flavor + "Url", "").trim();
+        if (directUrl.startsWith("https://") || directUrl.startsWith("http://")) {
+            return directUrl;
+        }
+
+        // 2. Otherwise use "baseUrl" + flavor path
+        String baseUrl = json.optString("baseUrl", "").trim();
+        if (!baseUrl.startsWith("https://") && !baseUrl.startsWith("http://")) {
+            return null;
+        }
+        baseUrl = baseUrl.replaceAll("/+$", "");
+
+        String customPath = json.optString(flavor + "Path", "").trim();
+        String path = !customPath.isEmpty() ? customPath : BuildConfig.FLAVOR_PATH;
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        return baseUrl + path;
+    }
+
+    private void syncRemoteConfigFromGitHub(Runnable onResolvedCallback, boolean reloadIfChanged) {
+        new Thread(() -> {
+            String resolvedUrl = null;
+            String resolvedBase = null;
+            try {
+                // المحاولة الأولى: عبر GitHub API مباشرة لتجنب أي تأخير في الكاش (0-second delay)
+                String rawJson = fetchJsonText(BuildConfig.REMOTE_CONFIG_API_URL + "&_t=" + System.currentTimeMillis(), true);
+                if (rawJson == null || rawJson.isEmpty()) {
+                    // المحاولة الاحتياطية: عبر رابط raw.githubusercontent.com
+                    rawJson = fetchJsonText(BuildConfig.REMOTE_CONFIG_URL + "?t=" + System.currentTimeMillis(), false);
+                }
+
+                if (rawJson != null && !rawJson.isEmpty()) {
+                    JSONObject json = new JSONObject(rawJson);
+                    resolvedUrl = resolveFlavorStartUrlFromConfig(json);
+                    resolvedBase = json.optString("baseUrl", "").trim().replaceAll("/+$", "");
+                }
+            } catch (Exception ignored) {
+            }
+
+            final String finalResolvedUrl = resolvedUrl;
+            final String finalResolvedBase = resolvedBase;
+
+            mainHandler.post(() -> {
+                boolean urlChanged = false;
+                if (finalResolvedUrl != null && (finalResolvedUrl.startsWith("https://") || finalResolvedUrl.startsWith("http://"))) {
+                    String previousUrl = getActiveStartUrl();
+                    if (!finalResolvedUrl.equalsIgnoreCase(previousUrl)) {
+                        urlChanged = true;
+                    }
+                    activeStartUrl = finalResolvedUrl;
+                    try {
+                        SharedPreferences.Editor editor = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit();
+                        editor.putString(KEY_CACHED_START_URL, finalResolvedUrl);
+                        if (finalResolvedBase != null && !finalResolvedBase.isEmpty()) {
+                            editor.putString(KEY_CACHED_BASE_URL, finalResolvedBase);
+                        }
+                        editor.apply();
+                    } catch (Exception ignored) {
+                    }
+                }
+
+                if (onResolvedCallback != null) {
+                    onResolvedCallback.run();
+                } else if (reloadIfChanged && (urlChanged || hasLoadError) && webView != null) {
+                    hasLoadError = false;
+                    if (errorOverlay != null) {
+                        errorOverlay.setVisibility(View.GONE);
+                    }
+                    webView.loadUrl(getActiveStartUrl());
+                }
+            });
+        }).start();
+    }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        loadCachedRemoteConfig();
 
         Window window = getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
@@ -92,7 +260,32 @@ public class MainActivity extends Activity {
         setContentView(rootLayout);
 
         configureWebView();
-        webView.loadUrl(BuildConfig.START_URL);
+
+        // التحقق السريع من ملف الدومين على GitHub (بحد أقصى 1.2 ثانية قبل الفتح، أو التبديل التلقائي فور وصوله)
+        final AtomicBoolean initialLoadTriggered = new AtomicBoolean(false);
+        final String initialCachedUrl = getActiveStartUrl();
+
+        Runnable fallbackStarter = () -> {
+            if (initialLoadTriggered.compareAndSet(false, true)) {
+                webView.loadUrl(getActiveStartUrl());
+            }
+        };
+
+        mainHandler.postDelayed(fallbackStarter, 1200);
+
+        syncRemoteConfigFromGitHub(() -> {
+            mainHandler.removeCallbacks(fallbackStarter);
+            if (initialLoadTriggered.compareAndSet(false, true)) {
+                webView.loadUrl(getActiveStartUrl());
+            } else if (!getActiveStartUrl().equalsIgnoreCase(initialCachedUrl)) {
+                // إذا كان قد بدأ تحميل الرابط القديم ثم وصل دومين جديد من GitHub، ينتقل فوراً للدومين الجديد
+                hasLoadError = false;
+                if (errorOverlay != null) {
+                    errorOverlay.setVisibility(View.GONE);
+                }
+                webView.loadUrl(getActiveStartUrl());
+            }
+        }, true);
     }
 
     private int dpToPx(int dp) {
@@ -143,17 +336,20 @@ public class MainActivity extends Activity {
         retryBtn.setOnClickListener(v -> {
             hasLoadError = false;
             errorOverlay.setVisibility(View.GONE);
-            String currentUrl = webView.getUrl();
-            try {
-                String startHost = Uri.parse(BuildConfig.START_URL).getHost();
-                if (currentUrl != null && startHost != null && currentUrl.contains(startHost)) {
-                    webView.reload();
-                } else {
-                    webView.loadUrl(BuildConfig.START_URL);
+            // عند الضغط على إعادة المحاولة، نقرأ أحدث دومين من GitHub أولاً ثم نعيد التحميل
+            syncRemoteConfigFromGitHub(() -> {
+                String currentUrl = webView.getUrl();
+                try {
+                    String startHost = getActiveHost();
+                    if (currentUrl != null && startHost != null && currentUrl.contains(startHost)) {
+                        webView.reload();
+                    } else {
+                        webView.loadUrl(getActiveStartUrl());
+                    }
+                } catch (Exception e) {
+                    webView.loadUrl(getActiveStartUrl());
                 }
-            } catch (Exception e) {
-                webView.loadUrl(BuildConfig.START_URL);
-            }
+            }, true);
         });
 
         layout.addView(retryBtn, new LinearLayout.LayoutParams(
@@ -233,9 +429,9 @@ public class MainActivity extends Activity {
                     return true;
                 }
 
-                // 3. Any external host (target="_blank" or external link that doesn't match START_URL host)
+                // 3. Any external host (target="_blank" or external link that doesn't match active host)
                 try {
-                    String startHost = Uri.parse(BuildConfig.START_URL).getHost();
+                    String startHost = getActiveHost();
                     String reqHost = uri.getHost();
                     if (reqHost != null && startHost != null && !reqHost.equalsIgnoreCase(startHost)) {
                         Intent intent = new Intent(Intent.ACTION_VIEW, uri);
@@ -264,6 +460,8 @@ public class MainActivity extends Activity {
                 if (request.isForMainFrame()) {
                     hasLoadError = true;
                     errorOverlay.setVisibility(View.VISIBLE);
+                    // إذا فشل الاتصال بالدومين الحالي، نتحقق تلقائياً من GitHub في حال تم تغيير الدومين
+                    syncRemoteConfigFromGitHub(null, true);
                 }
             }
         });
@@ -272,7 +470,7 @@ public class MainActivity extends Activity {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
                 try {
-                    String startHost = Uri.parse(BuildConfig.START_URL).getHost();
+                    String startHost = getActiveHost();
                     String originHost = Uri.parse(origin).getHost();
                     if (startHost != null && originHost != null && !originHost.equalsIgnoreCase(startHost)) {
                         callback.invoke(origin, false, false);
@@ -343,6 +541,13 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // عند عودة المستخدم للتطبيق من الخلفية، نتحقق في الخلفية إذا تغير الدومين على GitHub
+        syncRemoteConfigFromGitHub(null, true);
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
         CookieManager.getInstance().flush();
@@ -405,6 +610,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String getFlavor() {
             return BuildConfig.FLAVOR_TYPE;
+        }
+
+        @JavascriptInterface
+        public String getServerUrl() {
+            return getActiveStartUrl();
         }
 
         @JavascriptInterface
