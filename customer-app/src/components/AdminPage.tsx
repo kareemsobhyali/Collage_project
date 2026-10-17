@@ -68,7 +68,7 @@ import {
 
 
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
-import { isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
+import { isRunningInNativeApk, triggerInstallApp, openExternalLink } from '../services/notifications';
 import { Logo } from './Logo';
 import { cleanAddressText, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark } from '../services/campusLocations';
 const QUICK_ADMIN_CANCEL_REASONS = [
@@ -2802,15 +2802,17 @@ export const AdminPage: React.FC = () => {
                                 const coords = extractCoordinatesFromAddress(order.addressText);
                                 if (coords) {
                                   return (
-                                    <a
-                                      href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`}
-                                      target="_blank"
-                                      rel="noreferrer"
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        openExternalLink(`https://www.google.com/maps?q=${coords.lat},${coords.lng}`);
+                                      }}
                                       title="فتح الإحداثيات على الخريطة"
-                                      className="text-[10px] text-cyan-400 hover:text-cyan-300 underline font-bold"
+                                      className="text-[10px] text-cyan-400 hover:text-cyan-300 underline font-bold cursor-pointer"
                                     >
                                       خريطة
-                                    </a>
+                                    </button>
                                   );
                                 }
                                 return null;
@@ -6785,14 +6787,16 @@ export const AdminPage: React.FC = () => {
                       <span>تم ربط الإحداثيات: {newLat.toFixed(4)}, {newLng.toFixed(4)}</span>
                     </span>
                     <div className="flex items-center gap-2">
-                      <a
-                        href={`https://www.google.com/maps?q=${newLat},${newLng}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-cyan-400 hover:underline font-bold text-[10px]"
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          openExternalLink(`https://www.google.com/maps?q=${newLat},${newLng}`);
+                        }}
+                        className="text-cyan-400 hover:underline font-bold text-[10px] cursor-pointer"
                       >
                         معاينة على الخريطة ↗
-                      </a>
+                      </button>
                       <button
                         type="button"
                         onClick={() => { setNewLat(null); setNewLng(null); }}
@@ -7058,14 +7062,16 @@ export const AdminPage: React.FC = () => {
                       <span>تم ربط الإحداثيات: {editLat.toFixed(4)}, {editLng.toFixed(4)}</span>
                     </span>
                     <div className="flex items-center gap-2">
-                      <a
-                        href={`https://www.google.com/maps?q=${editLat},${editLng}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-cyan-400 hover:underline font-bold text-[10px]"
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          openExternalLink(`https://www.google.com/maps?q=${editLat},${editLng}`);
+                        }}
+                        className="text-cyan-400 hover:underline font-bold text-[10px] cursor-pointer"
                       >
                         معاينة على الخريطة ↗
-                      </a>
+                      </button>
                       <button
                         type="button"
                         onClick={() => { setEditLat(null); setEditLng(null); }}
@@ -7506,14 +7512,16 @@ export const AdminPage: React.FC = () => {
                       const coords = extractCoordinatesFromAddress(selectedOrderDetails.addressText);
                       if (coords) {
                         return (
-                          <a
-                            href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded text-[11px] font-bold border border-cyan-500/30 inline-flex items-center gap-1"
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              openExternalLink(`https://www.google.com/maps?q=${coords.lat},${coords.lng}`);
+                            }}
+                            className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded text-[11px] font-bold border border-cyan-500/30 inline-flex items-center gap-1 cursor-pointer"
                           >
                             <span>🗺️ الخريطة</span>
-                          </a>
+                          </button>
                         );
                       }
                       return null;

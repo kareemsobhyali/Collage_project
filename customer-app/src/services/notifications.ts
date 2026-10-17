@@ -219,3 +219,29 @@ export function notifyOrderStatusPush(order: any): void {
       break;
   }
 }
+
+/**
+ * فتح الروابط الخارجية (مثل خرائط Google أو روابط الدفع أو واتساب)
+ * بأمان تام: إذا كان يعمل داخل تطبيق الأندرويد الأصلي يستدعي الـ AndroidBridge
+ * ليفتح تطبيق الخرائط أو المتصفح الخارجي فورياً بدلاً من شاشات الخطأ بالـ WebView
+ */
+export function openExternalLink(url: string): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const bridge = (window as any).AndroidBridge;
+    if (bridge && typeof bridge.openExternalUrl === 'function') {
+      bridge.openExternalUrl(url);
+      return;
+    }
+  } catch (_e) {
+    // ignore bridge invocation error and fallback to window.open
+  }
+
+  try {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } catch (_e) {
+    window.location.href = url;
+  }
+}
+

@@ -142,7 +142,17 @@ public class MainActivity extends Activity {
         retryBtn.setOnClickListener(v -> {
             hasLoadError = false;
             errorOverlay.setVisibility(View.GONE);
-            webView.reload();
+            String currentUrl = webView.getUrl();
+            try {
+                String startHost = Uri.parse(BuildConfig.START_URL).getHost();
+                if (currentUrl != null && startHost != null && currentUrl.contains(startHost)) {
+                    webView.reload();
+                } else {
+                    webView.loadUrl(BuildConfig.START_URL);
+                }
+            } catch (Exception e) {
+                webView.loadUrl(BuildConfig.START_URL);
+            }
         });
 
         layout.addView(retryBtn, new LinearLayout.LayoutParams(
@@ -185,14 +195,53 @@ public class MainActivity extends Activity {
                 Uri uri = request.getUrl();
                 String url = uri.toString();
 
-                if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("whatsapp:") || url.contains("wa.me/")) {
+                // 1. Handle intent:// schemes (e.g., from Google Maps, WhatsApp, banks)
+                if (url.startsWith("intent://")) {
+                    try {
+                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                        if (intent != null) {
+                            if (getPackageManager().resolveActivity(intent, 0) != null) {
+                                startActivity(intent);
+                                return true;
+                            }
+                            String fallbackUrl = intent.getStringExtra("browser_fallback_url");
+                            if (fallbackUrl != null) {
+                                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl));
+                                startActivity(browserIntent);
+                                return true;
+                            }
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    return true;
+                }
+
+                // 2. Handle maps, geo, phone, email, messaging
+                if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("whatsapp:") ||
+                    url.contains("wa.me/") || url.startsWith("geo:") || url.contains("maps.google.") ||
+                    url.contains("google.com/maps") || url.contains("maps.app.goo.gl")) {
                     try {
                         Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(intent);
                     } catch (Exception ignored) {
                     }
                     return true;
                 }
+
+                // 3. Any external host (target="_blank" or external link that doesn't match START_URL host)
+                try {
+                    String startHost = Uri.parse(BuildConfig.START_URL).getHost();
+                    String reqHost = uri.getHost();
+                    if (reqHost != null && startHost != null && !reqHost.equalsIgnoreCase(startHost)) {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                        return true;
+                    }
+                } catch (Exception ignored) {
+                }
+
                 return false;
             }
 

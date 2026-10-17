@@ -34,7 +34,7 @@ import {
   Navigation
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
-import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
+import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp, openExternalLink } from '../services/notifications';
 import { cleanAddressText, extractCoordinatesFromAddress } from '../services/campusLocations';
 
 interface DriverPortalProps {
@@ -1438,15 +1438,17 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                       if (studentCoords) {
                         return (
                           <div className="mt-2">
-                            <a
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${studentCoords.lat},${studentCoords.lng}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition-colors"
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                openExternalLink(`https://www.google.com/maps/dir/?api=1&destination=${studentCoords.lat},${studentCoords.lng}`);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                             >
                               <Navigation className="w-3.5 h-3.5 text-blue-600" />
                               <span>فتح التوجيه على خرائط Google 🗺️</span>
-                            </a>
+                            </button>
                           </div>
                         );
                       }
