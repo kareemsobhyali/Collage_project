@@ -70,7 +70,7 @@ import {
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { isRunningInNativeApk, triggerInstallApp } from '../services/notifications';
 import { Logo } from './Logo';
-import { cleanAddressText, extractCoordinatesFromAddress, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark } from '../services/campusLocations';
+import { cleanAddressText, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark } from '../services/campusLocations';
 const QUICK_ADMIN_CANCEL_REASONS = [
   'المطعم مغلق حالياً',
   'نفاد الكمية في المطعم',
@@ -167,25 +167,6 @@ export const AdminPage: React.FC = () => {
   const [audioUploadError, setAudioUploadError] = useState<string | null>(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
-
-  // Restaurant Location Settings State
-  const [restaurantLocation, setRestaurantLocation] = useState<{
-    name: string;
-    address: string;
-    lat: number;
-    lng: number;
-    isCustom: boolean;
-  }>({
-    name: 'مطعم ومطبخ الجامعة المركزي',
-    address: 'الحرم الجامعي - مجمع الأنشطة والخدمات الطلابية',
-    lat: 30.0262,
-    lng: 31.2088,
-    isCustom: false,
-  });
-  const [loadingRestaurantLocation, setLoadingRestaurantLocation] = useState(false);
-  const [savingRestaurantLocation, setSavingRestaurantLocation] = useState(false);
-  const [restaurantLocationMsg, setRestaurantLocationMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [detectingAdminGps, setDetectingAdminGps] = useState(false);
 
   // WhatsApp Alert Settings states
   const [whatsAppAlertSettings, setWhatsAppAlertSettings] = useState<{
@@ -565,21 +546,14 @@ export const AdminPage: React.FC = () => {
     activeTab
   ]);
 
-  // Mock Data Seeding States
-  const [seedingMockData, setSeedingMockData] = useState(false);
-  const [seedMockSuccess, setSeedMockSuccess] = useState<string | null>(null);
-  const [seedMockError, setSeedMockError] = useState<string | null>(null);
-
-  // Divado Menu Seeding States
-  const [seedingDivado, setSeedingDivado] = useState(false);
-  const [seedDivadoSuccess, setSeedDivadoSuccess] = useState<string | null>(null);
-  const [seedDivadoError, setSeedDivadoError] = useState<string | null>(null);
-
   // Add Branch Form
   const [newName, setNewName] = useState('');
   const [newSlug, setNewSlug] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newAddress, setNewAddress] = useState('');
+  const [newLat, setNewLat] = useState<number | null>(30.0262);
+  const [newLng, setNewLng] = useState<number | null>(31.2088);
+  const [detectingNewGps, setDetectingNewGps] = useState(false);
   const [newLogoUrl, setNewLogoUrl] = useState('');
   const [uploadingNewLogo, setUploadingNewLogo] = useState(false);
   const [newDeliveryFee, setNewDeliveryFee] = useState('10');
@@ -591,6 +565,9 @@ export const AdminPage: React.FC = () => {
   const [editSlug, setEditSlug] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
+  const [editLat, setEditLat] = useState<number | null>(30.0262);
+  const [editLng, setEditLng] = useState<number | null>(31.2088);
+  const [detectingEditGps, setDetectingEditGps] = useState(false);
   const [editLogoUrl, setEditLogoUrl] = useState('');
   const [uploadingEditLogo, setUploadingEditLogo] = useState(false);
   const [editDeliveryFee, setEditDeliveryFee] = useState('10');
@@ -944,63 +921,6 @@ export const AdminPage: React.FC = () => {
       setFactoryResetLoading(false);
     }
   };
-
-  const handleTriggerSeedMockData = () => {
-    setAdminConfirmDialog({
-      isOpen: true,
-      title: "حقن وتوليد البيانات التجريبية الشاملة",
-      message: "هل تريد حقن وتوليد البيانات التجريبية الشاملة؟\n\nسيتم توليد:\n- 4 مطاعم جامعية واقعية\n- منيو كامل بالأصناف والأحجام والصور والإضافات\n- 4 بانرات عروض تفاعلية\n- كوبونات خصم عامة ولكل مطعم\n- 3 كباتن توصيل وحسابات طلاب\n- طلبات حية ومكتملة لتغذية تقارير المالية والورديات فوراً.",
-      confirmText: "بدء الحقن الآن 🚀",
-      cancelText: "إلغاء",
-      isDanger: false,
-      onConfirm: async () => {
-        setSeedMockError(null);
-        setSeedMockSuccess(null);
-        try {
-          setSeedingMockData(true);
-          const res = await api.seedMockData();
-          setSeedMockSuccess(res.message || "تم حقن البيانات التجريبية الشاملة بنجاح! 🚀");
-          fetchDashboardData();
-          setTimeout(() => {
-            setSeedMockSuccess(null);
-          }, 7000);
-        } catch (err: any) {
-          setSeedMockError(err.message || "فشل حقن البيانات التجريبية");
-        } finally {
-          setSeedingMockData(false);
-        }
-      }
-    });
-  };
-
-  const handleTriggerSeedDivado = () => {
-    setAdminConfirmDialog({
-      isOpen: true,
-      title: "استيراد وتحديث منيو ديفادو الرسمي 🧇",
-      message: "سيتم إنشاء وتحديث مطعم 'ديفادو وافل اند كريب' بكافة أقسامه الـ 14 وأصنافه الـ 78 مع الأسعار والأحجام طبقاً للمنيو الرسمي في قاعدة بيانات الاستضافة. هل تريد المتابعة؟",
-      confirmText: "استيراد المنيو الآن",
-      cancelText: "إلغاء",
-      isDanger: false,
-      onConfirm: async () => {
-        setSeedDivadoError(null);
-        setSeedDivadoSuccess(null);
-        try {
-          setSeedingDivado(true);
-          const res = await api.seedDivadoMenu();
-          setSeedDivadoSuccess(res.message || "تم استيراد منيو ديفادو بنجاح في قاعدة البيانات! 🥞");
-          fetchDashboardData();
-          setTimeout(() => {
-            setSeedDivadoSuccess(null);
-          }, 7000);
-        } catch (err: any) {
-          setSeedDivadoError(err.message || "فشل استيراد منيو ديفادو");
-        } finally {
-          setSeedingDivado(false);
-        }
-      }
-    });
-  };
-
 
   useEffect(() => {
     if (activeTab === 'WHATSAPP') {
@@ -1503,82 +1423,71 @@ export const AdminPage: React.FC = () => {
     });
   };
 
-  // Restaurant Location Handlers
-  const fetchRestaurantLocation = async () => {
-    try {
-      setLoadingRestaurantLocation(true);
-      const data = await api.getRestaurantLocationSettings();
-      if (data) {
-        setRestaurantLocation(data);
-        setStoredRestaurantCoords({ lat: data.lat, lng: data.lng });
-      }
-    } catch (err) {
-      console.error('Fetch restaurant location error:', err);
-    } finally {
-      setLoadingRestaurantLocation(false);
-    }
-  };
-
-  const handleSaveRestaurantLocation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setSavingRestaurantLocation(true);
-      setRestaurantLocationMsg(null);
-      const res = await api.updateRestaurantLocationSettings(restaurantLocation);
-      if (res && res.settings) {
-        setRestaurantLocation(res.settings);
-        setStoredRestaurantCoords({ lat: res.settings.lat, lng: res.settings.lng });
-      }
-      setRestaurantLocationMsg({ type: 'success', text: 'تم حفظ وتحديث موقع المطعم على الخريطة بنجاح ✅' });
-      setTimeout(() => setRestaurantLocationMsg(null), 4000);
-    } catch (err: any) {
-      setRestaurantLocationMsg({ type: 'error', text: err.message || 'فشل حفظ موقع المطعم' });
-    } finally {
-      setSavingRestaurantLocation(false);
-    }
-  };
-
-  const handleDetectAdminLocationForRestaurant = () => {
+  // GPS Location Handlers for Add / Edit Branch
+  const handleDetectGpsForNewBranch = () => {
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
       alert('خاصية تحديد الموقع غير مدعومة على هذا الجهاز.');
       return;
     }
-    setDetectingAdminGps(true);
+    setDetectingNewGps(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setDetectingAdminGps(false);
-        const lat = Number(pos.coords.latitude.toFixed(6));
-        const lng = Number(pos.coords.longitude.toFixed(6));
-        setRestaurantLocation(prev => ({
-          ...prev,
-          lat,
-          lng,
-        }));
-        setRestaurantLocationMsg({ type: 'success', text: 'تم التقاط إحداثيات موقعك الحالي بنجاح! اضغط زر الحفظ لاعتمادها.' });
+        setDetectingNewGps(false);
+        setNewLat(Number(pos.coords.latitude.toFixed(6)));
+        setNewLng(Number(pos.coords.longitude.toFixed(6)));
       },
       (_err) => {
-        setDetectingAdminGps(false);
-        alert('تعذر قراءة GPS الجهاز. يُرجى التأكد من تشغيل الموقع بالهاتف أو إدخال الإحداثيات يدوياً.');
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setDetectingNewGps(false);
+            setNewLat(Number(pos.coords.latitude.toFixed(6)));
+            setNewLng(Number(pos.coords.longitude.toFixed(6)));
+          },
+          (_err2) => {
+            setDetectingNewGps(false);
+            alert('تعذر قراءة GPS الجهاز. يُرجى التأكد من تشغيل صلاحيات الموقع بالهاتف أو إدخال الإحداثيات يدوياً.');
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+        );
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
   };
 
-  const handleSelectLandmarkForRestaurant = (landmark: CampusLandmark) => {
-    setRestaurantLocation(prev => ({
-      ...prev,
-      name: landmark.name,
-      address: landmark.name,
-      lat: landmark.lat,
-      lng: landmark.lng,
-    }));
+  const handleDetectGpsForEditBranch = () => {
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      alert('خاصية تحديد الموقع غير مدعومة على هذا الجهاز.');
+      return;
+    }
+    setDetectingEditGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setDetectingEditGps(false);
+        setEditLat(Number(pos.coords.latitude.toFixed(6)));
+        setEditLng(Number(pos.coords.longitude.toFixed(6)));
+      },
+      (_err) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setDetectingEditGps(false);
+            setEditLat(Number(pos.coords.latitude.toFixed(6)));
+            setEditLng(Number(pos.coords.longitude.toFixed(6)));
+          },
+          (_err2) => {
+            setDetectingEditGps(false);
+            alert('تعذر قراءة GPS الجهاز. يُرجى التأكد من تشغيل صلاحيات الموقع بالهاتف أو إدخال الإحداثيات يدوياً.');
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+        );
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
   };
 
   useEffect(() => {
     if (activeTab === 'SETTINGS') {
       fetchLoyaltySettings();
       fetchSoundSettings();
-      fetchRestaurantLocation();
     }
   }, [activeTab]);
 
@@ -1941,6 +1850,10 @@ export const AdminPage: React.FC = () => {
     if (!newName.trim()) return;
 
     try {
+      const formattedAddress = (newLat && newLng)
+        ? formatAddressWithCoordinates(newAddress, newLat, newLng)
+        : (newAddress.trim() || undefined);
+
       const res = await fetch(`${API_BASE_URL}/admin/branches`, {
         method: 'POST',
         headers: getAdminHeaders(),
@@ -1949,7 +1862,7 @@ export const AdminPage: React.FC = () => {
           slug: newSlug.trim() || undefined,
           phone: newPhone.trim() || undefined,
           logoUrl: newLogoUrl.trim() || undefined,
-          address: newAddress.trim() || undefined,
+          address: formattedAddress,
           deliveryFee: parseFloat(newDeliveryFee) || 10,
           username: newUsername.trim() || undefined,
           password: newPassword.trim() || undefined,
@@ -1962,6 +1875,8 @@ export const AdminPage: React.FC = () => {
       setNewSlug('');
       setNewPhone('');
       setNewAddress('');
+      setNewLat(30.0262);
+      setNewLng(31.2088);
       setNewLogoUrl('');
       setNewUsername('');
       setNewPassword('');
@@ -1977,7 +1892,10 @@ export const AdminPage: React.FC = () => {
     setEditName(branch.name || '');
     setEditSlug(branch.slug || '');
     setEditPhone(branch.phone || '');
-    setEditAddress(branch.address || '');
+    const coords = extractCoordinatesFromAddress(branch.address);
+    setEditLat(coords ? coords.lat : 30.0262);
+    setEditLng(coords ? coords.lng : 31.2088);
+    setEditAddress(cleanAddressText(branch.address || ''));
     setEditLogoUrl(branch.logoUrl || '');
     setEditDeliveryFee(String(branch.deliveryFee ?? 10));
     setEditAllowDelivery(branch.allowDelivery ?? true);
@@ -1993,6 +1911,10 @@ export const AdminPage: React.FC = () => {
     if (!editingBranch || !editName.trim()) return;
 
     try {
+      const formattedAddress = (editLat && editLng)
+        ? formatAddressWithCoordinates(editAddress, editLat, editLng)
+        : (editAddress.trim() || null);
+
       const res = await fetch(`${API_BASE_URL}/admin/branches/${editingBranch.id}`, {
         method: 'PUT',
         headers: getAdminHeaders(),
@@ -2000,7 +1922,7 @@ export const AdminPage: React.FC = () => {
           name: editName.trim(),
           slug: editSlug.trim() || null,
           phone: editPhone.trim() || null,
-          address: editAddress.trim() || null,
+          address: formattedAddress,
           logoUrl: editLogoUrl.trim() || null,
           deliveryFee: parseFloat(editDeliveryFee) || 10,
           allowDelivery: editAllowDelivery,
@@ -5953,184 +5875,7 @@ export const AdminPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Card: Restaurant GPS Location & Live Map Settings */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center shrink-0">
-                    <MapPin className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-white flex items-center gap-2">
-                      <span>موقع المطعم الرئيسي والخرائط الجغرافية (GPS)</span>
-                      <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 text-[10px] font-black rounded-md border border-cyan-500/30">
-                        تحديث لحظي للخرائط 🗺️
-                      </span>
-                    </h4>
-                    <p className="text-[11px] text-slate-400">
-                      تحديد موقع المطعم الفعلي داخل الحرم الجامعي ليظهر دبوس المطعم 🏪 بدقة فائقة وتُحسب المسافة للطلاب والطيارين بدقة
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <a
-                    href={`https://www.google.com/maps?q=${restaurantLocation.lat},${restaurantLocation.lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-                  >
-                    <span>معاينة في خرائط Google ↗</span>
-                  </a>
-                </div>
-              </div>
-
-              <form onSubmit={handleSaveRestaurantLocation} className="space-y-5">
-                {/* Status or Success/Error Alert */}
-                {restaurantLocationMsg && (
-                  <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 animate-fadeIn ${
-                    restaurantLocationMsg.type === 'success'
-                      ? 'bg-emerald-950/70 border-emerald-800 text-emerald-300'
-                      : 'bg-rose-950/70 border-rose-800 text-rose-300'
-                  }`}>
-                    {restaurantLocationMsg.type === 'success' ? (
-                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                    )}
-                    <span>{restaurantLocationMsg.text}</span>
-                  </div>
-                )}
-
-                {/* Quick GPS auto-detect bar */}
-                <div className="p-4 bg-gradient-to-r from-cyan-950/40 to-slate-950/70 border border-cyan-800/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="text-xs font-black text-cyan-300 block">تحديد موقع المطعم بالـ GPS اللحظي 🛰️</span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
-                      إذا كنت متواجداً حالياً داخل المطعم، يمكنك التقاط إحداثياتك بضغطة زر
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDetectAdminLocationForRestaurant}
-                    disabled={detectingAdminGps}
-                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-black shadow-lg shadow-cyan-600/20 transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
-                  >
-                    <Navigation className={`w-4 h-4 ${detectingAdminGps ? 'animate-spin' : ''}`} />
-                    <span>{detectingAdminGps ? 'جاري التقاط الإحداثيات...' : '📍 التقاط موقعي الحالي للمطعم'}</span>
-                  </button>
-                </div>
-
-                {/* Campus Landmarks quick selector */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>أو اختر موقع المطعم بالقرب من معالم الحرم الجامعي:</span>
-                  </label>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                    {CAMPUS_LANDMARKS.map(lm => {
-                      const isSelected = Math.abs(restaurantLocation.lat - lm.lat) < 0.0001 && Math.abs(restaurantLocation.lng - lm.lng) < 0.0001;
-                      return (
-                        <button
-                          key={lm.id}
-                          type="button"
-                          onClick={() => handleSelectLandmarkForRestaurant(lm)}
-                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 border transition-all flex items-center gap-1.5 active:scale-95 ${
-                            isSelected
-                              ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md font-black'
-                              : 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700'
-                          }`}
-                        >
-                          <span>🏛️</span>
-                          <span>{lm.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Coordinates & Info Form */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      اسم المطعم / المطبخ المركزي:
-                    </label>
-                    <input
-                      type="text"
-                      value={restaurantLocation.name}
-                      onChange={(e) => setRestaurantLocation({ ...restaurantLocation, name: e.target.value })}
-                      placeholder="مطعم ومطبخ الجامعة المركزي"
-                      className="w-full h-11 px-3.5 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      وصف العنوان بالحرم الجامعي:
-                    </label>
-                    <input
-                      type="text"
-                      value={restaurantLocation.address}
-                      onChange={(e) => setRestaurantLocation({ ...restaurantLocation, address: e.target.value })}
-                      placeholder="الحرم الجامعي - مجمع الأنشطة الطلابية"
-                      className="w-full h-11 px-3.5 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      خط العرض الجغرافي (Latitude):
-                    </label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={restaurantLocation.lat}
-                      onChange={(e) => setRestaurantLocation({ ...restaurantLocation, lat: parseFloat(e.target.value) || 0 })}
-                      placeholder="30.026200"
-                      className="w-full h-11 px-3.5 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-cyan-300 placeholder-slate-600 focus:outline-none transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                      خط الطول الجغرافي (Longitude):
-                    </label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={restaurantLocation.lng}
-                      onChange={(e) => setRestaurantLocation({ ...restaurantLocation, lng: parseFloat(e.target.value) || 0 })}
-                      placeholder="31.208800"
-                      className="w-full h-11 px-3.5 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-cyan-300 placeholder-slate-600 focus:outline-none transition-all"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={savingRestaurantLocation || loadingRestaurantLocation}
-                    className="h-11 px-6 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-black shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {savingRestaurantLocation ? (
-                      <>
-                        <RotateCw className="w-4 h-4 animate-spin" />
-                        <span>جاري حفظ وتحديث موقع المطعم...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        <span>حفظ موقع المطعم واعتماده للخرائط ✅</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
 
             {/* Card 3: Notification Sound Customization */}
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
@@ -6371,175 +6116,7 @@ export const AdminPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Card: Mock Data Seeding (حقن وتوليد البيانات التجريبية الشاملة) */}
-            <div className="bg-slate-900 border border-indigo-800/60 rounded-3xl p-6 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-900/40 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-white flex items-center gap-2">
-                      <span>حقن وتوليد البيانات التجريبية الشاملة (Mock Data)</span>
-                      <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] font-black rounded-md border border-indigo-500/30">
-                        موصى به للاختبار 🚀
-                      </span>
-                    </h4>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      توليد 4 مطاعم كاملة بالمنيو والأصناف، 4 بانرات تفاعلية، كوبونات عامة وخاصة، كباتن توصيل، وحسابات طلاب وطلبات لتغذية تقارير المالية
-                    </p>
-                  </div>
-                </div>
 
-                <button
-                  type="button"
-                  disabled={seedingMockData}
-                  onClick={handleTriggerSeedMockData}
-                  className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 shrink-0 disabled:opacity-50"
-                >
-                  {seedingMockData ? (
-                    <>
-                      <RotateCw className="w-4 h-4 animate-spin" />
-                      <span>جاري حقن البيانات...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>حقن البيانات التجريبية الآن</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {seedMockSuccess && (
-                <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
-                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{seedMockSuccess}</span>
-                </div>
-              )}
-
-              {seedMockError && (
-                <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>{seedMockError}</span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-indigo-300 block">🍔 4 مطاعم ومنيو كامل</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    برجر فاكتوري، شاورما الحرم (ورديات ليلية)، سبيشيالتي كافيه، رويال بيتزا مع صور وأحجام وإضافات.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-purple-300 block">🖼️ 4 بانرات عروض تفاعلية</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    بانرات إعلانية تفتح المطاعم والعروض مباشرة بنقرة واحدة داخل تطبيق الطلاب.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-amber-300 block">🎟️ كوبونات عامة وخاصة</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    كوبونات عامة (CAMPUS20, WELCOME50) وكوبونات محددة لمطاعم معينة (BURGER15, CAFE10, SHAWARMA10).
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-emerald-300 block">🛵 3 كباتن وطلبات تقارير</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    طيارين عامين ومخصصين، وحسابات طلاب وطلبات جاهزة ومكتملة لعرض تقارير المالية والورديات فوراً.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Card: Divado Restaurant Menu Seeding (استيراد وتحديث منيو مطعم ديفادو بالكامل) */}
-            <div className="bg-slate-900 border border-amber-800/60 rounded-3xl p-6 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-amber-900/40 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
-                    <Utensils className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-white flex items-center gap-2">
-                      <span>استيراد وتحديث منيو مطعم ديفادو الرسمي (Divado Waffle & Crepe)</span>
-                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-black rounded-md border border-amber-500/30">
-                        المنيو الفعلي المعتمد 🧇
-                      </span>
-                    </h4>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      حقن وتحديث الـ 14 قسماً و 78 صنفاً وحجماً كاملاً لمطعم ديفادو مباشرة في قاعدة بيانات السيرفر الفعلي
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={seedingDivado}
-                  onClick={handleTriggerSeedDivado}
-                  className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-600/30 shrink-0 disabled:opacity-50"
-                >
-                  {seedingDivado ? (
-                    <>
-                      <RotateCw className="w-4 h-4 animate-spin" />
-                      <span>جاري استيراد منيو ديفادو...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Utensils className="w-4 h-4" />
-                      <span>استيراد منيو ديفادو للسيرفر 🚀</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {seedDivadoSuccess && (
-                <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
-                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{seedDivadoSuccess}</span>
-                </div>
-              )}
-
-              {seedDivadoError && (
-                <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>{seedDivadoError}</span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-amber-300 block">🌯 41 كريب متنوع</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    كريبات الدجاج (13)، اللحوم (12)، اسبيشيال (9)، الجبنة (3)، الخضار (2)، والحلو (2).
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-orange-300 block">🍔 19 ساندوتش وبرجر</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    برجر (3)، فرايد تشيكن سنجل ودبل (7)، وسندوتشات فرنساوي (9) مع المخللات والصوصات.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-yellow-300 block">🍱 8 وجبات متكاملة</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    كرسبي، زنجر، شيش، شاورما، مشوي، كفتة، كوردن بلو وميكس مع الأرز والبطاطس والمخلل.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-pink-300 block">🧇 10 وافل وحلويات ومشروبات</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    وافل أمريكان، ستيك نوتيلا، بوكس بان كيك، بطاطس ومقبلات، ومياه وكانز بيبسي مثلج.
-                  </p>
-                </div>
-              </div>
-            </div>
 
             {/* Card 3: Factory Reset to Zero State (حالة الصفر) */}
             <div className="bg-rose-950/20 border border-rose-900/50 rounded-3xl p-6 shadow-xl space-y-4">
@@ -7122,6 +6699,112 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* تحديد موقع الفرع بالـ GPS */}
+              <div className="p-3.5 bg-gradient-to-r from-cyan-950/40 to-slate-950/70 border border-cyan-800/40 rounded-2xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div>
+                    <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                      <Navigation className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      تحدد دبوس المطعم في خريطة التتبع المباشر وحساب مسافة التوصيل
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleDetectGpsForNewBranch}
+                    disabled={detectingNewGps}
+                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                  >
+                    <Navigation className={`w-3.5 h-3.5 ${detectingNewGps ? 'animate-spin' : ''}`} />
+                    <span>{detectingNewGps ? 'جاري التقاط الإحداثيات...' : '📍 سحب الموقع الحالي'}</span>
+                  </button>
+                </div>
+
+                {/* معالم الحرم الجامعي للاختيار السريع */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400">أو اختر بالقرب من معالم الحرم الجامعي:</span>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    {CAMPUS_LANDMARKS.map(lm => {
+                      const isSelected = newLat === lm.lat && newLng === lm.lng;
+                      return (
+                        <button
+                          key={lm.id}
+                          type="button"
+                          onClick={() => {
+                            setNewLat(lm.lat);
+                            setNewLng(lm.lng);
+                            if (!newAddress) setNewAddress(lm.name);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 border transition-all flex items-center gap-1 active:scale-95 ${
+                            isSelected
+                              ? 'bg-cyan-500 text-slate-950 border-cyan-400 font-black'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          <span>🏛️</span>
+                          <span>{lm.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Coordinate inputs */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">خط العرض (Lat)</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={newLat ?? ''}
+                      onChange={e => setNewLat(e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="30.026200"
+                      className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">خط الطول (Lng)</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={newLng ?? ''}
+                      onChange={e => setNewLng(e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="31.208800"
+                      className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                {newLat && newLng ? (
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-cyan-800/30">
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>تم ربط الإحداثيات: {newLat.toFixed(4)}, {newLng.toFixed(4)}</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`https://www.google.com/maps?q=${newLat},${newLng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-cyan-400 hover:underline font-bold text-[10px]"
+                      >
+                        معاينة على الخريطة ↗
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => { setNewLat(null); setNewLng(null); }}
+                        className="text-slate-400 hover:text-rose-400 text-[10px]"
+                      >
+                        مسح
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">رسوم التوصيل لمباني الكليات (ج.م)</label>
                 <div className="relative">
@@ -7287,6 +6970,112 @@ export const AdminPage: React.FC = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* تحديد وتحديث موقع الفرع بالـ GPS */}
+              <div className="p-3.5 bg-gradient-to-r from-cyan-950/40 to-slate-950/70 border border-cyan-800/40 rounded-2xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div>
+                    <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                      <Navigation className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      تحدد دبوس المطعم في خريطة التتبع المباشر وحساب مسافة التوصيل
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleDetectGpsForEditBranch}
+                    disabled={detectingEditGps}
+                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                  >
+                    <Navigation className={`w-3.5 h-3.5 ${detectingEditGps ? 'animate-spin' : ''}`} />
+                    <span>{detectingEditGps ? 'جاري التقاط الإحداثيات...' : '📍 سحب الموقع الحالي'}</span>
+                  </button>
+                </div>
+
+                {/* معالم الحرم الجامعي للاختيار السريع */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400">أو اختر بالقرب من معالم الحرم الجامعي:</span>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    {CAMPUS_LANDMARKS.map(lm => {
+                      const isSelected = editLat === lm.lat && editLng === lm.lng;
+                      return (
+                        <button
+                          key={lm.id}
+                          type="button"
+                          onClick={() => {
+                            setEditLat(lm.lat);
+                            setEditLng(lm.lng);
+                            if (!editAddress) setEditAddress(lm.name);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 border transition-all flex items-center gap-1 active:scale-95 ${
+                            isSelected
+                              ? 'bg-cyan-500 text-slate-950 border-cyan-400 font-black'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          <span>🏛️</span>
+                          <span>{lm.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Coordinate inputs */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">خط العرض (Lat)</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={editLat ?? ''}
+                      onChange={e => setEditLat(e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="30.026200"
+                      className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">خط الطول (Lng)</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={editLng ?? ''}
+                      onChange={e => setEditLng(e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="31.208800"
+                      className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                {editLat && editLng ? (
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-cyan-800/30">
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>تم ربط الإحداثيات: {editLat.toFixed(4)}, {editLng.toFixed(4)}</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`https://www.google.com/maps?q=${editLat},${editLng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-cyan-400 hover:underline font-bold text-[10px]"
+                      >
+                        معاينة على الخريطة ↗
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => { setEditLat(null); setEditLng(null); }}
+                        className="text-slate-400 hover:text-rose-400 text-[10px]"
+                      >
+                        مسح
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div>
