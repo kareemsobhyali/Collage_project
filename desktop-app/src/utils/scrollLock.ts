@@ -19,8 +19,10 @@ export function unlockBodyScroll() {
   if (typeof document === 'undefined') return;
   lockCount = Math.max(0, lockCount - 1);
   if (lockCount === 0) {
-    document.body.style.overflow = previousBodyOverflow || '';
-    document.documentElement.style.overflow = previousHtmlOverflow || '';
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    previousBodyOverflow = '';
+    previousHtmlOverflow = '';
   }
 }
 

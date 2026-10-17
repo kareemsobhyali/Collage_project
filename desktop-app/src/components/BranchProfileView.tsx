@@ -52,6 +52,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [phone, setPhone] = useState(branch?.phone || '');
   const [address, setAddress] = useState(branch?.address || '');
   const [logoUrl, setLogoUrl] = useState(branch?.logoUrl || '');
+  const [logoError, setLogoError] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'FIXED' | 'ZONES'>(branch?.deliveryType || 'FIXED');
   const [deliveryFee, setDeliveryFee] = useState<string>(String(branch?.deliveryFee ?? 10));
@@ -106,6 +107,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       setPhone(branch.phone || '');
       setAddress(branch.address || '');
       setLogoUrl(branch.logoUrl || '');
+      setLogoError(false);
       setDeliveryType(branch.deliveryType || 'FIXED');
       setDeliveryFee(String(branch.deliveryFee ?? 10));
       setAllowDelivery(branch.allowDelivery ?? true);
@@ -136,6 +138,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       const res = await api.uploadImage(file);
       if (res.url) {
         setLogoUrl(res.url);
+        setLogoError(false);
         toast.success('تم رفع لوجو المطعم بنجاح');
       }
     } catch (err: any) {
@@ -322,10 +325,11 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       {/* Top Banner Card */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          {logoUrl ? (
+          {logoUrl && !logoError ? (
             <img 
               src={getFullImageUrl(logoUrl)} 
               alt={branch?.name} 
+              onError={() => setLogoError(true)}
               className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-sm shrink-0" 
             />
           ) : (
@@ -421,10 +425,11 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               {/* شعار المطعم / اللوجو */}
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  {logoUrl ? (
+                  {logoUrl && !logoError ? (
                     <img 
                       src={getFullImageUrl(logoUrl)} 
                       alt="لوجو المطعم" 
+                      onError={() => setLogoError(true)}
                       className="w-14 h-14 rounded-xl object-cover border border-slate-200 shadow-sm shrink-0 bg-white" 
                     />
                   ) : (

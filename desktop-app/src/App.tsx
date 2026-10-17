@@ -33,6 +33,7 @@ import { PrinterSettingsModal } from './components/PrinterSettingsModal';
 import { getAutoPrintOnNewOrder, printOrderReceipt } from './services/printer';
 import { Logo } from './components/Logo';
 import { ToastContainer } from './utils/toast';
+import { useLockBodyScroll } from './utils/scrollLock';
 
 export function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('branch_token'));
@@ -52,6 +53,7 @@ export function App() {
   const [showQuickStock, setShowQuickStock] = useState<boolean>(false);
   const [showPrinterSettings, setShowPrinterSettings] = useState<boolean>(false);
   const [targetedDetailedOrder, setTargetedDetailedOrder] = useState<any | null>(null);
+  const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState<boolean>(false);
   const [driverRejectionAlert, setDriverRejectionAlert] = useState<{
     orderNumber: number;
     driverName: string;
@@ -98,34 +100,8 @@ export function App() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // منع السكرول في الخلفية عند فتح أي شاشة منبثقة أو نافذة حوار، وإعادته فور إغلاقها
-  useEffect(() => {
-    const updateScrollLock = () => {
-      const hasActiveModal = Boolean(
-        document.querySelector('.fixed.inset-0.z-50, .fixed.inset-0.z-40, [role="dialog"]')
-      );
-      if (hasActiveModal) {
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
-      } else {
-        document.body.style.overflow = '';
-        document.documentElement.style.overflow = '';
-      }
-    };
-
-    const observer = new MutationObserver(() => {
-      updateScrollLock();
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-    updateScrollLock();
-
-    return () => {
-      observer.disconnect();
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    };
-  }, []);
+  // قفل السكرول فقط عند ظهور تنبيه رفض السائق العاجل (باقي النوافذ تدير القفل ذاتياً بأمان)
+  useLockBodyScroll(Boolean(driverRejectionAlert));
 
   // 1. تحميل البيانات عند تسجيل الدخول
   const loadData = async () => {
@@ -570,7 +546,7 @@ export function App() {
       )}
 
       {/* Main Workspace Body */}
-      <main className="flex-1 p-3 sm:p-6 max-w-7xl w-full mx-auto pb-24 md:pb-8">
+      <main className="flex-1 p-3 sm:p-6 max-w-7xl w-full mx-auto pb-32 md:pb-8">
         {activeTab === 'ORDERS' && (
           <OrdersView
             orders={orders}
@@ -578,6 +554,7 @@ export function App() {
             onRefreshOrders={loadData}
             initialDetailedOrder={targetedDetailedOrder}
             onClearDetailedOrder={() => setTargetedDetailedOrder(null)}
+            onDetailedOrderOpenChange={setIsOrderDetailsOpen}
           />
         )}
 
@@ -612,103 +589,93 @@ export function App() {
         )}
       </main>
 
-      {/* Bottom Navigation Bar (Docked at bottom on mobile / tablet) */}
-      <nav className={`fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] pb-[max(env(safe-area-inset-bottom),0.35rem)] md:hidden ${
-        showQuickStock || showStatusModal || showPrinterSettings || targetedDetailedOrder || driverRejectionAlert
-          ? 'hidden'
-          : 'grid'
-      }`}>
-        <div className="grid grid-cols-5 h-16 max-w-lg mx-auto px-1">
+      {/* Bottom Navigation Bar (Floating Island Dock on mobile / tablet) */}
+      <nav 
+        aria-label="شريط التنقل السفلي"
+        className={`fixed bottom-3 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md z-40 bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-[0_12px_36px_rgba(15,23,42,0.14)] rounded-3xl p-1.5 md:hidden transition-all duration-300 ${
+          showQuickStock || showStatusModal || showPrinterSettings || targetedDetailedOrder || isOrderDetailsOpen || driverRejectionAlert
+            ? 'opacity-0 pointer-events-none translate-y-8'
+            : 'opacity-100 translate-y-0'
+        }`}
+      >
+        <div className="grid grid-cols-5 gap-1 items-center">
           {/* 1. الطلبات */}
           <button
             type="button"
             onClick={() => setActiveTab('ORDERS')}
-            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 relative active:scale-95 ${
               activeTab === 'ORDERS'
-                ? 'text-indigo-600 font-black'
-                : 'text-slate-400 hover:text-slate-600 font-bold'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/70 font-bold'
             }`}
           >
             <div className="relative">
-              <ShoppingBag className={`w-5 h-5 transition-transform ${activeTab === 'ORDERS' ? 'scale-110' : ''}`} />
+              <ShoppingBag className="w-5 h-5 shrink-0" />
               {pendingCount > 0 && (
-                <span className="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full text-[10px] bg-amber-500 text-white font-black animate-bounce flex items-center justify-center leading-none shadow-xs">
+                <span className={`absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center leading-none ring-2 ${
+                  activeTab === 'ORDERS' ? 'bg-amber-400 text-amber-950 ring-indigo-600 animate-bounce' : 'bg-rose-500 text-white ring-white animate-pulse'
+                }`}>
                   {pendingCount}
                 </span>
               )}
             </div>
-            <span className="text-[11px] leading-none">الطلبات</span>
-            {activeTab === 'ORDERS' && (
-              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
-            )}
+            <span className="text-[10px] sm:text-[11px] leading-tight mt-1 whitespace-nowrap">الطلبات</span>
           </button>
 
           {/* 2. المنيو */}
           <button
             type="button"
             onClick={() => setActiveTab('MENU')}
-            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 relative active:scale-95 ${
               activeTab === 'MENU'
-                ? 'text-indigo-600 font-black'
-                : 'text-slate-400 hover:text-slate-600 font-bold'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/70 font-bold'
             }`}
           >
-            <UtensilsCrossed className={`w-5 h-5 transition-transform ${activeTab === 'MENU' ? 'scale-110' : ''}`} />
-            <span className="text-[11px] leading-none">المنيو</span>
-            {activeTab === 'MENU' && (
-              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
-            )}
+            <UtensilsCrossed className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] sm:text-[11px] leading-tight mt-1 whitespace-nowrap">المنيو</span>
           </button>
 
           {/* 3. الإضافات */}
           <button
             type="button"
             onClick={() => setActiveTab('MODIFIERS')}
-            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 relative active:scale-95 ${
               activeTab === 'MODIFIERS'
-                ? 'text-indigo-600 font-black'
-                : 'text-slate-400 hover:text-slate-600 font-bold'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/70 font-bold'
             }`}
           >
-            <Sliders className={`w-5 h-5 transition-transform ${activeTab === 'MODIFIERS' ? 'scale-110' : ''}`} />
-            <span className="text-[11px] leading-none">الإضافات</span>
-            {activeTab === 'MODIFIERS' && (
-              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
-            )}
+            <Sliders className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] sm:text-[11px] leading-tight mt-1 whitespace-nowrap">الإضافات</span>
           </button>
 
           {/* 4. الطيارين */}
           <button
             type="button"
             onClick={() => setActiveTab('DRIVERS')}
-            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 relative active:scale-95 ${
               activeTab === 'DRIVERS'
-                ? 'text-indigo-600 font-black'
-                : 'text-slate-400 hover:text-slate-600 font-bold'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/70 font-bold'
             }`}
           >
-            <Truck className={`w-5 h-5 transition-transform ${activeTab === 'DRIVERS' ? 'scale-110' : ''}`} />
-            <span className="text-[11px] leading-none">الطيارين</span>
-            {activeTab === 'DRIVERS' && (
-              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
-            )}
+            <Truck className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] sm:text-[11px] leading-tight mt-1 whitespace-nowrap">الطيارين</span>
           </button>
 
           {/* 5. الفرع */}
           <button
             type="button"
             onClick={() => setActiveTab('PROFILE')}
-            className={`flex flex-col items-center justify-center gap-1 transition-all relative ${
+            className={`flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 relative active:scale-95 ${
               activeTab === 'PROFILE'
-                ? 'text-indigo-600 font-black'
-                : 'text-slate-400 hover:text-slate-600 font-bold'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/70 font-bold'
             }`}
           >
-            <Store className={`w-5 h-5 transition-transform ${activeTab === 'PROFILE' ? 'scale-110' : ''}`} />
-            <span className="text-[11px] leading-none">الفرع</span>
-            {activeTab === 'PROFILE' && (
-              <span className="absolute bottom-1 w-6 h-1 rounded-full bg-indigo-600" />
-            )}
+            <Store className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] sm:text-[11px] leading-tight mt-1 whitespace-nowrap">الفرع</span>
           </button>
         </div>
       </nav>
