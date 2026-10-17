@@ -15,7 +15,8 @@ import {
   ArrowLeftRight,
   Bell,
   BellRing,
-  Gift
+  Gift,
+  Navigation
 } from 'lucide-react';
 import { api } from '../services/api';
 import { 
@@ -23,6 +24,11 @@ import {
   requestPushPermission, 
   sendWebNotification 
 } from '../services/notifications';
+import { 
+  getNearestLocationName, 
+  formatAddressWithCoordinates, 
+  cleanAddressText 
+} from '../services/campusLocations';
 
 interface ProfileModalProps {
   user: any;
@@ -58,6 +64,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [isDefault, setIsDefault] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detectingGps, setDetectingGps] = useState(false);
+  const [gpsSuccessMsg, setGpsSuccessMsg] = useState<string | null>(null);
 
   // تحميل العناوين والبيانات المالية للمحفظة
   const loadProfileData = async () => {
@@ -171,14 +179,54 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     }
   };
 
-  const quickSuggestions = [
-    'سكن الطلاب',
-    'كلية الهندسة',
-    'كلية الصيدلة',
-    'المكتبة المركزية',
-    'مبنى طب الأسنان',
-    'المبنى الإداري'
-  ];
+  const handleDetectGpsLocation = () => {
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      alert('خاصية تحديد الموقع الجغرافي غير مدعومة على هذا الجهاز أو المتصفح.');
+      return;
+    }
+
+    setDetectingGps(true);
+    setGpsSuccessMsg(null);
+
+    const onGeoSuccess = async (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      try {
+        const place = await getNearestLocationName(lat, lng);
+        setNewTitle(place.title);
+        setNewDetails(formatAddressWithCoordinates(place.details || place.title, lat, lng));
+        setGpsSuccessMsg(`✓ تم سحب الموقع وتسميته تلقائياً [${place.title}]، يمكنك تعديل التسمية أو التفاصيل`);
+      } catch (_) {
+        setNewTitle('موقعي الحالي');
+        setNewDetails(formatAddressWithCoordinates('موقعي الحالي عبر الـ GPS', lat, lng));
+        setGpsSuccessMsg('✓ تم سحب موقعك عبر الـ GPS، يمكنك كتابة تسمية مناسبة له');
+      } finally {
+        setDetectingGps(false);
+      }
+    };
+
+    const onGeoFallback = (initialErr?: GeolocationPositionError) => {
+      navigator.geolocation.getCurrentPosition(
+        onGeoSuccess,
+        (fallbackErr) => {
+          setDetectingGps(false);
+          const errCode = fallbackErr?.code || initialErr?.code;
+          if (errCode === 1) {
+            alert('تم رفض إذن الوصول للموقع. يُرجى تفعيل صلاحية الـ GPS من إعدادات المتصفح أو الهاتف.');
+          } else {
+            alert('تعذر تحديد إشارة الـ GPS اللحظية. يمكنك كتابة اسم وتفاصيل العنوان يدوياً.');
+          }
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      );
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      onGeoSuccess,
+      onGeoFallback,
+      { enableHighAccuracy: true, timeout: 7000, maximumAge: 15000 }
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-fadeIn">
@@ -392,38 +440,57 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <form onSubmit={handleAddAddress} className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-200 space-y-3 animate-fadeIn">
                 <div className="text-xs font-bold text-indigo-900">إضافة عنوان جديد:</div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">اسم العنوان (مكان التوصيل)</label>
-                  <input
-                    type="text"
-                    placeholder="مثال: سكن الطلاب، كلية الهندسة، المكتبة"
-                    value={newTitle}
-                    onChange={e => setNewTitle(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
-                    required
-                  />
-                  {/* Quick Suggestions */}
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {quickSuggestions.map((s, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setNewTitle(s)}
-                        className="text-[10px] px-2 py-0.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
+                {/* زر سحب الموقع المباشر وتسميته تلقائياً */}
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={handleDetectGpsLocation}
+                    disabled={detectingGps}
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.99] disabled:opacity-50 bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border-emerald-500/40 text-emerald-800 hover:bg-emerald-100"
+                  >
+                    <Navigation className={`w-3.5 h-3.5 text-emerald-600 shrink-0 ${detectingGps ? 'animate-spin' : 'animate-pulse'}`} />
+                    <span>{detectingGps ? 'جاري سحب موقعك وتحديد أقرب مكان...' : '📍 سحب موقعي الحالي (GPS)'}</span>
+                  </button>
+
+                  {gpsSuccessMsg && (
+                    <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 font-bold flex items-center gap-1.5 animate-fadeIn">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span>
+                      <span className="truncate">{gpsSuccessMsg}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">تفاصيل وموقع المكان بالتحديد</label>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    تسمية العنوان (اسم أقرب مكان أو كليتك)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="مثال: سكن الطلبة، هايبر وان، كلية الهندسة..."
+                    value={newTitle}
+                    onChange={e => setNewTitle(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    تفاصيل وموقع المكان بالتحديد
+                  </label>
                   <textarea
                     rows={2}
-                    placeholder="المبنى، الدور، رقم الغرفة أو المدرج (مثال: مبنى ب - الدور الثالث - مدرج 302)"
-                    value={newDetails}
-                    onChange={e => setNewDetails(e.target.value)}
+                    placeholder="المبنى، الدور، رقم الغرفة أو تفاصيل إضافية (مثال: مبنى ب - الدور الثالث - مدرج 302)"
+                    value={cleanAddressText(newDetails) || newDetails}
+                    onChange={e => {
+                      const text = e.target.value;
+                      const existingGps = newDetails.match(/\[GPS:[0-9.-]+,[0-9.-]+\]/);
+                      if (existingGps) {
+                        setNewDetails(`${existingGps[0]} ${text}`);
+                      } else {
+                        setNewDetails(text);
+                      }
+                    }}
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                     required
                   />
@@ -442,7 +509,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div className="flex justify-end gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => setShowAddAddress(false)}
+                    onClick={() => {
+                      setShowAddAddress(false);
+                      setGpsSuccessMsg(null);
+                    }}
                     className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors"
                   >
                     إلغاء
@@ -475,15 +545,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     className="p-3.5 bg-slate-50 hover:bg-indigo-50/30 rounded-2xl border border-slate-200 transition-colors flex items-start justify-between gap-3 text-xs"
                   >
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-black text-slate-900">{addr.title}</span>
+                        {addr.details?.includes('[GPS:') && (
+                          <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded font-black flex items-center gap-1">
+                            <MapPin className="w-2.5 h-2.5 text-emerald-600" />
+                            <span>GPS</span>
+                          </span>
+                        )}
                         {addr.isDefault && (
                           <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.2 rounded font-bold">
                             افتراضي
                           </span>
                         )}
                       </div>
-                      <p className="text-slate-600 text-[11px] leading-relaxed">{addr.details}</p>
+                      <p className="text-slate-600 text-[11px] leading-relaxed">
+                        {cleanAddressText(addr.details) || addr.details}
+                      </p>
                     </div>
 
                     <button

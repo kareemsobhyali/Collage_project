@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { requestPushPermission } from '../services/notifications';
-import { CAMPUS_LANDMARKS, formatAddressWithCoordinates, cleanAddressText } from '../services/campusLocations';
+import { formatAddressWithCoordinates, cleanAddressText, getNearestLocationName } from '../services/campusLocations';
 
 interface CartCheckoutModalProps {
   cart: any[];
@@ -119,13 +119,24 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
     setDetectingGps(true);
 
-    const onGeoSuccess = (pos: GeolocationPosition) => {
-      setDetectingGps(false);
+    const onGeoSuccess = async (pos: GeolocationPosition) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
-      const baseName = cleanAddressText(addressText) || 'موقعي الحالي بالحرم الجامعي';
-      setAddressText(formatAddressWithCoordinates(baseName, lat, lng));
-      setSelectedAddressId(null);
+      try {
+        const place = await getNearestLocationName(lat, lng);
+        setAddressTitle(place.title);
+        const existingDetails = cleanAddressText(addressText);
+        const resolvedDetails = existingDetails && existingDetails !== 'موقعي الحالي بالحرم الجامعي' && existingDetails !== 'موقعي الحالي'
+          ? existingDetails
+          : (place.details || place.title);
+        setAddressText(formatAddressWithCoordinates(resolvedDetails, lat, lng));
+      } catch (_) {
+        const baseName = cleanAddressText(addressText) || 'موقعي الحالي';
+        setAddressText(formatAddressWithCoordinates(baseName, lat, lng));
+      } finally {
+        setDetectingGps(false);
+        setSelectedAddressId(null);
+      }
     };
 
     const onGeoFallback = (initialErr?: GeolocationPositionError) => {
@@ -136,9 +147,9 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           setDetectingGps(false);
           const errCode = fallbackErr?.code || initialErr?.code;
           if (errCode === 1) { // PERMISSION_DENIED
-            alert('تم رفض إذن الوصول للموقع. يُرجى تفعيل صلاحية الموقع من إعدادات الهاتف، أو يمكنك اختيار كليتك من أزرار المعالم السريعة أدناه.');
+            alert('تم رفض إذن الوصول للموقع. يُرجى تفعيل صلاحية الـ GPS من إعدادات المتصفح أو الهاتف.');
           } else {
-            alert('تعذر تحديد إشارة الـ GPS اللحظية. تم توفير أزرار الكليات والمباني بالأسفل لاختيار موقعك الجامعي بلمسة واحدة!');
+            alert('تعذر تحديد إشارة الـ GPS اللحظية. يُرجى كتابة اسم وتفاصيل مكانك يدوياً.');
           }
         },
         { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
@@ -754,9 +765,18 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                               </span>
                             )}
                           </div>
-                          <p className={`text-[11px] truncate w-full text-right ${isSelected ? 'text-indigo-100' : 'text-slate-500'}`}>
-                            {addr.details}
-                          </p>
+                          <div className="flex items-center gap-1.5 w-full mt-0.5">
+                            {addr.details?.includes('[GPS:') && (
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-black shrink-0 ${
+                                isSelected ? 'bg-emerald-400/30 text-white border border-emerald-300/40' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              }`}>
+                                📍 GPS
+                              </span>
+                            )}
+                            <p className={`text-[11px] truncate w-full text-right ${isSelected ? 'text-indigo-100' : 'text-slate-500'}`}>
+                              {cleanAddressText(addr.details) || addr.details}
+                            </p>
+                          </div>
                         </button>
                       );
                     })}
@@ -765,49 +785,17 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               )}
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                    <span>مباني ومعالم الحرم الجامعي:</span>
-                  </label>
-                  <span className="text-[10px] text-slate-400">اختر كليتك أو حدد بالـ GPS</span>
-                </div>
-
-                {/* شريط المعالم السريعة وزر الـ GPS المدمج بدون سكرول بار مشوه */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  {/* زر الـ GPS المباشر */}
+                {/* زر سحب الموقع المباشر */}
+                <div>
                   <button
                     type="button"
                     onClick={handleDetectGpsLocation}
                     disabled={detectingGps}
-                    className="px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 border bg-gradient-to-r from-emerald-500/10 to-teal-500/15 border-emerald-500/40 text-emerald-800 hover:bg-emerald-100 transition-all flex items-center gap-1.5 shadow-2xs active:scale-95 disabled:opacity-50"
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.99] disabled:opacity-50 bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border-emerald-500/40 text-emerald-800 hover:bg-emerald-100"
                   >
-                    <Navigation className={`w-3.5 h-3.5 text-emerald-600 shrink-0 ${detectingGps ? 'animate-spin' : 'animate-pulse'}`} />
-                    <span>{detectingGps ? 'جاري التحديد...' : '📍 موقعي بالـ GPS'}</span>
+                    <Navigation className={`w-4 h-4 text-emerald-600 shrink-0 ${detectingGps ? 'animate-spin' : 'animate-pulse'}`} />
+                    <span>{detectingGps ? 'جاري سحب وتحديد موقعك الجغرافي...' : '📍 سحب موقعي الحالي (GPS)'}</span>
                   </button>
-
-                  {/* قائمة معالم الحرم */}
-                  {CAMPUS_LANDMARKS.map(lm => {
-                    const isSelected = addressText.includes(lm.name);
-                    return (
-                      <button
-                        key={lm.id}
-                        type="button"
-                        onClick={() => {
-                          setAddressText(formatAddressWithCoordinates(lm.name, lm.lat, lm.lng));
-                          setSelectedAddressId(null);
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 border transition-all flex items-center gap-1.5 shadow-2xs active:scale-95 ${
-                          isSelected
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                            : 'bg-white border-indigo-100 hover:border-indigo-400 hover:bg-indigo-50/70 text-slate-700'
-                        }`}
-                      >
-                        <span className="text-xs">🏛️</span>
-                        <span>{lm.name}</span>
-                      </button>
-                    );
-                  })}
                 </div>
 
                 {/* شارة تأكيد تحديد الموقع بنجاح */}
@@ -815,7 +803,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   <div className="p-2 bg-emerald-50 border border-emerald-200/90 rounded-xl flex items-center justify-between gap-2 text-[11px] text-emerald-800 font-bold animate-fadeIn">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                      <span className="truncate">✓ تم تثبيت موقعك الجغرافي بنجاح لملاحة الطيار</span>
+                      <span className="truncate">✓ تم التقاط موقعك الجغرافي وتحديد أقرب مكان بدقة</span>
                     </div>
                     <button
                       type="button"
@@ -882,20 +870,6 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                       onChange={e => setAddressTitle(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 font-bold text-slate-800"
                     />
-                    {/* Quick suggestion tags */}
-                    <div className="flex flex-wrap gap-1.5 items-center pt-0.5">
-                      <span className="text-[10px] text-slate-400 font-bold ml-1">اقتراحات سريعة:</span>
-                      {['سكن الطلاب', 'سكن الطالبات', 'كلية الهندسة', 'المكتبة المركزية', 'المبنى الإداري', 'السكن الخارجي'].map((sug, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setAddressTitle(sug)}
-                          className="text-[10px] px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200/60 transition-colors"
-                        >
-                          {sug}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 )}
               </div>

@@ -137,3 +137,102 @@ export function cleanAddressText(addressText?: string | null): string {
     .replace(/GPS:\s*[0-9.-]+[,\s]+[0-9.-]+/i, '')
     .trim();
 }
+
+/**
+ * البحث عن أقرب معلم جامعي أو جلب اسم المكان جغرافياً تلقائياً
+ */
+export async function getNearestLocationName(lat: number, lng: number): Promise<{
+  title: string;
+  details: string;
+  distanceMeters: number;
+  landmarkName?: string;
+}> {
+  // 1. فحص أقرب معلم من معالم الحرم الجامعي
+  let nearestLandmark: CampusLandmark | null = null;
+  let minDistance = Infinity;
+
+  for (const lm of CAMPUS_LANDMARKS) {
+    const dist = calculateDistanceMeters(lat, lng, lm.lat, lm.lng);
+    if (dist < minDistance) {
+      minDistance = dist;
+      nearestLandmark = lm;
+    }
+  }
+
+  // إذا كان داخل الحرم أو قريباً من معلم (حتى 350 متر)
+  if (nearestLandmark && minDistance <= 350) {
+    const title = minDistance <= 60 
+      ? nearestLandmark.name 
+      : `بالقرب من ${nearestLandmark.name}`;
+    const details = minDistance <= 60
+      ? `داخل ${nearestLandmark.name}`
+      : `موقعي الحالي (يبعد حوالي ${minDistance}م عن ${nearestLandmark.name})`;
+    return {
+      title,
+      details,
+      distanceMeters: minDistance,
+      landmarkName: nearestLandmark.name,
+    };
+  }
+
+  // 2. إذا كان الموقع خارج الحرم (مثلاً في هايبر وان أو منطقة سكنية خارجية)، نحاول جلب الاسم الجغرافي الحقيقي عبر OpenStreetMap
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ar`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      const addr = data.address || {};
+      const placeName = 
+        data.name ||
+        addr.amenity || 
+        addr.shop || 
+        addr.building || 
+        addr.commercial || 
+        addr.supermarket || 
+        addr.mall || 
+        addr.retail || 
+        addr.office || 
+        addr.neighbourhood || 
+        addr.suburb || 
+        addr.road;
+
+      if (placeName) {
+        const areaName = addr.suburb || addr.neighbourhood || addr.city || addr.town || addr.village || '';
+        const title = areaName && !placeName.includes(areaName) ? `${placeName}، ${areaName}` : placeName;
+        const detailsParts = data.display_name 
+          ? data.display_name.split(',').slice(0, 3).map((s: string) => s.trim()).join('، ')
+          : `موقعي الحالي [${title}]`;
+
+        return {
+          title,
+          details: detailsParts,
+          distanceMeters: minDistance,
+        };
+      }
+    }
+  } catch (_) {
+    // نتراجع للبديل المحلي في حال بطء الشبكة أو انقطاعها
+  }
+
+  // 3. التراجع لأقرب معلم جامعي فقط إذا كانت المسافة قريبة (أقل من 1500م)
+  if (nearestLandmark && minDistance <= 1500) {
+    return {
+      title: `بالقرب من ${nearestLandmark.name}`,
+      details: `موقعي الحالي بالحرم الجامعي (يبعد ${formatDistance(minDistance)} عن ${nearestLandmark.name})`,
+      distanceMeters: minDistance,
+      landmarkName: nearestLandmark.name,
+    };
+  }
+
+  return {
+    title: 'موقعي الحالي',
+    details: 'تم تحديد موقعي عبر الـ GPS',
+    distanceMeters: minDistance,
+  };
+}
