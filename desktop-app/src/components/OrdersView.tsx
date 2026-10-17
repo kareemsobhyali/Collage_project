@@ -99,6 +99,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
   useEffect(() => {
     onDetailedOrderOpenChange?.(Boolean(detailedOrder));
+    if (detailedOrder) {
+      window.scrollTo(0, 0);
+    }
   }, [detailedOrder, onDetailedOrderOpenChange]);
 
   useEffect(() => {
@@ -149,8 +152,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       rejectingOrder ||
       viewingProofUrl ||
       editingCustomerCRM ||
-      printingOrder ||
-      detailedOrder
+      printingOrder
     )
   );
 
