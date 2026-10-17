@@ -46,18 +46,21 @@ router.post("/login", async (req: Request, res: Response) => {
       return;
     }
 
-    // في حال كانت قاعدة البيانات جديدة تماماً على الاستضافة ولا يوجد أي سوبر أدمن، يتم إنشاء الحساب الافتراضي تلقائياً
+    // في حال كانت قاعدة البيانات جديدة تماماً ولا يوجد أي سوبر أدمن، يتم إنشاء الحساب الافتراضي (مع دعم متغير البيئة INITIAL_ADMIN_PASSWORD)
     const superAdminCount = await prisma.user.count({ where: { role: "SUPERADMIN" } });
     if (superAdminCount === 0) {
-      const defaultHashedPassword = await bcrypt.hash("123456", 10);
-      await prisma.user.create({
-        data: {
-          name: "المدير العام للنظام",
-          phone: "admin",
-          password: defaultHashedPassword,
-          role: "SUPERADMIN",
-        },
-      });
+      const initialAdminPassword = process.env.INITIAL_ADMIN_PASSWORD || (process.env.NODE_ENV === "production" ? "" : "123456");
+      if (initialAdminPassword) {
+        const defaultHashedPassword = await bcrypt.hash(initialAdminPassword, 10);
+        await prisma.user.create({
+          data: {
+            name: "المدير العام للنظام",
+            phone: process.env.INITIAL_ADMIN_USERNAME || "admin",
+            password: defaultHashedPassword,
+            role: "SUPERADMIN",
+          },
+        });
+      }
     }
 
     const admin = await prisma.user.findFirst({
@@ -695,14 +698,25 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
     const { status, reason } = req.body;
 
-    if (!status) {
-      res.status(400).json({ error: "حالة الطلب مطلوبة" });
+    const validStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"];
+    if (!status || !validStatuses.includes(status)) {
+      res.status(400).json({ error: "حالة الطلب غير صالحة" });
       return;
     }
 
     const existingOrder = await prisma.order.findUnique({ where: { id } });
     if (!existingOrder) {
       res.status(404).json({ error: "الطلب غير موجود" });
+      return;
+    }
+
+    if (existingOrder.status === "REJECTED" && status !== "REJECTED") {
+      res.status(400).json({ error: "لا يمكن إعادة فتح طلب ملغي أو مرفوض حفاظاً على سلامة الأرصدة والحسابات المالية" });
+      return;
+    }
+
+    if (existingOrder.status === "COMPLETED" && status !== "COMPLETED" && status !== "REJECTED") {
+      res.status(400).json({ error: "الطلب مكتمل بالفعل ولا يمكن إرجاعه لحالة سابقة" });
       return;
     }
 
@@ -728,38 +742,44 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
     let updated;
     if (status === "REJECTED" && existingOrder.status !== "REJECTED") {
       updated = await prisma.$transaction(async (tx) => {
-        const orderRes = await tx.order.update({
-          where: { id },
+        const claim = await tx.order.updateMany({
+          where: { id, status: { not: "REJECTED" } },
           data: updateData,
+        });
+
+        const orderRes = await tx.order.findUnique({
+          where: { id },
           include: { branch: true },
         });
 
-        if (existingOrder.walletDiscount > 0 || (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0)) {
-          const targetUser = await tx.user.findUnique({ where: { id: existingOrder.userId } });
-          if (targetUser) {
-            const refundedWallet = (targetUser.walletBalance || 0) + (existingOrder.walletDiscount || 0);
-            const updateUserData: any = { walletBalance: refundedWallet };
-            if (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0) {
-              updateUserData.loyaltyPoints = Math.max(0, (targetUser.loyaltyPoints || 0) - existingOrder.pointsEarned);
+        if (claim.count === 1) {
+          if (existingOrder.walletDiscount > 0 || (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0)) {
+            const targetUser = await tx.user.findUnique({ where: { id: existingOrder.userId } });
+            if (targetUser) {
+              const refundedWallet = (targetUser.walletBalance || 0) + (existingOrder.walletDiscount || 0);
+              const updateUserData: any = { walletBalance: refundedWallet };
+              if (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0) {
+                updateUserData.loyaltyPoints = Math.max(0, (targetUser.loyaltyPoints || 0) - existingOrder.pointsEarned);
+              }
+              await tx.user.update({
+                where: { id: existingOrder.userId },
+                data: updateUserData,
+              });
             }
-            await tx.user.update({
-              where: { id: existingOrder.userId },
-              data: updateUserData,
-            });
+          }
+
+          if (existingOrder.promoCode) {
+            const promo = await tx.promoCode.findUnique({ where: { code: existingOrder.promoCode } });
+            if (promo && promo.usedCount > 0) {
+              await tx.promoCode.update({
+                where: { id: promo.id },
+                data: { usedCount: { decrement: 1 } },
+              }).catch(() => {});
+            }
           }
         }
 
-        if (existingOrder.promoCode) {
-          const promo = await tx.promoCode.findUnique({ where: { code: existingOrder.promoCode } });
-          if (promo && promo.usedCount > 0) {
-            await tx.promoCode.update({
-              where: { id: promo.id },
-              data: { usedCount: { decrement: 1 } },
-            }).catch(() => {});
-          }
-        }
-
-        return orderRes;
+        return orderRes!;
       });
 
       // إشعار واتساب للمشرفين بإلغاء الطلب
@@ -869,6 +889,17 @@ router.get("/banners", async (_req: AuthRequest, res: Response) => {
   }
 });
 
+// دالة مساعدة للتحقق من أمان روابط البانرات ومنع javascript: / data:
+function sanitizeBannerLinkUrl(url: any): string | null {
+  if (!url || typeof url !== "string") return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (/^(https?:\/\/|\/|#)/i.test(trimmed)) {
+    return trimmed;
+  }
+  return null;
+}
+
 // 2. إضافة بانر إعلاني جديد
 router.post("/banners", async (req: AuthRequest, res: Response) => {
   try {
@@ -878,13 +909,18 @@ router.post("/banners", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    if (linkUrl && typeof linkUrl === "string" && linkUrl.trim() && !sanitizeBannerLinkUrl(linkUrl)) {
+      res.status(400).json({ error: "رابط البانر غير صالح، يجب أن يبدأ بـ https:// أو http:// أو مسار داخلي /" });
+      return;
+    }
+
     const banner = await prisma.banner.create({
       data: {
         title: title.trim(),
         subtitle: subtitle ? subtitle.trim() : null,
         imageUrl: imageUrl ? imageUrl.trim() : "",
         badgeText: badgeText ? badgeText.trim() : null,
-        linkUrl: linkUrl ? linkUrl.trim() : null,
+        linkUrl: sanitizeBannerLinkUrl(linkUrl),
         displayOrder: displayOrder !== undefined ? parseInt(displayOrder) || 0 : 0,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
       },
@@ -905,6 +941,11 @@ router.put("/banners/:id", async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
     const { isActive, title, subtitle, imageUrl, badgeText, linkUrl, displayOrder } = req.body;
 
+    if (linkUrl !== undefined && linkUrl && typeof linkUrl === "string" && linkUrl.trim() && !sanitizeBannerLinkUrl(linkUrl)) {
+      res.status(400).json({ error: "رابط البانر غير صالح، يجب أن يبدأ بـ https:// أو http:// أو مسار داخلي /" });
+      return;
+    }
+
     const banner = await prisma.banner.update({
       where: { id },
       data: {
@@ -913,7 +954,7 @@ router.put("/banners/:id", async (req: AuthRequest, res: Response) => {
         subtitle: subtitle !== undefined ? (subtitle ? subtitle.trim() : null) : undefined,
         imageUrl: imageUrl !== undefined ? imageUrl.trim() : undefined,
         badgeText: badgeText !== undefined ? (badgeText ? badgeText.trim() : null) : undefined,
-        linkUrl: linkUrl !== undefined ? (linkUrl ? linkUrl.trim() : null) : undefined,
+        linkUrl: linkUrl !== undefined ? sanitizeBannerLinkUrl(linkUrl) : undefined,
         displayOrder: displayOrder !== undefined ? parseInt(displayOrder) || 0 : undefined,
       },
     });
@@ -2129,8 +2170,17 @@ router.get("/finance/export-excel", async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const sanitizeCsvCell = (val: string | number | null | undefined): string => {
+      const str = String(val ?? "");
+      if (!str || str === "-" || /^-?\d+(\.\d+)?$/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      const safe = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+
     const csvContent = rows
-      .map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
+      .map(r => r.map(c => sanitizeCsvCell(c)).join(","))
       .join("\r\n");
 
     const safeAsciiName = `${type}_${dateTag}.csv`;

@@ -435,13 +435,26 @@ router.delete("/categories/:id", async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
     const branchId = req.branch!.branchId;
 
-    const deleted = await prisma.menuCategory.deleteMany({
+    const existingCat = await prisma.menuCategory.findFirst({
       where: { id, branchId },
+      include: { items: { select: { id: true } } },
     });
-    if (deleted.count === 0) {
+    if (!existingCat) {
       res.status(404).json({ error: "القسم غير موجود أو لا يتبع هذا الفرع" });
       return;
     }
+
+    const itemIds = existingCat.items.map((it) => it.id);
+    if (itemIds.length > 0) {
+      await prisma.orderItem.updateMany({
+        where: { menuItemId: { in: itemIds } },
+        data: { menuItemId: null },
+      });
+    }
+
+    await prisma.menuCategory.delete({
+      where: { id },
+    });
 
     notifyBranchMenuChanged(branchId);
 
@@ -471,6 +484,25 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // التحقق من ملكية القسم للفرع
+    const validCat = await prisma.menuCategory.findFirst({
+      where: { id: String(categoryId), branchId },
+    });
+    if (!validCat) {
+      res.status(403).json({ error: "القسم المحدد غير صالح أو لا يتبع هذا الفرع" });
+      return;
+    }
+
+    // التحقق من ملكية مجموعات الإضافات للفرع
+    let validModifierGroupIds: string[] = [];
+    if (modifierGroupIds && Array.isArray(modifierGroupIds) && modifierGroupIds.length > 0) {
+      const ownedGroups = await prisma.modifierGroup.findMany({
+        where: { id: { in: modifierGroupIds.map(String) }, branchId },
+        select: { id: true },
+      });
+      validModifierGroupIds = ownedGroups.map((g) => g.id);
+    }
+
     const serializedCombos =
       comboItems !== undefined
         ? typeof comboItems === "string"
@@ -494,8 +526,8 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
             price: parseFloat(s.price),
           })),
         } : undefined,
-        modifierGroupLinks: modifierGroupIds && Array.isArray(modifierGroupIds) ? {
-          create: modifierGroupIds.map((groupId: string) => ({
+        modifierGroupLinks: validModifierGroupIds.length > 0 ? {
+          create: validModifierGroupIds.map((groupId: string) => ({
             groupId,
           })),
         } : undefined,
@@ -534,6 +566,16 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
     if (!existing) {
       res.status(404).json({ error: "الصنف غير موجود أو لا يتبع هذا الفرع" });
       return;
+    }
+
+    if (categoryId) {
+      const validCat = await prisma.menuCategory.findFirst({
+        where: { id: String(categoryId), branchId },
+      });
+      if (!validCat) {
+        res.status(403).json({ error: "القسم المحدد غير صالح أو لا يتبع هذا الفرع" });
+        return;
+      }
     }
 
     const serializedCombos =
@@ -634,13 +676,22 @@ router.delete("/items/:id", async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
     const branchId = req.branch!.branchId;
 
-    const deleted = await prisma.menuItem.deleteMany({
+    const existing = await prisma.menuItem.findFirst({
       where: { id, branchId },
     });
-    if (deleted.count === 0) {
+    if (!existing) {
       res.status(404).json({ error: "الصنف غير موجود أو لا يتبع هذا الفرع" });
       return;
     }
+
+    await prisma.orderItem.updateMany({
+      where: { menuItemId: id },
+      data: { menuItemId: null },
+    });
+
+    await prisma.menuItem.delete({
+      where: { id },
+    });
 
     notifyBranchMenuChanged(branchId);
 
@@ -692,10 +743,19 @@ router.post("/modifier-groups", async (req: AuthRequest, res: Response) => {
 router.post("/modifier-groups/:groupId/options", async (req: AuthRequest, res: Response) => {
   try {
     const groupId = req.params.groupId as string;
+    const branchId = req.branch!.branchId;
     const { name, price } = req.body;
 
     if (!name) {
       res.status(400).json({ error: "اسم الإضافة مطلوب" });
+      return;
+    }
+
+    const group = await prisma.modifierGroup.findFirst({
+      where: { id: groupId, branchId },
+    });
+    if (!group) {
+      res.status(404).json({ error: "مجموعة الإضافات غير موجودة أو لا تتبع هذا الفرع" });
       return;
     }
 
@@ -708,7 +768,7 @@ router.post("/modifier-groups/:groupId/options", async (req: AuthRequest, res: R
       },
     });
 
-    notifyBranchMenuChanged(req.branch!.branchId);
+    notifyBranchMenuChanged(branchId);
 
     res.status(201).json(option);
   } catch (error) {
@@ -720,7 +780,17 @@ router.post("/modifier-groups/:groupId/options", async (req: AuthRequest, res: R
 router.put("/modifier-options/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    const branchId = req.branch!.branchId;
     const { name, price, isAvailable } = req.body;
+
+    const existingOption = await prisma.modifierOption.findUnique({
+      where: { id },
+      include: { group: { select: { branchId: true } } },
+    });
+    if (!existingOption || existingOption.group.branchId !== branchId) {
+      res.status(404).json({ error: "خيار الإضافة غير موجود أو لا يتبع هذا الفرع" });
+      return;
+    }
 
     const option = await prisma.modifierOption.update({
       where: { id },
@@ -731,7 +801,7 @@ router.put("/modifier-options/:id", async (req: AuthRequest, res: Response) => {
       },
     });
 
-    notifyBranchMenuChanged(req.branch!.branchId);
+    notifyBranchMenuChanged(branchId);
 
     res.json(option);
   } catch (error) {
@@ -764,11 +834,29 @@ router.delete("/modifier-groups/:id", async (req: AuthRequest, res: Response) =>
 router.post("/items/:id/link-modifiers", async (req: AuthRequest, res: Response) => {
   try {
     const itemId = req.params.id as string;
+    const branchId = req.branch!.branchId;
     const { modifierGroupIds } = req.body; // مصفوفة من الـ groupIds
 
     if (!Array.isArray(modifierGroupIds)) {
       res.status(400).json({ error: "يجب تمرير مصفوفة modifierGroupIds" });
       return;
+    }
+
+    const existingItem = await prisma.menuItem.findFirst({
+      where: { id: itemId, branchId },
+    });
+    if (!existingItem) {
+      res.status(404).json({ error: "الصنف غير موجود أو لا يتبع هذا الفرع" });
+      return;
+    }
+
+    let validGroupIds: string[] = [];
+    if (modifierGroupIds.length > 0) {
+      const ownedGroups = await prisma.modifierGroup.findMany({
+        where: { id: { in: modifierGroupIds.map(String) }, branchId },
+        select: { id: true },
+      });
+      validGroupIds = ownedGroups.map((g) => g.id);
     }
 
     // إزالة الروابط القديمة
@@ -777,9 +865,9 @@ router.post("/items/:id/link-modifiers", async (req: AuthRequest, res: Response)
     });
 
     // إنشاء الروابط الجديدة
-    if (modifierGroupIds.length > 0) {
+    if (validGroupIds.length > 0) {
       await prisma.itemModifierGroupLink.createMany({
-        data: modifierGroupIds.map((groupId: string) => ({
+        data: validGroupIds.map((groupId: string) => ({
           itemId,
           groupId,
         })),
@@ -798,7 +886,7 @@ router.post("/items/:id/link-modifiers", async (req: AuthRequest, res: Response)
       },
     });
 
-    notifyBranchMenuChanged(req.branch!.branchId);
+    notifyBranchMenuChanged(branchId);
 
     res.json({ success: true, item: updatedItem });
   } catch (error) {
@@ -850,7 +938,32 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
 router.put("/customers/:userId/crm", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.params.userId as string;
+    const branchId = req.branch!.branchId;
     const { restaurantNotes, isBlocked } = req.body;
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
+
+    if (!targetUser) {
+      res.status(404).json({ error: "حساب العميل غير موجود" });
+      return;
+    }
+
+    if (targetUser.role === "SUPERADMIN") {
+      res.status(403).json({ error: "غير مصرح بتعديل أو حظر حساب الإدارة العليا" });
+      return;
+    }
+
+    // التحقق من أن العميل لديه طلبات سابقة لدى هذا الفرع
+    const branchOrderCount = await prisma.order.count({
+      where: { userId, branchId },
+    });
+    if (branchOrderCount === 0) {
+      res.status(403).json({ error: "لا يمكن تعديل بيانات عميل لم يقم بالطلب من هذا الفرع" });
+      return;
+    }
 
     const updateData: any = {};
     if (restaurantNotes !== undefined) {
@@ -903,6 +1016,16 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // منع تغيير حالة الطلب بعد وصوله لحالة نهائية (مكتمل أو مرفوض/ملغى) لمنع تكرار استرداد المحفظة أو النقاط
+    if (existingOrder.status === "REJECTED" && status !== "REJECTED") {
+      res.status(400).json({ error: "لا يمكن إعادة فتح أو تغيير حالة طلب تم إلغاؤه واسترداد قيمته مسبقاً" });
+      return;
+    }
+    if (existingOrder.status === "COMPLETED" && status !== "COMPLETED") {
+      res.status(400).json({ error: "لا يمكن تغيير حالة طلب مكتمل بالفعل" });
+      return;
+    }
+
     const updateData: any = { status };
     const now = new Date();
 
@@ -940,9 +1063,17 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
     let updatedOrder;
     if (status === "REJECTED" && existingOrder.status !== "REJECTED") {
       updatedOrder = await prisma.$transaction(async (tx) => {
-        const orderRes = await tx.order.update({
-          where: { id },
+        // تحديث ذري مشروط بعدم كون الطلب ملغى مسبقاً لمنع التكرار المتزامن (Race Condition)
+        const claim = await tx.order.updateMany({
+          where: { id, branchId, status: { not: "REJECTED" } },
           data: updateData,
+        });
+        if (claim.count === 0) {
+          throw new Error("ORDER_ALREADY_REJECTED");
+        }
+
+        const orderRes = await tx.order.findUniqueOrThrow({
+          where: { id },
           include: {
             items: true,
             user: {
@@ -964,7 +1095,7 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
         if (existingOrder.walletDiscount > 0 || (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0)) {
           const targetUser = await tx.user.findUnique({ where: { id: existingOrder.userId } });
           if (targetUser) {
-            const refundedWallet = (targetUser.walletBalance || 0) + (existingOrder.walletDiscount || 0);
+            const refundedWallet = Number(((targetUser.walletBalance || 0) + (existingOrder.walletDiscount || 0)).toFixed(2));
             const updateUserData: any = { walletBalance: refundedWallet };
             if (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0) {
               updateUserData.loyaltyPoints = Math.max(0, (targetUser.loyaltyPoints || 0) - existingOrder.pointsEarned);
@@ -1023,7 +1154,11 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
     notifyOrderStatusChanged(id, branchId, updatedOrder, updatedOrder.driverId || undefined);
 
     res.json({ success: true, order: updatedOrder });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === "ORDER_ALREADY_REJECTED") {
+      res.status(400).json({ error: "تم إلغاء هذا الطلب بالفعل" });
+      return;
+    }
     console.error("Update order status error:", error);
     res.status(500).json({ error: "فشل تحديث حالة الطلب" });
   }

@@ -218,14 +218,18 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@index([unacceptedAlertSent])
+  @@index([branchId, status, createdAt])
+  @@index([userId, createdAt])
+  @@index([driverId, status])
+  @@index([status, createdAt])
 }
 
 model OrderItem {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   orderId           String
-  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItemId        String
-  menuItem          MenuItem @relation(fields: [menuItemId], references: [id])
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId        String?
+  menuItem          MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
   itemName          String
   sizeName          String?
   unitPrice         Float

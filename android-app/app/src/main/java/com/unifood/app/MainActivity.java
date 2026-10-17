@@ -196,17 +196,20 @@ public class MainActivity extends Activity {
                 Uri uri = request.getUrl();
                 String url = uri.toString();
 
-                // 1. Handle intent:// schemes (e.g., from Google Maps, WhatsApp, banks)
+                // 1. Handle intent:// schemes safely (restrict to BROWSABLE activities only)
                 if (url.startsWith("intent://")) {
                     try {
                         Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
                         if (intent != null) {
+                            intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                            intent.setComponent(null);
+                            intent.setSelector(null);
                             if (getPackageManager().resolveActivity(intent, 0) != null) {
                                 startActivity(intent);
                                 return true;
                             }
                             String fallbackUrl = intent.getStringExtra("browser_fallback_url");
-                            if (fallbackUrl != null) {
+                            if (fallbackUrl != null && (fallbackUrl.startsWith("https://") || fallbackUrl.startsWith("http://"))) {
                                 Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl));
                                 startActivity(browserIntent);
                                 return true;
@@ -268,6 +271,16 @@ public class MainActivity extends Activity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                try {
+                    String startHost = Uri.parse(BuildConfig.START_URL).getHost();
+                    String originHost = Uri.parse(origin).getHost();
+                    if (startHost != null && originHost != null && !originHost.equalsIgnoreCase(startHost)) {
+                        callback.invoke(origin, false, false);
+                        return;
+                    }
+                } catch (Exception ignored) {
+                }
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                         callback.invoke(origin, true, false);
@@ -437,9 +450,16 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void downloadFile(String filename, String content, String mimeType) {
             try {
+                String safeFilename = new File(filename != null ? filename : "report.csv")
+                        .getName()
+                        .replaceAll("[\\\\/:*?\"<>|]", "_");
+                if (safeFilename.isEmpty() || safeFilename.startsWith(".")) {
+                    safeFilename = "report_" + System.currentTimeMillis() + ".csv";
+                }
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     ContentValues values = new ContentValues();
-                    values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
+                    values.put(MediaStore.MediaColumns.DISPLAY_NAME, safeFilename);
                     values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType != null ? mimeType : "text/csv");
                     values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
 
@@ -455,14 +475,14 @@ public class MainActivity extends Activity {
                 } else {
                     File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
                     if (!downloadsDir.exists()) downloadsDir.mkdirs();
-                    File file = new File(downloadsDir, filename);
+                    File file = new File(downloadsDir, safeFilename);
                     try (FileOutputStream fos = new FileOutputStream(file)) {
                         fos.write(content.getBytes(StandardCharsets.UTF_8));
                         fos.flush();
                     }
                 }
 
-                showNotification("تم تحميل التقرير بنجاح 📁", "تم حفظ " + filename + " في مجلد التنزيلات (Downloads)");
+                showNotification("تم تحميل التقرير بنجاح 📁", "تم حفظ " + safeFilename + " في مجلد التنزيلات (Downloads)");
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -471,7 +491,17 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void openExternalUrl(String url) {
             try {
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                if (url == null || url.trim().isEmpty()) return;
+                Uri uri = Uri.parse(url.trim());
+                String scheme = uri.getScheme() != null ? uri.getScheme().toLowerCase() : "";
+                if (!scheme.equals("http") && !scheme.equals("https") && !scheme.equals("tel") &&
+                    !scheme.equals("mailto") && !scheme.equals("whatsapp") && !scheme.equals("geo")) {
+                    return;
+                }
+                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                intent.setComponent(null);
+                intent.setSelector(null);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(intent);
             } catch (Exception ignored) {

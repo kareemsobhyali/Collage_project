@@ -3,10 +3,28 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import prisma from "../prisma.js";
-import { authenticateAny, AuthRequest } from "../middleware/auth.js";
+import { authenticateAny, requireSuperAdmin, AuthRequest } from "../middleware/auth.js";
 
 
 const router = Router();
+
+function isValidImageBuffer(buf: Buffer): boolean {
+  if (!buf || buf.length < 12) return false;
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true;
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true;
+  // GIF: GIF87a or GIF89a
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return true;
+  // WEBP: RIFF....WEBP
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) {
+    return true;
+  }
+  return false;
+}
 
 
 // التأكد من وجود مجلد الرفع وتحديده بدقة
@@ -40,9 +58,9 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB حد أقصى
   fileFilter: (_req, file, cb) => {
-    const allowed = /jpeg|jpg|png|webp|gif/;
+    const allowed = /^(jpeg|jpg|png|webp|gif)$/;
     const ext = allowed.test(path.extname(file.originalname).toLowerCase().replace(".", ""));
-    const mime = allowed.test(file.mimetype.toLowerCase());
+    const mime = /^image\/(jpeg|jpg|png|webp|gif)$/.test(file.mimetype.toLowerCase());
     if (ext && mime) {
       cb(null, true);
     } else {
@@ -72,6 +90,11 @@ router.post("/", authenticateAny, (req: AuthRequest, res: Response) => {
 
     try {
       const fileBuffer = fs.readFileSync(req.file.path);
+
+      if (!isValidImageBuffer(fileBuffer)) {
+        try { fs.unlinkSync(req.file.path); } catch {}
+        return res.status(400).json({ error: "محتوى الملف غير صالح كصورة، يرجى اختيار صورة حقيقية" });
+      }
 
       // حفظ نسخة احتياطية ثنائية (Binary ByteA) في قاعدة البيانات لضمان بقائها حتى لو تم إعادة تشغيل السيرفر أو الاستضافة
       prisma.uploadedFile.upsert({
@@ -118,7 +141,7 @@ const audioUpload = multer({
     const ext = path.extname(file.originalname).toLowerCase().replace(".", "");
     const isAudioExt = /^(mp3|wav|ogg|m4a|aac|webm|flac|mpeg|mp4)$/i.test(ext);
     const isAudioMime = file.mimetype.startsWith("audio/") || file.mimetype.includes("mpeg") || file.mimetype.includes("mp4") || file.mimetype.includes("ogg") || file.mimetype.includes("wav");
-    if (isAudioExt || isAudioMime) {
+    if (isAudioExt && isAudioMime) {
       cb(null, true);
     } else {
       cb(new Error("يُسمح فقط برفع ملفات صوتية بصيغة (MP3, WAV, OGG, M4A, AAC)"));
@@ -126,8 +149,8 @@ const audioUpload = multer({
   },
 }).single("audio");
 
-// نقطة نهاية رفع الملفات الصوتية
-router.post("/audio", authenticateAny, (req: AuthRequest, res: Response) => {
+// نقطة نهاية رفع الملفات الصوتية (محصورة بالمسؤول العام للنظام)
+router.post("/audio", requireSuperAdmin, (req: AuthRequest, res: Response) => {
   audioUpload(req, res, async (err: any) => {
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {

@@ -75,25 +75,6 @@ export function App() {
   const [pendingOpenGroupCart, setPendingOpenGroupCart] = useState(Boolean(groupParam));
   const [groupCartDetailsForCheckout, setGroupCartDetailsForCheckout] = useState<any | null>(null);
 
-  if (isAdminRoute) {
-    return <AdminPage />;
-  }
-
-  if (showDriverPortal) {
-    return (
-      <>
-        <DriverPortal onClose={() => setShowDriverPortal(false)} />
-        {showSplash && (
-          <SplashScreen
-            branches={branches}
-            isReady={true}
-            onFinish={() => setShowSplash(false)}
-          />
-        )}
-      </>
-    );
-  }
-
   const [user, setUser] = useState<any | null>(() => {
     try {
       const saved = localStorage.getItem('customer_user');
@@ -164,13 +145,13 @@ export function App() {
 
   // تهيئة حارس الرجوع الأولي لمنع الخروج المفاجئ
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal) return;
     try {
       window.history.replaceState({ uniFoodRoot: true, depth: 0 }, '');
       window.history.pushState({ uniFoodStep: 1, depth: 1 }, '');
       historyDepthRef.current = 1;
     } catch (_e) {}
-  }, []);
+  }, [isAdminRoute, showDriverPortal]);
 
   // تتبع فتح الشاشات الفرعية والنوافذ لدفع خطوة في الـ History
   const currentNavStateKey = [
@@ -200,6 +181,7 @@ export function App() {
 
   // الاستماع لحدث الرجوع (popstate)
   useEffect(() => {
+    if (isAdminRoute || showDriverPortal) return;
     const handlePopState = () => {
       isHandlingPopstateRef.current = true;
       historyDepthRef.current = Math.max(0, historyDepthRef.current - 1);
@@ -256,6 +238,8 @@ export function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [
+    isAdminRoute,
+    showDriverPortal,
     showExitAppDialog,
     customizingItem,
     showCartModal,
@@ -285,11 +269,9 @@ export function App() {
 
   // فحص روابط التفعيل السريع من الواتساب (WhatsApp Magic Link Auto-Activation)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal) return;
     const params = new URLSearchParams(window.location.search);
     const verifyToken = params.get('verifyToken');
-    const verifiedParam = params.get('verified');
-    const directJwtToken = params.get('token');
 
     if (verifyToken) {
       setLoading(true);
@@ -302,6 +284,7 @@ export function App() {
             setActivationToast('تم تفعيل حسابك وتأكيد هاتفك بنجاح! مرحباً بك في UniFood 🎉🍔');
             // إزالة التوكن من الرابط بسلاسة
             params.delete('verifyToken');
+            params.delete('verified');
             const newQuery = params.toString() ? `?${params.toString()}` : window.location.pathname;
             window.history.replaceState({}, '', newQuery);
           }
@@ -309,27 +292,15 @@ export function App() {
         .catch((err) => {
           alert(err.message || 'رابط التفعيل غير صالح أو انتهت صلاحيته');
           params.delete('verifyToken');
+          params.delete('verified');
           const newQuery = params.toString() ? `?${params.toString()}` : window.location.pathname;
           window.history.replaceState({}, '', newQuery);
         })
         .finally(() => {
           setLoading(false);
         });
-    } else if (verifiedParam && directJwtToken) {
-      localStorage.setItem('customer_token', directJwtToken);
-      api.getMe()
-        .then((userData) => {
-          localStorage.setItem('customer_user', JSON.stringify(userData));
-          setUser(userData);
-          setActivationToast('تم تفعيل حسابك بنجاح! مرحباً بك في UniFood 🎉🍔');
-          params.delete('verified');
-          params.delete('token');
-          const newQuery = params.toString() ? `?${params.toString()}` : window.location.pathname;
-          window.history.replaceState({}, '', newQuery);
-        })
-        .catch(() => {});
     }
-  }, []);
+  }, [isAdminRoute, showDriverPortal]);
 
   // إخفاء إشعار التفعيل التلقائي بعد 6 ثوانٍ
   useEffect(() => {
@@ -340,7 +311,7 @@ export function App() {
 
   // إذا دخل الطالب برابط دعوة لسلة الشلة: يفتح السلة إن كان مسجلاً، أو يطلب تسجيل الدخول أولاً
   useEffect(() => {
-    if (pendingOpenGroupCart) {
+    if (pendingOpenGroupCart && !isAdminRoute && !showDriverPortal) {
       if (user) {
         setShowGroupCartModal(true);
         setPendingOpenGroupCart(false);
@@ -348,7 +319,7 @@ export function App() {
         setShowAuthModal(true);
       }
     }
-  }, [pendingOpenGroupCart, user]);
+  }, [pendingOpenGroupCart, user, isAdminRoute, showDriverPortal]);
 
   // عند اختيار فرع، جلب المنيو الخاص به مع إمكانية فتح صنف/عرض محدد تلقائياً
   const handleSelectBranch = async (branch: any, autoOpenItemId?: string | null) => {
@@ -431,6 +402,7 @@ export function App() {
   };
 
   useEffect(() => {
+    if (isAdminRoute) return;
     loadBranches();
     registerServiceWorker();
 
@@ -577,7 +549,26 @@ export function App() {
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [isAdminRoute]);
+
+  if (isAdminRoute) {
+    return <AdminPage />;
+  }
+
+  if (showDriverPortal) {
+    return (
+      <>
+        <DriverPortal onClose={() => setShowDriverPortal(false)} />
+        {showSplash && (
+          <SplashScreen
+            branches={branches}
+            isReady={true}
+            onFinish={() => setShowSplash(false)}
+          />
+        )}
+      </>
+    );
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('customer_token');

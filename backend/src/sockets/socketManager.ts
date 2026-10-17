@@ -1,9 +1,15 @@
 import { Server as SocketIOServer, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-campus-delivery-2026";
+import prisma from "../prisma.js";
+import { JWT_SECRET } from "../middleware/auth.js";
 
 let io: SocketIOServer | null = null;
+
+function sanitizeOrderForDriverSocket(order: any): any {
+  if (!order || typeof order !== "object") return order;
+  const { pickupPin, ...safeOrder } = order;
+  return safeOrder;
+}
 
 export function initSocket(server: any): SocketIOServer {
   io = new SocketIOServer(server, {
@@ -29,6 +35,10 @@ export function initSocket(server: any): SocketIOServer {
   io.on("connection", (socket: Socket) => {
     const authUser = (socket as any).user;
 
+    if (authUser && authUser.role === "SUPERADMIN") {
+      socket.join("admin_dashboard");
+    }
+
     // الفرع يسجل دخوله في غرفته لاستقبال طلباته المباشرة (محمي بصلاحية الفرع أو الأدمن)
     socket.on("join_branch", (branchId: string) => {
       if (!branchId) return;
@@ -39,11 +49,34 @@ export function initSocket(server: any): SocketIOServer {
       }
     });
 
-    // العميل يتابع حالة طلبه المباشرة
-    socket.on("join_order", (orderId: string) => {
-      if (orderId) {
-        socket.join(`order_${orderId}`);
+    // العميل يتابع حالة طلبه المباشرة (مع التحقق من ملكية الطلب أو صلاحية الفرع/الطيار/الإدارة)
+    socket.on("join_order", async (orderId: string) => {
+      if (!orderId || typeof orderId !== "string") return;
+      if (!authUser) {
+        console.warn(`[Socket Security] Unauthenticated attempt to join order_${orderId}`);
+        return;
       }
+      try {
+        if (authUser.role === "SUPERADMIN") {
+          socket.join(`order_${orderId}`);
+          return;
+        }
+        const order = await prisma.order.findUnique({
+          where: { id: orderId },
+          select: { userId: true, branchId: true, driverId: true },
+        });
+        if (!order) return;
+        const currentUid = authUser.userId || authUser.id;
+        if (
+          (currentUid && order.userId === currentUid) ||
+          (authUser.branchId && order.branchId === authUser.branchId) ||
+          (authUser.driverId && order.driverId === authUser.driverId)
+        ) {
+          socket.join(`order_${orderId}`);
+        } else {
+          console.warn(`[Socket Security] Unauthorized attempt to join order_${orderId}`);
+        }
+      } catch (_e) {}
     });
 
     // كابتن التوصيل (الطيار) يسجل دخوله في غرفته لاستقبال الطلبات المسندة إليه
@@ -78,25 +111,39 @@ export function initSocket(server: any): SocketIOServer {
 
     // الطلاب في السلة الجماعية التشاركية (متاح عبر كود المشاركة)
     socket.on("join_group_cart", (shareCode: string) => {
-      if (shareCode) {
-        socket.join(`group_cart_${shareCode}`);
+      if (shareCode && typeof shareCode === "string") {
+        socket.join(`group_cart_${shareCode.trim().toUpperCase()}`);
       }
     });
 
-    // استقبال تحديث موقع الطيار اللحظي وبثه للطالب والفرع
+    // استقبال تحديث موقع الطيار اللحظي وبثه للطالب والفرع (محمي بصلاحية الطيار أو الإدارة)
     socket.on("driver_location_update", (data: { driverId: string; lat: number; lng: number; orderId?: string }) => {
-      if (!data || typeof data.lat !== "number" || typeof data.lng !== "number") return;
-      latestDriverLocations.set(data.driverId, {
-        driverId: data.driverId,
+      if (!authUser || (!authUser.driverId && authUser.role !== "SUPERADMIN")) {
+        console.warn("[Socket Security] Unauthorized driver_location_update attempt rejected");
+        return;
+      }
+      if (!data || typeof data.lat !== "number" || typeof data.lng !== "number" || isNaN(data.lat) || isNaN(data.lng)) return;
+      if (data.lat < -90 || data.lat > 90 || data.lng < -180 || data.lng > 180) return;
+
+      const verifiedDriverId = authUser.driverId || data.driverId;
+      if (!verifiedDriverId) return;
+
+      const payload = {
+        driverId: verifiedDriverId,
         lat: data.lat,
         lng: data.lng,
         orderId: data.orderId,
         timestamp: Date.now(),
-      });
+      };
+
+      latestDriverLocations.set(verifiedDriverId, payload);
       if (data.orderId) {
-        io?.to(`order_${data.orderId}`).emit("driver_location_updated", data);
+        io?.to(`order_${data.orderId}`).emit("driver_location_updated", payload);
       }
-      io?.emit("driver_location_updated", data);
+      if (authUser.branchId) {
+        io?.to(`branch_${authUser.branchId}`).emit("driver_location_updated", payload);
+      }
+      io?.to("admin_dashboard").emit("driver_location_updated", payload);
     });
 
     // جلب آخر موقع مسجل للطيار عند فتح شاشة التتبع
@@ -139,15 +186,15 @@ export function notifyOrderStatusChanged(orderId: string, branchId: string, orde
     io.to(`order_${orderId}`).emit("order_status_updated", order);
     io.to(`branch_${branchId}`).emit("order_status_updated", order);
     if (driverId || order?.driverId) {
-      io.to(`driver_${driverId || order.driverId}`).emit("order_status_updated", order);
+      io.to(`driver_${driverId || order.driverId}`).emit("order_status_updated", sanitizeOrderForDriverSocket(order));
     }
   }
 }
 
 export function notifyDriverAssigned(driverId: string, order: any): void {
   if (io) {
-    // إشعار فوري للطيار مع صوت تنبيه عالي
-    io.to(`driver_${driverId}`).emit("new_order_assigned", order);
+    // إشعار فوري للطيار مع صوت تنبيه عالي (مع إخفاء رمز الاستلام السري للعميل)
+    io.to(`driver_${driverId}`).emit("new_order_assigned", sanitizeOrderForDriverSocket(order));
   }
 }
 
@@ -210,9 +257,9 @@ export function notifyPromosUpdated(): void {
 
 export function notifyUserUpdated(userId: string, userData: any): void {
   if (io) {
-    // إشعار فوري للطالب بتحديث رصيد المحفظة أو نقاط الولاء أو حظر الحساب
+    // إشعار خاص فقط بغرفة الطالب المعني ولوحة الإدارة (منع تسريب بيانات المحفظة لباقي المتصلين)
     io.to(`user_${userId}`).emit("user_profile_updated", { userId, ...userData });
-    io.emit("user_profile_updated", { userId, ...userData });
+    io.to("admin_dashboard").emit("user_profile_updated", { userId, ...userData });
   }
 }
 

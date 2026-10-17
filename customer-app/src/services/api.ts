@@ -69,7 +69,7 @@ export const isBranchOpenByHours = (
 };
 
 function getHeaders(isFormData: boolean = false): HeadersInit {
-  const token = localStorage.getItem('customer_token') || localStorage.getItem('admin_token') || localStorage.getItem('driver_token');
+  const token = localStorage.getItem('customer_token');
   const headers: Record<string, string> = {};
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
@@ -81,7 +81,7 @@ function getHeaders(isFormData: boolean = false): HeadersInit {
 }
 
 function getAdminHeaders(isFormData: boolean = false): HeadersInit {
-  const token = localStorage.getItem('admin_token') || localStorage.getItem('customer_token');
+  const token = localStorage.getItem('admin_token');
   const headers: Record<string, string> = {};
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';

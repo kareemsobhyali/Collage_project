@@ -588,8 +588,9 @@ router.get("/verify-phone-link", async (req: Request, res: Response) => {
       return;
     }
 
+    const cleanToken = String(magicToken).trim();
     const record = await prisma.phoneVerificationToken.findUnique({
-      where: { token: String(magicToken).trim() },
+      where: { token: cleanToken },
     });
 
     if (!record || record.used || record.expiresAt < new Date()) {
@@ -597,23 +598,7 @@ router.get("/verify-phone-link", async (req: Request, res: Response) => {
       return;
     }
 
-    await prisma.phoneVerificationToken.update({
-      where: { id: record.id },
-      data: { used: true },
-    });
-
-    const user = await prisma.user.update({
-      where: { phone: record.phone },
-      data: { isVerified: true },
-    });
-
-    const jwtToken = generateToken({
-      userId: user.id,
-      phone: user.phone,
-      role: user.role,
-    });
-
-    res.redirect(`${baseUrl}/?verified=true&token=${jwtToken}`);
+    res.redirect(`${baseUrl}/?verifyToken=${encodeURIComponent(cleanToken)}`);
   } catch (error) {
     console.error("GET verify-phone-link error:", error);
     const baseUrl = getAppBaseUrl(req);

@@ -137,13 +137,23 @@ app.use("/api/driver", driverRoutes);
 app.use("/api/upload", uploadRoutes);
 
 // فحص صحة الخادم وقاعدة البيانات
-app.get("/api/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    database: "PostgreSQL",
-    message: "UniFood API is running securely with PostgreSQL 🚀",
-    timestamp: new Date(),
-  });
+app.get("/api/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: "ok",
+      database: "PostgreSQL",
+      message: "UniFood API is running securely with PostgreSQL 🚀",
+      timestamp: new Date(),
+    });
+  } catch (_err) {
+    res.status(503).json({
+      status: "degraded",
+      database: "PostgreSQL",
+      message: "Database connectivity check failed",
+      timestamp: new Date(),
+    });
+  }
 });
 
 // نقطة نهاية عامة لجلب إعدادات صوت التنبيهات لجميع التطبيقات (POS، الطيار، الإدارة)
@@ -287,19 +297,21 @@ server.listen(PORT, "0.0.0.0", () => {
     }
   }, 5000);
 
-  // فحص ما إذا كانت قاعدة البيانات جديدة/فارغة وحقن البيانات التجريبية تلقائياً
-  setTimeout(async () => {
-    try {
-      const branchesCount = await prisma.branch.count();
-      if (branchesCount === 0) {
-        console.log("[AutoSeed] قاعدة البيانات فارغة (0 مطاعم)، جاري حقن البيانات التجريبية تلقائياً...");
-        await seedMockDatabase();
-        console.log("[AutoSeed] اكتمل حقن البيانات التجريبية بنجاح على السيرفر!");
+  // فحص ما إذا كانت قاعدة البيانات جديدة/فارغة وحقن البيانات التجريبية تلقائياً (فقط في بيئة التطوير أو عند تفعيل ENABLE_AUTO_SEED)
+  if (process.env.NODE_ENV !== "production" || process.env.ENABLE_AUTO_SEED === "true") {
+    setTimeout(async () => {
+      try {
+        const branchesCount = await prisma.branch.count();
+        if (branchesCount === 0) {
+          console.log("[AutoSeed] قاعدة البيانات فارغة (0 مطاعم)، جاري حقن البيانات التجريبية تلقائياً...");
+          await seedMockDatabase();
+          console.log("[AutoSeed] اكتمل حقن البيانات التجريبية بنجاح على السيرفر!");
+        }
+      } catch (seedErr) {
+        console.warn("[AutoSeed] Auto seeding skipped or encountered:", seedErr);
       }
-    } catch (seedErr) {
-      console.warn("[AutoSeed] Auto seeding skipped or encountered:", seedErr);
-    }
-  }, 2000);
+    }, 2000);
+  }
 });
 
 export default app;

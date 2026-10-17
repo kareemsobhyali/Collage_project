@@ -2,11 +2,18 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import prisma from "../prisma.js";
 import { generateToken, authenticateDriver, AuthRequest } from "../middleware/auth.js";
+import { authLimiter } from "../middleware/rateLimiter.js";
 import { notifyOrderStatusChanged, notifyDriverRejectedOrder } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted } from "../services/settings.service.js";
 import { getDriverBranchConfig, markOrderAcceptedByDriver, isOrderAcceptedByDriver } from "../services/driver.service.js";
 
 const router = Router();
+
+function sanitizeOrderForDriver(order: any): any {
+  if (!order || typeof order !== "object") return order;
+  const { pickupPin, ...safeOrder } = order;
+  return safeOrder;
+}
 
 // 1. تسجيل دخول كابتن التوصيل (الطيار)
 router.post("/login", async (req: Request, res: Response) => {
@@ -114,8 +121,9 @@ router.get("/me", async (req: AuthRequest, res: Response) => {
       servedBranchNames = branches.map(b => b.name);
     }
 
+    const { password: _pwd, ...safeDriver } = driver;
     res.json({
-      ...driver,
+      ...safeDriver,
       isAllBranches: config.isAllBranches,
       servedBranchNames,
     });
@@ -149,10 +157,10 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
     const enrichedOrders = await Promise.all(
       orders.map(async (o) => {
         const isAccepted = Boolean(o.driverPickedUpAt) || (await isOrderAcceptedByDriver(o.id));
-        return {
+        return sanitizeOrderForDriver({
           ...o,
           isDriverAccepted: isAccepted,
-        };
+        });
       })
     );
 
@@ -183,6 +191,11 @@ router.put("/orders/:id/accept", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    if (order.status === "REJECTED" || order.status === "COMPLETED") {
+      res.status(400).json({ error: "لا يمكن قبول طلب ملغى أو مكتمل" });
+      return;
+    }
+
     await markOrderAcceptedByDriver(orderId, driverId);
 
     const updated = {
@@ -196,7 +209,7 @@ router.put("/orders/:id/accept", async (req: AuthRequest, res: Response) => {
     res.json({
       success: true,
       message: "تم قبول الطلب بنجاح! توجه للفرع لاستلام الوجبة 🛵",
-      order: updated,
+      order: sanitizeOrderForDriver(updated),
     });
   } catch (error) {
     console.error("Driver accept order error:", error);
@@ -265,7 +278,7 @@ router.put("/orders/:id/reject", async (req: AuthRequest, res: Response) => {
     res.json({
       success: true,
       message: "تم الاعتذار عن استلام الطلب بنجاح وإعادته للفرع",
-      order: updated,
+      order: sanitizeOrderForDriver(updated),
     });
   } catch (error) {
     console.error("Driver reject order error:", error);
@@ -285,6 +298,11 @@ router.put("/orders/:id/pickup", async (req: AuthRequest, res: Response) => {
 
     if (!order || order.driverId !== driverId) {
       res.status(404).json({ error: "الطلب غير مسند لك" });
+      return;
+    }
+
+    if (order.status === "REJECTED" || order.status === "COMPLETED") {
+      res.status(400).json({ error: "لا يمكن استلام طلب ملغى أو مكتمل" });
       return;
     }
 
@@ -318,7 +336,7 @@ router.put("/orders/:id/pickup", async (req: AuthRequest, res: Response) => {
     res.json({
       success: true,
       message: "تم تأكيد الاستلام بنجاح، بالتوفيق في توصيل الوجبة!",
-      order: updated,
+      order: sanitizeOrderForDriver(updated),
     });
   } catch (error) {
     console.error("Driver pickup order error:", error);
@@ -327,7 +345,7 @@ router.put("/orders/:id/pickup", async (req: AuthRequest, res: Response) => {
 });
 
 // 6. تأكيد تسليم الوجبة للعميل باستخدام رمز الأمان (PIN Verification)
-router.put("/orders/:id/deliver", async (req: AuthRequest, res: Response) => {
+router.put("/orders/:id/deliver", authLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const orderId = req.params.id as string;
     const driverId = req.driver!.driverId;
@@ -344,6 +362,16 @@ router.put("/orders/:id/deliver", async (req: AuthRequest, res: Response) => {
 
     if (!order || order.driverId !== driverId) {
       res.status(404).json({ error: "الطلب غير مسند لك" });
+      return;
+    }
+
+    if (order.status === "REJECTED") {
+      res.status(400).json({ error: "هذا الطلب ملغى أو مرفوض ولا يمكن تسليمه" });
+      return;
+    }
+
+    if (order.status === "COMPLETED") {
+      res.status(400).json({ error: "هذا الطلب مكتمل بالفعل" });
       return;
     }
 
@@ -385,7 +413,7 @@ router.put("/orders/:id/deliver", async (req: AuthRequest, res: Response) => {
     res.json({
       success: true,
       message: "تم تسليم الطلب بنجاح واكتمال الدورة! شكراً لك ⚡",
-      order: updated,
+      order: sanitizeOrderForDriver(updated),
     });
   } catch (error) {
     console.error("Driver deliver order error:", error);

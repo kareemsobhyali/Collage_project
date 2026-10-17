@@ -12,6 +12,12 @@ self.addEventListener('activate', (event) => {
 // مطلوب لتفعيل التثبيت الفوري الموثق من جوجل كروم (WebAPK) بدون تحذيرات Play Protect
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  try {
+    const url = new URL(event.request.url);
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/')) {
+      return;
+    }
+  } catch (_e) {}
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );

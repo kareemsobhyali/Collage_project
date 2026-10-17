@@ -62,8 +62,10 @@ jobs:
 
       - name: Build Signed Student, Driver, Admin & Restaurant APKs
         working-directory: android-app
+        env:
+          INPUT_BASE_URL: ${{ github.event.inputs.base_url }}
         run: |
-          SERVER_URL="${{ github.event.inputs.base_url || 'https://collage-project-5zby.onrender.com' }}"
+          SERVER_URL="${INPUT_BASE_URL:-https://collage-project-5zby.onrender.com}"
           gradle assembleRelease -PBASE_URL="$SERVER_URL" --no-daemon
 
       - name: Collect Built APKs

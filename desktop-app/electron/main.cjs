@@ -12,10 +12,13 @@ function createWindow() {
     title: 'نظام مطاعم الجامعة - لوحة الفرع واستقبال الطلبات',
     autoHideMenuBar: true,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   });
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   const devUrl = 'http://localhost:5173';
   mainWindow.loadURL(devUrl).catch(() => {

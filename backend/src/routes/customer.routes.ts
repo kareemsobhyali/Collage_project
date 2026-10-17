@@ -1,12 +1,12 @@
 import { Router, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import prisma from "../prisma.js";
-import { authenticateUser, AuthRequest } from "../middleware/auth.js";
+import { authenticateUser, AuthRequest, JWT_SECRET } from "../middleware/auth.js";
 import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated } from "../sockets/socketManager.js";
 import { getLoyaltySettings, awardLoyaltyPointsIfCompleted, getRestaurantLocationSettings } from "../services/settings.service.js";
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-campus-delivery-2026";
 
 // جلب موقع المطعم الرئيسي والخرائط للعملاء والطيارين
 router.get("/public/restaurant-location", async (_req: Request, res: Response) => {
@@ -129,8 +129,33 @@ router.post("/promo-codes/validate", async (req: Request, res: Response) => {
   }
 });
 
-// دالة مساعدة للتحقق من وقوع التوقيت (بتوقيت مصر) داخل مواعيد العمل الرسمية للفرع
-function isBranchWithinWorkingHours(openingTime?: string | null, closingTime?: string | null, targetDate?: Date): boolean {
+// دالة مساعدة للتحقق من وقوع التوقيت وأيام العمل (بتوقيت مصر) داخل مواعيد العمل الرسمية للفرع
+function isBranchWithinWorkingHours(
+  openingTime?: string | null,
+  closingTime?: string | null,
+  targetDate?: Date,
+  workingDays?: string | null
+): boolean {
+  const base = targetDate || new Date();
+  const cairoDate = new Date(base.toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
+
+  // التحقق من أيام العمل إذا كانت محددة explicitly
+  if (workingDays && workingDays.trim()) {
+    const wd = workingDays.trim();
+    const dayIndex = cairoDate.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+    if ((wd.includes("السبت - الخميس") || wd.includes("ماعدا الجمعة") || wd.includes("عدا الجمعة")) && dayIndex === 5) {
+      return false;
+    }
+    const arabicDays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    const arabicAlt = ["الاحد", "الاثنين", "الثلاثاء", "الاربعاء", "الخميس", "الجمعة", "السبت"];
+    if (!wd.includes("-") && !wd.includes("يوميا") && !wd.includes("يومياً") && !wd.includes("كل") && !wd.includes("طوال")) {
+      const hasAnyDayName = arabicDays.some((d, idx) => wd.includes(d) || wd.includes(arabicAlt[idx]));
+      if (hasAnyDayName && !wd.includes(arabicDays[dayIndex]) && !wd.includes(arabicAlt[dayIndex])) {
+        return false;
+      }
+    }
+  }
+
   if (!openingTime || !closingTime) return true;
   const openParts = openingTime.split(":").map(Number);
   const closeParts = closingTime.split(":").map(Number);
@@ -141,9 +166,6 @@ function isBranchWithinWorkingHours(openingTime?: string | null, closingTime?: s
   const closeMins = closeParts[0] * 60 + (closeParts[1] || 0);
   if (openMins === closeMins) return true;
 
-  // الحصول على التوقيت في مصر (Africa/Cairo)
-  const base = targetDate || new Date();
-  const cairoDate = new Date(base.toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
   const currentMins = cairoDate.getHours() * 60 + cairoDate.getMinutes();
 
   if (closeMins > openMins) {
@@ -181,7 +203,7 @@ router.get("/branches", async (_req: Request, res: Response) => {
         currentReason = null;
       }
 
-      const isWithinWorkingHours = isBranchWithinWorkingHours(b.openingTime, b.closingTime);
+      const isWithinWorkingHours = isBranchWithinWorkingHours(b.openingTime, b.closingTime, now, b.workingDays);
 
       return {
         ...b,
@@ -285,7 +307,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       currentReason = null;
     }
 
-    const isWithinWorkingHours = isBranchWithinWorkingHours(branch.openingTime, branch.closingTime);
+    const isWithinWorkingHours = isBranchWithinWorkingHours(branch.openingTime, branch.closingTime, now, branch.workingDays);
 
     res.json({
       branch: {
@@ -316,13 +338,24 @@ router.post("/group-cart/create", async (req: Request, res: Response) => {
       return;
     }
 
-    // توليد كود مشاركة فريد من 6 أحرف
-    const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // توليد كود مشاركة عشوائي آمن وفريد من 6 أحرف
+    let shareCode = "";
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = crypto.randomBytes(4).toString("hex").substring(0, 6).toUpperCase();
+      const exists = await prisma.groupCart.findUnique({ where: { shareCode: candidate } });
+      if (!exists) {
+        shareCode = candidate;
+        break;
+      }
+    }
+    if (!shareCode) {
+      shareCode = crypto.randomBytes(4).toString("hex").toUpperCase();
+    }
 
     const cart = await prisma.groupCart.create({
       data: {
         branchId,
-        hostName: hostName.trim(),
+        hostName: String(hostName).trim(),
         shareCode,
       },
       include: {
@@ -377,13 +410,13 @@ router.get("/group-cart/:code", async (req: Request, res: Response) => {
   }
 });
 
-// إضافة صنف لسلة الشلة باسم الطالب
+// إضافة صنف لسلة الشلة باسم الطالب (مع التحقق من السعر الحقيقي من قاعدة البيانات)
 router.post("/group-cart/:code/items", async (req: Request, res: Response) => {
   try {
     const code = (req.params.code as string).toUpperCase();
     const { studentName, menuItemId, itemName, sizeName, unitPrice, quantity, notes, selectedModifiers } = req.body;
 
-    if (!studentName || !menuItemId || !itemName || unitPrice === undefined) {
+    if (!studentName || !menuItemId || !itemName) {
       res.status(400).json({ error: "بيانات الصنف غير مكتملة" });
       return;
     }
@@ -397,22 +430,76 @@ router.post("/group-cart/:code/items", async (req: Request, res: Response) => {
       return;
     }
 
-    const qty = Math.max(1, parseInt(quantity) || 1);
-    const price = parseFloat(unitPrice) || 0;
-    const totalPrice = price * qty;
+    const dbItem = await prisma.menuItem.findUnique({
+      where: { id: String(menuItemId) },
+      include: { sizes: true },
+    });
+
+    if (!dbItem || dbItem.branchId !== cart.branchId || !dbItem.isAvailable) {
+      res.status(400).json({ error: "الصنف المطلوب غير متاح في هذا المطعم" });
+      return;
+    }
+
+    let realBasePrice = dbItem.basePrice;
+    if (dbItem.sizes && dbItem.sizes.length > 0) {
+      const matchedSize = sizeName ? dbItem.sizes.find(s => s.name === sizeName) : dbItem.sizes[0];
+      if (!matchedSize) {
+        res.status(400).json({ error: "حجم الصنف المختار غير صالح" });
+        return;
+      }
+      realBasePrice = matchedSize.price;
+    }
+
+    let modifiersExtra = 0;
+    let comboExtra = 0;
+    let parsedMods: any[] = [];
+    if (selectedModifiers) {
+      try {
+        parsedMods = Array.isArray(selectedModifiers) ? selectedModifiers : JSON.parse(String(selectedModifiers));
+      } catch {
+        parsedMods = [];
+      }
+    }
+
+    for (const mod of parsedMods) {
+      if (mod.groupId === "combo" && dbItem.comboItems) {
+        try {
+          const combos = typeof dbItem.comboItems === "string" ? JSON.parse(dbItem.comboItems) : dbItem.comboItems;
+          if (Array.isArray(combos)) {
+            const foundCombo = combos.find((c: any) => c.id === mod.optionId || c.title === mod.optionName || mod.optionName?.startsWith(c.title));
+            if (foundCombo) {
+              const cQty = Math.max(1, Number(mod.quantity) || 1);
+              comboExtra += Math.max(0, Number(foundCombo.price) || 0) * cQty;
+            }
+          }
+        } catch {}
+      } else if (mod.optionId) {
+        const dbOpt = await prisma.modifierOption.findUnique({
+          where: { id: String(mod.optionId) },
+          include: { group: { select: { branchId: true } } },
+        });
+        if (dbOpt && dbOpt.isAvailable && dbOpt.group.branchId === cart.branchId) {
+          modifiersExtra += Math.max(0, dbOpt.price);
+        }
+      }
+    }
+
+    const qty = Math.max(1, Math.min(100, parseInt(quantity) || 1));
+    const verifiedUnitPrice = realBasePrice + modifiersExtra;
+    const totalPrice = verifiedUnitPrice * qty + comboExtra;
 
     await prisma.groupCartItem.create({
       data: {
         groupCartId: cart.id,
-        studentName: studentName.trim(),
-        menuItemId,
-        itemName: itemName.trim(),
+        studentName: String(studentName).trim(),
+        menuItemId: dbItem.id,
+        itemName: dbItem.name,
         sizeName: sizeName || null,
-        unitPrice: price,
+        unitPrice: verifiedUnitPrice,
         quantity: qty,
         totalPrice,
         notes: notes ? String(notes).trim() : null,
-        selectedModifiers: selectedModifiers ? (typeof selectedModifiers === "object" ? JSON.stringify(selectedModifiers) : String(selectedModifiers)) : null,
+        selectedModifiers: parsedMods.length > 0 ? JSON.stringify(parsedMods) : null,
       },
     });
 
@@ -454,8 +541,8 @@ router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Respo
       return;
     }
 
-    // التحقق من الصلاحية: صاحب الصنف فقط أو منشئ السلة هو المخول بالحذف
-    if (studentName && studentName !== item.studentName && studentName !== cart.hostName) {
+    // التحقق الإلزامي من الصلاحية: صاحب الصنف فقط أو منشئ السلة هو المخول بالحذف
+    if (!studentName || (studentName !== item.studentName && studentName !== cart.hostName)) {
       res.status(403).json({ error: "لا يمكنك حذف أصناف طالب آخر! يمكنك فقط حذف أو تعديل أصنافك الخاصة." });
       return;
     }
@@ -541,17 +628,25 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    if (!isBranchWithinWorkingHours(branch.openingTime, branch.closingTime)) {
+    if (!isBranchWithinWorkingHours(branch.openingTime, branch.closingTime, currentTime, branch.workingDays)) {
       res.status(400).json({
         error: `عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || "08:00"} - ${branch.closingTime || "22:00"}). غير متاح عمل طلبات أو حجز مسبق طالما الفرع مغلق.`,
       });
       return;
     }
 
-    // إذا كان الطلب محجوزاً مسبقاً، يجب أن يكون موعد الحجز نفسه واقعاً ضمن ساعات عمل المطعم الرسمية
-    if (isScheduled && scheduledFor) {
+    // إذا كان الطلب محجوزاً مسبقاً، يجب أن يكون موعد الحجز صالحاً وفي المستقبل وضمن ساعات عمل المطعم الرسمية
+    if (isScheduled) {
+      if (!scheduledFor) {
+        res.status(400).json({ error: "يرجى تحديد موعد الاستلام أو التوصيل للطلب المجدول" });
+        return;
+      }
       const scheduledDate = new Date(scheduledFor);
-      if (!isBranchWithinWorkingHours(branch.openingTime, branch.closingTime, scheduledDate)) {
+      if (isNaN(scheduledDate.getTime()) || scheduledDate.getTime() < currentTime.getTime() - 60 * 1000) {
+        res.status(400).json({ error: "موعد الحجز المسبق غير صالح أو في وقت سابق، يرجى اختيار موعد مستقبلي" });
+        return;
+      }
+      if (!isBranchWithinWorkingHours(branch.openingTime, branch.closingTime, scheduledDate, branch.workingDays)) {
         res.status(400).json({
           error: `موعد الحجز المسبق المختار (${scheduledDate.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}) يقع خارج ساعات عمل المطعم (${branch.openingTime || "08:00"} - ${branch.closingTime || "22:00"}). يرجى اختيار موعد ضمن فترة العمل.`,
         });
@@ -619,19 +714,29 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       }
 
       let unitPrice = dbItem.basePrice;
-      if (itemInput.sizeName && dbItem.sizes && dbItem.sizes.length > 0) {
-        const matchedSize = dbItem.sizes.find(s => s.name === itemInput.sizeName);
-        if (matchedSize) {
+      let resolvedSizeName: string | null = itemInput.sizeName || null;
+      if (dbItem.sizes && dbItem.sizes.length > 0) {
+        if (itemInput.sizeName) {
+          const matchedSize = dbItem.sizes.find(s => s.name === itemInput.sizeName);
+          if (!matchedSize) {
+            res.status(400).json({ error: `الحجم المختار للصنف "${dbItem.name}" غير صالح` });
+            return;
+          }
           unitPrice = matchedSize.price;
+        } else {
+          unitPrice = dbItem.sizes[0].price;
+          resolvedSizeName = dbItem.sizes[0].name;
         }
       }
 
       // جلب والتحقق الفعلي من أسعار الإضافات المختارة من قاعدة البيانات لمنع أي تلاعب بالسعر من العميل
       let modifiersExtra = 0;
+      let comboExtra = 0;
       const verifiedModifiers: any[] = [];
       if (itemInput.selectedModifiers && Array.isArray(itemInput.selectedModifiers)) {
         for (const mod of itemInput.selectedModifiers) {
           let realModPrice = 0;
+          let isComboMod = false;
           let optionName = String(mod.optionName || mod.name || "").trim();
           if (mod.groupId === 'combo' && dbItem.comboItems) {
             try {
@@ -642,16 +747,20 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
                   const qty = Math.max(1, Number(mod.quantity) || 1);
                   realModPrice = Math.max(0, Number(foundCombo.price) || 0) * qty;
                   optionName = foundCombo.title + (qty > 1 ? ` (×${qty})` : "");
+                  isComboMod = true;
                 }
               }
             } catch (_e) {}
           } else if (mod.optionId) {
             const dbOption = await prisma.modifierOption.findUnique({
               where: { id: mod.optionId },
+              include: { group: { select: { branchId: true } } },
             });
-            if (dbOption && dbOption.isAvailable) {
+            if (dbOption && dbOption.isAvailable && dbOption.group.branchId === branchId) {
               realModPrice = Math.max(0, dbOption.price);
               optionName = dbOption.name;
+            } else {
+              continue;
             }
           } else if (optionName) {
             const dbOption = await prisma.modifierOption.findFirst({
@@ -665,7 +774,11 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
               realModPrice = Math.max(0, dbOption.price);
             }
           }
-          modifiersExtra += realModPrice;
+          if (isComboMod) {
+            comboExtra += realModPrice;
+          } else {
+            modifiersExtra += realModPrice;
+          }
           verifiedModifiers.push({
             optionId: mod.optionId,
             optionName: optionName || "إضافة",
@@ -676,14 +789,14 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
 
       const totalItemUnit = unitPrice + modifiersExtra;
       const quantity = Math.max(1, Math.min(100, parseInt(itemInput.quantity) || 1));
-      const itemTotalPrice = totalItemUnit * quantity;
+      const itemTotalPrice = (totalItemUnit * quantity) + comboExtra;
 
       subtotal += itemTotalPrice;
 
       orderItemsData.push({
         menuItemId: dbItem.id,
         itemName: dbItem.name,
-        sizeName: itemInput.sizeName || null,
+        sizeName: resolvedSizeName,
         unitPrice: totalItemUnit,
         quantity,
         totalPrice: itemTotalPrice,
@@ -695,9 +808,16 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     // حساب رسوم التوصيل من إعدادات الفرع الفعلية
     let calculatedDeliveryFee = 0;
     if (orderType === "DELIVERY") {
-      if (branch.deliveryType === "ZONES" && deliveryZoneName && branch.deliveryZones.length > 0) {
-        const matchedZone = branch.deliveryZones.find(z => z.name === deliveryZoneName);
-        calculatedDeliveryFee = matchedZone ? matchedZone.fee : branch.deliveryFee;
+      if (branch.deliveryType === "ZONES" && branch.deliveryZones.length > 0) {
+        const matchedZone = deliveryZoneName
+          ? branch.deliveryZones.find(z => z.name === deliveryZoneName)
+          : null;
+        if (matchedZone) {
+          calculatedDeliveryFee = matchedZone.fee;
+        } else {
+          // في حال لم يطابق اسم المنطقة، استخدام أول منطقة معتمدة أو رسوم الفرع الأساسية
+          calculatedDeliveryFee = Math.max(branch.deliveryFee, branch.deliveryZones[0].fee);
+        }
       } else {
         calculatedDeliveryFee = Math.max(0, branch.deliveryFee);
       }
@@ -794,49 +914,80 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       : 0;
 
     // توليد رمز أمان استلام عشوائي (4 أرقام) للتحقق عند التسليم مع الطيار
-    const pickupPin = Math.floor(1000 + Math.random() * 9000).toString();
+    const pickupPin = crypto.randomInt(1000, 10000).toString();
 
-    // إنشاء الطلب وخصم المحفظة في عملية متسلسلة ذرية واحدة لحماية الرصيد ومنع تكرار أرقام الطلبات
+    // إنشاء الطلب وخصم المحفظة في عملية متسلسلة ذرية واحدة لحماية الرصيد ومنع تكرار الطلبات
     const { order, updatedUser } = await prisma.$transaction(async (tx) => {
-      // توليد رقم طلب تصاعدي وفريد بدقة داخل المعاملة لمنع سباق العمليات
+      // منع تكرار الطلبات الناتج عن الضغط المزدوج السريع (Idempotency guard خلال 5 ثوانٍ)
+      const duplicateOrder = await tx.order.findFirst({
+        where: {
+          userId,
+          branchId,
+          subtotal,
+          status: "PENDING",
+          createdAt: { gte: new Date(Date.now() - 5000) },
+        },
+        select: { id: true },
+      });
+      if (duplicateOrder) {
+        throw new Error("DUPLICATE_ORDER_SUBMISSION");
+      }
+
+      // التحقق الذري من كود الخصم وشرط المرة الواحدة داخل المعاملة
+      if (verifiedPromoId && verifiedPromoCode) {
+        const freshPromo = await tx.promoCode.findUnique({
+          where: { id: verifiedPromoId },
+        });
+        if (!freshPromo || !freshPromo.isActive) {
+          throw new Error("PROMO_INVALID");
+        }
+        if (freshPromo.maxUses && freshPromo.usedCount >= freshPromo.maxUses) {
+          throw new Error("PROMO_EXHAUSTED");
+        }
+        if (freshPromo.oncePerUser) {
+          const usedByUser = await tx.order.count({
+            where: { userId, promoCode: verifiedPromoCode, status: { not: "REJECTED" } },
+          });
+          if (usedByUser > 0) {
+            throw new Error("PROMO_ALREADY_USED_BY_USER");
+          }
+        }
+        await tx.promoCode.update({
+          where: { id: verifiedPromoId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+
+      // توليد رقم طلب تصاعدي وفريد داخل المعاملة
       const lastOrder = await tx.order.findFirst({
         orderBy: { orderNumber: "desc" },
         select: { orderNumber: true },
       });
       const orderNumber = lastOrder && lastOrder.orderNumber >= 1000 ? lastOrder.orderNumber + 1 : 1001;
 
-      // التحقق من الرصيد داخل المعاملة لمنع استنزاف المحفظة بالتزامن
+      // التحقق الذري من الرصيد داخل المعاملة لمنع استنزاف المحفظة بالتزامن
       let userAfterWallet = null;
       if (walletDiscount > 0) {
-        const freshUser = await tx.user.findUnique({ where: { id: userId } });
-        if (!freshUser || (freshUser.walletBalance || 0) < walletDiscount) {
-          throw new Error("رصيد المحفظة الحالي غير كافٍ لإتمام عملية الخصم");
-        }
-        userAfterWallet = await tx.user.update({
-          where: { id: userId },
+        const walletClaim = await tx.user.updateMany({
+          where: { id: userId, walletBalance: { gte: walletDiscount } },
           data: { walletBalance: { decrement: walletDiscount } },
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            role: true,
-            loyaltyPoints: true,
-            walletBalance: true,
-          },
         });
-      } else {
-        userAfterWallet = await tx.user.findUnique({
-          where: { id: userId },
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            role: true,
-            loyaltyPoints: true,
-            walletBalance: true,
-          },
-        });
+        if (walletClaim.count === 0) {
+          throw new Error("INSUFFICIENT_WALLET_BALANCE");
+        }
       }
+
+      userAfterWallet = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          role: true,
+          loyaltyPoints: true,
+          walletBalance: true,
+        },
+      });
 
       const createdOrder = await tx.order.create({
         data: {
@@ -892,21 +1043,6 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         },
       });
 
-      if (verifiedPromoId) {
-        const freshPromo = await tx.promoCode.findUnique({
-          where: { id: verifiedPromoId },
-        });
-        if (freshPromo) {
-          if (freshPromo.maxUses && freshPromo.usedCount >= freshPromo.maxUses) {
-            throw new Error("عذراً، كود الخصم وصل للحد الأقصى لعدد مرات الاستخدام المسموحة");
-          }
-          await tx.promoCode.update({
-            where: { id: verifiedPromoId },
-            data: { usedCount: { increment: 1 } },
-          });
-        }
-      }
-
       return { order: createdOrder, updatedUser: userAfterWallet };
     });
 
@@ -918,7 +1054,23 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       order,
       user: updatedUser,
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === "DUPLICATE_ORDER_SUBMISSION") {
+      res.status(409).json({ error: "تم استلام طلبك بالفعل، يرجى الانتظار لحظات" });
+      return;
+    }
+    if (error?.message === "INSUFFICIENT_WALLET_BALANCE") {
+      res.status(400).json({ error: "رصيد المحفظة الحالي غير كافٍ لإتمام عملية الخصم" });
+      return;
+    }
+    if (error?.message === "PROMO_EXHAUSTED" || error?.message === "PROMO_INVALID") {
+      res.status(400).json({ error: "عذراً، كود الخصم غير متاح أو وصل للحد الأقصى للاستخدام" });
+      return;
+    }
+    if (error?.message === "PROMO_ALREADY_USED_BY_USER") {
+      res.status(400).json({ error: "لقد قمت باستخدام كود الخصم هذا مسبقاً" });
+      return;
+    }
     console.error("Create order error:", error);
     res.status(500).json({ error: "فشل تسجيل الطلب" });
   }
@@ -975,7 +1127,7 @@ router.get("/my-orders", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 6. إلغاء الطلب من جهة الطالب (فقط إذا كان ما زال جديداً PENDING) مع استرداد رصيد المحفظة تلقائياً
+// 6. إلغاء الطلب من جهة الطالب (فقط إذا كان ما زال جديداً PENDING) مع استرداد رصيد المحفظة تلقائياً دون خصم نقاط الولاء السابقة
 router.put("/orders/:id/cancel", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
@@ -997,21 +1149,33 @@ router.put("/orders/:id/cancel", async (req: AuthRequest, res: Response) => {
     }
 
     const { updated, updatedUser } = await prisma.$transaction(async (tx) => {
-      const updatedOrder = await tx.order.update({
-        where: { id },
+      // تحديث ذري مشروط بكون الحالة PENDING لمنع تكرار استرداد المحفظة при الطلبات المتزامنة
+      const claim = await tx.order.updateMany({
+        where: { id, userId, status: "PENDING" },
         data: {
           status: "REJECTED",
           cancelledAt: new Date(),
           notes: `${order.notes ? order.notes + " | " : ""}تم إلغاء الطلب من قِبل الطالب`,
         },
+      });
+      if (claim.count === 0) {
+        throw new Error("ORDER_NOT_PENDING");
+      }
+
+      const updatedOrder = await tx.order.findUniqueOrThrow({
+        where: { id },
         include: { items: true, branch: true },
       });
 
       let refundedUser = null;
       const currentUser = await tx.user.findUnique({ where: { id: userId } });
       if (currentUser) {
-        const refundedWallet = (currentUser.walletBalance || 0) + (order.walletDiscount || 0);
-        const revertedPoints = Math.max(0, (currentUser.loyaltyPoints || 0) - (order.pointsEarned || 0));
+        const refundedWallet = Number(((currentUser.walletBalance || 0) + (order.walletDiscount || 0)).toFixed(2));
+        // لا يتم خصم النقاط إلا إذا كانت قد أُودعت بالفعل (pointsAwarded === true)
+        const revertedPoints = order.pointsAwarded
+          ? Math.max(0, (currentUser.loyaltyPoints || 0) - (order.pointsEarned || 0))
+          : (currentUser.loyaltyPoints || 0);
+
         refundedUser = await tx.user.update({
           where: { id: userId },
           data: {
@@ -1045,7 +1209,11 @@ router.put("/orders/:id/cancel", async (req: AuthRequest, res: Response) => {
     notifyOrderStatusChanged(id, order.branchId, updated);
 
     res.json({ success: true, order: updated, user: updatedUser });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === "ORDER_NOT_PENDING") {
+      res.status(400).json({ error: "لا يمكن إلغاء هذا الطلب حالياً" });
+      return;
+    }
     console.error("Cancel order error:", error);
     res.status(500).json({ error: "فشل إلغاء الطلب" });
   }

@@ -16,6 +16,7 @@ export interface DetectedPrinter {
 export const isElectron = (): boolean => {
   if (typeof window === 'undefined') return false;
   return Boolean(
+    (window as any).electronAPI?.isElectron ||
     (window as any).process?.type ||
     (window as any).electron ||
     navigator.userAgent.toLowerCase().includes('electron') ||
@@ -24,12 +25,26 @@ export const isElectron = (): boolean => {
 };
 
 export const getElectronIpc = () => {
-  if (typeof window !== 'undefined' && typeof (window as any).require === 'function') {
-    try {
-      return (window as any).require('electron').ipcRenderer;
-    } catch (_e) {}
+  if (typeof window !== 'undefined') {
+    if ((window as any).electronAPI && typeof (window as any).electronAPI.invoke === 'function') {
+      return (window as any).electronAPI;
+    }
+    if (typeof (window as any).require === 'function') {
+      try {
+        return (window as any).require('electron').ipcRenderer;
+      } catch (_e) {}
+    }
   }
   return null;
+};
+
+const escapeHtml = (val: unknown): string => {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 };
 
 // 1. استعلام الطابعات المتعرف عليها من نظام التشغيل
@@ -111,16 +126,19 @@ export const setReceiptPaperWidth = (width: '80mm' | '58mm'): void => {
 };
 
 export const generateReceiptHtml = (order: any, branchName: string, paperWidth: '80mm' | '58mm' = '80mm'): string => {
-  const formattedDate = new Date(order.createdAt || Date.now()).toLocaleString('ar-EG', {
+  const formattedDate = escapeHtml(new Date(order.createdAt || Date.now()).toLocaleString('ar-EG', {
     dateStyle: 'short',
     timeStyle: 'short',
-  });
+  }));
 
   const is58 = paperWidth === '58mm';
   // عرض آمن جداً لمنع قص الأرقام والأسعار من الحافة اليسرى لورق الطابعة
   const bodyWidth = is58 ? '46mm' : '62mm';
   const fontSize = is58 ? '11px' : '12px';
   const titleSize = is58 ? '16px' : '19px';
+
+  const safeBranchName = escapeHtml(branchName);
+  const safeOrderNumber = escapeHtml(order.orderNumber || '—');
 
   const itemsHtml = (order.items || []).map((item: any) => {
     let modifiersList: any[] = [];
@@ -132,31 +150,32 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
       } catch (e) {}
     }
     const modsText = modifiersList && modifiersList.length > 0 
-      ? `<div style="font-size: 11px; font-weight: 700; color: #000; padding-right: 8px; margin-top: 2px;">+ ${modifiersList.map((m: any) => `${m.optionName} (${m.price} ج.م)`).join('، ')}</div>`
+      ? `<div style="font-size: 11px; font-weight: 700; color: #000; padding-right: 8px; margin-top: 2px;">+ ${modifiersList.map((m: any) => `${escapeHtml(m.optionName)} (${escapeHtml(m.price)} ج.م)`).join('، ')}</div>`
       : '';
     return `
       <div style="border-bottom: 1px dashed #000; padding: 5px 0;">
         <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: ${is58 ? '12px' : '13px'}; color: #000;">
-          <span style="text-align: right;">${item.quantity} × ${item.itemName} ${item.sizeName ? `(${item.sizeName})` : ''}</span>
-          <span style="direction: ltr; font-weight: 900; padding-left: 4px; white-space: nowrap;">${item.totalPrice} ج.م</span>
+          <span style="text-align: right;">${escapeHtml(item.quantity)} × ${escapeHtml(item.itemName)} ${item.sizeName ? `(${escapeHtml(item.sizeName)})` : ''}</span>
+          <span style="direction: ltr; font-weight: 900; padding-left: 4px; white-space: nowrap;">${escapeHtml(item.totalPrice)} ج.م</span>
         </div>
         ${modsText}
       </div>
     `;
   }).join('');
 
-  const paymentLabel = 
+  const paymentLabel = escapeHtml(
     order.paymentMethod === 'CASH' ? 'كاش عند الاستلام' :
     order.paymentMethod === 'VODAFONE_CASH' ? 'محفظة كاش' :
     order.paymentMethod === 'INSTAPAY' ? 'إنستاباي' :
-    order.paymentMethod === 'CARD' ? 'بطاقة دفع' : (order.paymentMethod || 'نقدي');
+    order.paymentMethod === 'CARD' ? 'بطاقة دفع' : (order.paymentMethod || 'نقدي')
+  );
 
   return `
     <!DOCTYPE html>
     <html dir="rtl" lang="ar">
       <head>
         <meta charset="utf-8" />
-        <title>بون طلب #${order.orderNumber || ''} - ${branchName}</title>
+        <title>بون طلب #${safeOrderNumber} - ${safeBranchName}</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap');
           @page {
@@ -231,13 +250,13 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
       <body>
         <div class="center">
           <div style="font-size: 11px; font-weight: 900; letter-spacing: 0.5px;">UNIFOOD • يونيفود للجامعات</div>
-          <div style="font-size: ${titleSize}; font-weight: 900; margin: 2px 0;">${branchName}</div>
+          <div style="font-size: ${titleSize}; font-weight: 900; margin: 2px 0;">${safeBranchName}</div>
           <div style="font-size: 11px; font-weight: 800;">منظومة توصيل طلبات الحرم الجامعي</div>
           <div class="dashed"></div>
 
           <div class="row">
             <span class="font-bold">رقم الطلب:</span>
-            <span class="price-val" style="font-size: 17px; font-weight: 900;">#${order.orderNumber || '—'}</span>
+            <span class="price-val" style="font-size: 17px; font-weight: 900;">#${safeOrderNumber}</span>
           </div>
           <div class="row">
             <span>الوقت:</span>
@@ -254,16 +273,16 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
           ${order.estimatedMinutes ? `
           <div class="row" style="font-weight: 900;">
             <span>الوقت المقدر:</span>
-            <span>${order.estimatedMinutes} دقيقة</span>
+            <span>${escapeHtml(order.estimatedMinutes)} دقيقة</span>
           </div>` : ''}
 
           <div class="customer-card">
-            <div><strong>العميل:</strong> ${order.customerName || 'طالب'}</div>
-            <div><strong>الهاتف:</strong> ${order.customerPhone || '—'}</div>
-            ${order.orderType === 'DELIVERY' && order.deliveryZoneName ? `<div><strong>منطقة التوصيل:</strong> ${order.deliveryZoneName}</div>` : ''}
-            ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${order.addressText}</div>` : ''}
-            ${order.paymentSenderPhone ? `<div><strong>رقم المحول منه:</strong> ${order.paymentSenderPhone}</div>` : ''}
-            ${order.notes ? `<div style="font-weight: 900; margin-top: 2px;"><strong>ملاحظات:</strong> ${order.notes}</div>` : ''}
+            <div><strong>العميل:</strong> ${escapeHtml(order.customerName || 'طالب')}</div>
+            <div><strong>الهاتف:</strong> ${escapeHtml(order.customerPhone || '—')}</div>
+            ${order.orderType === 'DELIVERY' && order.deliveryZoneName ? `<div><strong>منطقة التوصيل:</strong> ${escapeHtml(order.deliveryZoneName)}</div>` : ''}
+            ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${escapeHtml(order.addressText)}</div>` : ''}
+            ${order.paymentSenderPhone ? `<div><strong>رقم المحول منه:</strong> ${escapeHtml(order.paymentSenderPhone)}</div>` : ''}
+            ${order.notes ? `<div style="font-weight: 900; margin-top: 2px;"><strong>ملاحظات:</strong> ${escapeHtml(order.notes)}</div>` : ''}
           </div>
 
           <div class="solid"></div>
@@ -281,21 +300,21 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
           <div style="margin: 4px 0;">
             <div class="row">
               <span>المجموع الفرعي:</span>
-              <span class="price-val">${order.subtotal || 0} ج.م</span>
+              <span class="price-val">${escapeHtml(order.subtotal || 0)} ج.م</span>
             </div>
             ${order.orderType === 'DELIVERY' ? `
             <div class="row">
               <span>رسوم التوصيل:</span>
-              <span class="price-val">${order.deliveryFee || 0} ج.م</span>
+              <span class="price-val">${escapeHtml(order.deliveryFee || 0)} ج.م</span>
             </div>` : ''}
             ${order.discount && order.discount > 0 ? `
             <div class="row" style="font-weight: 900;">
-              <span>خصم الكوبون${order.promoCode ? ` (${order.promoCode})` : ''}:</span>
-              <span class="price-val">-${order.discount} ج.م</span>
+              <span>خصم الكوبون${order.promoCode ? ` (${escapeHtml(order.promoCode)})` : ''}:</span>
+              <span class="price-val">-${escapeHtml(order.discount)} ج.م</span>
             </div>` : ''}
             <div class="row font-black" style="border-top: 2px solid #000; padding-top: 4px; margin-top: 4px; font-size: 15px;">
               <span>الإجمالي المطلوب:</span>
-              <span class="price-val" style="font-size: 16px;">${order.total || 0} ج.م</span>
+              <span class="price-val" style="font-size: 16px;">${escapeHtml(order.total || 0)} ج.م</span>
             </div>
           </div>
 
@@ -437,6 +456,14 @@ export const printTestReceipt = (branchName: string): Promise<boolean> => {
 
 // دالة لتوليد وتحميل ملف تشغيل المتصفح بوضع الطباعة الصامتة الفورية (Kiosk Printing)
 export const downloadKioskPrintingShortcut = (appUrl: string = window.location.href) => {
+  let safeUrl = 'http://localhost:5000/branch/';
+  try {
+    const parsed = new URL(appUrl);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      safeUrl = parsed.href.replace(/["%&|<>^`\r\n]/g, '');
+    }
+  } catch (_e) {}
+
   const batContent = `@echo off
 chcp 65001 > nul
 title تشغيل كاشير UniFood بالطباعة الصامتة
@@ -448,27 +475,27 @@ set PROFILE_DIR="%LOCALAPPDATA%\\UniFoodPOSProfile"
 
 :: التحقق من وجود مسار جوجل كروم
 if exist "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" (
-    start "" "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
+    start "" "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${safeUrl}"
     exit
 )
 
 if exist "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" (
-    start "" "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
+    start "" "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${safeUrl}"
     exit
 )
 
 if exist "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe" (
-    start "" "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
+    start "" "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${safeUrl}"
     exit
 )
 
 :: إن لم يتوفر كروم، استخدام إيدج
 if exist "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" (
-    start "" "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
+    start "" "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${safeUrl}"
     exit
 )
 
-start chrome --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${appUrl}"
+start chrome --user-data-dir=%PROFILE_DIR% --kiosk-printing --app="${safeUrl}"
 exit
 `;
 

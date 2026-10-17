@@ -2,9 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-campus-delivery-2026";
+export const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-campus-delivery-2026";
 if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
-  console.warn("⚠️ [SECURITY WARNING]: JWT_SECRET is not set in environment variables! Using fallback secret.");
+  console.warn("⚠️ [SECURITY WARNING]: JWT_SECRET is not set in environment variables! Please set a strong JWT_SECRET in production.");
 }
 
 export interface AuthenticatedUserPayload {
@@ -42,8 +42,6 @@ export async function authenticateUser(req: AuthRequest, res: Response, next: Ne
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     token = authHeader.split(" ")[1];
-  } else if (req.query.token && typeof req.query.token === "string") {
-    token = req.query.token;
   }
 
   if (!token) {
