@@ -97,6 +97,35 @@ export function App() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // منع السكرول في الخلفية عند فتح أي شاشة منبثقة أو نافذة حوار، وإعادته فور إغلاقها
+  useEffect(() => {
+    const updateScrollLock = () => {
+      const hasActiveModal = Boolean(
+        document.querySelector('.fixed.inset-0.z-50, .fixed.inset-0.z-40, [role="dialog"]')
+      );
+      if (hasActiveModal) {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    };
+
+    const observer = new MutationObserver(() => {
+      updateScrollLock();
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    updateScrollLock();
+
+    return () => {
+      observer.disconnect();
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, []);
+
   // 1. تحميل البيانات عند تسجيل الدخول
   const loadData = async () => {
     if (!token) return;

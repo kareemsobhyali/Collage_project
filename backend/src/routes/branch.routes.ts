@@ -11,7 +11,7 @@ import {
   notifyMenuItemAvailabilityChanged
 } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert } from "../services/settings.service.js";
-import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig } from "../services/driver.service.js";
+import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig } from "../services/driver.service.js";
 
 
 const router = Router();
@@ -1171,12 +1171,29 @@ router.delete("/drivers/:id", async (req: AuthRequest, res: Response) => {
     const branchId = req.branch!.branchId;
     const id = req.params.id as string;
 
-    await prisma.deliveryDriver.deleteMany({
+    const driver = await prisma.deliveryDriver.findFirst({
       where: { id, branchId },
+    });
+    if (!driver) {
+      res.status(404).json({ error: "كابتن التوصيل غير موجود أو لا يتبع هذا الفرع (الطيار العام تتم إدارته عبر لوحة الجامعة)" });
+      return;
+    }
+
+    // فك ارتباط الطلبات السابقة بالطيار لتجنب خطأ القيود الخارجية (Foreign Key)
+    await prisma.order.updateMany({
+      where: { driverId: id },
+      data: { driverId: null },
+    });
+
+    await deleteDriverBranchConfig(id);
+
+    await prisma.deliveryDriver.delete({
+      where: { id },
     });
 
     res.json({ success: true, message: "تم حذف الطيار بنجاح" });
   } catch (error) {
+    console.error("Delete driver error:", error);
     res.status(500).json({ error: "فشل حذف الطيار" });
   }
 });

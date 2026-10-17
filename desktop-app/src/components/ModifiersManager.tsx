@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit, Check, X, ToggleLeft, ToggleRight, Sliders } from 'lucide-react';
+import { Plus, Trash2, Edit, Check, X, ToggleLeft, ToggleRight, Sliders, Tag, AlertCircle, Layers } from 'lucide-react';
 import { api } from '../services/api';
+import { useLockBodyScroll } from '../utils/scrollLock';
 
 interface ModifiersManagerProps {
   modifierGroups: any[];
@@ -14,18 +15,30 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
   const [isRequired, setIsRequired] = useState(false);
   const [minSelection, setMinSelection] = useState('0');
   const [maxSelection, setMaxSelection] = useState('1');
+  const [groupError, setGroupError] = useState<string | null>(null);
+  const [submittingGroup, setSubmittingGroup] = useState(false);
 
   // New Option Modal
   const [showOptionModal, setShowOptionModal] = useState(false);
   const [targetGroupId, setTargetGroupId] = useState<string | null>(null);
   const [optionName, setOptionName] = useState('');
   const [optionPrice, setOptionPrice] = useState('');
+  const [optionError, setOptionError] = useState<string | null>(null);
+  const [submittingOption, setSubmittingOption] = useState(false);
+
+  // Lock background scroll when either modal is active
+  useLockBodyScroll(showGroupModal || showOptionModal);
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!groupTitle.trim()) return;
+    if (!groupTitle.trim()) {
+      setGroupError('يرجى كتابة عنوان أو اسم القسم الإضافي');
+      return;
+    }
 
     try {
+      setSubmittingGroup(true);
+      setGroupError(null);
       await api.createModifierGroup({
         title: groupTitle.trim(),
         isRequired,
@@ -40,7 +53,9 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
       setShowGroupModal(false);
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'فشل إنشاء مجموعة الإضافات');
+      setGroupError(err.message || 'فشل إنشاء مجموعة الإضافات');
+    } finally {
+      setSubmittingGroup(false);
     }
   };
 
@@ -56,9 +71,15 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
 
   const handleCreateOption = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!targetGroupId || !optionName.trim()) return;
+    if (!optionName.trim()) {
+      setOptionError('يرجى كتابة اسم الإضافة أو الخيار');
+      return;
+    }
+    if (!targetGroupId) return;
 
     try {
+      setSubmittingOption(true);
+      setOptionError(null);
       await api.addModifierOption(targetGroupId, {
         name: optionName.trim(),
         price: parseFloat(optionPrice) || 0,
@@ -69,7 +90,9 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
       setShowOptionModal(false);
       onRefresh();
     } catch (err: any) {
-      alert(err.message || 'فشل إضافة خيار الإضافة');
+      setOptionError(err.message || 'فشل إضافة خيار الإضافة');
+    } finally {
+      setSubmittingOption(false);
     }
   };
 
@@ -183,6 +206,7 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                   setTargetGroupId(group.id);
                   setOptionName('');
                   setOptionPrice('');
+                  setOptionError(null);
                   setShowOptionModal(true);
                 }}
                 className="w-full py-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 border border-dashed border-slate-300 text-slate-600 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
@@ -197,29 +221,53 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
 
       {/* Modal: Create Modifier Group */}
       {showGroupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-            <h3 className="text-base font-black text-slate-800 mb-4">إنشاء قسم إضافات جديد</h3>
-            <form onSubmit={handleCreateGroup} className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-5 sm:p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm sm:text-base font-black text-slate-800">إنشاء قسم إضافات جديد</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGroupModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateGroup} noValidate className="space-y-4">
+              {groupError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{groupError}</span>
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">عنوان القسم *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">عنوان القسم *</label>
                 <input
                   type="text"
                   placeholder="مثال: إضافات صوص، إضافات جبن"
                   value={groupTitle}
-                  onChange={e => setGroupTitle(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
+                  onChange={e => {
+                    setGroupTitle(e.target.value);
+                    if (groupError) setGroupError(null);
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-all"
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200 cursor-pointer" onClick={() => setIsRequired(!isRequired)}>
                 <input
                   type="checkbox"
                   id="reqCheckbox"
                   checked={isRequired}
                   onChange={e => setIsRequired(e.target.checked)}
-                  className="rounded text-indigo-600"
+                  className="rounded text-indigo-600 focus:ring-0 w-4 h-4"
                 />
                 <label htmlFor="reqCheckbox" className="text-xs font-bold text-slate-700 cursor-pointer">
                   اختيار إجباري (يجب على العميل الاختيار)
@@ -228,40 +276,41 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">الحد الأدنى</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">الحد الأدنى</label>
                   <input
                     type="number"
                     min="0"
                     value={minSelection}
                     onChange={e => setMinSelection(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-xl text-sm"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white text-center"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">الحد الأقصى</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">الحد الأقصى</label>
                   <input
                     type="number"
                     min="1"
                     value={maxSelection}
                     onChange={e => setMaxSelection(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-xl text-sm"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white text-center"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowGroupModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl"
+                  className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors text-center"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow"
+                  disabled={submittingGroup}
+                  className="flex-1 sm:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 text-center"
                 >
-                  إنشاء القسم
+                  {submittingGroup ? 'جاري الإنشاء...' : 'إنشاء القسم'}
                 </button>
               </div>
             </form>
@@ -271,47 +320,76 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
 
       {/* Modal: Add Option */}
       {showOptionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-            <h3 className="text-base font-black text-slate-800 mb-4">إضافة خيار جديد</h3>
-            <form onSubmit={handleCreateOption} className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-5 sm:p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <Tag className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-800">إضافة خيار جديد</h3>
+                  <p className="text-[11px] text-slate-500">إضافة صوص أو نكهة أو مكون إضافي</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOptionModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateOption} noValidate className="space-y-4">
+              {optionError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{optionError}</span>
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">اسم الإضافة *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">اسم الإضافة *</label>
                 <input
                   type="text"
                   placeholder="مثال: صوص باربيكيو، موتزاريلا إضافية"
                   value={optionName}
-                  onChange={e => setOptionName(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
+                  onChange={e => {
+                    setOptionName(e.target.value);
+                    if (optionError) setOptionError(null);
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-all"
+                  autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">السعر الإضافي (ج.م)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">السعر الإضافي (ج.م):</label>
                 <input
                   type="number"
                   step="0.5"
                   placeholder="0 للمجاني أو 15"
                   value={optionPrice}
                   onChange={e => setOptionPrice(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-all"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowOptionModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl"
+                  className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors text-center"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow"
+                  disabled={submittingOption}
+                  className="flex-1 sm:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 text-center"
                 >
-                  إضافة الخيار
+                  {submittingOption ? 'جاري الإضافة...' : 'إضافة الخيار'}
                 </button>
               </div>
             </form>
