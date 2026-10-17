@@ -162,7 +162,10 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
     if (!order?.id) return;
 
     const socketHost = API_BASE_URL.replace('/api', '');
-    const socket: Socket = io(socketHost);
+    const customerToken = localStorage.getItem('customer_token') || '';
+    const socket: Socket = io(socketHost, {
+      auth: customerToken ? { token: customerToken } : undefined,
+    });
     socket.emit('join_order', order.id);
 
     // طلب آخر موقع مسجل للطيار فور فتح الشاشة

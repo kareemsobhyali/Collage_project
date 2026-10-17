@@ -35,7 +35,8 @@ import {
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp, openExternalLink } from '../services/notifications';
-import { cleanAddressText, extractCoordinatesFromAddress } from '../services/campusLocations';
+import { cleanAddressText, extractCoordinatesFromAddress, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
+import { DriverRouteMap } from './DriverRouteMap';
 
 interface DriverPortalProps {
   onClose?: () => void;
@@ -96,6 +97,45 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   const socketRef = useRef<Socket | null>(null);
   const [gpsBroadcasting, setGpsBroadcasting] = useState(false);
   const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [restaurantCoords, setRestaurantCoords] = useState<{ lat: number; lng: number }>(() =>
+    getStoredRestaurantCoords()
+  );
+
+  useEffect(() => {
+    api.getPublicRestaurantLocation()
+      .then((res) => {
+        if (res && typeof res.lat === 'number' && typeof res.lng === 'number') {
+          setRestaurantCoords({ lat: res.lat, lng: res.lng });
+          setStoredRestaurantCoords({ lat: res.lat, lng: res.lng });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const getOrderRestaurantCoords = (order: any): { lat: number; lng: number } => {
+    if (order?.branch?.address) {
+      const fromBranch = extractCoordinatesFromAddress(order.branch.address);
+      if (fromBranch) return fromBranch;
+    }
+    return restaurantCoords;
+  };
+
+  const getOrderCustomerCoords = (order: any): { lat: number; lng: number } => {
+    const fromAddr = extractCoordinatesFromAddress(order?.addressText);
+    if (fromAddr) return fromAddr;
+    const fromZone = extractCoordinatesFromAddress(order?.deliveryZoneName);
+    if (fromZone) return fromZone;
+    return { lat: 30.0275, lng: 31.2110 };
+  };
+
+  const getEffectiveDriverCoords = (order: any, isPickedUp: boolean): { lat: number; lng: number } => {
+    if (currentCoords) return currentCoords;
+    const restCoords = getOrderRestaurantCoords(order);
+    if (isPickedUp) {
+      return restCoords;
+    }
+    return { lat: restCoords.lat + 0.0022, lng: restCoords.lng - 0.0022 };
+  };
 
   const handleBroadcastRealLocation = () => {
     if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
@@ -450,6 +490,13 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       }
     });
 
+    socket.on('restaurant_location_updated', (loc: { lat: number; lng: number }) => {
+      if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
+        setRestaurantCoords({ lat: loc.lat, lng: loc.lng });
+        setStoredRestaurantCoords({ lat: loc.lat, lng: loc.lng });
+      }
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;
@@ -574,10 +621,15 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     try {
       await api.driverAcceptOrder(orderId);
       stopAlarm();
-      showToast('تم قبول الطلب بنجاح! توجه للمطعم للاستلام 🚀', 'success');
+      showToast('تم قبول الطلب بنجاح! ظهرت لك خريطة الطريق إلى المطعم 🏪🚀', 'success');
       setOrders((prev: any[]) => prev.map(o => o.id === orderId ? { ...o, isDriverAccepted: true } : o));
-      if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, isDriverAccepted: true });
+      setSelectedOrder((prev: any) => (prev && prev.id === orderId ? { ...prev, isDriverAccepted: true } : prev));
+      if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => setCurrentCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => {},
+          { enableHighAccuracy: true, timeout: 6000 }
+        );
       }
     } catch (err: any) {
       showToast(err.message || 'فشل قبول الطلب', 'error');
@@ -614,6 +666,27 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   // Pickup order from branch
   const handlePickup = (order: any) => {
     const branchName = order?.branch?.name || 'المطعم';
+    const applyPickedUpState = () => {
+      const nowIso = new Date().toISOString();
+      setOrders((prev: any[]) =>
+        prev.map((o) =>
+          o.id === order.id ? { ...o, driverPickedUpAt: nowIso, isDriverAccepted: true } : o
+        )
+      );
+      setSelectedOrder((prev: any) =>
+        prev && prev.id === order.id
+          ? { ...prev, driverPickedUpAt: nowIso, isDriverAccepted: true }
+          : prev
+      );
+      if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => setCurrentCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => {},
+          { enableHighAccuracy: true, timeout: 6000 }
+        );
+      }
+    };
+
     if (order.status !== 'READY') {
       setDriverConfirmDialog({
         isOpen: true,
@@ -626,11 +699,9 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
           try {
             await api.driverPickupOrder(order.id);
             stopAlarm();
+            applyPickedUpState();
             loadDriverData();
-            if (selectedOrder?.id === order.id) {
-              setSelectedOrder(null);
-            }
-            showToast('تم تأكيد الاستلام وبدء التوصيل 🛵', 'success');
+            showToast('تم تأكيد الاستلام! تحولت الخريطة الآن لموقع العميل 🛵📍', 'success');
           } catch (err: any) {
             showToast(err.message || 'فشل تأكيد الاستلام من الفرع', 'error');
           }
@@ -644,11 +715,9 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       try {
         await api.driverPickupOrder(order.id);
         stopAlarm();
+        applyPickedUpState();
         loadDriverData();
-        if (selectedOrder?.id === order.id) {
-          setSelectedOrder(null);
-        }
-        showToast('تم تأكيد الاستلام وبدء التوصيل 🛵', 'success');
+        showToast('تم تأكيد الاستلام! تحولت الخريطة الآن لموقع العميل 🛵📍', 'success');
       } catch (err: any) {
         showToast(err.message || 'فشل تأكيد الاستلام من الفرع', 'error');
       }
@@ -1167,6 +1236,35 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                         </div>
                       </div>
 
+                      {/* 4.5 Live Interactive Route Map (Driver <-> Restaurant before pickup, Driver <-> Customer after pickup) */}
+                      {(order.isDriverAccepted || isPickedUp) && (
+                        <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+                          <DriverRouteMap
+                            mode={isPickedUp ? 'TO_CUSTOMER' : 'TO_RESTAURANT'}
+                            driverCoords={getEffectiveDriverCoords(order, isPickedUp)}
+                            targetCoords={
+                              isPickedUp
+                                ? getOrderCustomerCoords(order)
+                                : getOrderRestaurantCoords(order)
+                            }
+                            targetTitle={
+                              isPickedUp
+                                ? order.customerName || 'العميل'
+                                : order.branch?.name || 'المطعم'
+                            }
+                            targetSubtitle={
+                              isPickedUp
+                                ? `${order.deliveryZoneName ? `${order.deliveryZoneName} • ` : ''}${cleanAddressText(order.addressText) || ''}`
+                                : order.branch?.address || ''
+                            }
+                            driverName={driver?.name}
+                            hasLiveGps={Boolean(currentCoords)}
+                            compact
+                            onRefreshGps={() => handleBroadcastRealLocation()}
+                          />
+                        </div>
+                      )}
+
                       {/* 5. Direct Action Buttons */}
                       <div className="pt-1 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                         {!isPickedUp && !order.isDriverAccepted ? (
@@ -1358,6 +1456,32 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
             {/* Modal Scrollable Body */}
             <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs overscroll-contain">
+              {/* Live Route Map inside Modal: To Restaurant after accept, To Customer after pickup */}
+              {selectedOrder.status !== 'COMPLETED' && (selectedOrder.isDriverAccepted || selectedOrder.driverPickedUpAt) && (
+                <DriverRouteMap
+                  mode={selectedOrder.driverPickedUpAt ? 'TO_CUSTOMER' : 'TO_RESTAURANT'}
+                  driverCoords={getEffectiveDriverCoords(selectedOrder, Boolean(selectedOrder.driverPickedUpAt))}
+                  targetCoords={
+                    selectedOrder.driverPickedUpAt
+                      ? getOrderCustomerCoords(selectedOrder)
+                      : getOrderRestaurantCoords(selectedOrder)
+                  }
+                  targetTitle={
+                    selectedOrder.driverPickedUpAt
+                      ? selectedOrder.customerName || 'العميل'
+                      : selectedOrder.branch?.name || 'المطعم'
+                  }
+                  targetSubtitle={
+                    selectedOrder.driverPickedUpAt
+                      ? `${selectedOrder.deliveryZoneName ? `${selectedOrder.deliveryZoneName} • ` : ''}${cleanAddressText(selectedOrder.addressText) || ''}`
+                      : selectedOrder.branch?.address || ''
+                  }
+                  driverName={driver?.name}
+                  hasLiveGps={Boolean(currentCoords)}
+                  onRefreshGps={() => handleBroadcastRealLocation()}
+                />
+              )}
+
               {/* Prominent Restaurant Pickup Header Card - اسم المطعم واضح وكامل */}
               <div className="p-4 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-2xl border-2 border-amber-400/70 shadow-xs flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
