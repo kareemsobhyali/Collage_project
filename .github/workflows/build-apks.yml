@@ -1,4 +1,4 @@
-name: Build Android APKs (Student, Driver & Admin)
+name: Build Android APKs (Student, Driver, Admin & Restaurant)
 
 on:
   push:
@@ -60,7 +60,7 @@ jobs:
               -dname "CN=UniFood, OU=Campus, O=UniFood, L=Cairo, ST=Cairo, C=EG"
           fi
 
-      - name: Build Signed Student, Driver & Admin APKs
+      - name: Build Signed Student, Driver, Admin & Restaurant APKs
         working-directory: android-app
         run: |
           SERVER_URL="${{ github.event.inputs.base_url || 'https://collage-project-5zby.onrender.com' }}"
@@ -71,10 +71,12 @@ jobs:
           STUDENT_APK=$(find android-app/app/build/outputs/apk/student/release -name "*.apk" | head -n 1)
           DRIVER_APK=$(find android-app/app/build/outputs/apk/driver/release -name "*.apk" | head -n 1)
           ADMIN_APK=$(find android-app/app/build/outputs/apk/admin/release -name "*.apk" | head -n 1)
+          RESTAURANT_APK=$(find android-app/app/build/outputs/apk/restaurant/release -name "*.apk" | head -n 1)
           cp "$STUDENT_APK" ./UniFood-Student.apk
           cp "$DRIVER_APK" ./UniFood-Driver.apk
           cp "$ADMIN_APK" ./UniFood-Admin.apk
-          ls -lh ./UniFood-Student.apk ./UniFood-Driver.apk ./UniFood-Admin.apk
+          cp "$RESTAURANT_APK" ./UniFood-Restaurant.apk
+          ls -lh ./UniFood-Student.apk ./UniFood-Driver.apk ./UniFood-Admin.apk ./UniFood-Restaurant.apk
 
       - name: Upload Student APK Artifact
         uses: actions/upload-artifact@v4
@@ -97,21 +99,30 @@ jobs:
           path: ./UniFood-Admin.apk
           if-no-files-found: error
 
+      - name: Upload Restaurant APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniFood-Restaurant-APK
+          path: ./UniFood-Restaurant.apk
+          if-no-files-found: error
+
       - name: Publish APKs to GitHub Releases (latest-apk)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-apk
-          name: "📲 تطبيقات UniFood للأندرويد (الطلاب + الطيارين + الإدارة)"
+          name: "📲 تطبيقات UniFood للأندرويد (الطلاب + الطيارين + الإدارة + المطاعم)"
           body: |
-            ### 🎓 تطبيقات منصة يونيفود للأندرويد (تحديث تلقائي)
+            ### 🎓 تطبيقات منظومة يونيفود للأندرويد (تحديث تلقائي)
+            - **نسخة كاشير ومطبخ المطعم (`UniFood-Restaurant.apk`)**: تفتح شاشة الكاشير والـ POS للمطعم مباشرة، وتستقبل الطلبات فورياً مع إنذار صوتي مستمر وإبقاء الشاشة مفعلة.
             - **نسخة لوحة التحكم المركزية (`UniFood-Admin.apk`)**: تفتح لوحة تحكم الإدارة المركزية والطلبات والفروع مباشرة.
             - **نسخة الطلاب (`UniFood-Student.apk`)**: تفتح متجر الطلاب وسلة الشلة مباشرة.
             - **نسخة كابتن التوصيل (`UniFood-Driver.apk`)**: تفتح بوابة الطيارين مباشرة مع إبقاء الشاشة نشطة والتنبيه الصوتي.
-            *(يمكن تثبيت التطبيقات الثلاثة معاً على نفس الهاتف بدون أي تعارض لأن لكل تطبيق Package Name مستقل)*
+            *(يمكن تثبيت التطبيقات الأربعة معاً على نفس الهاتف أو التابلت بدون أي تعارض لأن لكل تطبيق Package Name مستقل)*
           files: |
             ./UniFood-Student.apk
             ./UniFood-Driver.apk
             ./UniFood-Admin.apk
+            ./UniFood-Restaurant.apk
           prerelease: false
 
         env:

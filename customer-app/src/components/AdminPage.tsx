@@ -2490,13 +2490,26 @@ export const AdminPage: React.FC = () => {
                 />
               </div>
 
-              <button
-                onClick={() => setShowAddBranchModal(true)}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
-              >
-                <Plus className="w-4 h-4" />
-                <span>إضافة فرع مطعم جديد</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Restaurant.apk')}
+                  className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all active:scale-95"
+                  title="تحميل تطبيق أندرويد APK مخصص لكاشير ومطبخ المطعم لاستقبال الطلبات الفورية"
+                >
+                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                  <span className="hidden sm:inline">تحميل</span>
+                  <span>تطبيق كاشير المطاعم (APK)</span>
+                </button>
+
+                <button
+                  onClick={() => setShowAddBranchModal(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة فرع مطعم جديد</span>
+                </button>
+              </div>
             </div>
 
             {/* Branches Grid */}
@@ -6062,57 +6075,108 @@ export const AdminPage: React.FC = () => {
               </form>
             </div>
 
-            {/* Card: Android Admin App (APK) */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            {/* Card: Android Native Apps (Admin & Restaurant Kitchen APK) */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+              <div className="border-b border-slate-800 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
                     <Smartphone className="w-5 h-5" />
                   </div>
                   <div>
                     <h4 className="text-sm font-black text-white flex items-center gap-2">
-                      <span>تطبيق لوحة التحكم للأندرويد (Admin Android APK)</span>
+                      <span>تطبيقات الأندرويد للأجهزة والهواتف (Android APKs)</span>
                       <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-md border border-emerald-500/30">
-                        متاح الآن 📲
+                        حزم أصلية مستقلة 📲
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      تطبيق أندرويد مستقل ومباشر للوحة الإدارة لمتابعة الطلبات، إدارة الفروع، وتلقي الإشعارات الفورية
+                      تطبيقات أندرويد مستقلة وسريعة تعمل بجانب بعضها على نفس الهاتف أو التابلت بدون أي تعارض
                     </p>
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
-                  }}
-                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 shrink-0"
-                >
-                  <Smartphone className="w-4 h-4" />
-                  <span>تحميل وتثبيت التطبيق (APK)</span>
-                </button>
               </div>
 
+              {/* Action Buttons for Both Apps */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 1. Restaurant Kitchen APK */}
+                <div className="p-4 bg-emerald-950/30 border border-emerald-800/50 rounded-2xl flex flex-col justify-between gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                        <Store className="w-4 h-4 text-emerald-400" />
+                        <span>نسخة كاشير ومطبخ المطعم (Restaurant APK)</span>
+                      </span>
+                      <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-bold rounded">
+                        com.unifood.restaurant
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                      مخصصة لهواتف وتابلت كاشير ومطبخ المطاعم لاستقبال الطلبات فورياً مع إنذار صوتي مستمر وإبقاء الشاشة مفعلة دائماً.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Restaurant.apk');
+                    }}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 shrink-0"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>تحميل تطبيق كاشير ومطبخ المطعم</span>
+                  </button>
+                </div>
+
+                {/* 2. Admin Control Panel APK */}
+                <div className="p-4 bg-purple-950/30 border border-purple-800/50 rounded-2xl flex flex-col justify-between gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-purple-400" />
+                        <span>نسخة لوحة تحكم الإدارة (Admin APK)</span>
+                      </span>
+                      <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[9px] font-mono font-bold rounded">
+                        com.unifood.admin
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                      مخصصة للإدارة المركزية لمتابعة كافة الفروع والطلبات، إدارة الحسابات، وتلقي التنبيهات الحساسة للعمليات.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
+                    }}
+                    className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 shrink-0"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>تحميل تطبيق الإدارة المركزية</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Feature Highlights */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
                   <span className="font-bold text-slate-200 block">🚀 تشغيل سريع وتلقائي</span>
                   <p className="text-[10px] text-slate-400 leading-relaxed">
-                    يفتح شاشة الإدارة المركزية فوراً بدون الحاجة لكتابة روابط أو البحث في المتصفح.
+                    يفتح الشاشة المخصصة لكل دور فوراً بدون الحاجة لكتابة روابط أو البحث في المتصفحات.
                   </p>
                 </div>
 
-                <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-slate-200 block">📦 حزمة مخصصة (com.unifood.admin)</span>
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                  <span className="font-bold text-slate-200 block">📱 شاشة نشطة دائماً</span>
                   <p className="text-[10px] text-slate-400 leading-relaxed">
-                    يعمل بجانب تطبيق الطلاب وتطبيق الطيارين على نفس الهاتف بدون أي تعارض.
+                    إبقاء شاشة الهاتف/التابلت نشطة في المطبخ لضمان عدم إغلاق الشاشة أثناء انتظار الطلبات.
                   </p>
                 </div>
 
-                <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
                   <span className="font-bold text-slate-200 block">🔔 دعم التنبيهات والإشعارات</span>
                   <p className="text-[10px] text-slate-400 leading-relaxed">
-                    استقبال إشعارات فورية بالطلبات الجديدة والتنبيهات الحساسة للمطاعم على الهاتف.
+                    استقبال إشعارات النظام الفورية وأجراس التنبيه بالطلبات الجديدة واعتذار الطيارين.
                   </p>
                 </div>
               </div>

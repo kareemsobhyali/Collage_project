@@ -70,6 +70,7 @@ public class MainActivity extends Activity {
         }
 
         createNotificationChannel();
+        requestNotificationPermissionIfNeeded();
 
         FrameLayout rootLayout = new FrameLayout(this);
         rootLayout.setBackgroundColor(Color.parseColor("#0B0F19"));

@@ -76,6 +76,15 @@ android {
             buildConfigField "boolean", "KEEP_SCREEN_ON", "false"
             buildConfigField "int", "STATUS_BAR_COLOR", "0xFF0F172A"
         }
+        restaurant {
+            dimension "role"
+            applicationId "com.unifood.restaurant"
+            resValue "string", "app_name", "UniFood Restaurant | كاشير ومطبخ المطعم"
+            buildConfigField "String", "START_URL", "\"${baseServerUrl}/branch/\""
+            buildConfigField "String", "FLAVOR_TYPE", "\"restaurant\""
+            buildConfigField "boolean", "KEEP_SCREEN_ON", "true"
+            buildConfigField "int", "STATUS_BAR_COLOR", "0xFF065F46"
+        }
     }
 
     compileOptions {
