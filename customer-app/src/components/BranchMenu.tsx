@@ -5,7 +5,6 @@ import {
   Phone, 
   Plus, 
   ShoppingBag, 
-  Image as ImageIcon,
   Store,
   Clock,
   PowerOff,
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress } from '../services/campusLocations';
+import { getItemFallbackImage } from '../utils/foodImages';
 
 interface BranchMenuProps {
   branch: any;
@@ -58,6 +58,7 @@ interface CategoryCarouselProps {
   onItemClick: (item: any) => void;
   favItemIds: string[];
   onToggleFavItem: (e: React.MouseEvent, itemId: string) => void;
+  branchName?: string;
 }
 
 const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
@@ -66,18 +67,22 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   onItemClick,
   favItemIds,
   onToggleFavItem,
+  branchName = '',
 }) => {
   const items: any[] = Array.isArray(category.items) ? category.items : [];
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [activeIndex, setActiveIndex] = useState<number>(() => (items.length >= 3 ? 1 : 0));
+  const [activeIndex, setActiveIndex] = useState<number>(0);
+  const touchStartX = useRef<number | null>(null);
+  const isProgrammaticScroll = useRef<boolean>(false);
 
   const centerCardInContainer = (index: number, smooth: boolean) => {
     const container = scrollRef.current;
-    if (!container) return;
-    const bounded = Math.max(0, Math.min(items.length - 1, index));
+    if (!container || items.length === 0) return;
+    const bounded = ((index % items.length) + items.length) % items.length;
     const cards = container.querySelectorAll('[data-carousel-card="true"]');
     const target = cards[bounded] as HTMLElement | undefined;
     if (target) {
+      isProgrammaticScroll.current = true;
       const cRect = container.getBoundingClientRect();
       const tRect = target.getBoundingClientRect();
       const diff = (tRect.left + tRect.width / 2) - (cRect.left + cRect.width / 2);
@@ -88,25 +93,27 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
         });
       }
       setActiveIndex(bounded);
+      setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 350);
     }
   };
 
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container || items.length < 3) {
+    if (!container || items.length === 0) {
       setActiveIndex(0);
       return;
     }
-    // عند وجود 3 أصناف أو أكثر، نبدأ بالكارت الأوسط ليظهر الكارت الأيمن والأيسر بجانبه فوراً
-    const initialIdx = 1;
-    setActiveIndex(initialIdx);
+    setActiveIndex(0);
     const timer = setTimeout(() => {
-      centerCardInContainer(initialIdx, false);
-    }, 80);
+      centerCardInContainer(0, false);
+    }, 60);
     return () => clearTimeout(timer);
   }, [category.id, items.length]);
 
   const handleScroll = () => {
+    if (isProgrammaticScroll.current) return;
     const container = scrollRef.current;
     if (!container || items.length <= 1) return;
     const containerRect = container.getBoundingClientRect();
@@ -135,6 +142,29 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
     centerCardInContainer(index, true);
   };
 
+  // معالجة السحب باللمس للالتفاف الدائري السلس عند الوصول للبطاقة الأخيرة أو الأولى
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || items.length <= 1) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diffX = touchEndX - touchStartX.current;
+    touchStartX.current = null;
+
+    // في الاتجاه العربي (RTL):
+    // السحب يساراً (diffX < -35) يعني التقدم للأمام
+    // فإذا كان المستخدم عند الصنف الأخير وسحب يساراً، يلتف فوراً إلى الصنف الأول
+    if (diffX < -35 && activeIndex === items.length - 1) {
+      scrollToCard(0);
+    }
+    // وإذا كان عند الصنف الأول وسحب يميناً (diffX > 35)، يلتف إلى الصنف الأخير
+    else if (diffX > 35 && activeIndex === 0) {
+      scrollToCard(items.length - 1);
+    }
+  };
+
   return (
     <div className="space-y-2.5">
       {/* Category Title + Swipe Controls */}
@@ -152,18 +182,16 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
             <span className="text-[10px] font-bold text-slate-400 ml-1">اسحب للجانبين</span>
             <button
               type="button"
-              onClick={() => scrollToCard(activeIndex - 1)}
-              disabled={activeIndex <= 0}
-              className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-35 transition-all shadow-sm"
+              onClick={() => scrollToCard(activeIndex === 0 ? items.length - 1 : activeIndex - 1)}
+              className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-90"
               title="السابق"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
             <button
               type="button"
-              onClick={() => scrollToCard(activeIndex + 1)}
-              disabled={activeIndex >= items.length - 1}
-              className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-35 transition-all shadow-sm"
+              onClick={() => scrollToCard(activeIndex === items.length - 1 ? 0 : activeIndex + 1)}
+              className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-90"
               title="التالي"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -176,6 +204,8 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         className={`flex items-stretch overflow-x-auto snap-x snap-mandatory no-scrollbar py-2 -mx-3 sm:-mx-4 ${
           items.length === 1
             ? 'justify-center px-6'
@@ -186,6 +216,9 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
           const isCenter = items.length === 1 || idx === activeIndex;
           const isItemAvailable = item.isAvailable !== false && (!item.unavailableUntil || new Date() >= new Date(item.unavailableUntil));
           const isFavItem = favItemIds.includes(item.id);
+          const fallbackImg = getItemFallbackImage(item.name, category?.name, branchName);
+          const displayImg = item.imageUrl ? getFullImageUrl(item.imageUrl) : fallbackImg;
+
           return (
             <div
               key={item.id}
@@ -207,20 +240,20 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
               } ${(!isBranchOpen || !isItemAvailable) ? 'grayscale-[20%] opacity-75' : ''}`}
             >
               <div>
-                {/* Card Top Image */}
+                {/* Card Top Image with smart categorized fallback */}
                 <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 mb-3">
-                  {item.imageUrl ? (
-                    <img
-                      src={getFullImageUrl(item.imageUrl)}
-                      alt={item.name}
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
-                      <ImageIcon className="w-9 h-9 mb-1" />
-                      <span className="text-[10px] font-bold text-slate-400">بدون صورة</span>
-                    </div>
-                  )}
+                  <img
+                    src={displayImg}
+                    alt={item.name}
+                    loading="lazy"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target.src !== fallbackImg) {
+                        target.src = fallbackImg;
+                      }
+                    }}
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                  />
 
                   {/* Favorite Heart Button on Meal Card */}
                   <button
@@ -324,6 +357,15 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 }) => {
   const [activeCategoryId, setActiveCategoryId] = useState<string>('ALL');
   const [showReviewsModal, setShowReviewsModal] = useState<boolean>(false);
+
+  // إعادة التمرير لأعلى الصفحة فور فتح المطعم لضمان ظهوره من البداية بدون النزول لمنتصف المنيو
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [branch?.id]);
 
   // Favorite Meals stored in localStorage
   const [favItemIds, setFavItemIds] = useState<string[]>(() => {
@@ -823,6 +865,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                 onItemClick={handleItemSelection}
                 favItemIds={favItemIds}
                 onToggleFavItem={handleToggleFavItem}
+                branchName={branch?.name}
               />
             </div>
           )}
@@ -840,6 +883,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                 onItemClick={handleItemSelection}
                 favItemIds={favItemIds}
                 onToggleFavItem={handleToggleFavItem}
+                branchName={branch?.name}
               />
             </div>
           ))}

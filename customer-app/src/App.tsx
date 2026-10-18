@@ -338,6 +338,9 @@ export function App() {
       const data = await api.getBranchMenu(branch.id);
       setSelectedBranch({ ...data.branch, reviews: data.reviews || [] });
       setBranchCategories(data.categories || []);
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }
       // إفراغ السلة إذا كانت تخص فرعاً آخر
       if (cart.length > 0 && cart[0].branchId !== branch.id) {
         setCart([]);

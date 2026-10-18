@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { X, Plus, Minus, Check, Image as ImageIcon, MessageSquare, Sparkles } from 'lucide-react';
+import { X, Plus, Minus, Check, MessageSquare, Sparkles } from 'lucide-react';
 import { getFullImageUrl } from '../services/api';
+import { getItemFallbackImage } from '../utils/foodImages';
 
 interface ItemCustomizeModalProps {
   item: any;
@@ -185,17 +186,23 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
 
         {/* Top Header */}
         <div className="relative">
-          {item.imageUrl ? (
-            <img
-              src={getFullImageUrl(item.imageUrl)}
-              alt={item.name}
-              className="w-full h-44 object-cover"
-            />
-          ) : (
-            <div className="w-full h-32 bg-slate-100 flex items-center justify-center text-slate-400">
-              <ImageIcon className="w-10 h-10" />
-            </div>
-          )}
+          {(() => {
+            const fallbackImg = getItemFallbackImage(item.name);
+            const displayImg = item.imageUrl ? getFullImageUrl(item.imageUrl) : fallbackImg;
+            return (
+              <img
+                src={displayImg}
+                alt={item.name}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target.src !== fallbackImg) {
+                    target.src = fallbackImg;
+                  }
+                }}
+                className="w-full h-44 object-cover"
+              />
+            );
+          })()}
           <button
             onClick={onClose}
             className="absolute top-4 left-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm"
