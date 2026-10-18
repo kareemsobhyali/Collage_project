@@ -103,10 +103,13 @@ export async function requestPushPermission(): Promise<boolean> {
   }
 }
 
+const notifiedOrderStatuses = new Map<string, string>();
+
 export async function sendWebNotification(
   title: string,
   body: string,
-  url: string = '/'
+  url: string = '/',
+  tag?: string
 ): Promise<void> {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
@@ -116,12 +119,23 @@ export async function sendWebNotification(
     );
   }
 
-  if (isRunningInNativeApk() && Boolean((window as any).AndroidBridge?.showNotification)) {
-    try {
-      (window as any).AndroidBridge.showNotification(title, body);
-      return;
-    } catch (_e) {
-      // Fallback to web notifications if bridge fails
+  const safeTag = tag || 'unifood_notification';
+
+  if (isRunningInNativeApk()) {
+    const bridge = (window as any).AndroidBridge;
+    if (bridge) {
+      if (typeof bridge.showNotificationWithTag === 'function') {
+        try {
+          bridge.showNotificationWithTag(title, body, safeTag);
+          return;
+        } catch (_e) {}
+      }
+      if (typeof bridge.showNotification === 'function') {
+        try {
+          bridge.showNotification(title, body);
+          return;
+        } catch (_e) {}
+      }
     }
   }
 
@@ -141,7 +155,8 @@ export async function sendWebNotification(
     lang: 'ar',
     vibrate: [250, 100, 250, 100, 400],
     data: { url },
-    tag: `unifood-${Date.now()}`,
+    tag: safeTag,
+    renotify: true,
   };
 
   try {
@@ -159,7 +174,7 @@ export async function sendWebNotification(
     new Notification(title, options);
   } catch (err) {
     try {
-      new Notification(title, { body, icon: '/logo.png', dir: 'rtl' });
+      new Notification(title, { body, icon: '/logo.png', dir: 'rtl', tag: safeTag });
     } catch (_e) {
       // Fallback ignored
     }
@@ -167,23 +182,34 @@ export async function sendWebNotification(
 }
 
 export function notifyOrderStatusPush(order: any): void {
-  if (!order) return;
+  if (!order || !order.id || !order.status) return;
+
+  // منع التكرار نهائياً: إذا تم إرسال إشعار لنفس الطلب بنفس الحالة مسبقاً، نتجاهل الإرسال
+  const lastStatus = notifiedOrderStatuses.get(order.id);
+  if (lastStatus === order.status) {
+    return;
+  }
+  notifiedOrderStatuses.set(order.id, order.status);
+
   const orderNum = order.orderNumber || '';
   const branchName = order.branch?.name || 'المطعم';
+  const tag = `order_${order.orderNumber || order.id}`;
 
   switch (order.status) {
     case 'ACCEPTED':
       sendWebNotification(
         `✅ تم قبول طلبك #${orderNum}`,
         `استلم مطعم (${branchName}) طلبك وجاري البدء في تجهيزه الآن!`,
-        '/'
+        '/',
+        tag
       );
       break;
     case 'PREPARING':
       sendWebNotification(
         `👨‍🍳 طلبك #${orderNum} قيد التحضير`,
         `الشيف يجهز وجبتك الآن في (${branchName})!`,
-        '/'
+        '/',
+        tag
       );
       break;
     case 'READY':
@@ -191,13 +217,15 @@ export function notifyOrderStatusPush(order: any): void {
         sendWebNotification(
           `🛵 طلبك #${orderNum} في الطريق إليك!`,
           `خرج كابتن التوصيل بالطلب الآن، جهز رمز الاستلام السري PIN: (${order.pickupPin || '----'})`,
-          '/'
+          '/',
+          tag
         );
       } else {
         sendWebNotification(
           `🎉 طلبك #${orderNum} جاهز للاستلام!`,
           `توجه لفرع (${branchName}) لاستلام وجبتك، رمز الاستلام: (${order.pickupPin || '----'})`,
-          '/'
+          '/',
+          tag
         );
       }
       break;
@@ -205,14 +233,16 @@ export function notifyOrderStatusPush(order: any): void {
       sendWebNotification(
         `🥳 بالهنا والشفا! اكتمل طلبك #${orderNum}`,
         `تم تسليم الطلب بنجاح وإضافة نقاط الولاء لمحفظتك الجامعية!`,
-        '/'
+        '/',
+        tag
       );
       break;
     case 'REJECTED':
       sendWebNotification(
         `⚠️ تم إلغاء الطلب #${orderNum}`,
         `نعتذر، تعذر تنفيذ الطلب من (${branchName}).`,
-        '/'
+        '/',
+        tag
       );
       break;
     default:

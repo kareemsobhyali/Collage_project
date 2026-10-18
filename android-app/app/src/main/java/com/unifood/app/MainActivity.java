@@ -543,6 +543,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        UniFoodNotificationService.isAppInForeground = true;
         // عند عودة المستخدم للتطبيق من الخلفية، نتحقق في الخلفية إذا تغير الدومين على GitHub
         syncRemoteConfigFromGitHub(null, true);
     }
@@ -567,6 +568,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        UniFoodNotificationService.isAppInForeground = false;
         CookieManager.getInstance().flush();
     }
 
@@ -676,16 +678,38 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void showNotification(String title, String body) {
+            showNotificationWithTag(title, body, null);
+        }
+
+        @JavascriptInterface
+        public void showNotificationWithTag(String title, String body, String tag) {
             try {
                 NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                 if (manager == null) return;
+
+                String safeTag = tag;
+                if (safeTag == null || safeTag.trim().isEmpty()) {
+                    if (title != null && title.contains("#")) {
+                        int hashIdx = title.indexOf("#");
+                        int endIdx = hashIdx + 1;
+                        while (endIdx < title.length() && Character.isDigit(title.charAt(endIdx))) {
+                            endIdx++;
+                        }
+                        if (endIdx > hashIdx + 1) {
+                            safeTag = "order_" + title.substring(hashIdx + 1, endIdx);
+                        }
+                    }
+                }
+                if (safeTag == null || safeTag.trim().isEmpty()) {
+                    safeTag = "unifood_alert";
+                }
 
                 Intent intent = new Intent(context, MainActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                         ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                         : PendingIntent.FLAG_UPDATE_CURRENT;
-                PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, flags);
+                PendingIntent pendingIntent = PendingIntent.getActivity(context, Math.abs(safeTag.hashCode()), intent, flags);
 
                 Notification.Builder builder;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -696,15 +720,15 @@ public class MainActivity extends Activity {
                             .setDefaults(Notification.DEFAULT_ALL);
                 }
 
-                builder.setSmallIcon(R.drawable.ic_launcher)
+                builder.setSmallIcon(R.mipmap.ic_launcher)
                         .setContentTitle(title)
                         .setContentText(body)
                         .setStyle(new Notification.BigTextStyle().bigText(body))
                         .setAutoCancel(true)
                         .setContentIntent(pendingIntent);
 
-                int notificationId = (int) (System.currentTimeMillis() & 0xFFFFFFF);
-                manager.notify(notificationId, builder.build());
+                int notificationId = Math.abs(safeTag.hashCode());
+                manager.notify(safeTag, notificationId, builder.build());
             } catch (Exception ignored) {
             }
         }

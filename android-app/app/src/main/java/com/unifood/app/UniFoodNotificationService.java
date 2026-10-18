@@ -44,6 +44,8 @@ public class UniFoodNotificationService extends Service {
 
     private static final int SERVICE_NOTIFICATION_ID = 9901;
 
+    public static volatile boolean isAppInForeground = false;
+
     private boolean isRunning = false;
     private Thread pollingThread;
     private long lastPollTime = 0;
@@ -184,7 +186,7 @@ public class UniFoodNotificationService extends Service {
                             handleNotificationItem(item);
                         }
                     }
-                    lastPollTime = Math.max(lastPollTime, serverTime - 2000);
+                    lastPollTime = Math.max(lastPollTime, serverTime);
                 }
             }
         } catch (Exception ignored) {
@@ -210,8 +212,15 @@ public class UniFoodNotificationService extends Service {
             }
             alertedNotificationIds.add(id);
 
-            String tag = item.optString("tag", "order_default");
             String channel = item.optString("channel", "ORDERS");
+
+            // إذا كان التطبيق مفتوحاً وشغالاً أمام المستخدم في الواجهة، نتجنب تكرار الإشعار
+            // لأن واجهة التطبيق تتولى التحديث اللحظي وإظهار التنبيه
+            if (isAppInForeground && !"URGENT_ALARM".equalsIgnoreCase(channel)) {
+                return;
+            }
+
+            String tag = item.optString("tag", "order_default");
             String title = item.optString("title", "تحديث جديد");
             String body = item.optString("body", "");
             String subText = item.optString("subText", "UniFood");
