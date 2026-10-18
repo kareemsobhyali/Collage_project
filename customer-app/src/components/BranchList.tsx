@@ -22,6 +22,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
+import { getDisplayAddress } from '../services/campusLocations';
 
 interface BranchListProps {
   branches: any[];
@@ -808,7 +809,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                         {/* Location */}
                         <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
                           <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                          <span className="line-clamp-1">{branch.address || 'داخل الحرم الجامعي'}</span>
+                          <span className="line-clamp-1">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
                         </div>
                       </div>
 

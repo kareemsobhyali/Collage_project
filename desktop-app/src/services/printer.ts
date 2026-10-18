@@ -5,6 +5,7 @@
  */
 
 import { api } from './api';
+import { getDisplayAddress } from '../utils/address';
 
 export interface DetectedPrinter {
   name: string;
@@ -280,7 +281,7 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
             <div><strong>العميل:</strong> ${escapeHtml(order.customerName || 'طالب')}</div>
             <div><strong>الهاتف:</strong> ${escapeHtml(order.customerPhone || '—')}</div>
             ${order.orderType === 'DELIVERY' && order.deliveryZoneName ? `<div><strong>منطقة التوصيل:</strong> ${escapeHtml(order.deliveryZoneName)}</div>` : ''}
-            ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${escapeHtml(order.addressText)}</div>` : ''}
+            ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${escapeHtml(getDisplayAddress(order.addressText, 'مقر العميل بالحرم'))}</div>` : ''}
             ${order.paymentSenderPhone ? `<div><strong>رقم المحول منه:</strong> ${escapeHtml(order.paymentSenderPhone)}</div>` : ''}
             ${order.notes ? `<div style="font-weight: 900; margin-top: 2px;"><strong>ملاحظات:</strong> ${escapeHtml(order.notes)}</div>` : ''}
           </div>

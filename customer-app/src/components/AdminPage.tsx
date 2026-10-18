@@ -70,7 +70,7 @@ import {
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { isRunningInNativeApk, triggerInstallApp, openExternalLink } from '../services/notifications';
 import { Logo } from './Logo';
-import { cleanAddressText, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark } from '../services/campusLocations';
+import { cleanAddressText, getDisplayAddress, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark } from '../services/campusLocations';
 const QUICK_ADMIN_CANCEL_REASONS = [
   'المطعم مغلق حالياً',
   'نفاد الكمية في المطعم',
@@ -2577,7 +2577,7 @@ export const AdminPage: React.FC = () => {
                             {branch.address && (
                               <span className="flex items-center gap-1 min-w-0">
                                 <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                <span className="truncate max-w-[200px]">{branch.address}</span>
+                                <span className="truncate max-w-[200px]">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
                               </span>
                             )}
                             {branch.phone && (

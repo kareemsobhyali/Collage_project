@@ -28,6 +28,7 @@ import {
   getNearestLocationName, 
   formatAddressWithCoordinates, 
   cleanAddressText,
+  getDisplayAddress,
   extractCoordinatesFromAddress
 } from '../services/campusLocations';
 
@@ -620,7 +621,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         )}
                       </div>
                       <p className="text-slate-600 text-[11px] leading-relaxed">
-                        {cleanAddressText(addr.details) || addr.details}
+                        {getDisplayAddress(addr.details, addr.title || 'العنوان المسجل')}
                       </p>
                     </div>
 

@@ -19,6 +19,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
+import { getDisplayAddress } from '../services/campusLocations';
 
 interface BranchMenuProps {
   branch: any;
@@ -629,7 +630,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
               <span className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-xl font-bold text-[11px] text-slate-700">
                 <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span>{branch.address || 'داخل الحرم الجامعي'}</span>
+                <span>{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
               </span>
 
               {branch.phone && (

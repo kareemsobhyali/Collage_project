@@ -184,6 +184,12 @@ export async function sendWebNotification(
 export function notifyOrderStatusPush(order: any): void {
   if (!order || !order.id || !order.status) return;
 
+  // إذا كان المستخدم يتصفح التطبيق والشاشة مفتوحة أمامه في الـ APK:
+  // نكتفي بالتحديث اللحظي للواجهة بدون إشعار منبثق في شريط النظام العلوي
+  if (isRunningInNativeApk() && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+    return;
+  }
+
   // منع التكرار نهائياً: إذا تم إرسال إشعار لنفس الطلب بنفس الحالة مسبقاً، نتجاهل الإرسال
   const lastStatus = notifiedOrderStatuses.get(order.id);
   if (lastStatus === order.status) {

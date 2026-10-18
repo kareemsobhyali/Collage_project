@@ -1,6 +1,7 @@
 import React from 'react';
 import { Printer, X } from 'lucide-react';
 import { printOrderReceipt } from '../services/printer';
+import { getDisplayAddress } from '../utils/address';
 
 interface ReceiptModalProps {
   order: any;
@@ -81,7 +82,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, branchName, o
               <div><span className="font-bold">العميل:</span> {order.customerName}</div>
               <div><span className="font-bold">الهاتف:</span> {order.customerPhone}</div>
               {order.orderType === 'DELIVERY' && (
-                <div><span className="font-bold">العنوان الجامعي:</span> {order.addressText}</div>
+                <div><span className="font-bold">العنوان الجامعي:</span> {getDisplayAddress(order.addressText, 'مقر العميل بالحرم')}</div>
               )}
               {order.notes && (
                 <div><span className="font-bold text-amber-700">ملاحظات:</span> {order.notes}</div>

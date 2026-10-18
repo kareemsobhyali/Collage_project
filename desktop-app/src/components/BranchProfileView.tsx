@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { api, getFullImageUrl } from '../services/api';
 import { toast } from '../utils/toast';
+import { getDisplayAddress } from '../utils/address';
 import { ConfirmModal } from './ConfirmModal';
 import { 
   getAutoPrintEnabled, 
@@ -348,7 +349,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
               <MapPin className="w-3.5 h-3.5 text-rose-500" />
-              <span>{branch?.address || 'داخل الحرم الجامعي'}</span>
+              <span>{getDisplayAddress(branch?.address, 'داخل الحرم الجامعي')}</span>
             </div>
           </div>
         </div>

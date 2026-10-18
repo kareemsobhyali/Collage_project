@@ -22,7 +22,7 @@ import {
 import { api, API_BASE_URL } from '../services/api';
 import { notifyOrderStatusPush, sendWebNotification } from '../services/notifications';
 import { LiveOrderMap } from './LiveOrderMap';
-import { extractCoordinatesFromAddress, cleanAddressText, DEFAULT_CAMPUS_RESTAURANT_COORDS, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
+import { extractCoordinatesFromAddress, cleanAddressText, getDisplayAddress, DEFAULT_CAMPUS_RESTAURANT_COORDS, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
 
 interface OrderTrackingModalProps {
   order: any;
@@ -323,7 +323,8 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
           sendWebNotification(
             `💬 رسالة سريعة من الكابتن ${msg.senderName || ''}`,
             msg.text,
-            '/'
+            '/',
+            `chat_${order.orderNumber || order.id}`
           );
         }
       }
@@ -859,7 +860,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                   <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold text-slate-800">العنوان الجامعي: </span>
-                    <span className="text-slate-600">{cleanAddressText(order.addressText) || order.addressText}</span>
+                    <span className="text-slate-600">{getDisplayAddress(order.addressText, 'موقعي الحالي بالحرم الجامعي')}</span>
                   </div>
                 </div>
               </div>

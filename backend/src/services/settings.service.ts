@@ -316,7 +316,10 @@ export async function checkAndSendDriverUnacceptedOrdersAlerts(): Promise<void> 
       if (isSent) continue;
 
       const waitMinutes = Math.max(1, Math.floor((Date.now() - new Date(order.driverAssignedAt!).getTime()) / (60 * 1000)));
-      const addressDisplay = [order.deliveryZoneName, order.addressText].filter(Boolean).join(" - ") || "الحرم الجامعي";
+      const cleanAddr = order.addressText
+        ? order.addressText.replace(/\[GPS:[0-9.-]+,[0-9.-]+\]/g, '').replace(/\|\|\s*GPS:.*$/i, '').replace(/GPS:\s*[0-9.-]+[,\s]+[0-9.-]+/i, '').trim()
+        : '';
+      const addressDisplay = [order.deliveryZoneName, cleanAddr].filter(Boolean).join(" - ") || "الحرم الجامعي";
       const paymentDisplay = order.paymentMethod === "CASH" ? "💵 تحصيل كاش" : "💳 مدفوع إلكترونياً (أونلاين)";
 
       const message =

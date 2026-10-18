@@ -29,6 +29,7 @@ import { requestPushPermission } from '../services/notifications';
 import {
   formatAddressWithCoordinates,
   cleanAddressText,
+  getDisplayAddress,
   getNearestLocationName,
   extractCoordinatesFromAddress,
 } from '../services/campusLocations';
@@ -1205,7 +1206,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                                 isSelected ? 'text-indigo-100' : 'text-slate-500'
                               }`}
                             >
-                              {cleanAddressText(addr.details) || addr.details}
+                              {getDisplayAddress(addr.details, addr.title || 'العنوان المسجل')}
                             </p>
                           </div>
 

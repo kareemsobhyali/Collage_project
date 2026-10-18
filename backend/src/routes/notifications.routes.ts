@@ -81,8 +81,8 @@ router.get("/poll", async (req: Request, res: Response) => {
         const isAccepted = Boolean(order.driverPickedUpAt) || (await isOrderAcceptedByDriver(order.id));
         if (!isAccepted) {
           notifications.push({
-            id: `driver_new_${order.id}_${orderUpdatedMs}`,
-            tag: `order_${order.id}`,
+            id: `driver_new_${order.orderNumber}_${orderUpdatedMs}`,
+            tag: `order_${order.orderNumber}`,
             channel: "URGENT_ALARM",
             title: `🛵 طلب توصيل جديد مسند لك #${order.orderNumber}!`,
             body: `استلام من مطعم (${order.branch?.name || "المطعم"}) • العميل: ${order.customerName || "طالب"}`,
@@ -96,8 +96,8 @@ router.get("/poll", async (req: Request, res: Response) => {
         // ب) الطلب جاهز في المطبخ ولم يستلمه الكابتن بعد
         else if (order.status === "READY" && !order.driverPickedUpAt) {
           notifications.push({
-            id: `driver_ready_${order.id}_${orderUpdatedMs}`,
-            tag: `order_${order.id}`,
+            id: `driver_ready_${order.orderNumber}_${orderUpdatedMs}`,
+            tag: `order_${order.orderNumber}`,
             channel: "ORDERS",
             title: `👨‍🍳 الوجبة جاهزة للاستلام #${order.orderNumber}`,
             body: `المطبخ جهز الطلب بالكامل، توجه لفرع (${order.branch?.name}) لاستلامه والبدء بالتوصيل`,
@@ -116,7 +116,7 @@ router.get("/poll", async (req: Request, res: Response) => {
           if (msg.senderRole === "CUSTOMER" && msgTime > sinceParam) {
             notifications.push({
               id: `chat_${msg.id}`,
-              tag: `chat_${order.id}`,
+              tag: `chat_${order.orderNumber}`,
               channel: "CHAT",
               title: `💬 رسالة من الطالب (${msg.senderName}) • طلب #${order.orderNumber}`,
               body: msg.text,
@@ -162,8 +162,8 @@ router.get("/poll", async (req: Request, res: Response) => {
             color = "#10B981";
             break;
           case "PREPARING":
-            title = `👨‍🍳 طلبك قيد التحضير #${order.orderNumber}`;
-            body = `الشيف يجهز وجبتك الآن بعناية داخل مطعم (${branchName})`;
+            title = `👨‍🍳 طلبك #${order.orderNumber} قيد التحضير`;
+            body = `الشيف يجهز وجبتك الآن في (${branchName})!`;
             color = "#F59E0B";
             break;
           case "READY":
@@ -172,8 +172,8 @@ router.get("/poll", async (req: Request, res: Response) => {
               body = `${driverName} استلم وجبتك وفي الطريق إليك الآن. رمز استلامك السري PIN: (${order.pickupPin || "----"})`;
               color = "#3B82F6";
             } else {
-              title = `🎉 طلبك جاهز للاستلام #${order.orderNumber}`;
-              body = `وجبتك جاهزة الآن في فرع (${branchName})، رمز الاستلام PIN: (${order.pickupPin || "----"})`;
+              title = `🎉 طلبك #${order.orderNumber} جاهز للاستلام!`;
+              body = `توجه لفرع (${branchName}) لاستلام وجبتك، رمز الاستلام: (${order.pickupPin || "----"})`;
               color = "#10B981";
             }
             break;
@@ -183,16 +183,16 @@ router.get("/poll", async (req: Request, res: Response) => {
             color = "#10B981";
             break;
           case "REJECTED":
-            title = `⚠️ نعتذر، تعذر تنفيذ الطلب #${order.orderNumber}`;
-            body = `تم إلغاء الطلب من قبل (${branchName}).`;
+            title = `⚠️ تم إلغاء الطلب #${order.orderNumber}`;
+            body = `نعتذر، تعذر تنفيذ الطلب من (${branchName}).`;
             color = "#EF4444";
             break;
         }
 
         if (title && orderUpdatedMs > sinceParam) {
           notifications.push({
-            id: `student_order_${order.id}_${order.status}`,
-            tag: `order_${order.id}`,
+            id: `student_order_${order.orderNumber}_${order.status}`,
+            tag: `order_${order.orderNumber}`,
             channel: "ORDERS",
             title,
             body,
@@ -211,7 +211,7 @@ router.get("/poll", async (req: Request, res: Response) => {
           if (msg.senderRole === "DRIVER" && msgTime > sinceParam) {
             notifications.push({
               id: `chat_${msg.id}`,
-              tag: `chat_${order.id}`,
+              tag: `chat_${order.orderNumber}`,
               channel: "CHAT",
               title: `💬 رسالة من الكابتن (${msg.senderName}) • طلب #${order.orderNumber}`,
               body: msg.text,
@@ -240,8 +240,8 @@ router.get("/poll", async (req: Request, res: Response) => {
       for (const order of pendingOrders) {
         const orderCreatedMs = new Date(order.createdAt).getTime();
         notifications.push({
-          id: `branch_pending_${order.id}`,
-          tag: `order_${order.id}`,
+          id: `branch_pending_${order.orderNumber}`,
+          tag: `order_${order.orderNumber}`,
           channel: "URGENT_ALARM",
           title: `🔔 طلب جديد وارد للمطعم #${order.orderNumber}!`,
           body: `العميل: ${order.customerName || "طالب"} • الإجمالي: ${order.total} ج.م • اضغط للقبول`,

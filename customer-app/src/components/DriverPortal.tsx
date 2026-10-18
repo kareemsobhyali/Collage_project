@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp, openExternalLink, registerNativeBackgroundSession, clearNativeBackgroundSession } from '../services/notifications';
-import { cleanAddressText, extractCoordinatesFromAddress, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
+import { cleanAddressText, getDisplayAddress, getNearestLocationName, extractCoordinatesFromAddress, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
 import { DriverRouteMap } from './DriverRouteMap';
 
 interface DriverPortalProps {
@@ -97,9 +97,33 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   const socketRef = useRef<Socket | null>(null);
   const [gpsBroadcasting, setGpsBroadcasting] = useState(false);
   const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [driverLocationName, setDriverLocationName] = useState<string>('');
   const [restaurantCoords, setRestaurantCoords] = useState<{ lat: number; lng: number }>(() =>
     getStoredRestaurantCoords()
   );
+
+  useEffect(() => {
+    if (!currentCoords) {
+      setDriverLocationName('');
+      return;
+    }
+    let isMounted = true;
+    getNearestLocationName(currentCoords.lat, currentCoords.lng)
+      .then((res) => {
+        if (isMounted && res) {
+          setDriverLocationName(res.title || res.details || 'موقعي الحالي');
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setDriverLocationName('محدد بدقة عبر الـ GPS 🛰️');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentCoords?.lat, currentCoords?.lng]);
 
   useEffect(() => {
     api.getPublicRestaurantLocation()
@@ -152,7 +176,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
             lng,
             orderId: activeOrder?.id,
           });
-          showToast(`تم بث موقعك الفعلي بنجاح (${lat.toFixed(4)}, ${lng.toFixed(4)}) 🛰️`, 'success');
+          showToast('تم بث وتحديث موقعك الفعلي بنجاح 🛰️', 'success');
         },
         (_err) => {
           handleSimulateOrSendLocation();
@@ -498,7 +522,8 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       sendWebNotification(
         `🛵 طلب توصيل جديد مسند لك #${order.orderNumber || ''}!`,
         `العميل: ${order.customerName || 'طالب'} • العنوان: ${order.addressText || ''}`,
-        '/delivery'
+        '/delivery',
+        `order_${order.orderNumber || order.id}`
       );
     });
 
@@ -534,7 +559,8 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
         sendWebNotification(
           `💬 رسالة سريعة من الطالب (${msg.senderName})`,
           msg.text,
-          '/delivery'
+          '/delivery',
+          `chat_${msg.orderNumber || msg.orderId}`
         );
       }
     });
@@ -1007,7 +1033,14 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 truncate mt-0.5">
-                {currentCoords ? `موقعك الحالي: ${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}` : 'يتم تحديد موقعك وبثه لحظياً للفرع والطالب على الخريطة'}
+                {currentCoords ? (
+                  <span>
+                    <strong className="text-slate-800 font-bold">موقعك الحالي:</strong>{' '}
+                    {driverLocationName || 'متصل بدقة عبر الـ GPS 🛰️'}
+                  </span>
+                ) : (
+                  'يتم تحديد موقعك وبثه لحظياً للفرع والطالب على الخريطة'
+                )}
               </p>
             </div>
           </div>
@@ -1239,7 +1272,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                             </span>
                             {order.branch?.address && (
                               <span className="text-[10px] text-slate-500 block truncate mt-0.5 font-medium">
-                                📍 {order.branch.address}
+                                📍 {getDisplayAddress(order.branch.address, 'موقع المطعم بالحرم الجامعي')}
                               </span>
                             )}
                           </div>
@@ -1271,7 +1304,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                         {order.deliveryZoneName && (
                           <div className="text-[11px] text-slate-500 flex items-center gap-1 truncate">
                             <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span className="truncate">{order.deliveryZoneName} {order.addressText ? `• ${cleanAddressText(order.addressText)}` : ''}</span>
+                            <span className="truncate">{order.deliveryZoneName} {order.addressText ? `• ${getDisplayAddress(order.addressText, 'موقع العميل')}` : ''}</span>
                           </div>
                         )}
                       </div>
@@ -1314,8 +1347,8 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                             }
                             targetSubtitle={
                               isPickedUp
-                                ? `${order.deliveryZoneName ? `${order.deliveryZoneName} • ` : ''}${cleanAddressText(order.addressText) || ''}`
-                                : order.branch?.address || ''
+                                ? `${order.deliveryZoneName ? `${order.deliveryZoneName} • ` : ''}${getDisplayAddress(order.addressText, 'موقع العميل')}`
+                                : getDisplayAddress(order.branch?.address, 'موقع المطعم بالحرم الجامعي')
                             }
                             driverName={driver?.name}
                             hasLiveGps={Boolean(currentCoords)}
@@ -1579,8 +1612,8 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   }
                   targetSubtitle={
                     selectedOrder.driverPickedUpAt
-                      ? `${selectedOrder.deliveryZoneName ? `${selectedOrder.deliveryZoneName} • ` : ''}${cleanAddressText(selectedOrder.addressText) || ''}`
-                      : selectedOrder.branch?.address || ''
+                      ? `${selectedOrder.deliveryZoneName ? `${selectedOrder.deliveryZoneName} • ` : ''}${getDisplayAddress(selectedOrder.addressText, 'موقع العميل')}`
+                      : getDisplayAddress(selectedOrder.branch?.address, 'موقع المطعم بالحرم الجامعي')
                   }
                   driverName={driver?.name}
                   hasLiveGps={Boolean(currentCoords)}
@@ -1604,7 +1637,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     {selectedOrder.branch?.address && (
                       <p className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-1">
                         <MapPin className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                        <span>{selectedOrder.branch.address}</span>
+                        <span>{getDisplayAddress(selectedOrder.branch.address, 'موقع المطعم بالحرم الجامعي')}</span>
                       </p>
                     )}
                   </div>
@@ -1749,7 +1782,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                   <div className="w-full">
                     <span className="font-black text-slate-800">العنوان الجامعي المحدد: </span>
-                    <span className="text-slate-600">{cleanAddressText(selectedOrder.addressText) || selectedOrder.addressText}</span>
+                    <span className="text-slate-600">{getDisplayAddress(selectedOrder.addressText, 'موقع العميل بالحرم الجامعي')}</span>
                     {(() => {
                       const studentCoords = extractCoordinatesFromAddress(selectedOrder.addressText);
                       if (studentCoords) {
@@ -1792,7 +1825,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     <div className="min-w-0">
                       <span className="text-xs font-black text-slate-900 block">بث الـ GPS الحي للعميل مفعل 🛰️</span>
                       <span className="text-[10px] text-emerald-700 block truncate font-medium">
-                        {currentCoords ? `موقعك: ${currentCoords.lat.toFixed(4)}, ${currentCoords.lng.toFixed(4)}` : 'جاري بث تحركاتك للطالب على الخريطة'}
+                        {currentCoords ? (driverLocationName ? `موقعك: ${driverLocationName}` : 'موقعك محدد بدقة عبر الـ GPS 🛰️') : 'جاري بث تحركاتك للطالب على الخريطة'}
                       </span>
                     </div>
                   </div>
