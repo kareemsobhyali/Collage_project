@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Store, 
   Search, 
@@ -20,7 +20,9 @@ import {
   Copy,
   Check,
   RotateCcw,
-  ChefHat
+  ChefHat,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress } from '../services/campusLocations';
@@ -41,6 +43,15 @@ const BANNER_GRADIENTS = [
   'from-rose-600 via-pink-600 to-orange-500',
   'from-blue-600 via-indigo-600 to-violet-700',
   'from-amber-600 via-amber-700 to-yellow-600'
+];
+
+// Rich gradients for dynamic promotional banners
+const PROMO_BANNER_GRADIENTS = [
+  'from-purple-900 via-indigo-900 to-blue-900',
+  'from-rose-950 via-purple-900 to-indigo-950',
+  'from-blue-950 via-slate-900 to-emerald-950',
+  'from-amber-950 via-rose-900 to-purple-950',
+  'from-indigo-950 via-violet-900 to-purple-950',
 ];
 
 const FOOD_EMOJIS = ['🍔', '🍕', '🌯', '🥪', '☕', '🍗', '🍟', '🥤', '🧇', '🍝'];
@@ -220,6 +231,17 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   const [banners, setBanners] = useState<any[]>([]);
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
 
+  const bannerScrollRef = useRef<HTMLDivElement | null>(null);
+  const isTouchingBanner = useRef<boolean>(false);
+  const isHoveringBanner = useRef<boolean>(false);
+  const isSwipingBanner = useRef<boolean>(false);
+  const isMouseDown = useRef<boolean>(false);
+  const mouseStartX = useRef<number>(0);
+  const mouseScrollLeft = useRef<number>(0);
+  const touchStartX = useRef<number>(0);
+  const touchStartY = useRef<number>(0);
+  const isScrollingRef = useRef<boolean>(false);
+
   useEffect(() => {
     const fetchBanners = () => {
       api.getBanners().then((data) => {
@@ -235,13 +257,126 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     return () => window.removeEventListener('banners_updated', fetchBanners);
   }, []);
 
+  const scrollToBanner = (idx: number) => {
+    const container = bannerScrollRef.current;
+    if (!container) return;
+    const slides = container.querySelectorAll('[data-banner-slide="true"]');
+    const target = slides[idx] as HTMLElement | undefined;
+    if (target) {
+      isScrollingRef.current = true;
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const diff = targetRect.left - containerRect.left;
+      container.scrollBy({ left: diff, behavior: 'smooth' });
+      setActiveBannerIdx(idx);
+      setTimeout(() => {
+        isScrollingRef.current = false;
+      }, 450);
+    }
+  };
+
   useEffect(() => {
     if (banners.length <= 1) return;
     const interval = setInterval(() => {
-      setActiveBannerIdx((prev) => (prev + 1) % banners.length);
-    }, 4500);
+      if (isTouchingBanner.current || isHoveringBanner.current || isSwipingBanner.current || isMouseDown.current) return;
+      setActiveBannerIdx((prev) => {
+        const next = (prev + 1) % banners.length;
+        scrollToBanner(next);
+        return next;
+      });
+    }, 5000);
     return () => clearInterval(interval);
   }, [banners.length]);
+
+  const handleBannerScroll = () => {
+    if (isScrollingRef.current) return;
+    const container = bannerScrollRef.current;
+    if (!container || banners.length <= 1) return;
+    const containerRect = container.getBoundingClientRect();
+    const containerCenter = containerRect.left + containerRect.width / 2;
+
+    const slides = container.querySelectorAll('[data-banner-slide="true"]');
+    let closestIdx = 0;
+    let minDistance = Infinity;
+
+    slides.forEach((slide, idx) => {
+      const rect = slide.getBoundingClientRect();
+      const slideCenter = rect.left + rect.width / 2;
+      const dist = Math.abs(containerCenter - slideCenter);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIdx = idx;
+      }
+    });
+
+    if (closestIdx !== activeBannerIdx) {
+      setActiveBannerIdx(closestIdx);
+    }
+  };
+
+  const handlePrevBanner = () => {
+    if (banners.length <= 1) return;
+    const targetIdx = (activeBannerIdx - 1 + banners.length) % banners.length;
+    scrollToBanner(targetIdx);
+  };
+
+  const handleNextBanner = () => {
+    if (banners.length <= 1) return;
+    const targetIdx = (activeBannerIdx + 1) % banners.length;
+    scrollToBanner(targetIdx);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    isTouchingBanner.current = true;
+    isSwipingBanner.current = false;
+    if (e.touches && e.touches[0]) {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches && e.touches[0]) {
+      const diffX = Math.abs(e.touches[0].clientX - touchStartX.current);
+      const diffY = Math.abs(e.touches[0].clientY - touchStartY.current);
+      if (diffX > 8 && diffX > diffY) {
+        isSwipingBanner.current = true;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setTimeout(() => {
+      isTouchingBanner.current = false;
+      isSwipingBanner.current = false;
+    }, 150);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (banners.length <= 1) return;
+    isMouseDown.current = true;
+    isSwipingBanner.current = false;
+    mouseStartX.current = e.clientX;
+    if (bannerScrollRef.current) {
+      mouseScrollLeft.current = bannerScrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isMouseDown.current || !bannerScrollRef.current) return;
+    const dx = e.clientX - mouseStartX.current;
+    if (Math.abs(dx) > 6) {
+      isSwipingBanner.current = true;
+    }
+    bannerScrollRef.current.scrollLeft = mouseScrollLeft.current - dx;
+  };
+
+  const handleMouseUp = () => {
+    isMouseDown.current = false;
+    setTimeout(() => {
+      isSwipingBanner.current = false;
+    }, 150);
+  };
 
   // ==========================================
   // Active Orders Live Tracking Under Banners
@@ -599,11 +734,10 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     return true;
   });
 
-  const currentBanner = banners.length > 0 ? banners[activeBannerIdx] : null;
-
-  const handleBannerClick = () => {
-    if (!currentBanner?.linkUrl) return;
-    const url = currentBanner.linkUrl.trim();
+  const handleBannerClick = (banner: any) => {
+    if (isSwipingBanner.current) return;
+    if (!banner?.linkUrl) return;
+    const url = banner.linkUrl.trim();
     if (!url) return;
 
     // فحص ما إذا كان الرابط يوجه داخلياً لفرع معين أو لصنف/عرض مباشر
@@ -640,67 +774,149 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
 
   return (
     <div className="space-y-5">
-      {/* 1. Dynamic or Default UniFood Campus Banner */}
-      {currentBanner ? (
+      {/* 1. Dynamic or Default UniFood Campus Banner (Horizontal Scroll / Swipe Supported) */}
+      {banners.length > 0 ? (
         <div 
-          onClick={currentBanner.linkUrl ? handleBannerClick : undefined}
-          className={`relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-900 to-blue-900 text-white p-4 sm:p-6 shadow-md transition-all duration-300 ${
-            currentBanner.linkUrl ? 'cursor-pointer hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] group' : ''
-          }`}
-          title={currentBanner.linkUrl ? `اضغط لفتح: ${currentBanner.linkUrl}` : undefined}
+          className="relative group/banners w-full select-none"
+          onMouseEnter={() => { isHoveringBanner.current = true; }}
+          onMouseLeave={() => { 
+            handleMouseUp(); 
+            isHoveringBanner.current = false; 
+          }}
         >
-          {currentBanner.imageUrl && (
-            <div className="absolute inset-0 z-0 opacity-25 group-hover:opacity-35 transition-opacity">
-              <img
-                src={getFullImageUrl(currentBanner.imageUrl)}
-                alt={currentBanner.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
+          {/* Scrollable Horizontal Track */}
+          <div
+            ref={bannerScrollRef}
+            onScroll={handleBannerScroll}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            className={`flex w-full overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth rounded-3xl touch-pan-x ${
+              banners.length > 1 ? 'cursor-grab active:cursor-grabbing' : ''
+            }`}
+            dir="rtl"
+          >
+            {banners.map((banner, idx) => (
+              <div
+                key={banner.id || idx}
+                data-banner-slide="true"
+                className="w-full shrink-0 snap-center min-w-full"
+              >
+                <div
+                  onClick={() => handleBannerClick(banner)}
+                  className={`relative overflow-hidden rounded-3xl bg-gradient-to-r ${
+                    PROMO_BANNER_GRADIENTS[idx % PROMO_BANNER_GRADIENTS.length]
+                  } text-white p-4 sm:p-6 shadow-md transition-all duration-300 min-h-[145px] sm:min-h-[165px] flex flex-col justify-between ${
+                    banner.linkUrl ? 'cursor-pointer hover:shadow-xl group/card' : ''
+                  }`}
+                  title={banner.linkUrl ? `اضغط لفتح: ${banner.linkUrl}` : undefined}
+                >
+                  {banner.imageUrl && (
+                    <div className="absolute inset-0 z-0 opacity-25 group-hover/card:opacity-35 transition-opacity">
+                      <img
+                        src={getFullImageUrl(banner.imageUrl)}
+                        alt={banner.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    </div>
+                  )}
 
-          <div className="relative z-10">
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 text-white px-2.5 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-300" />
-                <span>{currentBanner.badgeText || 'إعلان حصري ⚡'}</span>
-              </span>
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 text-white px-2.5 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1 shadow-xs">
+                        <Sparkles className="w-3 h-3 text-amber-300" />
+                        <span>{banner.badgeText || 'إعلان حصري ⚡'}</span>
+                      </span>
 
-              {currentBanner.linkUrl && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-black/40 hover:bg-black/60 px-2.5 py-1 rounded-full backdrop-blur-md transition-all shadow-sm">
-                  <span>فتح الرابط</span>
-                  <ExternalLink className="w-3 h-3" />
-                </span>
-              )}
-            </div>
+                      {banner.linkUrl && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-black/40 hover:bg-black/60 px-2.5 py-1 rounded-full backdrop-blur-md transition-all shadow-sm">
+                          <span>فتح الرابط</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </span>
+                      )}
+                    </div>
 
-            <h2 className="text-lg sm:text-xl font-black mb-1 group-hover:text-amber-200 transition-colors">
-              {currentBanner.title}
-            </h2>
-            {currentBanner.subtitle && (
-              <p className="text-xs text-indigo-100 max-w-md">
-                {currentBanner.subtitle}
-              </p>
-            )}
+                    <h2 className="text-lg sm:text-xl font-black mb-1 text-white group-hover/card:text-amber-200 transition-colors">
+                      {banner.title}
+                    </h2>
+                    {banner.subtitle && (
+                      <p className="text-xs text-indigo-100 max-w-md line-clamp-2">
+                        {banner.subtitle}
+                      </p>
+                    )}
+                  </div>
 
-            {/* Dots navigation if multiple banners */}
-            {banners.length > 1 && (
-              <div className="flex items-center gap-1.5 mt-3">
-                {banners.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveBannerIdx(idx);
-                    }}
-                    className={`h-1.5 rounded-full transition-all ${
-                      idx === activeBannerIdx ? 'w-5 bg-amber-400' : 'w-1.5 bg-white/40 hover:bg-white/70'
-                    }`}
-                  />
-                ))}
+                  {/* Visual swipe hint / banner counter for multiple banners */}
+                  {banners.length > 1 && (
+                    <div className="relative z-10 flex items-center justify-between mt-2 pt-1 border-t border-white/10 text-[10px] text-white/70">
+                      <span className="font-mono bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-xs">
+                        {idx + 1} / {banners.length}
+                      </span>
+                      <span className="text-[10px] text-amber-300/90 font-bold hidden sm:inline">
+                        اسحب يميناً ويساراً للتنقل بين العروض ↔
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            ))}
           </div>
+
+          {/* Left & Right floating navigation arrows (when multiple banners exist) */}
+          {banners.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrevBanner();
+                }}
+                aria-label="البانر السابق"
+                className="absolute top-1/2 -translate-y-1/2 right-2 sm:right-3 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md flex items-center justify-center transition-all opacity-80 hover:opacity-100 active:scale-90 shadow-md"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNextBanner();
+                }}
+                aria-label="البانر التالي"
+                className="absolute top-1/2 -translate-y-1/2 left-2 sm:left-3 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md flex items-center justify-center transition-all opacity-80 hover:opacity-100 active:scale-90 shadow-md"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              {/* Centered Floating Dots Indicator inside the card */}
+              <div className="absolute bottom-2.5 left-0 right-0 z-20 flex items-center justify-center gap-1.5 pointer-events-none">
+                <div className="flex items-center gap-1.5 bg-black/35 backdrop-blur-md px-2.5 py-1 rounded-full pointer-events-auto shadow-xs">
+                  {banners.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        scrollToBanner(idx);
+                      }}
+                      aria-label={`انتقال للبانر ${idx + 1}`}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        idx === activeBannerIdx
+                          ? 'w-5 bg-amber-400'
+                          : 'w-1.5 bg-white/40 hover:bg-white/70'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 text-white p-4 sm:p-6 shadow-md">
