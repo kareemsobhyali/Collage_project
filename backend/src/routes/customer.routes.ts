@@ -1150,6 +1150,50 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
 
     const total = Math.max(0, preWalletTotal - walletDiscount);
 
+    // التحقق الصارم من صحة رقم المحفظة المصري وإلزامية إرفاق صورة التحويل
+    let validatedPaymentSender = paymentSenderPhone ? String(paymentSenderPhone).trim() : null;
+    if (total > 0) {
+      if (paymentMethod === "VODAFONE_CASH") {
+        let cleanSender = String(paymentSenderPhone || "").trim().replace(/\s+/g, "");
+        if (cleanSender.startsWith("+20")) cleanSender = cleanSender.slice(3);
+        else if (cleanSender.startsWith("0020")) cleanSender = cleanSender.slice(4);
+        else if (cleanSender.startsWith("20") && cleanSender.length > 11) cleanSender = cleanSender.slice(2);
+
+        if (!cleanSender) {
+          res.status(400).json({ error: "يرجى إدخال رقم محفظة فودافون كاش التي قمت بالتحويل منها" });
+          return;
+        }
+        if (!/^01[0125][0-9]{8}$/.test(cleanSender)) {
+          res.status(400).json({
+            error: "يرجى إدخال رقم محفظة مصري صحيح مكون من 11 رقماً ويبدأ بـ (010, 011, 012, 015)",
+          });
+          return;
+        }
+        if (!paymentProofUrl || !String(paymentProofUrl).trim()) {
+          res.status(400).json({
+            error: "يرجى رفع صورة إيصال أو لقطة شاشة التحويل (Screenshot) لتأكيد دفع المحفظة",
+          });
+          return;
+        }
+        validatedPaymentSender = cleanSender;
+      } else if (paymentMethod === "INSTAPAY") {
+        const cleanSender = String(paymentSenderPhone || "").trim();
+        if (!cleanSender) {
+          res.status(400).json({
+            error: "يرجى كتابة اسم الحساب أو رقم الهاتف المحول منه عبر إنستاباي",
+          });
+          return;
+        }
+        if (!paymentProofUrl || !String(paymentProofUrl).trim()) {
+          res.status(400).json({
+            error: "يرجى رفع صورة إيصال أو لقطة شاشة التحويل (Screenshot) لتأكيد دفع إنستاباي",
+          });
+          return;
+        }
+        validatedPaymentSender = cleanSender;
+      }
+    }
+
     // حساب نقاط الولاء المحسوبة لهذا الطلب حسب إعدادات المنظومة (لا تُودع في المحفظة إلا بعد اكتمال الطلب والتسليم)
     const loyaltySettings = await getLoyaltySettings();
     const pointsEarned = loyaltySettings.enabled 
@@ -1242,7 +1286,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
           addressText: orderType === "DELIVERY" ? addressText?.trim() : "استلام من الفرع",
           deliveryZoneName: deliveryZoneName ? String(deliveryZoneName).trim() : null,
           paymentProofUrl: paymentProofUrl ? String(paymentProofUrl).trim() : null,
-          paymentSenderPhone: paymentSenderPhone ? String(paymentSenderPhone).trim() : null,
+          paymentSenderPhone: validatedPaymentSender,
           promoCode: verifiedPromoCode,
           discount,
           walletDiscount,

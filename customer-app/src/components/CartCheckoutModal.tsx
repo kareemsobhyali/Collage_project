@@ -409,6 +409,13 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const pointsToEarn = Math.max(1, Math.floor(subtotal / 10));
 
   const isPhoneValid = /^01[0125][0-9]{8}$/.test(customerPhone.trim());
+  const cleanEgyptianPhoneInput = (val: string) => {
+    let cleaned = val.replace(/\D/g, '');
+    if (cleaned.startsWith('0020')) cleaned = cleaned.slice(4);
+    else if (cleaned.startsWith('20') && cleaned.length > 11) cleaned = cleaned.slice(2);
+    return cleaned.slice(0, 11);
+  };
+  const isSenderPhoneValid = /^01[0125][0-9]{8}$/.test(paymentSenderPhone.trim());
   const currentAddressCoords = extractCoordinatesFromAddress(addressText) || capturedCoords;
   const cleanWrittenDetails = cleanAddressText(addressText);
 
@@ -603,18 +610,31 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       setAddressText(finalDeliveryAddress);
     }
 
-    if (
-      (paymentMethod === 'VODAFONE_CASH' || paymentMethod === 'INSTAPAY') &&
-      total > 0 &&
-      !paymentSenderPhone.trim() &&
-      !paymentProofUrl.trim()
-    ) {
-      setError(
-        `يرجى كتابة رقم/حساب المحول منه أو إرفاق صورة إيصال التحويل لتأكيد الدفع عبر ${
-          paymentMethod === 'VODAFONE_CASH' ? 'فودافون كاش' : 'إنستاباي'
-        }`
-      );
-      return;
+    if ((paymentMethod === 'VODAFONE_CASH' || paymentMethod === 'INSTAPAY') && total > 0) {
+      if (paymentMethod === 'VODAFONE_CASH') {
+        const cleanSender = paymentSenderPhone.trim();
+        if (!cleanSender) {
+          setError('يرجى إدخال رقم محفظة فودافون كاش التي قمت بالتحويل منها.');
+          return;
+        }
+        if (!/^01[0125][0-9]{8}$/.test(cleanSender)) {
+          setError('يرجى إدخال رقم محفظة مصري صحيح مكون من 11 رقماً ويبدأ بـ (010, 011, 012, 015).');
+          return;
+        }
+        if (!paymentProofUrl.trim()) {
+          setError('يرجى رفع صورة إيصال التحويل (Screenshot) لتأكيد دفع المحفظة.');
+          return;
+        }
+      } else if (paymentMethod === 'INSTAPAY') {
+        if (!paymentSenderPhone.trim()) {
+          setError('يرجى كتابة اسم حسابك أو رقمك على إنستاباي الذي قمت بالتحويل منه.');
+          return;
+        }
+        if (!paymentProofUrl.trim()) {
+          setError('يرجى رفع صورة إيصال التحويل (Screenshot) لتأكيد دفع إنستاباي.');
+          return;
+        }
+      }
     }
 
     if (isBranchFullyClosed) {
@@ -1602,23 +1622,61 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-bold text-amber-900 mb-1">
-                    رقم محفظتك أو حسابك الذي حولت منه:
+                    {paymentMethod === 'VODAFONE_CASH'
+                      ? 'رقم المحفظة التي تم التحويل منها (مطلوب) *'
+                      : 'اسم حسابك أو رقمك على إنستاباي (مطلوب) *'}
                   </label>
                   <input
-                    type="text"
-                    placeholder="مثال: 01012345678 أو اسم حسابك على إنستاباي"
+                    type={paymentMethod === 'VODAFONE_CASH' ? 'tel' : 'text'}
+                    placeholder={
+                      paymentMethod === 'VODAFONE_CASH'
+                        ? 'رقم مصري مكون من 11 رقماً (مثال: 01012345678)'
+                        : 'مثال: username@instapay أو 01012345678'
+                    }
                     value={paymentSenderPhone}
-                    onChange={(e) => setPaymentSenderPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    onChange={(e) => {
+                      if (paymentMethod === 'VODAFONE_CASH') {
+                        const clean = cleanEgyptianPhoneInput(e.target.value);
+                        setPaymentSenderPhone(clean);
+                      } else {
+                        setPaymentSenderPhone(e.target.value);
+                      }
+                      if (error) setError(null);
+                    }}
+                    className={`w-full px-3 py-2 bg-white border rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 transition-colors ${
+                      paymentMethod === 'VODAFONE_CASH' && paymentSenderPhone
+                        ? isSenderPhoneValid
+                          ? 'border-emerald-400 focus:ring-emerald-500 text-emerald-950'
+                          : 'border-rose-400 focus:ring-rose-500 text-rose-950'
+                        : 'border-amber-200 focus:ring-amber-500'
+                    }`}
                   />
+                  {paymentMethod === 'VODAFONE_CASH' && paymentSenderPhone && (
+                    <div className="mt-1 text-[10px] font-bold">
+                      {isSenderPhoneValid ? (
+                        <span className="text-emerald-700 flex items-center gap-1">
+                          ✓ رقم محفظة مصري صحيح
+                        </span>
+                      ) : (
+                        <span className="text-rose-600 flex items-center gap-1">
+                          ⚠ يجب أن يكون رقماً مصرياً مكوناً من 11 رقماً ويبدأ بـ (010, 011, 012, 015)
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-900 mb-1">
-                    صورة إيصال التحويل (Screenshot):
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-amber-900">
+                      صورة إيصال التحويل (Screenshot) *
+                    </label>
+                    <span className="text-[10px] font-black text-rose-600 bg-rose-100/80 px-2 py-0.5 rounded-md">
+                      مطلوب إرفاقها
+                    </span>
+                  </div>
                   {paymentProofUrl ? (
-                    <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-amber-200">
+                    <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-emerald-300 ring-1 ring-emerald-500/20">
                       <img
                         src={getFullImageUrl(paymentProofUrl)}
                         alt="إيصال التحويل"
@@ -1629,22 +1687,23 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                           تم إرفاق الإيصال بنجاح ✓
                         </span>
                         <span className="text-[10px] text-slate-400 block truncate">
-                          سيقوم الفرع بمراجعته وتأكيد الطلب
+                          سيقوم المطعم بمراجعته وتأكيد الطلب
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setPaymentProofUrl('')}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                        title="حذف الصورة"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
-                    <label className="cursor-pointer flex items-center justify-center gap-2 p-2.5 bg-white hover:bg-amber-100/50 border border-dashed border-amber-300 rounded-xl text-xs font-bold text-amber-800 transition-all">
+                    <label className="cursor-pointer flex items-center justify-center gap-2 p-3 bg-white hover:bg-amber-100/50 border border-dashed border-amber-300 hover:border-amber-400 rounded-xl text-xs font-bold text-amber-800 transition-all">
                       <Upload className="w-4 h-4 text-amber-600" />
                       <span>
-                        {uploadingProof ? 'جاري رفع الإيصال...' : 'اضغط لرفع لقطة شاشة التحويل'}
+                        {uploadingProof ? 'جاري رفع الإيصال...' : 'اضغط لرفع لقطة شاشة التحويل (إجباري)'}
                       </span>
                       <input
                         type="file"
