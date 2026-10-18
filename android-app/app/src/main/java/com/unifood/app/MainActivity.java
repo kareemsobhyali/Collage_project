@@ -684,6 +684,9 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void showNotificationWithTag(String title, String body, String tag) {
             try {
+                if (UniFoodNotificationService.isAppInForeground) {
+                    return;
+                }
                 NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                 if (manager == null) return;
 

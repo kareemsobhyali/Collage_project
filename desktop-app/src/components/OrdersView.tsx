@@ -387,7 +387,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         const isPickedUpByDriver = Boolean(dOrder.driverPickedUpAt);
 
         return (
-          <div className="space-y-3 sm:space-y-4 max-w-3xl mx-auto animate-fadeIn pb-24 sm:pb-20">
+          <div className="space-y-3 sm:space-y-4 max-w-3xl mx-auto animate-fadeIn pb-1.5 sm:pb-2">
             {/* Top Navigation Bar with Back Button & Order ID */}
             <div className="bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between gap-3 sticky top-14 sm:top-20 z-20">
               <button

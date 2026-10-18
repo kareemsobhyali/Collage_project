@@ -121,22 +121,11 @@ export async function sendWebNotification(
 
   const safeTag = tag || 'unifood_notification';
 
+  // في تطبيق الأندرويد الناتيف (APK):
+  // خدمة الخلفية UniFoodNotificationService هي المسؤولة حصرياً عن إشعارات النظام في الخلفية
+  // لتجنب تكرار الإشعار مرتين (مرة من الخدمة الناتيف ومرة من كود الويب)
   if (isRunningInNativeApk()) {
-    const bridge = (window as any).AndroidBridge;
-    if (bridge) {
-      if (typeof bridge.showNotificationWithTag === 'function') {
-        try {
-          bridge.showNotificationWithTag(title, body, safeTag);
-          return;
-        } catch (_e) {}
-      }
-      if (typeof bridge.showNotification === 'function') {
-        try {
-          bridge.showNotification(title, body);
-          return;
-        } catch (_e) {}
-      }
-    }
+    return;
   }
 
   if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -184,9 +173,8 @@ export async function sendWebNotification(
 export function notifyOrderStatusPush(order: any): void {
   if (!order || !order.id || !order.status) return;
 
-  // إذا كان المستخدم يتصفح التطبيق والشاشة مفتوحة أمامه في الـ APK:
-  // نكتفي بالتحديث اللحظي للواجهة بدون إشعار منبثق في شريط النظام العلوي
-  if (isRunningInNativeApk() && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+  // في تطبيق الأندرويد الناتيف (APK)، تتولى خدمة UniFoodNotificationService إرسال كافة التنبيهات في الخلفية بدون تكرار
+  if (isRunningInNativeApk()) {
     return;
   }
 

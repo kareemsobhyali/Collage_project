@@ -214,9 +214,9 @@ public class UniFoodNotificationService extends Service {
 
             String channel = item.optString("channel", "ORDERS");
 
-            // إذا كان التطبيق مفتوحاً وشغالاً أمام المستخدم في الواجهة، نتجنب تكرار الإشعار
-            // لأن واجهة التطبيق تتولى التحديث اللحظي وإظهار التنبيه
-            if (isAppInForeground && !"URGENT_ALARM".equalsIgnoreCase(channel)) {
+            // إذا كان التطبيق مفتوحاً وشغالاً أمام المستخدم في الواجهة، نتجنب إظهار إشعارات أو رنين في شريط النظام
+            // لأن واجهة التطبيق تتولى التحديث اللحظي وتشغيل صوت التنبيه المخصص بدون أي تضارب
+            if (isAppInForeground) {
                 return;
             }
 
