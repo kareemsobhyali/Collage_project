@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
 import { JWT_SECRET } from "../middleware/auth.js";
-import { orderQuickMessages, isAppRunningInForeground } from "../sockets/socketManager.js";
+import { orderQuickMessages } from "../sockets/socketManager.js";
 import { isOrderAcceptedByDriver } from "../services/driver.service.js";
 
 const router = express.Router();
@@ -62,11 +62,6 @@ router.get("/poll", async (req: Request, res: Response) => {
 
     // 1. إشعارات الكابتن (DRIVER)
     if (role === "DRIVER" && userId) {
-      // طالما أن تطبيق الكابتن شغال ومفتوح في الواجهة، لا نرسل أي إشعار للشريط العلوي
-      if (isAppRunningInForeground("DRIVER", userId)) {
-        return res.json({ success: true, notifications: [], serverTime: Date.now() });
-      }
-
       const activeOrders = await prisma.order.findMany({
         where: {
           driverId: userId,
@@ -118,7 +113,7 @@ router.get("/poll", async (req: Request, res: Response) => {
         const msgs = orderQuickMessages.get(order.id) || [];
         for (const msg of msgs) {
           const msgTime = new Date(msg.createdAt).getTime();
-          if (msg.senderRole === "CUSTOMER" && msgTime > sinceParam) {
+          if (msg.senderRole === "CUSTOMER" && (sinceParam === 0 || msgTime > sinceParam - 10000)) {
             notifications.push({
               id: `chat_${msg.id}`,
               tag: `chat_${order.orderNumber}`,
@@ -138,15 +133,15 @@ router.get("/poll", async (req: Request, res: Response) => {
 
     // 2. إشعارات الطالب (STUDENT)
     else if (role === "STUDENT" && userId) {
-      // طالما أن تطبيق الطالب شغال ومفتوح في الواجهة، لا نرسل أي إشعار للشريط العلوي
-      if (isAppRunningInForeground("STUDENT", userId)) {
-        return res.json({ success: true, notifications: [], serverTime: Date.now() });
-      }
+      const recentWindow = new Date(Math.max(sinceParam > 0 ? sinceParam - 15000 : 0, Date.now() - 30 * 60 * 1000));
 
       const studentOrders = await prisma.order.findMany({
         where: {
           userId,
-          updatedAt: { gte: sinceDate },
+          OR: [
+            { status: { in: ["ACCEPTED", "PREPARING", "READY"] } },
+            { updatedAt: { gte: recentWindow } },
+          ],
         },
         include: {
           branch: { select: { name: true, phone: true } },
@@ -193,13 +188,25 @@ router.get("/poll", async (req: Request, res: Response) => {
             color = "#10B981";
             break;
           case "REJECTED":
-            title = `⚠️ تم إلغاء الطلب #${order.orderNumber}`;
-            body = `نعتذر، تعذر تنفيذ الطلب من (${branchName}).`;
-            color = "#EF4444";
+            const isSelfCancelled = Boolean(
+              order.notes?.includes("من قِبل الطالب") ||
+              order.notes?.includes("من قِبل العميل") ||
+              order.notes?.includes("بواسطة الطالب") ||
+              order.notes?.includes("بواسطة العميل")
+            );
+            if (isSelfCancelled) {
+              title = `تم إلغاء الطلب #${order.orderNumber}`;
+              body = `تم إلغاء طلبك بنجاح بناءً على رغبتك قبل بدء التجهيز.`;
+              color = "#64748B";
+            } else {
+              title = `⚠️ تم الاعتذار عن الطلب #${order.orderNumber}`;
+              body = `نعتذر، تعذر تنفيذ الطلب من (${branchName}).`;
+              color = "#EF4444";
+            }
             break;
         }
 
-        if (title && orderUpdatedMs > sinceParam) {
+        if (title) {
           notifications.push({
             id: `student_order_${order.orderNumber}_${order.status}`,
             tag: `order_${order.orderNumber}`,
@@ -218,7 +225,7 @@ router.get("/poll", async (req: Request, res: Response) => {
         const msgs = orderQuickMessages.get(order.id) || [];
         for (const msg of msgs) {
           const msgTime = new Date(msg.createdAt).getTime();
-          if (msg.senderRole === "DRIVER" && msgTime > sinceParam) {
+          if (msg.senderRole === "DRIVER" && (sinceParam === 0 || msgTime > sinceParam - 10000)) {
             notifications.push({
               id: `chat_${msg.id}`,
               tag: `chat_${order.orderNumber}`,
@@ -238,11 +245,6 @@ router.get("/poll", async (req: Request, res: Response) => {
 
     // 3. إشعارات شاشة المطعم (BRANCH)
     else if (role === "BRANCH" && userId) {
-      // طالما أن تطبيق المطعم شغال ومفتوح في الواجهة، لا نرسل أي إشعار للشريط العلوي
-      if (isAppRunningInForeground("BRANCH", userId)) {
-        return res.json({ success: true, notifications: [], serverTime: Date.now() });
-      }
-
       const pendingOrders = await prisma.order.findMany({
         where: {
           branchId: userId,

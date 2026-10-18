@@ -192,7 +192,14 @@ export function App() {
 
     // تحديث حالة طلب
     socket.on('order_status_updated', (updatedOrder: any) => {
-      setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+      setOrders(prev => {
+        const next = prev.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+        const hasPending = next.some(o => o.status === 'PENDING');
+        if (!hasPending) {
+          soundNotifier.stopRepeatingAlarm();
+        }
+        return next;
+      });
     });
 
     // استلام تنبيه فوري وتشغيل جرس إنذار عند اعتذار/رفض الطيار لاستلام الطلب

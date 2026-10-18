@@ -1385,7 +1385,7 @@ router.put("/orders/:id/cancel", async (req: AuthRequest, res: Response) => {
         data: {
           status: "REJECTED",
           cancelledAt: new Date(),
-          notes: `${order.notes ? order.notes + " | " : ""}تم إلغاء الطلب من قِبل الطالب`,
+          notes: `${order.notes ? order.notes + " | " : ""}تم إلغاء الطلب من قِبل الطالب (العميل)`,
         },
       });
       if (claim.count === 0) {

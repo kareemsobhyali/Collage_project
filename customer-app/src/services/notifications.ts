@@ -212,8 +212,19 @@ export function notifyOrderStatusPush(order: any): void {
       msg = `تم تسليم الطلب بنجاح وإضافة نقاط الولاء لمحفظتك!`;
       break;
     case 'REJECTED':
-      title = `⚠️ تم إلغاء الطلب #${orderNum}`;
-      msg = `نعتذر، تعذر تنفيذ الطلب من (${branchName}).`;
+      const isSelfCancelled = Boolean(
+        order.notes?.includes('من قِبل الطالب') ||
+        order.notes?.includes('من قِبل العميل') ||
+        order.notes?.includes('بواسطة الطالب') ||
+        order.notes?.includes('بواسطة العميل')
+      );
+      if (isSelfCancelled) {
+        title = `تم إلغاء الطلب #${orderNum}`;
+        msg = `تم إلغاء طلبك بنجاح بناءً على رغبتك قبل بدء التجهيز.`;
+      } else {
+        title = `⚠️ تم الاعتذار عن الطلب #${orderNum}`;
+        msg = `نعتذر، تعذر تنفيذ الطلب من (${branchName}).`;
+      }
       break;
   }
 

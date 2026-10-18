@@ -205,6 +205,14 @@ public class UniFoodNotificationService extends Service {
             String id = item.optString("id", "");
             if (id.isEmpty()) return;
 
+            // إذا كان التطبيق مفتوحاً وشغالاً أمام المستخدم في الواجهة، نتجنب إظهار إشعارات أو رنين في شريط النظام
+            // لأن واجهة التطبيق تتولى التحديث اللحظي وتشغيل صوت التنبيه المخصص بدون أي تضارب
+            if (isAppInForeground) {
+                // تسجيل المعرف حتى لا يرن النظام لاحقاً لنفس الحدث إذا أغلق المستخدم التطبيق
+                alertedNotificationIds.add(id);
+                return;
+            }
+
             // منع تكرار التنبيه الصوتي لنفس الحدث
             boolean isNewEvent = !alertedNotificationIds.contains(id);
             if (alertedNotificationIds.size() > 500) {
@@ -213,12 +221,6 @@ public class UniFoodNotificationService extends Service {
             alertedNotificationIds.add(id);
 
             String channel = item.optString("channel", "ORDERS");
-
-            // إذا كان التطبيق مفتوحاً وشغالاً أمام المستخدم في الواجهة، نتجنب إظهار إشعارات أو رنين في شريط النظام
-            // لأن واجهة التطبيق تتولى التحديث اللحظي وتشغيل صوت التنبيه المخصص بدون أي تضارب
-            if (isAppInForeground) {
-                return;
-            }
 
             String tag = item.optString("tag", "order_default");
             String title = item.optString("title", "تحديث جديد");
