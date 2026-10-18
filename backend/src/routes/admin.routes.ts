@@ -1305,6 +1305,10 @@ router.put("/settings/whatsapp-alerts", async (req: AuthRequest, res: Response) 
       unacceptedAlertPhones,
       unacceptedAlertEnabled,
       unacceptedDelayMinutes,
+      dailyReportPhones,
+      dailyReportEnabled,
+      driverUnacceptedAlertEnabled,
+      driverUnacceptedDelayMinutes,
     } = req.body;
 
     const updated = await updateWhatsAppAlertSettings({
@@ -1313,6 +1317,10 @@ router.put("/settings/whatsapp-alerts", async (req: AuthRequest, res: Response) 
       unacceptedAlertPhones,
       unacceptedAlertEnabled,
       unacceptedDelayMinutes,
+      dailyReportPhones,
+      dailyReportEnabled,
+      driverUnacceptedAlertEnabled,
+      driverUnacceptedDelayMinutes,
     });
 
     res.json({

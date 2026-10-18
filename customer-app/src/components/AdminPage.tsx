@@ -940,10 +940,18 @@ export const AdminPage: React.FC = () => {
     try {
       setSavingWhatsAppAlerts(true);
       setWhatsAppAlertsSaveSuccess(false);
-      await api.updateWhatsAppAlertSettings(whatsAppAlertSettings);
+      const res = await api.updateWhatsAppAlertSettings(whatsAppAlertSettings);
+      if (res?.settings) {
+        setWhatsAppAlertSettings(prev => ({
+          ...prev,
+          ...res.settings,
+        }));
+      }
       setWhatsAppAlertsSaveSuccess(true);
       setTimeout(() => setWhatsAppAlertsSaveSuccess(false), 3500);
     } catch (err: any) {
+      alert(err.message || 'فشل حفظ إعدادات تنبيهات وأرقام الواتساب');
+    } finally {
       setSavingWhatsAppAlerts(false);
     }
   };
