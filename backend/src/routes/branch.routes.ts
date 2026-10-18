@@ -8,9 +8,10 @@ import {
   notifyBranchStatusChanged, 
   notifyDriverAssigned,
   notifyBranchMenuChanged,
-  notifyMenuItemAvailabilityChanged
+  notifyMenuItemAvailabilityChanged,
+  latestDriverLocations
 } from "../sockets/socketManager.js";
-import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert } from "../services/settings.service.js";
+import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert, getRestaurantLocationSettings } from "../services/settings.service.js";
 import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver } from "../services/driver.service.js";
 
 
@@ -1182,12 +1183,33 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 18. جلب قائمة كباتن التوصيل (الطيارين) المتاحين للفرع (طياري الفرع + الطيارين العامين لكل المطاعم)
-router.get("/drivers", async (req: AuthRequest, res: Response) => {
-  try {
-    const branchId = req.branch!.branchId;
+function parseBranchCoordsFromAddress(address?: string | null, fallback?: { lat: number; lng: number }): { lat: number; lng: number } {
+  if (address) {
+    const match = address.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+    if (match) {
+      const lat = parseFloat(match[1]);
+      const lng = parseFloat(match[2]);
+      if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    }
+  }
+  return fallback || { lat: 30.0277, lng: 31.2105 };
+}
 
-    const allDrivers = await prisma.deliveryDriver.findMany({
+function calcHaversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const h =
+    sinLat * sinLat +
+    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * sinLng * sinLng;
+  return R * (2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
+}
+
+async function findBestSmartDriverForBranch(branchId: string) {
+  const [allDrivers, branch, defaultLoc, activeDriverOrders] = await Promise.all([
+    prisma.deliveryDriver.findMany({
       where: { isActive: true },
       select: {
         id: true,
@@ -1196,17 +1218,125 @@ router.get("/drivers", async (req: AuthRequest, res: Response) => {
         phone: true,
         username: true,
         isActive: true,
-        createdAt: true,
-        _count: { select: { orders: true } },
       },
-      orderBy: { createdAt: "desc" },
+    }),
+    prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { id: true, address: true },
+    }),
+    getRestaurantLocationSettings().catch(() => ({ lat: 30.0277, lng: 31.2105 })),
+    prisma.order.groupBy({
+      by: ["driverId"],
+      where: {
+        driverId: { not: null },
+        status: { in: ["ACCEPTED", "PREPARING", "READY"] },
+      },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const activeCountMap = new Map<string, number>();
+  for (const row of activeDriverOrders) {
+    if (row.driverId) activeCountMap.set(row.driverId, row._count._all);
+  }
+
+  const branchCoords = parseBranchCoordsFromAddress(branch?.address, defaultLoc);
+  const nowMs = Date.now();
+
+  const candidates: Array<{
+    driver: any;
+    activeOrdersCount: number;
+    distanceKm: number | null;
+    hasLiveGps: boolean;
+    score: number;
+  }> = [];
+
+  for (const d of allDrivers) {
+    const allowed = await canDriverServeBranch(d.id, d.branchId, branchId);
+    if (!allowed) continue;
+
+    const activeOrdersCount = activeCountMap.get(d.id) || 0;
+    const liveLoc = latestDriverLocations.get(d.id);
+    const hasRecentGps = Boolean(liveLoc && nowMs - liveLoc.timestamp < 30 * 60 * 1000);
+    const distanceKm = hasRecentGps && liveLoc
+      ? Number(calcHaversineKm(branchCoords, { lat: liveLoc.lat, lng: liveLoc.lng }).toFixed(2))
+      : null;
+
+    // معادلة الترتيب الذكي:
+    // 1. الأولوية القصوى للطيار المتفرغ (أقل عدد طلبات جارية)
+    // 2. الأقرب مسافة بالـ GPS للمطعم
+    // 3. أولوية خفيفة لطيار الفرع المباشر عند التساوي
+    const branchAffinityPenalty = d.branchId === branchId ? 0 : 0.25;
+    const distancePenalty = distanceKm !== null ? distanceKm : 3.5;
+    const score = activeOrdersCount * 100 + distancePenalty + branchAffinityPenalty;
+
+    candidates.push({
+      driver: d,
+      activeOrdersCount,
+      distanceKm,
+      hasLiveGps: hasRecentGps,
+      score,
     });
+  }
+
+  candidates.sort((a, b) => a.score - b.score);
+  return candidates[0] || null;
+}
+
+// 18. جلب قائمة كباتن التوصيل (الطيارين) المتاحين للفرع (طياري الفرع + الطيارين العامين لكل المطاعم)
+router.get("/drivers", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+
+    const [allDrivers, branch, defaultLoc, activeDriverOrders] = await Promise.all([
+      prisma.deliveryDriver.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          branchId: true,
+          name: true,
+          phone: true,
+          username: true,
+          isActive: true,
+          createdAt: true,
+          _count: { select: { orders: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.branch.findUnique({
+        where: { id: branchId },
+        select: { id: true, address: true },
+      }),
+      getRestaurantLocationSettings().catch(() => ({ lat: 30.0277, lng: 31.2105 })),
+      prisma.order.groupBy({
+        by: ["driverId"],
+        where: {
+          driverId: { not: null },
+          status: { in: ["ACCEPTED", "PREPARING", "READY"] },
+        },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const activeCountMap = new Map<string, number>();
+    for (const row of activeDriverOrders) {
+      if (row.driverId) activeCountMap.set(row.driverId, row._count._all);
+    }
+
+    const branchCoords = parseBranchCoordsFromAddress(branch?.address, defaultLoc);
+    const nowMs = Date.now();
 
     const eligibleDrivers = [];
     for (const d of allDrivers) {
       const allowed = await canDriverServeBranch(d.id, d.branchId, branchId);
       if (allowed) {
         const config = await getDriverBranchConfig(d.id, d.branchId);
+        const liveLoc = latestDriverLocations.get(d.id);
+        const hasRecentGps = Boolean(liveLoc && nowMs - liveLoc.timestamp < 30 * 60 * 1000);
+        const distanceKm = hasRecentGps && liveLoc
+          ? Number(calcHaversineKm(branchCoords, { lat: liveLoc.lat, lng: liveLoc.lng }).toFixed(2))
+          : null;
+
         eligibleDrivers.push({
           id: d.id,
           name: d.name,
@@ -1216,6 +1346,9 @@ router.get("/drivers", async (req: AuthRequest, res: Response) => {
           createdAt: d.createdAt,
           isAllBranches: config.isAllBranches,
           isGeneralDriver: config.isAllBranches || d.branchId !== branchId,
+          activeOrdersCount: activeCountMap.get(d.id) || 0,
+          distanceKm,
+          hasLiveGps: hasRecentGps,
           _count: d._count,
         });
       }
@@ -1351,7 +1484,7 @@ router.delete("/drivers/:id", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 22. إسناد الطلب لطيار محدد (Assign Driver to Order)
+// 22. إسناد الطلب لطيار محدد أو إسناد تلقائي ذكي (Assign Driver / Smart Auto-Dispatch)
 router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
@@ -1371,10 +1504,27 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
       return;
     }
 
-    let assignedDriver: any = null;
-    if (driverId) {
-      assignedDriver = await prisma.deliveryDriver.findUnique({
-        where: { id: driverId },
+    let finalDriverId: string | null = driverId || null;
+    let smartDispatchMeta: any = null;
+
+    if (driverId === "AUTO") {
+      const bestCandidate = await findBestSmartDriverForBranch(branchId);
+      if (!bestCandidate) {
+        res.status(400).json({ error: "لا يوجد كباتن توصيل نشطون متاحون حالياً لهذا الفرع" });
+        return;
+      }
+      finalDriverId = bestCandidate.driver.id;
+      smartDispatchMeta = {
+        id: bestCandidate.driver.id,
+        name: bestCandidate.driver.name,
+        phone: bestCandidate.driver.phone,
+        activeOrdersCount: bestCandidate.activeOrdersCount,
+        distanceKm: bestCandidate.distanceKm,
+        hasLiveGps: bestCandidate.hasLiveGps,
+      };
+    } else if (finalDriverId) {
+      const assignedDriver = await prisma.deliveryDriver.findUnique({
+        where: { id: finalDriverId },
       });
       if (!assignedDriver || !assignedDriver.isActive) {
         res.status(400).json({ error: "الطيار المحدد غير متاح حالياً" });
@@ -1390,8 +1540,8 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
     const rawUpdated = await prisma.order.update({
       where: { id },
       data: {
-        driverId: driverId || null,
-        driverAssignedAt: driverId ? new Date() : null,
+        driverId: finalDriverId,
+        driverAssignedAt: finalDriverId ? new Date() : null,
       },
       include: {
         items: true,
@@ -1416,17 +1566,21 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
 
     const updated = {
       ...rawUpdated,
-      isDriverAccepted: Boolean(rawUpdated.driverPickedUpAt) || (driverId ? await isOrderAcceptedByDriver(id) : false),
+      isDriverAccepted: Boolean(rawUpdated.driverPickedUpAt) || (finalDriverId ? await isOrderAcceptedByDriver(id) : false),
     };
 
     // إشعار الطيار المعين عبر Socket.io بصوت تنبيه فوري
-    if (driverId) {
-      notifyDriverAssigned(driverId, updated);
+    if (finalDriverId) {
+      notifyDriverAssigned(finalDriverId, updated);
     }
     // إشعار العميل والديسكتوب
-    notifyOrderStatusChanged(id, branchId, updated, driverId);
+    notifyOrderStatusChanged(id, branchId, updated, finalDriverId || undefined);
 
-    res.json({ success: true, order: updated });
+    res.json({
+      success: true,
+      order: updated,
+      autoAssignedDriver: smartDispatchMeta,
+    });
   } catch (error) {
     console.error("Assign driver error:", error);
     res.status(500).json({ error: "فشل إسناد الطلب للطيار" });

@@ -262,7 +262,18 @@ export function App() {
     setToken(newToken);
   };
 
+  useEffect(() => {
+    if (token && branch?.id && typeof window !== 'undefined') {
+      try {
+        (window as any).AndroidBridge?.registerBackgroundSession?.(token, 'BRANCH', branch.id);
+      } catch (_e) {}
+    }
+  }, [token, branch?.id]);
+
   const handleLogout = () => {
+    try {
+      (window as any).AndroidBridge?.clearBackgroundSession?.();
+    } catch (_e) {}
     localStorage.removeItem('branch_token');
     localStorage.removeItem('branch_info');
     soundNotifier.stopRepeatingAlarm();

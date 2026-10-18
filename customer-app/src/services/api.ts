@@ -219,6 +219,14 @@ export const api = {
     return data;
   },
 
+  // 4.5 استعراض عروض الفلاش الموقوتة وقت البريك
+  async getFlashDeals() {
+    const res = await fetch(`${API_BASE_URL}/customer/flash-deals`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب عروض الفلاش');
+    return data;
+  },
+
   // 5. استعراض منيو الفرع
   async getBranchMenu(branchId: string) {
     const res = await fetch(`${API_BASE_URL}/customer/branches/${branchId}/menu`);

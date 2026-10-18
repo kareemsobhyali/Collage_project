@@ -12,13 +12,22 @@ import {
   Sparkles,
   UtensilsCrossed,
   ExternalLink,
-  X
+  X,
+  Heart,
+  Star,
+  Flame,
+  Zap,
+  Copy,
+  Check,
+  RotateCcw
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 
 interface BranchListProps {
   branches: any[];
   onSelectBranch: (branch: any, autoOpenItemId?: string | null) => void;
+  onQuickReorder?: (order: any) => void;
+  user?: any | null;
 }
 
 // Preset vibrant banner gradients for appetizing restaurant cards
@@ -32,6 +41,15 @@ const BANNER_GRADIENTS = [
 ];
 
 const FOOD_EMOJIS = ['🍔', '🍕', '🌯', '🥪', '☕', '🍗', '🍟', '🥤', '🧇', '🍝'];
+
+const formatFlashCountdown = (expiresAtIso?: string): string => {
+  if (!expiresAtIso) return '02:00:00';
+  const diffSec = Math.max(0, Math.floor((new Date(expiresAtIso).getTime() - Date.now()) / 1000));
+  const hrs = Math.floor(diffSec / 3600);
+  const mins = Math.floor((diffSec % 3600) / 60);
+  const secs = diffSec % 60;
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
 
 const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
   const [secondsLeft, setSecondsLeft] = useState<number>(() => {
@@ -95,9 +113,105 @@ const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
   );
 };
 
-export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch }) => {
+export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch, onQuickReorder, user }) => {
   const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'ALL' | 'OPEN' | 'DELIVERY' | 'PICKUP'>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'OPEN' | 'FAVORITES' | 'DELIVERY' | 'PICKUP'>('ALL');
+
+  // Favorite Branches stored in localStorage
+  const [favBranchIds, setFavBranchIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('unifood_fav_branches');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleFavoriteBranch = (e: React.MouseEvent, branchId: string) => {
+    e.stopPropagation();
+    setFavBranchIds((prev) => {
+      const next = prev.includes(branchId) ? prev.filter((id) => id !== branchId) : [...prev, branchId];
+      try {
+        localStorage.setItem('unifood_fav_branches', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  // Usual Order ("اطلب وجبتك المعتادة بضغطة واحدة")
+  const [usualOrder, setUsualOrder] = useState<any | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadUsualOrder = async () => {
+      try {
+        if (user) {
+          const orders = await api.getMyOrders();
+          if (isMounted && Array.isArray(orders) && orders.length > 0) {
+            // البحث عن أكثر وجبة/مطعم تكرر طلبه من الطالب أو آخر طلب ناجح له
+            const validOrders = orders.filter((o: any) => o.status !== 'REJECTED' && Array.isArray(o.items) && o.items.length > 0);
+            if (validOrders.length > 0) {
+              const freqMap = new Map<string, { count: number; order: any }>();
+              for (const ord of validOrders) {
+                const sig = `${ord.branchId}__${(ord.items || []).map((i: any) => `${i.menuItemId || i.itemName}:${i.quantity}`).sort().join('|')}`;
+                const existing = freqMap.get(sig);
+                if (existing) {
+                  existing.count += 1;
+                } else {
+                  freqMap.set(sig, { count: 1, order: ord });
+                }
+              }
+              let best = validOrders[0];
+              let maxCount = 1;
+              for (const entry of freqMap.values()) {
+                if (entry.count > maxCount) {
+                  maxCount = entry.count;
+                  best = entry.order;
+                }
+              }
+              setUsualOrder({ ...best, repeatCount: maxCount });
+              return;
+            }
+          }
+        }
+        // Fallback to localStorage last order
+        const cachedLast = localStorage.getItem('unifood_last_order');
+        if (cachedLast && isMounted) {
+          const parsed = JSON.parse(cachedLast);
+          if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+            setUsualOrder(parsed);
+          }
+        }
+      } catch (_e) {}
+    };
+    loadUsualOrder();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, branches.length]);
+
+  // Flash Deals Countdown State
+  const [flashDeals, setFlashDeals] = useState<{ promoDeals: any[]; comboDeals: any[] }>({ promoDeals: [], comboDeals: [] });
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const fetchFlash = () => {
+      api.getFlashDeals()
+        .then((res) => {
+          if (res) {
+            setFlashDeals({
+              promoDeals: Array.isArray(res.promoDeals) ? res.promoDeals : [],
+              comboDeals: Array.isArray(res.comboDeals) ? res.comboDeals : [],
+            });
+          }
+        })
+        .catch(() => {});
+    };
+    fetchFlash();
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Dynamic Promotional Banners from Admin
   const [banners, setBanners] = useState<any[]>([]);
@@ -140,6 +254,9 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         b.operationalStatus === 'OPEN' &&
         isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
       );
+    }
+    if (activeFilter === 'FAVORITES') {
+      return favBranchIds.includes(b.id);
     }
     if (activeFilter === 'DELIVERY') {
       return b.allowDelivery === true;
@@ -187,6 +304,8 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
       window.open(`https://${url}`, '_blank', 'noopener,noreferrer');
     }
   };
+
+  const hasFlashSection = flashDeals.promoDeals.length > 0 || flashDeals.comboDeals.length > 0;
 
   return (
     <div className="space-y-5">
@@ -280,6 +399,193 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         </div>
       )}
 
+      {/* 1.5 Smart Usual Order 1-Tap Card ("اطلب وجبتك المعتادة بضغطة واحدة") */}
+      {usualOrder && onQuickReorder && (() => {
+        const usualBranch = branches.find((b) => b.id === usualOrder.branchId) || usualOrder.branch;
+        if (!usualBranch) return null;
+        const itemsSummary = (usualOrder.items || [])
+          .map((it: any) => `${it.quantity}× ${it.itemName || it.name}`)
+          .join(' ، ');
+        const itemsSubtotal = (usualOrder.items || []).reduce((acc: number, it: any) => acc + (it.totalPrice || 0), 0);
+
+        return (
+          <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-700 rounded-3xl p-4 text-white shadow-lg border border-indigo-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 relative overflow-hidden">
+            <div className="flex items-start sm:items-center gap-3 min-w-0 relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center shrink-0 text-2xl shadow-sm">
+                ⚡
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full">
+                    وجبتك المعتادة ❤️
+                  </span>
+                  <span className="text-xs sm:text-sm font-black text-white truncate">
+                    اطلب وجبتك المعتادة من {usualBranch.name} بضغطة واحدة
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-indigo-100 truncate mt-1">
+                  🍱 {itemsSummary}
+                </p>
+                <span className="text-[11px] font-mono text-amber-200 font-bold block mt-0.5">
+                  قيمة الوجبة: {itemsSubtotal || usualOrder.subtotal || usualOrder.total} ج.م
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onQuickReorder(usualOrder)}
+              className="relative z-10 px-4 py-2.5 bg-white hover:bg-amber-50 text-indigo-950 rounded-2xl text-xs font-black shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
+              <span>اطلبها الآن بضغطة واحدة 🚀</span>
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* 1.8 Flash Deals Countdown Section ("عروض الفلاش الموقوتة وقت البريك 🔥") */}
+      {hasFlashSection && (
+        <div className="bg-gradient-to-br from-rose-950 via-slate-900 to-indigo-950 rounded-3xl p-4 text-white border border-rose-500/30 shadow-md space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white shadow-sm">
+                <Flame className="w-4 h-4 animate-bounce" />
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-sm font-black flex items-center gap-1.5">
+                  <span>عروض الفلاش الموقوتة وقت البريك 🔥</span>
+                </h3>
+                <p className="text-[10px] text-rose-200">
+                  خصومات وكومبوهات سريعة لفترة محدودة أو حتى نفاد الكمية
+                </p>
+              </div>
+            </div>
+
+            <div className="px-2.5 py-1 rounded-xl bg-rose-500/20 border border-rose-400/30 text-right shrink-0">
+              <span className="text-[9px] text-rose-200 block">ينتهي العرض خلال</span>
+              <span className="text-xs font-mono font-black text-amber-300">
+                ⏱️ {formatFlashCountdown(flashDeals.promoDeals[0]?.expiresAt || flashDeals.comboDeals[0]?.expiresAt)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-stretch gap-3 overflow-x-auto pb-1 no-scrollbar">
+            {/* Active Promo Deals */}
+            {flashDeals.promoDeals.map((deal) => {
+              const usedPercent = Math.min(100, Math.max(12, Math.round(((deal.usedCount || 0) / (deal.maxUses || 50)) * 100)));
+              const isCopied = copiedCode === deal.code;
+
+              return (
+                <div
+                  key={deal.id}
+                  className="min-w-[250px] sm:min-w-[270px] bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-3 flex flex-col justify-between gap-2.5 shrink-0"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">
+                        كوبون فلاش ⚡
+                      </span>
+                      <span className="text-[10px] font-mono text-rose-200">
+                        ⏱️ {formatFlashCountdown(deal.expiresAt)}
+                      </span>
+                    </div>
+                    <h4 className="font-black text-xs sm:text-sm text-white leading-snug">
+                      {deal.title}
+                    </h4>
+                    <p className="text-[10px] text-slate-300 line-clamp-1">
+                      {deal.subtitle}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] text-amber-200 font-bold mb-1">
+                        <span>متبقي {deal.remainingUses} كوبون فقط</span>
+                        <span className="font-mono">{deal.code}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/15 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-400 to-rose-500 rounded-full"
+                          style={{ width: `${100 - usedPercent}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(deal.code);
+                        try {
+                          localStorage.setItem('unifood_auto_promo', deal.code);
+                        } catch {}
+                        setCopiedCode(deal.code);
+                        setTimeout(() => setCopiedCode(null), 2500);
+                        if (deal.targetBranch) {
+                          const found = branches.find((b) => b.id === deal.targetBranch.id);
+                          if (found) onSelectBranch(found);
+                        }
+                      }}
+                      className="w-full py-1.5 px-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 font-black rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                    >
+                      {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{isCopied ? `تم نسخ الكود (${deal.code}) ✓` : `انسخ الكود (${deal.code}) واطلب الآن`}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Featured Combo Deals */}
+            {flashDeals.comboDeals.map((combo) => (
+              <div
+                key={combo.id}
+                onClick={() => {
+                  const found = branches.find((b) => b.id === combo.targetBranch?.id);
+                  if (found) onSelectBranch(found, combo.itemId);
+                }}
+                className="min-w-[240px] sm:min-w-[260px] bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/15 rounded-2xl p-3 flex flex-col justify-between gap-2.5 shrink-0 cursor-pointer transition-all"
+              >
+                <div className="flex items-start gap-2.5">
+                  {combo.imageUrl ? (
+                    <img
+                      src={getFullImageUrl(combo.imageUrl)}
+                      alt={combo.title}
+                      className="w-12 h-12 rounded-xl object-cover shrink-0 border border-white/20"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-xl shrink-0">
+                      🍱
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] font-black text-amber-300 block truncate">
+                      🏪 {combo.targetBranch?.name || 'مطعم الجامعة'}
+                    </span>
+                    <h4 className="font-black text-xs sm:text-sm text-white truncate">
+                      {combo.title}
+                    </h4>
+                    <p className="text-[10px] text-slate-300 line-clamp-1 mt-0.5">
+                      {combo.subtitle}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1.5 border-t border-white/10">
+                  <span className="text-sm font-black text-amber-300 font-mono">
+                    {combo.price} ج.م
+                  </span>
+                  <span className="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[10px] font-black flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-amber-300" />
+                    <span>اطلب العرض</span>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 2. Search & Quick Filters */}
       <div className="space-y-2.5">
         <div className="relative">
@@ -313,6 +619,18 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           >
             <UtensilsCrossed className="w-3.5 h-3.5" />
             <span>الكل ({branches.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter('FAVORITES')}
+            className={`px-3.5 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 text-xs ${
+              activeFilter === 'FAVORITES'
+                ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-rose-50 hover:text-rose-600'
+            }`}
+          >
+            <Heart className={`w-3.5 h-3.5 ${activeFilter === 'FAVORITES' ? 'fill-white text-white' : 'text-rose-500'}`} />
+            <span>المفضلة ({favBranchIds.length})</span>
           </button>
 
           <button
@@ -367,8 +685,14 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         {filteredBranches.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center text-slate-400 border border-slate-200 shadow-sm">
             <Store className="w-14 h-14 mx-auto mb-2 opacity-30 text-indigo-600" />
-            <h4 className="text-sm font-bold text-slate-700">لا توجد مطاعم مطابقة للبحث</h4>
-            <p className="text-xs text-slate-500 mt-1">جرب البحث بكلمة أخرى أو تغيير الفلتر</p>
+            <h4 className="text-sm font-bold text-slate-700">
+              {activeFilter === 'FAVORITES' ? 'لم تقم بإضافة أي مطعم للمفضلة بعد ❤️' : 'لا توجد مطاعم مطابقة للبحث'}
+            </h4>
+            <p className="text-xs text-slate-500 mt-1">
+              {activeFilter === 'FAVORITES'
+                ? 'اضغط على علامة القلب ❤️ أعلى أي مطعم لحفظه في مفضلتك للوصول السريع'
+                : 'جرب البحث بكلمة أخرى أو تغيير الفلتر'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -378,6 +702,13 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               const emoji = FOOD_EMOJIS[idx % FOOD_EMOJIS.length];
               const isClosed = branch.operationalStatus === 'CLOSED';
               const isBusy = branch.operationalStatus === 'BUSY';
+              const isOpenNow =
+                !isClosed &&
+                !isBusy &&
+                isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours);
+              const isFav = favBranchIds.includes(branch.id);
+              const crowdLevel = branch.crowdLevel || 'LOW';
+              const estimatedPrep = branch.estimatedPrepMins || '15-25 د';
 
               return (
                 <div
@@ -397,14 +728,28 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                       <div className="absolute inset-0 bg-black/10" />
 
                       {/* Right: Operational Status */}
-                      <div className="relative z-10">
+                      <div className="relative z-10 flex items-center gap-1.5">
                         <BranchCountdownBadge branch={branch} />
                       </div>
 
-                      {/* Left: Time Estimate */}
-                      <div className="relative z-10 flex items-center gap-1 bg-black/40 text-white font-bold text-[11px] px-2.5 py-1 rounded-full backdrop-blur-md border border-white/20">
-                        <Clock className="w-3 h-3 text-amber-300" />
-                        <span>15 - 25 دقيقة</span>
+                      {/* Left: Time Estimate + Favorite Heart Button */}
+                      <div className="relative z-10 flex items-center gap-1.5">
+                        <div className="flex items-center gap-1 bg-black/40 text-white font-bold text-[11px] px-2.5 py-1 rounded-full backdrop-blur-md border border-white/20">
+                          <Clock className="w-3 h-3 text-amber-300" />
+                          <span>{estimatedPrep}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => toggleFavoriteBranch(e, branch.id)}
+                          title={isFav ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+                          className={`w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-md border transition-all active:scale-90 ${
+                            isFav
+                              ? 'bg-rose-500 text-white border-rose-300 shadow-sm'
+                              : 'bg-black/35 text-white hover:bg-black/55 border-white/25'
+                          }`}
+                        >
+                          <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-white' : ''}`} />
+                        </button>
                       </div>
                     </div>
 
@@ -425,10 +770,25 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                         )}
                       </div>
 
-                      {/* Full Delivery Fee Pill */}
-                      <div className="bg-white text-indigo-700 text-xs font-black px-3 py-1.5 rounded-full shadow-md border border-slate-200/80 flex items-center gap-1.5 pointer-events-auto">
-                        <Truck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                        <span>{branch.deliveryFee > 0 ? `${branch.deliveryFee} ج.م توصيل` : 'توصيل مجاني'}</span>
+                      {/* Rating Badge + Delivery Fee Pill */}
+                      <div className="flex items-center gap-1.5 pointer-events-auto">
+                        {branch.ratingsCount > 0 ? (
+                          <div className="bg-amber-50 text-amber-900 text-[11px] font-black px-2.5 py-1.5 rounded-full shadow-md border border-amber-200 flex items-center gap-1">
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                            <span>{branch.avgRating}</span>
+                            <span className="text-[10px] text-amber-700 font-bold">({branch.ratingsCount})</span>
+                          </div>
+                        ) : (
+                          <div className="bg-amber-50/90 text-amber-800 text-[10px] font-bold px-2.5 py-1.5 rounded-full shadow-sm border border-amber-200/80 flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0" />
+                            <span>جديد</span>
+                          </div>
+                        )}
+
+                        <div className="bg-white text-indigo-700 text-xs font-black px-3 py-1.5 rounded-full shadow-md border border-slate-200/80 flex items-center gap-1.5">
+                          <Truck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          <span>{branch.deliveryFee > 0 ? `${branch.deliveryFee} ج.م توصيل` : 'توصيل مجاني'}</span>
+                        </div>
                       </div>
                     </div>
 
@@ -451,6 +811,41 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                           <span className="line-clamp-1">{branch.address || 'داخل الحرم الجامعي'}</span>
                         </div>
                       </div>
+
+                      {/* Live Kitchen Crowd Radar 🚦 (مؤشر زحمة المطبخ الحي) */}
+                      {isOpenNow && (
+                        <div
+                          className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-bold flex items-center justify-between gap-2 ${
+                            crowdLevel === 'HIGH'
+                              ? 'bg-rose-50/90 border-rose-200 text-rose-800'
+                              : crowdLevel === 'MEDIUM'
+                              ? 'bg-amber-50/90 border-amber-200 text-amber-900'
+                              : 'bg-emerald-50/80 border-emerald-200 text-emerald-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                crowdLevel === 'HIGH'
+                                  ? 'bg-rose-500 animate-ping'
+                                  : crowdLevel === 'MEDIUM'
+                                  ? 'bg-amber-500 animate-pulse'
+                                  : 'bg-emerald-500'
+                              }`}
+                            />
+                            <span>
+                              {crowdLevel === 'HIGH'
+                                ? '🔴 ضغط عالي وقت البريك'
+                                : crowdLevel === 'MEDIUM'
+                                ? '🟡 متوسط الازدحام بالمطبخ'
+                                : '🟢 المطبخ هادئ • تجهيز سريع'}
+                            </span>
+                          </div>
+                          <span className="font-mono text-[10px] font-black opacity-85">
+                            ~{estimatedPrep}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Temporary notice if busy or closed */}
                       {isBusy && (

@@ -155,12 +155,136 @@ export function initSocket(server: any): SocketIOServer {
       }
     });
 
+    // جلب سجل الرسائل السريعة بين الطالب والطيار للطلب
+    socket.on("get_order_quick_messages", (orderId: string, callback?: (msgs: QuickOrderMessage[]) => void) => {
+      if (!orderId || typeof orderId !== "string") return;
+      const list = orderQuickMessages.get(orderId) || [];
+      if (typeof callback === "function") callback(list);
+      socket.emit("order_quick_messages_history", { orderId, messages: list });
+    });
+
+    // إرسال رسالة سريعة لحظية بين الطالب والطيار
+    socket.on(
+      "send_order_quick_message",
+      async (
+        data: { orderId: string; text: string; senderRole?: "CUSTOMER" | "DRIVER"; senderName?: string },
+        callback?: (res: { success: boolean; message?: QuickOrderMessage; error?: string }) => void
+      ) => {
+        try {
+          if (!data || !data.orderId || !data.text || typeof data.text !== "string") {
+            if (typeof callback === "function") callback({ success: false, error: "بيانات الرسالة غير مكتملة" });
+            return;
+          }
+          const cleanText = data.text.trim().slice(0, 160);
+          if (!cleanText) return;
+
+          const order = await prisma.order.findUnique({
+            where: { id: data.orderId },
+            select: {
+              id: true,
+              orderNumber: true,
+              userId: true,
+              branchId: true,
+              driverId: true,
+              customerName: true,
+              driver: { select: { name: true } },
+            },
+          });
+          if (!order) {
+            if (typeof callback === "function") callback({ success: false, error: "الطلب غير موجود" });
+            return;
+          }
+
+          const currentUid = authUser?.userId || authUser?.id;
+          const isDriverSender = Boolean(authUser?.driverId && order.driverId === authUser.driverId) || data.senderRole === "DRIVER";
+          const isCustomerSender = Boolean(currentUid && order.userId === currentUid) || data.senderRole === "CUSTOMER";
+          if (!authUser || (!isDriverSender && !isCustomerSender && authUser.role !== "SUPERADMIN")) {
+            if (typeof callback === "function") callback({ success: false, error: "غير مصرح بإرسال رسالة لهذا الطلب" });
+            return;
+          }
+
+          const role: "CUSTOMER" | "DRIVER" = authUser.driverId ? "DRIVER" : (data.senderRole === "DRIVER" ? "DRIVER" : "CUSTOMER");
+          const senderName =
+            role === "DRIVER"
+              ? (order.driver?.name || data.senderName || "كابتن التوصيل").replace(/\s*\(طيار عام\)\s*/g, "").trim()
+              : (order.customerName || data.senderName || "الطالب");
+
+          const msg = recordAndBroadcastOrderQuickMessage({
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            userId: order.userId,
+            driverId: order.driverId,
+            branchId: order.branchId,
+            senderRole: role,
+            senderName,
+            text: cleanText,
+          });
+
+          if (typeof callback === "function") callback({ success: true, message: msg });
+        } catch (err) {
+          if (typeof callback === "function") callback({ success: false, error: "فشل إرسال الرسالة السريعة" });
+        }
+      }
+    );
+
     socket.on("disconnect", () => {
       // Disconnected
     });
   });
 
   return io;
+}
+
+export interface QuickOrderMessage {
+  id: string;
+  orderId: string;
+  orderNumber?: number;
+  senderRole: "CUSTOMER" | "DRIVER";
+  senderName: string;
+  text: string;
+  createdAt: string;
+}
+
+export const orderQuickMessages = new Map<string, QuickOrderMessage[]>();
+
+export function recordAndBroadcastOrderQuickMessage(params: {
+  orderId: string;
+  orderNumber?: number;
+  userId?: string | null;
+  driverId?: string | null;
+  branchId?: string | null;
+  senderRole: "CUSTOMER" | "DRIVER";
+  senderName: string;
+  text: string;
+}): QuickOrderMessage {
+  const msg: QuickOrderMessage = {
+    id: `qm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    orderId: params.orderId,
+    orderNumber: params.orderNumber,
+    senderRole: params.senderRole,
+    senderName: params.senderName,
+    text: params.text.trim().slice(0, 160),
+    createdAt: new Date().toISOString(),
+  };
+
+  const existing = orderQuickMessages.get(params.orderId) || [];
+  const nextList = [...existing.slice(-39), msg];
+  orderQuickMessages.set(params.orderId, nextList);
+
+  if (io) {
+    io.to(`order_${params.orderId}`).emit("order_quick_message", msg);
+    if (params.userId) {
+      io.to(`user_${params.userId}`).emit("order_quick_message", msg);
+    }
+    if (params.driverId) {
+      io.to(`driver_${params.driverId}`).emit("order_quick_message", msg);
+    }
+    if (params.branchId) {
+      io.to(`branch_${params.branchId}`).emit("order_quick_message", msg);
+    }
+  }
+
+  return msg;
 }
 
 export const latestDriverLocations = new Map<string, { driverId: string; lat: number; lng: number; orderId?: string; timestamp: number }>();

@@ -245,3 +245,37 @@ export function openExternalLink(url: string): void {
   }
 }
 
+/**
+ * تسجيل جلسة المستخدم في خدمة الأندرويد الأصلية بالخلفية
+ * لضمان وصول الإشعارات والرنين حتى لو التطبيق مقفول تماماً
+ */
+export function registerNativeBackgroundSession(
+  token: string,
+  role: 'STUDENT' | 'DRIVER' | 'BRANCH' | 'ADMIN',
+  userId: string
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const bridge = (window as any).AndroidBridge;
+    if (bridge && typeof bridge.registerBackgroundSession === 'function') {
+      bridge.registerBackgroundSession(token, role, userId);
+    }
+  } catch (_e) {
+  }
+}
+
+/**
+ * إلغاء خدمة الخلفية عند تسجيل الخروج
+ */
+export function clearNativeBackgroundSession(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const bridge = (window as any).AndroidBridge;
+    if (bridge && typeof bridge.clearBackgroundSession === 'function') {
+      bridge.clearBackgroundSession();
+    }
+  } catch (_e) {
+  }
+}
+
+

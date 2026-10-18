@@ -34,7 +34,7 @@ import {
   Navigation
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
-import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp, openExternalLink } from '../services/notifications';
+import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp, openExternalLink, registerNativeBackgroundSession, clearNativeBackgroundSession } from '../services/notifications';
 import { cleanAddressText, extractCoordinatesFromAddress, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
 import { DriverRouteMap } from './DriverRouteMap';
 
@@ -445,8 +445,37 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     if (token) {
       loadDriverData();
     }
+    if (token && driver?.id) {
+      registerNativeBackgroundSession(token, 'DRIVER', driver.id);
+    }
     return () => stopAlarm();
-  }, [token]);
+  }, [token, driver?.id]);
+
+  // Quick In-App Status Messages per Order (Driver <-> Student)
+  const [quickMessagesByOrder, setQuickMessagesByOrder] = useState<Record<string, any[]>>({});
+  const [driverCustomQuickText, setDriverCustomQuickText] = useState('');
+
+  const handleSendDriverQuickMessage = (orderObj: any, text: string) => {
+    const clean = text.trim();
+    if (!clean || !orderObj?.id || !socketRef.current) return;
+    socketRef.current.emit('send_order_quick_message', {
+      orderId: orderObj.id,
+      text: clean,
+      senderName: driver?.name || 'كابتن التوصيل',
+      userId: orderObj.userId,
+      driverId: driver?.id,
+      branchId: orderObj.branchId,
+    });
+    setDriverCustomQuickText('');
+    showToast(`✅ تم إرسال للعميل: "${clean}"`, 'success');
+  };
+
+  useEffect(() => {
+    if (selectedOrder?.id && socketRef.current) {
+      socketRef.current.emit('join_order', selectedOrder.id);
+      socketRef.current.emit('get_order_quick_messages', selectedOrder.id);
+    }
+  }, [selectedOrder?.id]);
 
   // Socket setup for driver room with Token Auth
   useEffect(() => {
@@ -478,6 +507,36 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
         prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o))
       );
       setSelectedOrder((prev: any) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+    });
+
+    socket.on('order_quick_messages_history', (payload: { orderId: string; messages: any[] }) => {
+      if (payload?.orderId && Array.isArray(payload.messages)) {
+        setQuickMessagesByOrder((prev) => ({
+          ...prev,
+          [payload.orderId]: payload.messages,
+        }));
+      }
+    });
+
+    socket.on('order_quick_message', (msg: any) => {
+      if (!msg?.orderId) return;
+      setQuickMessagesByOrder((prev) => {
+        const list = prev[msg.orderId] || [];
+        if (list.some((m) => m.id === msg.id)) return prev;
+        return {
+          ...prev,
+          [msg.orderId]: [...list, msg],
+        };
+      });
+      if (msg.senderRole === 'STUDENT') {
+        playAlertSound();
+        showToast(`💬 رسالة من الطالب (${msg.senderName}): ${msg.text}`, 'info');
+        sendWebNotification(
+          `💬 رسالة سريعة من الطالب (${msg.senderName})`,
+          msg.text,
+          '/delivery'
+        );
+      }
     });
 
     // تحديث النغمة الصوتية لحظياً فور تغييرها من الإدارة
@@ -579,6 +638,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   };
 
   const handleLogout = () => {
+    clearNativeBackgroundSession();
     localStorage.removeItem('driver_token');
     localStorage.removeItem('driver_info');
     setToken(null);
@@ -1265,6 +1325,52 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                         </div>
                       )}
 
+                      {/* 4.7 Quick 1-Tap In-App Status Messages to Student */}
+                      {(order.isDriverAccepted || isPickedUp) && (
+                        <div className="p-2.5 bg-indigo-50/70 border border-indigo-200/80 rounded-2xl space-y-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="font-black text-indigo-950 flex items-center gap-1">
+                              <span>💬</span>
+                              <span>إشعار سريع للطالب بضغطة واحدة:</span>
+                            </span>
+                            {(quickMessagesByOrder[order.id]?.length || 0) > 0 && (
+                              <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full font-bold">
+                                {quickMessagesByOrder[order.id].length} رسالة
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Latest message preview if any */}
+                          {quickMessagesByOrder[order.id] && quickMessagesByOrder[order.id].length > 0 && (
+                            <div className="p-2 bg-white rounded-xl border border-indigo-100 text-[11px] font-bold text-slate-800 flex items-center justify-between gap-2">
+                              <span className="truncate">
+                                {quickMessagesByOrder[order.id][quickMessagesByOrder[order.id].length - 1].senderRole === 'STUDENT'
+                                  ? `👤 الطالب: ${quickMessagesByOrder[order.id][quickMessagesByOrder[order.id].length - 1].text}`
+                                  : `🛵 أنت: ${quickMessagesByOrder[order.id][quickMessagesByOrder[order.id].length - 1].text}`}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              '📍 أنا وصلت عند البوابة الآن',
+                              '🛵 دقيقتين وأكون عندك جهز نفسك',
+                              '🏪 استلمت الأوردر وجاي في الطريق',
+                              '📞 رن عليا أو افتح التليفون',
+                            ].map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => handleSendDriverQuickMessage(order, preset)}
+                                className="text-[10px] font-black px-2 py-1 rounded-lg bg-white hover:bg-indigo-600 hover:text-white text-indigo-900 border border-indigo-200 shadow-2xs transition-all active:scale-95"
+                              >
+                                {preset}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* 5. Direct Action Buttons */}
                       <div className="pt-1 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                         {!isPickedUp && !order.isDriverAccepted ? (
@@ -1543,6 +1649,93 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   </a>
                 </div>
               </div>
+
+              {/* Quick In-App Status Messages inside Order Details Modal */}
+              {selectedOrder.status !== 'COMPLETED' && selectedOrder.status !== 'REJECTED' && (
+                <div className="p-3.5 bg-white border border-indigo-200 rounded-2xl shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-slate-900 flex items-center gap-1.5 text-xs">
+                      <span>💬</span>
+                      <span>رسائل سريعة لحظية مع الطالب داخل التطبيق</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                      فوري ⚡
+                    </span>
+                  </div>
+
+                  {/* Message Thread */}
+                  {(quickMessagesByOrder[selectedOrder.id]?.length || 0) > 0 && (
+                    <div className="max-h-36 overflow-y-auto space-y-1.5 p-2 bg-slate-50 rounded-xl border border-slate-100">
+                      {quickMessagesByOrder[selectedOrder.id].map((msg: any) => {
+                        const isMe = msg.senderRole === 'DRIVER';
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`flex flex-col max-w-[85%] rounded-xl px-2.5 py-1.5 text-xs ${
+                              isMe
+                                ? 'mr-auto bg-indigo-600 text-white rounded-tl-xs'
+                                : 'ml-auto bg-amber-100 text-amber-950 border border-amber-200 rounded-tr-xs'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 text-[9px] opacity-80 font-bold mb-0.5">
+                              <span>{isMe ? 'أنت (الكابتن)' : `👤 الطالب (${msg.senderName})`}</span>
+                              <span className="font-mono">
+                                {new Date(msg.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p className="font-bold leading-snug">{msg.text}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Preset Quick Chips */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      '📍 أنا وصلت عند البوابة الآن',
+                      '🛵 دقيقتين وأكون عندك جهز نفسك',
+                      '🏪 استلمت الأوردر من المطعم وجاي في الطريق',
+                      '📞 حاولت أتصل بك، افتح التليفون',
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => handleSendDriverQuickMessage(selectedOrder, preset)}
+                        className="text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-900 border border-indigo-200 transition-all active:scale-95"
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom short message */}
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <input
+                      type="text"
+                      value={driverCustomQuickText}
+                      onChange={(e) => setDriverCustomQuickText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && driverCustomQuickText.trim()) {
+                          e.preventDefault();
+                          handleSendDriverQuickMessage(selectedOrder, driverCustomQuickText);
+                        }
+                      }}
+                      maxLength={140}
+                      placeholder="اكتب رسالة سريعة للطالب..."
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      disabled={!driverCustomQuickText.trim()}
+                      onClick={() => handleSendDriverQuickMessage(selectedOrder, driverCustomQuickText)}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-black transition-all shrink-0"
+                    >
+                      إرسال
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Delivery Address & Zone */}
               <div className="p-3.5 bg-white rounded-2xl border border-slate-200 space-y-1.5 shadow-xs">

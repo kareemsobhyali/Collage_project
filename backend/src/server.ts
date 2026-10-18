@@ -19,6 +19,7 @@ import branchRoutes from "./routes/branch.routes.js";
 import customerRoutes from "./routes/customer.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import driverRoutes from "./routes/driver.routes.js";
+import notificationsRoutes from "./routes/notifications.routes.js";
 import { authLimiter, orderLimiter, generalApiLimiter, uploadLimiter } from "./middleware/rateLimiter.js";
 import prisma from "./prisma.js";
 import { getNotificationSoundSettings } from "./services/settings.service.js";
@@ -134,6 +135,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/branch", branchRoutes);
 app.use("/api/customer", customerRoutes);
 app.use("/api/driver", driverRoutes);
+app.use("/api/notifications", notificationsRoutes);
 app.use("/api/upload", uploadRoutes);
 
 // فحص صحة الخادم وقاعدة البيانات

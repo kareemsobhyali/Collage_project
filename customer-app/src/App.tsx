@@ -18,7 +18,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { api, API_BASE_URL } from './services/api';
-import { registerServiceWorker, isRunningInNativeApk, triggerInstallApp } from './services/notifications';
+import { registerServiceWorker, isRunningInNativeApk, triggerInstallApp, registerNativeBackgroundSession, clearNativeBackgroundSession } from './services/notifications';
 import { BranchList } from './components/BranchList';
 import { BranchMenu } from './components/BranchMenu';
 import { AuthModal } from './components/AuthModal';
@@ -326,7 +326,7 @@ export function App() {
     try {
       setLoading(true);
       const data = await api.getBranchMenu(branch.id);
-      setSelectedBranch(data.branch);
+      setSelectedBranch({ ...data.branch, reviews: data.reviews || [] });
       setBranchCategories(data.categories || []);
       // إفراغ السلة إذا كانت تخص فرعاً آخر
       if (cart.length > 0 && cart[0].branchId !== branch.id) {
@@ -377,7 +377,7 @@ export function App() {
             api.getBranchMenu(branchParam)
               .then((menuData) => {
                 if (menuData && menuData.branch) {
-                  setSelectedBranch(menuData.branch);
+                  setSelectedBranch({ ...menuData.branch, reviews: menuData.reviews || [] });
                   setBranchCategories(menuData.categories || []);
                   if (itemParam && Array.isArray(menuData.categories)) {
                     for (const cat of menuData.categories) {
@@ -584,7 +584,15 @@ export function App() {
     );
   }
 
+  useEffect(() => {
+    const token = localStorage.getItem('customer_token');
+    if (user?.id && token) {
+      registerNativeBackgroundSession(token, 'STUDENT', user.id);
+    }
+  }, [user?.id]);
+
   const handleLogout = () => {
+    clearNativeBackgroundSession();
     localStorage.removeItem('customer_token');
     localStorage.removeItem('customer_user');
     setUser(null);
@@ -847,6 +855,8 @@ export function App() {
           <BranchList
             branches={branches}
             onSelectBranch={handleSelectBranch}
+            onQuickReorder={handleReorder}
+            user={user}
           />
         )}
       </main>
@@ -873,6 +883,7 @@ export function App() {
             setGroupCartDetailsForCheckout(null);
             handleActiveGroupCodeChange(null);
             try {
+              localStorage.setItem('unifood_last_order', JSON.stringify(createdOrder));
               const saved = localStorage.getItem('customer_user');
               if (saved) setUser(JSON.parse(saved));
             } catch (_e) {}

@@ -548,6 +548,23 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && intent.hasExtra("target_url")) {
+            String targetUrl = intent.getStringExtra("target_url");
+            if (targetUrl != null && !targetUrl.trim().isEmpty() && webView != null) {
+                if (targetUrl.startsWith("/")) {
+                    String base = getActiveStartUrl().replaceAll("/+$", "");
+                    webView.loadUrl(base + targetUrl);
+                } else if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
+                    webView.loadUrl(targetUrl);
+                }
+            }
+        }
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
         CookieManager.getInstance().flush();
@@ -620,6 +637,41 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public boolean isNativeApp() {
             return true;
+        }
+
+        @JavascriptInterface
+        public void registerBackgroundSession(String token, String role, String userId) {
+            try {
+                SharedPreferences.Editor editor = context.getSharedPreferences(UniFoodNotificationService.PREFS_NAME, Context.MODE_PRIVATE).edit();
+                editor.putString(UniFoodNotificationService.KEY_TOKEN, token != null ? token.trim() : "");
+                editor.putString(UniFoodNotificationService.KEY_ROLE, role != null ? role.trim().toUpperCase() : "");
+                editor.putString(UniFoodNotificationService.KEY_USER_ID, userId != null ? userId.trim() : "");
+                editor.putBoolean(UniFoodNotificationService.KEY_IS_ACTIVE, true);
+                editor.apply();
+
+                Intent serviceIntent = new Intent(context, UniFoodNotificationService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent);
+                } else {
+                    context.startService(serviceIntent);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        @JavascriptInterface
+        public void clearBackgroundSession() {
+            try {
+                SharedPreferences.Editor editor = context.getSharedPreferences(UniFoodNotificationService.PREFS_NAME, Context.MODE_PRIVATE).edit();
+                editor.putBoolean(UniFoodNotificationService.KEY_IS_ACTIVE, false);
+                editor.remove(UniFoodNotificationService.KEY_TOKEN);
+                editor.remove(UniFoodNotificationService.KEY_USER_ID);
+                editor.apply();
+
+                Intent serviceIntent = new Intent(context, UniFoodNotificationService.class);
+                context.stopService(serviceIntent);
+            } catch (Exception ignored) {
+            }
         }
 
         @JavascriptInterface

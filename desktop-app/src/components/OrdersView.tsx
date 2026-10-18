@@ -225,8 +225,16 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     }
     try {
       setAssigningDriverOrderId(orderId);
-      await api.assignDriver(orderId, driverId || null);
-      toast.success(driverId ? 'تم إسناد الطلب للطيار بنجاح' : 'تم إلغاء إسناد الطلب');
+      const res: any = await api.assignDriver(orderId, driverId || null);
+      if (driverId === 'AUTO' && res?.autoAssignedDriver) {
+        const cleanName = cleanDriverName(res.autoAssignedDriver.name);
+        const distInfo = res.autoAssignedDriver.distanceKm !== null && res.autoAssignedDriver.distanceKm !== undefined
+          ? ` (${res.autoAssignedDriver.distanceKm} كم)`
+          : '';
+        toast.success(`🤖 تم الإسناد التلقائي الذكي للكابتن: ${cleanName}${distInfo} بنجاح!`);
+      } else {
+        toast.success(driverId ? 'تم إسناد الطلب للطيار بنجاح' : 'تم إلغاء إسناد الطلب');
+      }
       onRefreshOrders();
     } catch (error: any) {
       toast.error(error.message || 'فشل إسناد الطلب للطيار');
@@ -301,10 +309,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     // 1. تحديث حالة الطلب إلى قيد التحضير أولاً (قبول الطلب وتأكيده)
     await handleUpdateStatus(orderToAccept.id, 'PREPARING', minutes);
 
-    // 2. إذا اختار المطعم طياراً فورياً عند القبول، يتم إسناده الآن بعد أن تم قبول الطلب
+    // 2. إذا اختار المطعم طياراً فورياً أو إسناداً تلقائياً ذكياً عند القبول، يتم إسناده الآن بعد أن تم قبول الطلب
     if (driverToAssign) {
       try {
-        await api.assignDriver(orderToAccept.id, driverToAssign);
+        const res: any = await api.assignDriver(orderToAccept.id, driverToAssign);
+        if (driverToAssign === 'AUTO' && res?.autoAssignedDriver) {
+          toast.success(`🤖 تم الإسناد التلقائي الذكي للكابتن: ${cleanDriverName(res.autoAssignedDriver.name)}`);
+        }
         onRefreshOrders();
       } catch (err: any) {
         console.error('Assign driver on accept error:', err);
@@ -665,13 +676,28 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
                 return (
                   <div className="pt-3 border-t border-slate-100 space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <span className="text-xs font-black text-slate-800">
                         {assignedDriver ? 'اختر طياراً بديلاً لهذا الطلب:' : 'اختر كابتن التوصيل لإسناد الطلب:'}
                       </span>
-                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                        {activeDriversCount} طيار متاح
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                          {activeDriversCount} طيار متاح
+                        </span>
+                        {activeDriversCount > 0 && dOrder.status !== 'PENDING' && (
+                          <button
+                            type="button"
+                            disabled={assigningDriverOrderId === dOrder.id}
+                            onClick={async () => {
+                              await handleAssignDriver(dOrder.id, 'AUTO');
+                              setShowDriverPicker(false);
+                            }}
+                            className="px-3 py-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-black shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                          >
+                            <span>🤖 إسناد تلقائي ذكي لأقرب طيار متفرغ ⚡</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {drivers.length === 0 ? (
@@ -726,7 +752,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                                       {isGeneral ? 'طيار عام' : 'طيار الفرع'}
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                     <span className="text-[11px] font-mono font-bold text-slate-500" dir="ltr">
                                       {d.phone}
                                     </span>
@@ -741,6 +767,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                                     ) : (
                                       <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
                                         معه {driverActiveOrders} طلب
+                                      </span>
+                                    )}
+                                    {d.distanceKm !== null && d.distanceKm !== undefined && (
+                                      <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-mono">
+                                        📍 {d.distanceKm} كم
                                       </span>
                                     )}
                                   </div>
@@ -1416,6 +1447,51 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
 
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-0.5">
+                  {/* Option AUTO: Smart Auto-Dispatch */}
+                  {drivers.some((d: any) => d.isActive) && (
+                    <button
+                      type="button"
+                      onClick={() => setAcceptDriverId('AUTO')}
+                      className={`w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
+                        acceptDriverId === 'AUTO'
+                          ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-500/20'
+                          : 'bg-indigo-50/70 hover:bg-indigo-50 text-indigo-950 border-indigo-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 ${
+                          acceptDriverId === 'AUTO' ? 'bg-white/20 text-white' : 'bg-indigo-600 text-white shadow-xs'
+                        }`}>
+                          🤖
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-black text-xs block">
+                              إسناد تلقائي ذكي لأقرب طيار متفرغ ⚡
+                            </span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                              acceptDriverId === 'AUTO' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
+                            }`}>
+                              موصى به
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-medium block mt-0.5 ${
+                            acceptDriverId === 'AUTO' ? 'text-indigo-100' : 'text-indigo-700'
+                          }`}>
+                            يختار تلقائياً الكابتن المتفرغ الأقرب للمطعم عبر الـ GPS
+                          </span>
+                        </div>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border ${
+                        acceptDriverId === 'AUTO'
+                          ? 'bg-emerald-400 border-emerald-400 text-slate-950'
+                          : 'border-indigo-300 bg-white'
+                      }`}>
+                        {acceptDriverId === 'AUTO' && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                    </button>
+                  )}
+
                   {/* Option 0: Assign Later */}
                   <button
                     type="button"
@@ -1499,7 +1575,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                                 {isGeneral ? 'طيار عام' : 'طيار الفرع'}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <span className="text-[11px] font-mono font-bold text-slate-500" dir="ltr">
                                 {d.phone}
                               </span>
@@ -1514,6 +1590,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                               ) : (
                                 <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
                                   معه {driverActiveOrders} طلب
+                                </span>
+                              )}
+                              {d.distanceKm !== null && d.distanceKm !== undefined && (
+                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-mono">
+                                  📍 {d.distanceKm} كم
                                 </span>
                               )}
                             </div>
@@ -1543,7 +1624,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
               >
                 <Check className="w-4 h-4 stroke-[2.5]" />
                 <span>
-                  {acceptDriverId
+                  {acceptDriverId === 'AUTO'
+                    ? `قبول وإسناد ذكي تلقائي (${prepMinutes} د)`
+                    : acceptDriverId
                     ? `قبول وإسناد للكابتن (${prepMinutes} د)`
                     : `تأكيد القبول (${prepMinutes} دقيقة)`}
                 </span>

@@ -177,20 +177,181 @@ function isBranchWithinWorkingHours(
   }
 }
 
-// 1. استعراض الفروع النشطة للطلاب
+function computeBranchCrowdInfo(activeKitchenOrders: number) {
+  if (activeKitchenOrders >= 6) {
+    return {
+      activeKitchenOrders,
+      crowdLevel: "HIGH" as const,
+      crowdLabel: "ضغط عالي وقت البريك",
+      estimatedPrepMins: "30-40 د",
+    };
+  }
+  if (activeKitchenOrders >= 3) {
+    return {
+      activeKitchenOrders,
+      crowdLevel: "MEDIUM" as const,
+      crowdLabel: "متوسط الازدحام",
+      estimatedPrepMins: "20-25 د",
+    };
+  }
+  return {
+    activeKitchenOrders,
+    crowdLevel: "LOW" as const,
+    crowdLabel: "هادئ الآن • تجهيز سريع",
+    estimatedPrepMins: "10-15 د",
+  };
+}
+
+// 0.8 عروض الفلاش الموقوتة وقت البريك (Flash Deals & Break Promo Codes)
+router.get("/flash-deals", async (_req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const [activePromos, branches, comboItems] = await Promise.all([
+      prisma.promoCode.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      prisma.branch.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, slug: true, logoUrl: true },
+      }),
+      prisma.menuItem.findMany({
+        where: {
+          isAvailable: true,
+          branch: { isActive: true },
+          OR: [
+            { comboItems: { not: null } },
+            { name: { contains: "عرض" } },
+            { name: { contains: "كومبو" } },
+            { name: { contains: "بوكس" } },
+          ],
+        },
+        include: {
+          branch: { select: { id: true, name: true, slug: true, logoUrl: true } },
+        },
+        take: 8,
+      }),
+    ]);
+
+    const branchMap = new Map(branches.map((b) => [b.id, b]));
+
+    // حساب نهاية فترة البريك اليومية الافتراضية (الساعة 4:00 عصراً أو نهاية اليوم) للعروض التي ليس لها تاريخ انتهاء محدد
+    const defaultBreakEnd = new Date(now);
+    if (now.getHours() < 16) {
+      defaultBreakEnd.setHours(16, 0, 0, 0);
+    } else {
+      defaultBreakEnd.setHours(23, 59, 59, 999);
+    }
+
+    const promoDeals = activePromos
+      .filter((p) => {
+        if (p.expiresAt && now > new Date(p.expiresAt)) return false;
+        if (p.maxUses && p.usedCount >= p.maxUses) return false;
+        return true;
+      })
+      .map((p) => {
+        let targetBranches: Array<{ id: string; name: string; slug: string | null; logoUrl: string | null }> = [];
+        if (p.applicableBranchIds) {
+          try {
+            const ids = JSON.parse(p.applicableBranchIds);
+            if (Array.isArray(ids)) {
+              targetBranches = ids.map((bid: string) => branchMap.get(bid)).filter(Boolean) as any[];
+            }
+          } catch (_e) {}
+        }
+        const totalQuota = p.maxUses || 50;
+        const remainingUses = Math.max(1, totalQuota - (p.usedCount || 0));
+
+        return {
+          id: `promo_${p.id}`,
+          type: "PROMO_CODE",
+          code: p.code,
+          discountType: p.discountType,
+          value: p.value,
+          title:
+            p.discountType === "PERCENTAGE"
+              ? `خصم فلاش ${p.value}% بكود ${p.code}`
+              : `خصم فوري ${p.value} ج.م بكود ${p.code}`,
+          subtitle:
+            targetBranches.length > 0
+              ? `ساري في: ${targetBranches.map((b) => b.name).join(" ، ")}`
+              : "ساري في جميع مطاعم وكافيتريات الجامعة",
+          expiresAt: p.expiresAt ? new Date(p.expiresAt).toISOString() : defaultBreakEnd.toISOString(),
+          maxUses: totalQuota,
+          usedCount: p.usedCount || 0,
+          remainingUses,
+          targetBranch: targetBranches[0] || null,
+        };
+      });
+
+    const comboDeals = comboItems.map((item) => ({
+      id: `combo_${item.id}`,
+      type: "COMBO_ITEM",
+      itemId: item.id,
+      title: item.name,
+      subtitle: item.description || `وجبة كومبو توفيرية من ${item.branch.name}`,
+      price: item.basePrice,
+      imageUrl: item.imageUrl,
+      expiresAt: defaultBreakEnd.toISOString(),
+      targetBranch: item.branch,
+    }));
+
+    res.json({
+      promoDeals,
+      comboDeals,
+      serverTime: now.toISOString(),
+    });
+  } catch (error) {
+    console.error("Get flash deals error:", error);
+    res.status(500).json({ error: "فشل جلب عروض الفلاش" });
+  }
+});
+
+// 1. استعراض الفروع النشطة للطلاب (شامل مؤشر زحمة المطبخ الحي + تقييمات الطلاب)
 router.get("/branches", async (_req: Request, res: Response) => {
   try {
-    const branches = await prisma.branch.findMany({
-      where: { isActive: true },
-      include: {
-        paymentConfig: true,
-        deliveryZones: true,
-        _count: {
-          select: { items: true },
+    const [branches, activeOrderCounts, ratingAggregates] = await Promise.all([
+      prisma.branch.findMany({
+        where: { isActive: true },
+        include: {
+          paymentConfig: true,
+          deliveryZones: true,
+          _count: {
+            select: { items: true },
+          },
         },
-      },
-      orderBy: { name: "asc" },
-    });
+        orderBy: { name: "asc" },
+      }),
+      prisma.order.groupBy({
+        by: ["branchId"],
+        where: {
+          status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
+        },
+        _count: { _all: true },
+      }),
+      prisma.order.groupBy({
+        by: ["branchId"],
+        where: {
+          rating: { not: null },
+        },
+        _avg: { rating: true },
+        _count: { rating: true },
+      }),
+    ]);
+
+    const activeMap = new Map<string, number>();
+    for (const row of activeOrderCounts) {
+      activeMap.set(row.branchId, row._count._all);
+    }
+
+    const ratingMap = new Map<string, { avgRating: number; ratingsCount: number }>();
+    for (const row of ratingAggregates) {
+      ratingMap.set(row.branchId, {
+        avgRating: row._avg.rating ? Number(row._avg.rating.toFixed(1)) : 0,
+        ratingsCount: row._count.rating || 0,
+      });
+    }
 
     const now = new Date();
     const formattedBranches = branches.map(b => {
@@ -205,6 +366,8 @@ router.get("/branches", async (_req: Request, res: Response) => {
       }
 
       const isWithinWorkingHours = isBranchWithinWorkingHours(b.openingTime, b.closingTime, now, b.workingDays);
+      const crowdInfo = computeBranchCrowdInfo(activeMap.get(b.id) || 0);
+      const ratingInfo = ratingMap.get(b.id) || { avgRating: 0, ratingsCount: 0 };
 
       return {
         ...b,
@@ -212,6 +375,9 @@ router.get("/branches", async (_req: Request, res: Response) => {
         closedUntil: currentClosedUntil,
         closingReason: currentReason,
         isWithinWorkingHours,
+        ...crowdInfo,
+        avgRating: ratingInfo.avgRating,
+        ratingsCount: ratingInfo.ratingsCount,
       };
     });
 
@@ -222,7 +388,7 @@ router.get("/branches", async (_req: Request, res: Response) => {
   }
 });
 
-// 2. تصفح منيو الفرع وطرق الدفع ومناطق التوصيل المتاحة له
+// 2. تصفح منيو الفرع وطرق الدفع ومناطق التوصيل المتاحة له (شامل التقييمات ومؤشر زحمة المطبخ)
 router.get("/branches/:id/menu", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
@@ -274,19 +440,21 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       },
     });
 
-    const categories = await prisma.menuCategory.findMany({
-      where: { branchId: actualBranchId },
-      include: {
-        items: {
-          where: { isAvailable: true },
-          include: {
-            sizes: true,
-            modifierGroupLinks: {
-              include: {
-                group: {
-                  include: {
-                    options: {
-                      where: { isAvailable: true },
+    const [categories, activeOrdersCount, ratingStats, recentReviews] = await Promise.all([
+      prisma.menuCategory.findMany({
+        where: { branchId: actualBranchId },
+        include: {
+          items: {
+            where: { isAvailable: true },
+            include: {
+              sizes: true,
+              modifierGroupLinks: {
+                include: {
+                  group: {
+                    include: {
+                      options: {
+                        where: { isAvailable: true },
+                      },
                     },
                   },
                 },
@@ -294,9 +462,44 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
             },
           },
         },
-      },
-      orderBy: { displayOrder: "asc" },
-    });
+        orderBy: { displayOrder: "asc" },
+      }),
+      prisma.order.count({
+        where: {
+          branchId: actualBranchId,
+          status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
+        },
+      }),
+      prisma.order.aggregate({
+        where: {
+          branchId: actualBranchId,
+          rating: { not: null },
+        },
+        _avg: { rating: true },
+        _count: { rating: true },
+      }),
+      prisma.order.findMany({
+        where: {
+          branchId: actualBranchId,
+          rating: { not: null },
+        },
+        select: {
+          id: true,
+          customerName: true,
+          rating: true,
+          review: true,
+          createdAt: true,
+          items: {
+            select: {
+              itemName: true,
+              quantity: true,
+            },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 25,
+      }),
+    ]);
 
     let currentStatus = branch.operationalStatus;
     let currentClosedUntil = branch.closedUntil;
@@ -309,6 +512,9 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
     }
 
     const isWithinWorkingHours = isBranchWithinWorkingHours(branch.openingTime, branch.closingTime, now, branch.workingDays);
+    const crowdInfo = computeBranchCrowdInfo(activeOrdersCount);
+    const avgRating = ratingStats._avg.rating ? Number(ratingStats._avg.rating.toFixed(1)) : 0;
+    const ratingsCount = ratingStats._count.rating || 0;
 
     res.json({
       branch: {
@@ -317,8 +523,19 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         closedUntil: currentClosedUntil,
         closingReason: currentReason,
         isWithinWorkingHours,
+        ...crowdInfo,
+        avgRating,
+        ratingsCount,
       },
       categories,
+      reviews: recentReviews.map((r) => ({
+        id: r.id,
+        customerName: r.customerName || "طالب جامعي",
+        rating: r.rating || 5,
+        review: r.review || "",
+        createdAt: r.createdAt,
+        itemsSummary: (r.items || []).map((i) => `${i.quantity}× ${i.itemName}`).join(" ، "),
+      })),
     });
   } catch (error) {
     console.error("Get branch menu for customer error:", error);

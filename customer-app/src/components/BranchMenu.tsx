@@ -11,7 +11,12 @@ import {
   PowerOff,
   ChevronRight,
   ChevronLeft,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Heart,
+  Star,
+  MessageSquare,
+  X,
+  CheckCircle2
 } from 'lucide-react';
 import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
 
@@ -50,12 +55,16 @@ interface CategoryCarouselProps {
   category: any;
   isBranchOpen: boolean;
   onItemClick: (item: any) => void;
+  favItemIds: string[];
+  onToggleFavItem: (e: React.MouseEvent, itemId: string) => void;
 }
 
 const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   category,
   isBranchOpen,
   onItemClick,
+  favItemIds,
+  onToggleFavItem,
 }) => {
   const items: any[] = Array.isArray(category.items) ? category.items : [];
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -175,6 +184,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
         {items.map((item: any, idx: number) => {
           const isCenter = items.length === 1 || idx === activeIndex;
           const isItemAvailable = item.isAvailable !== false && (!item.unavailableUntil || new Date() >= new Date(item.unavailableUntil));
+          const isFavItem = favItemIds.includes(item.id);
           return (
             <div
               key={item.id}
@@ -210,6 +220,20 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                       <span className="text-[10px] font-bold text-slate-400">بدون صورة</span>
                     </div>
                   )}
+
+                  {/* Favorite Heart Button on Meal Card */}
+                  <button
+                    type="button"
+                    onClick={(e) => onToggleFavItem(e, item.id)}
+                    title={isFavItem ? 'إزالة من وجباتي المفضلة' : 'حفظ في وجباتي المفضلة'}
+                    className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-md border transition-all active:scale-90 ${
+                      isFavItem
+                        ? 'bg-rose-500 text-white border-rose-300 shadow-md'
+                        : 'bg-black/40 text-white hover:bg-black/60 border-white/25'
+                    }`}
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${isFavItem ? 'fill-white' : ''}`} />
+                  </button>
 
                   {/* Unavailable / Sold Out Badge */}
                   {!isItemAvailable && (
@@ -298,6 +322,28 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   onOpenCart,
 }) => {
   const [activeCategoryId, setActiveCategoryId] = useState<string>('ALL');
+  const [showReviewsModal, setShowReviewsModal] = useState<boolean>(false);
+
+  // Favorite Meals stored in localStorage
+  const [favItemIds, setFavItemIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('unifood_fav_items');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleToggleFavItem = (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation();
+    setFavItemIds((prev) => {
+      const next = prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId];
+      try {
+        localStorage.setItem('unifood_fav_items', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // عداد تنازلي حي في حال كان الفرع مغلقاً مؤقتاً
   const [secondsLeft, setSecondsLeft] = useState<number>(() => {
@@ -354,6 +400,16 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   const nonEmptyCategories = (categories || []).filter(
     (cat) => Array.isArray(cat.items) && cat.items.length > 0
   );
+
+  // استخراج الوجبات المفضلة للطالب داخل هذا المطعم
+  const favoriteItemsInBranch: any[] = [];
+  for (const cat of nonEmptyCategories) {
+    for (const it of cat.items || []) {
+      if (favItemIds.includes(it.id)) {
+        favoriteItemsInBranch.push(it);
+      }
+    }
+  }
 
   // عرض كافة الأقسام دائماً في الصفحة دون إخفاء أي قسم
   const displayedCategories = nonEmptyCategories;
@@ -493,6 +549,14 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     onSelectItem(item);
   };
 
+  const branchReviews: any[] = Array.isArray(branch?.reviews) ? branch.reviews : [];
+  const avgRating = branch?.avgRating || (branchReviews.length > 0
+    ? Number((branchReviews.reduce((acc, r) => acc + (r.rating || 5), 0) / branchReviews.length).toFixed(1))
+    : 0);
+  const ratingsCount = branch?.ratingsCount || branchReviews.length;
+  const crowdLevel = branch?.crowdLevel || 'LOW';
+  const estimatedPrepMins = branch?.estimatedPrepMins || '15-25 د';
+
   return (
     <div className="space-y-5 pb-36 w-full max-w-full overflow-x-clip">
       {/* Top Navigation & Branch Info */}
@@ -506,27 +570,42 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             <span>العودة لقائمة المطاعم</span>
           </button>
 
-          {branch?.isActive === false ? (
-            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300 shrink-0">
-              موقوف مؤقتاً
-            </span>
-          ) : branch.operationalStatus === 'CLOSED' ? (
-            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-              مغلق حالياً
-            </span>
-          ) : branch.operationalStatus === 'BUSY' && secondsLeft > 0 ? (
-            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0 animate-pulse">
-              مغلق مؤقتاً
-            </span>
-          ) : !isWithinWorkingHours ? (
-            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-              مغلق (خارج مواعيد العمل)
-            </span>
-          ) : (
-            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
-              مفتوح للطلب
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {/* Verified Student Reviews Button ⭐ */}
+            <button
+              type="button"
+              onClick={() => setShowReviewsModal(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-[11px] font-black transition-all active:scale-95"
+            >
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+              <span>{avgRating > 0 ? avgRating : 'جديد'}</span>
+              <span className="text-[10px] text-amber-700 font-bold">
+                ({ratingsCount} تقييم)
+              </span>
+            </button>
+
+            {branch?.isActive === false ? (
+              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300 shrink-0">
+                موقوف مؤقتاً
+              </span>
+            ) : branch.operationalStatus === 'CLOSED' ? (
+              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                مغلق حالياً
+              </span>
+            ) : branch.operationalStatus === 'BUSY' && secondsLeft > 0 ? (
+              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0 animate-pulse">
+                مغلق مؤقتاً
+              </span>
+            ) : !isWithinWorkingHours ? (
+              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                مغلق (خارج مواعيد العمل)
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
+                مفتوح للطلب
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-start gap-3.5">
@@ -573,6 +652,57 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
           </div>
         </div>
 
+        {/* Live Kitchen Crowd Radar 🚦 + Verified Student Reviews Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          {isBranchOpen && (
+            <div
+              className={`px-3 py-2 rounded-2xl border text-xs font-bold flex items-center justify-between gap-2 ${
+                crowdLevel === 'HIGH'
+                  ? 'bg-rose-50 border-rose-200 text-rose-900'
+                  : crowdLevel === 'MEDIUM'
+                  ? 'bg-amber-50 border-amber-200 text-amber-900'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    crowdLevel === 'HIGH'
+                      ? 'bg-rose-500 animate-ping'
+                      : crowdLevel === 'MEDIUM'
+                      ? 'bg-amber-500 animate-pulse'
+                      : 'bg-emerald-500'
+                  }`}
+                />
+                <span className="truncate">
+                  {crowdLevel === 'HIGH'
+                    ? '🔴 ضغط عالي وقت البريك'
+                    : crowdLevel === 'MEDIUM'
+                    ? '🟡 المطبخ متوسط الازدحام'
+                    : '🟢 المطبخ هادئ الآن • تجهيز سريع'}
+                </span>
+              </div>
+              <span className="text-[11px] font-mono font-black shrink-0">
+                ~{estimatedPrepMins}
+              </span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowReviewsModal(true)}
+            className="px-3 py-2 rounded-2xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100/80 text-amber-950 text-xs font-bold flex items-center justify-between gap-2 transition-colors"
+          >
+            <div className="flex items-center gap-1.5">
+              <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>مراجعات وتقييمات الطلاب الموثقة</span>
+            </div>
+            <span className="text-[11px] font-black text-amber-700 underline">
+              عرض الكل ({ratingsCount})
+            </span>
+          </button>
+        </div>
+
         {/* Categories selector pills (Only non-empty categories) */}
         {nonEmptyCategories.length > 0 && (
           <div ref={categoryPillsRef} className="flex items-center gap-2 overflow-x-auto pt-2.5 border-t border-slate-100 no-scrollbar">
@@ -587,6 +717,20 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             >
               كافة الأقسام
             </button>
+            {favoriteItemsInBranch.length > 0 && (
+              <button
+                id="pill-FAV"
+                onClick={() => handleCategoryClick('FAV')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 flex items-center gap-1 ${
+                  activeCategoryId === 'FAV'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                }`}
+              >
+                <Heart className={`w-3 h-3 ${activeCategoryId === 'FAV' ? 'fill-white' : 'fill-rose-500 text-rose-500'}`} />
+                <span>مفضلتي ({favoriteItemsInBranch.length})</span>
+              </button>
+            )}
             {nonEmptyCategories.map((cat) => (
               <button
                 key={cat.id}
@@ -665,6 +809,23 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         </div>
       ) : (
         <div id="menu-categories-top" className="space-y-6">
+          {/* قسم الوجبات المفضلة للطالب داخل هذا المطعم */}
+          {favoriteItemsInBranch.length > 0 && (
+            <div
+              id="category-section-FAV"
+              data-category-id="FAV"
+              className="scroll-mt-24 sm:scroll-mt-28 bg-rose-50/50 p-3 rounded-3xl border border-rose-100"
+            >
+              <CategoryCarousel
+                category={{ id: 'FAV', name: '❤️ وجباتي المفضلة في المطعم', items: favoriteItemsInBranch }}
+                isBranchOpen={isBranchOpen}
+                onItemClick={handleItemSelection}
+                favItemIds={favItemIds}
+                onToggleFavItem={handleToggleFavItem}
+              />
+            </div>
+          )}
+
           {displayedCategories.map((cat) => (
             <div
               key={cat.id}
@@ -676,9 +837,120 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                 category={cat}
                 isBranchOpen={isBranchOpen}
                 onItemClick={handleItemSelection}
+                favItemIds={favItemIds}
+                onToggleFavItem={handleToggleFavItem}
               />
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Verified Student Reviews Modal ⭐ */}
+      {showReviewsModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black">
+                  <Star className="w-5 h-5 fill-slate-950" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm">تقييمات ومراجعات الطلاب ⭐</h3>
+                  <span className="text-[11px] text-slate-300">{branch.name}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReviewsModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              {/* Summary Score Card */}
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-amber-900 block">متوسط التقييم العام</span>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-3xl font-black text-slate-900 font-mono">
+                      {avgRating > 0 ? avgRating : '5.0'}
+                    </span>
+                    <span className="text-xs font-bold text-amber-700">من 5 نجوم</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 block mt-1">
+                    بناءً على {ratingsCount} طلب وتقييم فعلي من طلاب الجامعة
+                  </span>
+                </div>
+                <div className="flex items-center gap-0.5 text-amber-400">
+                  {[1, 2, 3, 4, 5].map((st) => (
+                    <Star
+                      key={st}
+                      className={`w-5 h-5 ${st <= Math.round(avgRating || 5) ? 'fill-amber-400 text-amber-500' : 'text-slate-300'}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Reviews List */}
+              {branchReviews.length === 0 ? (
+                <div className="py-10 text-center text-slate-400 space-y-2">
+                  <Star className="w-12 h-12 mx-auto text-amber-300 opacity-60" />
+                  <h4 className="font-bold text-slate-700 text-sm">لا توجد تعليقات مكتوبة بعد</h4>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    كن أول من يطلب من {branch.name} ويشارك تجربته وتقييمه مع زملائه في الجامعة!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {branchReviews.map((rev: any) => (
+                    <div
+                      key={rev.id}
+                      className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center">
+                            {(rev.customerName || 'ط').charAt(0)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-black text-slate-900">
+                                {rev.customerName || 'طالب جامعي'}
+                              </span>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            </div>
+                            <span className="text-[10px] text-slate-400 block">
+                              {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString('ar-EG') : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-0.5 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                          <span className="text-xs font-black text-amber-900 font-mono">{rev.rating}</span>
+                        </div>
+                      </div>
+
+                      {rev.review && (
+                        <p className="text-xs text-slate-700 font-medium leading-relaxed bg-white p-2.5 rounded-xl border border-slate-100">
+                          "{rev.review}"
+                        </p>
+                      )}
+
+                      {rev.itemsSummary && (
+                        <div className="text-[10px] text-indigo-700 font-bold flex items-center gap-1 truncate">
+                          <span>🍱 طلب:</span>
+                          <span className="truncate">{rev.itemsSummary}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

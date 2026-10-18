@@ -20,7 +20,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
-import { notifyOrderStatusPush } from '../services/notifications';
+import { notifyOrderStatusPush, sendWebNotification } from '../services/notifications';
 import { LiveOrderMap } from './LiveOrderMap';
 import { extractCoordinatesFromAddress, cleanAddressText, DEFAULT_CAMPUS_RESTAURANT_COORDS, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
 
@@ -130,6 +130,53 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   }, [order.estimatedMinutes, order.acceptedAt, order.status]);
 
   const [liveDriverCoords, setLiveDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // رسائل سريعة لحظية بين الطالب والطيار داخل التطبيق
+  const [quickMessages, setQuickMessages] = useState<any[]>([]);
+  const [customQuickText, setCustomQuickText] = useState<string>('');
+  const [sendingQuickMsg, setSendingQuickMsg] = useState<boolean>(false);
+
+  const playQuickMsgChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1174.66, ctx.currentTime + 0.18);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
+    } catch (_e) {}
+  };
+
+  const handleSendStudentQuickMessage = (text: string) => {
+    const clean = text.trim();
+    if (!clean || !socketRef.current || !order?.id) return;
+    setSendingQuickMsg(true);
+    socketRef.current.emit(
+      'send_order_quick_message',
+      {
+        orderId: order.id,
+        text: clean,
+        senderRole: 'CUSTOMER',
+        senderName: order.customerName || 'الطالب',
+      },
+      (res: any) => {
+        setSendingQuickMsg(false);
+        if (res?.success && res?.message) {
+          setQuickMessages((prev) => (prev.some((m) => m.id === res.message.id) ? prev : [...prev, res.message]));
+          setCustomQuickText('');
+        }
+      }
+    );
+    setTimeout(() => setSendingQuickMsg(false), 1200);
+  };
 
   // موقع المطعم الفعلي (من إعدادات المنظومة أو عنوان الفرع أو المخزن محلياً)
   const [restaurantCoords, setRestaurantCoords] = useState<{ lat: number; lng: number }>(() => {
@@ -244,6 +291,11 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
       if (order.userId) {
         socket.emit('join_user', order.userId);
       }
+      socket.emit('get_order_quick_messages', order.id, (msgs: any[]) => {
+        if (Array.isArray(msgs)) {
+          setQuickMessages(msgs);
+        }
+      });
       const currentDriverId = order.driverId || order.driver?.id;
       if (currentDriverId) {
         socket.emit('get_driver_location', currentDriverId, (loc: any) => {
@@ -256,6 +308,26 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
 
     joinRooms();
     socket.on('connect', joinRooms);
+
+    socket.on('order_quick_messages_history', (payload: { orderId: string; messages: any[] }) => {
+      if (payload && payload.orderId === order.id && Array.isArray(payload.messages)) {
+        setQuickMessages(payload.messages);
+      }
+    });
+
+    socket.on('order_quick_message', (msg: any) => {
+      if (msg && msg.orderId === order.id) {
+        setQuickMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+        if (msg.senderRole === 'DRIVER') {
+          playQuickMsgChime();
+          sendWebNotification(
+            `💬 رسالة سريعة من الكابتن ${msg.senderName || ''}`,
+            msg.text,
+            '/'
+          );
+        }
+      }
+    });
 
     socket.on('order_status_updated', (updatedOrder: any) => {
       if (updatedOrder && updatedOrder.id === order.id) {
@@ -570,6 +642,95 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                   <span>اتصال</span>
                 </a>
               )}
+            </div>
+          )}
+
+          {/* Quick In-App Status Messages between Student & Driver */}
+          {order.driver && status !== 'COMPLETED' && status !== 'REJECTED' && (
+            <div className="p-3.5 bg-white border border-indigo-200 rounded-2xl shadow-xs space-y-2.5 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">💬</span>
+                  <span className="text-xs font-black text-slate-900">رسائل سريعة لحظية مع الكابتن</span>
+                </div>
+                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                  بدون رصيد أو خروج من التطبيق ⚡
+                </span>
+              </div>
+
+              {/* Message Thread */}
+              {quickMessages.length > 0 && (
+                <div className="max-h-36 overflow-y-auto space-y-1.5 p-2 bg-slate-50 rounded-xl border border-slate-100">
+                  {quickMessages.map((msg) => {
+                    const isMe = msg.senderRole === 'STUDENT';
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex flex-col max-w-[85%] rounded-xl px-2.5 py-1.5 text-xs ${
+                          isMe
+                            ? 'mr-auto bg-indigo-600 text-white rounded-tl-xs'
+                            : 'ml-auto bg-emerald-100 text-emerald-950 border border-emerald-200 rounded-tr-xs'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 text-[9px] opacity-80 font-bold mb-0.5">
+                          <span>{isMe ? 'أنت (الطالب)' : `🛵 كابتن ${msg.senderName}`}</span>
+                          <span className="font-mono">
+                            {new Date(msg.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="font-bold leading-snug">{msg.text}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 1-Tap Quick Preset Chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  '👋 أنا واقف عند البوابة الآن',
+                  '⏱️ نازل حالا في الطريق ليك',
+                  '📍 أنا موجود عند نقطة التسليم المحددة',
+                  '🤫 من فضلك رن عليا لما توصل عشان في المحاضرة',
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    disabled={sendingQuickMsg}
+                    onClick={() => handleSendStudentQuickMessage(preset)}
+                    className="text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Short Message Input */}
+              <div className="flex items-center gap-1.5 pt-0.5">
+                <input
+                  type="text"
+                  value={customQuickText}
+                  onChange={(e) => setCustomQuickText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && customQuickText.trim()) {
+                      e.preventDefault();
+                      handleSendStudentQuickMessage(customQuickText);
+                    }
+                  }}
+                  maxLength={140}
+                  placeholder="اكتب رسالة سريعة للكابتن (مثال: أنا لابس جاكيت أسود)..."
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  disabled={!customQuickText.trim() || sendingQuickMsg}
+                  onClick={() => handleSendStudentQuickMessage(customQuickText)}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-black flex items-center gap-1 transition-all shrink-0"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>إرسال</span>
+                </button>
+              </div>
             </div>
           )}
 

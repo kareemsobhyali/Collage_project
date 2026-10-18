@@ -486,7 +486,32 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     setAppliedPromo(null);
     setPromoCodeInput('');
     setPromoError(null);
+    localStorage.removeItem('unifood_auto_promo');
   };
+
+  // Auto-apply Flash Deal coupon if student tapped one on Home screen
+  useEffect(() => {
+    const autoCode = localStorage.getItem('unifood_auto_promo');
+    if (autoCode && !appliedPromo && subtotal > 0) {
+      const normalized = autoCode.trim().toUpperCase();
+      setPromoCodeInput(normalized);
+      api
+        .validatePromoCode(normalized, subtotal, branch?.id)
+        .then((res) => {
+          if (res.valid || res.success) {
+            setAppliedPromo({
+              code: res.code,
+              discount: res.discount,
+              discountType: res.discountType,
+              value: res.value,
+            });
+            setPromoError(null);
+            localStorage.removeItem('unifood_auto_promo');
+          }
+        })
+        .catch(() => {});
+    }
+  }, [subtotal, branch?.id]);
 
   // Upload Payment Proof Screenshot
   const handleProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
