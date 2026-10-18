@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
 import { JWT_SECRET } from "../middleware/auth.js";
-import { orderQuickMessages } from "../sockets/socketManager.js";
+import { orderQuickMessages, isAppRunningInForeground } from "../sockets/socketManager.js";
 import { isOrderAcceptedByDriver } from "../services/driver.service.js";
 
 const router = express.Router();
@@ -62,6 +62,11 @@ router.get("/poll", async (req: Request, res: Response) => {
 
     // 1. إشعارات الكابتن (DRIVER)
     if (role === "DRIVER" && userId) {
+      // طالما أن تطبيق الكابتن شغال ومفتوح في الواجهة، لا نرسل أي إشعار للشريط العلوي
+      if (isAppRunningInForeground("DRIVER", userId)) {
+        return res.json({ success: true, notifications: [], serverTime: Date.now() });
+      }
+
       const activeOrders = await prisma.order.findMany({
         where: {
           driverId: userId,
@@ -133,6 +138,11 @@ router.get("/poll", async (req: Request, res: Response) => {
 
     // 2. إشعارات الطالب (STUDENT)
     else if (role === "STUDENT" && userId) {
+      // طالما أن تطبيق الطالب شغال ومفتوح في الواجهة، لا نرسل أي إشعار للشريط العلوي
+      if (isAppRunningInForeground("STUDENT", userId)) {
+        return res.json({ success: true, notifications: [], serverTime: Date.now() });
+      }
+
       const studentOrders = await prisma.order.findMany({
         where: {
           userId,
@@ -228,6 +238,11 @@ router.get("/poll", async (req: Request, res: Response) => {
 
     // 3. إشعارات شاشة المطعم (BRANCH)
     else if (role === "BRANCH" && userId) {
+      // طالما أن تطبيق المطعم شغال ومفتوح في الواجهة، لا نرسل أي إشعار للشريط العلوي
+      if (isAppRunningInForeground("BRANCH", userId)) {
+        return res.json({ success: true, notifications: [], serverTime: Date.now() });
+      }
+
       const pendingOrders = await prisma.order.findMany({
         where: {
           branchId: userId,

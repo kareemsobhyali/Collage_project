@@ -5,6 +5,67 @@ import { JWT_SECRET } from "../middleware/auth.js";
 
 let io: SocketIOServer | null = null;
 
+// تتبع حالة التطبيق (شغال ومفتوح في الواجهة أم في الخلفية / مقفول)
+interface AppSessionState {
+  socketIds: Set<string>;
+  state: "foreground" | "background";
+  lastSeen: number;
+}
+const appSessions = new Map<string, AppSessionState>();
+
+export function setAppSessionState(role: "BRANCH" | "STUDENT" | "DRIVER", id: string, socketId: string, state: "foreground" | "background"): void {
+  const normRole = (role || "").toUpperCase().trim() as "BRANCH" | "STUDENT" | "DRIVER";
+  const normId = String(id || "").trim();
+  if (!normRole || !normId) return;
+  const key = `${normRole}_${normId}`;
+  let session = appSessions.get(key);
+  if (!session) {
+    session = { socketIds: new Set(), state, lastSeen: Date.now() };
+    appSessions.set(key, session);
+  }
+  session.socketIds.add(socketId);
+  session.state = state;
+  session.lastSeen = Date.now();
+}
+
+export function removeAppSessionSocket(socketId: string): void {
+  for (const [key, session] of appSessions.entries()) {
+    if (session.socketIds.has(socketId)) {
+      session.socketIds.delete(socketId);
+      if (session.socketIds.size === 0) {
+        appSessions.delete(key);
+      }
+    }
+  }
+}
+
+export function isAppRunningInForeground(role: "BRANCH" | "STUDENT" | "DRIVER", id: string): boolean {
+  const normRole = (role || "").toUpperCase().trim() as "BRANCH" | "STUDENT" | "DRIVER";
+  const normId = String(id || "").trim();
+  if (!normRole || !normId) return false;
+  const key = `${normRole}_${normId}`;
+  const session = appSessions.get(key);
+  if (session && session.socketIds.size > 0 && session.state === "foreground") {
+    return true;
+  }
+  if (io) {
+    let roomName = "";
+    if (normRole === "BRANCH") roomName = `branch_${normId}`;
+    else if (normRole === "STUDENT") roomName = `user_${normId}`;
+    else if (normRole === "DRIVER") roomName = `driver_${normId}`;
+
+    if (roomName) {
+      const room = io.sockets.adapter.rooms.get(roomName);
+      if (room && room.size > 0) {
+        if (!session || session.state === "foreground") {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 function sanitizeOrderForDriverSocket(order: any): any {
   if (!order || typeof order !== "object") return order;
   const { pickupPin, ...safeOrder } = order;
@@ -35,8 +96,21 @@ export function initSocket(server: any): SocketIOServer {
   io.on("connection", (socket: Socket) => {
     const authUser = (socket as any).user;
 
+    // استقبال تحديث حالة فتح/تصغير التطبيق من العميل لحظياً
+    socket.on("app_state", (data: { role?: "BRANCH" | "STUDENT" | "DRIVER"; id?: string; state?: "foreground" | "background" }) => {
+      if (data && data.role && data.id) {
+        setAppSessionState(data.role, data.id, socket.id, data.state || "foreground");
+      }
+    });
+
     if (authUser && authUser.role === "SUPERADMIN") {
       socket.join("admin_dashboard");
+    }
+
+    // الفرع: انضمام فوري لغرفة الفرع إذا كان التوكن يحمل branchId
+    if (authUser && authUser.branchId) {
+      socket.join(`branch_${authUser.branchId}`);
+      setAppSessionState("BRANCH", authUser.branchId, socket.id, "foreground");
     }
 
     // الفرع يسجل دخوله في غرفته لاستقبال طلباته المباشرة (محمي بصلاحية الفرع أو الأدمن)
@@ -44,6 +118,7 @@ export function initSocket(server: any): SocketIOServer {
       if (!branchId) return;
       if (authUser && (authUser.role === "SUPERADMIN" || authUser.branchId === branchId)) {
         socket.join(`branch_${branchId}`);
+        setAppSessionState("BRANCH", branchId, socket.id, "foreground");
       } else {
         console.warn(`[Socket Security] Unauthorized attempt to join branch_${branchId}`);
       }
@@ -82,12 +157,14 @@ export function initSocket(server: any): SocketIOServer {
     // كابتن التوصيل (الطيار) يسجل دخوله في غرفته لاستقبال الطلبات المسندة إليه
     if (authUser && authUser.driverId) {
       socket.join(`driver_${authUser.driverId}`);
+      setAppSessionState("DRIVER", authUser.driverId, socket.id, "foreground");
     }
 
     socket.on("join_driver", (driverId: string) => {
       if (!driverId) return;
       if (authUser && (authUser.role === "SUPERADMIN" || authUser.driverId === driverId)) {
         socket.join(`driver_${driverId}`);
+        setAppSessionState("DRIVER", driverId, socket.id, "foreground");
       } else {
         console.warn(`[Socket Security] Unauthorized attempt to join driver_${driverId}`);
       }
@@ -97,6 +174,7 @@ export function initSocket(server: any): SocketIOServer {
     if (authUser && (authUser.userId || authUser.id)) {
       const uid = authUser.userId || authUser.id;
       socket.join(`user_${uid}`);
+      setAppSessionState("STUDENT", uid, socket.id, "foreground");
     }
 
     socket.on("join_user", (userId: string) => {
@@ -104,6 +182,7 @@ export function initSocket(server: any): SocketIOServer {
       const currentUid = authUser?.userId || authUser?.id;
       if (authUser && (authUser.role === "SUPERADMIN" || currentUid === userId)) {
         socket.join(`user_${userId}`);
+        setAppSessionState("STUDENT", userId, socket.id, "foreground");
       } else {
         console.warn(`[Socket Security] Unauthorized attempt to join user_${userId}`);
       }
@@ -228,7 +307,7 @@ export function initSocket(server: any): SocketIOServer {
     );
 
     socket.on("disconnect", () => {
-      // Disconnected
+      removeAppSessionSocket(socket.id);
     });
   });
 

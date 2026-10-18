@@ -121,6 +121,11 @@ export async function sendWebNotification(
 
   const safeTag = tag || 'unifood_notification';
 
+  // إذا كان التطبيق مفتوحاً وشغالاً أمام المستخدم في الواجهة، لا نرسل إشعار للنظام منعاً لأي إزعاج أو تكرار
+  if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+    return;
+  }
+
   // في تطبيق الأندرويد الناتيف (APK):
   // خدمة الخلفية UniFoodNotificationService هي المسؤولة حصرياً عن إشعارات النظام في الخلفية
   // لتجنب تكرار الإشعار مرتين (مرة من الخدمة الناتيف ومرة من كود الويب)

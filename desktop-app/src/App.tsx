@@ -149,9 +149,22 @@ export function App() {
         : window.location.origin;
     const socket: Socket = io(socketUrl, { auth: { token } });
 
+    const sendAppState = () => {
+      const state = typeof document !== 'undefined' && document.visibilityState === 'visible' ? 'foreground' : 'background';
+      socket.emit('app_state', { role: 'BRANCH', id: branch.id, state });
+    };
+
+    const handleVisibility = () => {
+      sendAppState();
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+
     socket.on('connect', () => {
       setSocketConnected(true);
       socket.emit('join_branch', branch.id);
+      sendAppState();
       // مزامنة فورية للطلبات بعد انقطاع الاتصال لضمان عدم ضياع أي طلب جديد تم إرساله أثناء انقطاع الإنترنت
       api.getOrders().then(freshOrders => {
         if (Array.isArray(freshOrders)) {
@@ -221,6 +234,9 @@ export function App() {
     });
 
     return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
       socket.disconnect();
     };
   }, [token, branch?.id]);

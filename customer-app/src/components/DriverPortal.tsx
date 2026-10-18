@@ -545,8 +545,23 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     });
     socketRef.current = socket;
 
+    const sendAppState = () => {
+      const state = typeof document !== 'undefined' && document.visibilityState === 'visible' ? 'foreground' : 'background';
+      socket.emit('app_state', { role: 'DRIVER', id: driver.id, state });
+    };
+
+    const handleVisibility = () => {
+      sendAppState();
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+
     socket.on('connect', () => {
       socket.emit('join_driver', driver.id);
+      sendAppState();
+      registerNativeBackgroundSession(token, 'DRIVER', driver.id);
     });
 
     socket.on('new_order_assigned', (order: any) => {
@@ -616,6 +631,9 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     });
 
     return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
       socket.disconnect();
       socketRef.current = null;
     };

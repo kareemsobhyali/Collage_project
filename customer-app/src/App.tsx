@@ -412,6 +412,42 @@ export function App() {
       auth: { token: token || '' },
     });
 
+    const getStoredUserId = (): string | null => {
+      if (user?.id) return user.id;
+      try {
+        const saved = localStorage.getItem('customer_user');
+        if (saved) return JSON.parse(saved)?.id || null;
+      } catch (_e) {}
+      return null;
+    };
+
+    const sendAppState = () => {
+      const currentUid = getStoredUserId();
+      if (!currentUid) return;
+      const state = typeof document !== 'undefined' && document.visibilityState === 'visible' ? 'foreground' : 'background';
+      socket.emit('app_state', { role: 'STUDENT', id: currentUid, state });
+    };
+
+    const handleVisibility = () => {
+      sendAppState();
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+
+    socket.on('connect', () => {
+      const currentUid = getStoredUserId();
+      const currentToken = localStorage.getItem('customer_token');
+      if (currentUid) {
+        socket.emit('join_user', currentUid);
+        sendAppState();
+        if (currentToken) {
+          registerNativeBackgroundSession(currentToken, 'STUDENT', currentUid);
+        }
+      }
+    });
+
     if (token) {
       api.getMe().then((res: any) => {
         const fresh = res?.user || res;
@@ -419,6 +455,8 @@ export function App() {
           localStorage.setItem('customer_user', JSON.stringify(fresh));
           setUser(fresh);
           socket.emit('join_user', fresh.id);
+          registerNativeBackgroundSession(token, 'STUDENT', fresh.id);
+          sendAppState();
         }
       }).catch(() => {});
     }
@@ -561,6 +599,9 @@ export function App() {
     });
 
     return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
       socket.disconnect();
     };
   }, [isAdminRoute]);
