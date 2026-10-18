@@ -188,21 +188,27 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
     }
   };
 
+  const isInitializedRef = useRef<boolean>(false);
+
   useEffect(() => {
     const container = scrollRef.current;
     if (!container || displayCards.length === 0) {
       setActiveIndex(0);
       return;
     }
-    setActiveIndex(middleSetStartIndex);
-    const timer = setTimeout(() => {
-      centerCardInContainer(middleSetStartIndex, false);
-    }, 60);
-    return () => {
-      clearTimeout(timer);
-      if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
-      if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
-    };
+    // نقوم بالتوسيط على بداية المجموعات فقط لأول مرة عند بناء الكاروسيل لمنع إعادة التمرير للأول عند العودة من شاشة الصنف
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true;
+      setActiveIndex(middleSetStartIndex);
+      const timer = setTimeout(() => {
+        centerCardInContainer(middleSetStartIndex, false);
+      }, 60);
+      return () => {
+        clearTimeout(timer);
+        if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
+        if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
+      };
+    }
   }, [category.id, items.length, middleSetStartIndex]);
 
   const handleScroll = () => {
@@ -320,6 +326,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
           return (
             <div
               key={cardData.uniqueKey}
+              id={`menu-item-card-${item.id}`}
               data-carousel-card="true"
               onClick={() => {
                 if (!isCenter && displayCards.length > 1) {
@@ -329,6 +336,11 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                 if (!isItemAvailable) {
                   alert(`عذراً، صنف "${item.name}" غير متوفر حالياً بالمطعم.`);
                   return;
+                }
+                if (typeof window !== 'undefined') {
+                  const currentY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+                  sessionStorage.setItem('unifood_last_item_scroll_y', String(currentY));
+                  sessionStorage.setItem('unifood_last_item_id', item.id);
                 }
                 onItemClick(item);
               }}
@@ -461,9 +473,12 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   const [activeCategoryId, setActiveCategoryId] = useState<string>('ALL');
   const [showReviewsModal, setShowReviewsModal] = useState<boolean>(false);
 
-  // إعادة التمرير لأعلى الصفحة فور فتح المطعم لضمان ظهوره من البداية بدون النزول لمنتصف المنيو
+  const lastOpenedBranchId = useRef<string | null>(null);
+
+  // إعادة التمرير لأعلى الصفحة فقط عند فتح مطعم جديد لأول مرة، وليس عند العودة من شاشات الأصناف
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && branch?.id && lastOpenedBranchId.current !== branch.id) {
+      lastOpenedBranchId.current = branch.id;
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;

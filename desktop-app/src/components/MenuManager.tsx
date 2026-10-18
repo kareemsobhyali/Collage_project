@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -53,6 +53,9 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
 
   // فتح نافذة إضافة صنف
   const handleOpenAddItem = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('desktop_menu_scroll_y', String(window.scrollY || document.documentElement.scrollTop || 0));
+    }
     setEditingItem(null);
     setItemName('');
     setItemCategoryId(categories.length > 0 ? categories[0].id : '');
@@ -67,6 +70,10 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
 
   // فتح نافذة تعديل صنف
   const handleOpenEditItem = (item: any) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('desktop_menu_scroll_y', String(window.scrollY || document.documentElement.scrollTop || 0));
+      sessionStorage.setItem('desktop_menu_item_id', item.id);
+    }
     setEditingItem(item);
     setItemName(item.name);
     setItemCategoryId(item.categoryId);
@@ -98,6 +105,29 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     setSelectedModifierGroupIds(linkedIds);
     setShowItemModal(true);
   };
+
+  // استعادة موضع السكرول ومكان الصنف تلقائياً عند إغلاق النافذة أو بعد حفظ التعديلات
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedYStr = sessionStorage.getItem('desktop_menu_scroll_y');
+    if (!savedYStr) return;
+    const y = parseInt(savedYStr, 10);
+    if (!isNaN(y) && y > 0) {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: y, behavior: 'instant' });
+        setTimeout(() => {
+          window.scrollTo({ top: y, behavior: 'instant' });
+          const savedItemId = sessionStorage.getItem('desktop_menu_item_id');
+          if (savedItemId) {
+            const el = document.getElementById(`menu-item-${savedItemId}`);
+            if (el) {
+              el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+            }
+          }
+        }, 50);
+      });
+    }
+  }, [categories, showItemModal]);
 
   // رفع صورة للصنف
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,6 +375,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                 {cat.items?.map((item: any) => (
                   <div
                     key={item.id}
+                    id={`menu-item-${item.id}`}
                     className={`bg-white rounded-2xl border p-4 transition-all shadow-sm flex flex-col justify-between ${
                       item.isAvailable ? 'border-slate-200' : 'border-rose-200 bg-rose-50/20 opacity-80'
                     }`}

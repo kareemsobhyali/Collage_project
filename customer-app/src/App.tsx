@@ -210,6 +210,7 @@ export function App() {
       // ثانياً: إغلاق النوافذ المنبثقة بترتيب أسبقيتها (الأحدث فالأقدم)
       else if (customizingItem) {
         setCustomizingItem(null);
+        restoreItemScroll();
       } else if (showCartModal) {
         setShowCartModal(false);
       } else if (showGroupCartModal) {
@@ -682,6 +683,34 @@ export function App() {
     }
   };
 
+  const restoreItemScroll = () => {
+    if (typeof window === 'undefined') return;
+    const savedYStr = sessionStorage.getItem('unifood_last_item_scroll_y');
+    const savedItemId = sessionStorage.getItem('unifood_last_item_id');
+    const savedY = savedYStr ? parseInt(savedYStr, 10) : 0;
+
+    const performRestore = () => {
+      if (savedY > 0) {
+        window.scrollTo({ top: savedY, behavior: 'instant' });
+        document.documentElement.scrollTop = savedY;
+        document.body.scrollTop = savedY;
+      }
+      if (savedItemId) {
+        const el = document.getElementById(`menu-item-card-${savedItemId}`);
+        if (el) {
+          el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+        }
+      }
+    };
+
+    performRestore();
+    requestAnimationFrame(() => {
+      performRestore();
+      setTimeout(performRestore, 50);
+      setTimeout(performRestore, 150);
+    });
+  };
+
   const handleAddToCart = async (itemToAdd: any) => {
     // إذا كان الطالب مشتركاً حالياً في "سلة الشلة"، نضيف الصنف مباشرة لكيسه في سلة الشلة!
     if (groupCartCode && user) {
@@ -703,6 +732,7 @@ export function App() {
       }
     }
     setCart([...cart, { ...itemToAdd, branchId: selectedBranch.id }]);
+    restoreItemScroll();
   };
 
   const handleReorder = async (order: any) => {
@@ -932,7 +962,10 @@ export function App() {
         <ItemCustomizeModal
           item={customizingItem}
           onAddToCart={handleAddToCart}
-          onClose={() => setCustomizingItem(null)}
+          onClose={() => {
+            setCustomizingItem(null);
+            restoreItemScroll();
+          }}
         />
       )}
 

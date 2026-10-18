@@ -3,10 +3,12 @@ import { useEffect } from 'react';
 let lockCount = 0;
 let previousBodyOverflow = '';
 let previousHtmlOverflow = '';
+let savedScrollY = 0;
 
 export function lockBodyScroll() {
   if (typeof document === 'undefined') return;
   if (lockCount === 0) {
+    savedScrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
     previousBodyOverflow = document.body.style.overflow;
     previousHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -23,6 +25,12 @@ export function unlockBodyScroll() {
     document.documentElement.style.overflow = '';
     previousBodyOverflow = '';
     previousHtmlOverflow = '';
+    if (savedScrollY > 0) {
+      window.scrollTo({ top: savedScrollY, behavior: 'instant' });
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: savedScrollY, behavior: 'instant' });
+      });
+    }
   }
 }
 
