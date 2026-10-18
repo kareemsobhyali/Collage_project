@@ -2259,6 +2259,77 @@ router.post("/seed-divado", async (_req: AuthRequest, res: Response) => {
   }
 });
 
+// جلب جميع بلاغات وتذاكر الدعم الفني الواردة من الطلاب
+router.get("/support-tickets", async (_req: AuthRequest, res: Response) => {
+  try {
+    const settings = await prisma.systemSetting.findMany({
+      where: { key: { startsWith: "support_ticket_" } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const tickets = settings
+      .map((s) => {
+        try {
+          return JSON.parse(s.value);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    res.json({ success: true, tickets });
+  } catch (error) {
+    console.error("Admin get support-tickets error:", error);
+    res.status(500).json({ error: "فشل جلب تذاكر الدعم الفني" });
+  }
+});
+
+// تحديث حالة تذكرة دعم فني أو تسجيل ملاحظات إدارية
+router.put("/support-tickets/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, adminNotes } = req.body;
+
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: `support_ticket_${id}` },
+    });
+
+    if (!setting) {
+      res.status(404).json({ error: "تذكرة الدعم غير موجودة" });
+      return;
+    }
+
+    const ticket = JSON.parse(setting.value);
+    if (status) ticket.status = status;
+    if (adminNotes !== undefined) ticket.adminNotes = adminNotes;
+    ticket.updatedAt = new Date().toISOString();
+
+    await prisma.systemSetting.update({
+      where: { key: `support_ticket_${id}` },
+      data: { value: JSON.stringify(ticket) },
+    });
+
+    res.json({ success: true, ticket });
+  } catch (error) {
+    console.error("Admin update support-ticket error:", error);
+    res.status(500).json({ error: "فشل تحديث تذكرة الدعم" });
+  }
+});
+
+// حذف تذكرة دعم فني
+router.delete("/support-tickets/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    await prisma.systemSetting.deleteMany({
+      where: { key: `support_ticket_${id}` },
+    });
+    res.json({ success: true, message: "تم حذف التذكرة بنجاح" });
+  } catch (error) {
+    console.error("Admin delete support-ticket error:", error);
+    res.status(500).json({ error: "فشل حذف التذكرة" });
+  }
+});
+
 export default router;
 
 

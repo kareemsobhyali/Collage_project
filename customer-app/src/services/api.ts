@@ -381,6 +381,29 @@ export const api = {
     return data;
   },
 
+  // حذف حساب العميل نهائياً
+  async deleteAccount() {
+    const res = await fetch(`${API_BASE_URL}/customer/account`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف الحساب');
+    return data;
+  },
+
+  // إرسال تذكرة / بلاغ دعم فني للإدارة
+  async submitSupportTicket(ticket: { category: string; subject: string; message: string; orderNumber?: string }) {
+    const res = await fetch(`${API_BASE_URL}/customer/support-ticket`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(ticket),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إرسال تذكرة الدعم');
+    return data;
+  },
+
   // 12. لوحة الإدارة (Banners & Promo Codes)
   async getAdminBanners() {
     const res = await fetch(`${API_BASE_URL}/admin/banners`, {
@@ -1006,6 +1029,37 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/customer/public/restaurant-location`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل جلب موقع المطعم');
+    return data;
+  },
+
+  // إدارة تذاكر الدعم الفني في لوحة الإدارة
+  async getAdminSupportTickets() {
+    const res = await fetch(`${API_BASE_URL}/admin/support-tickets`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب تذاكر الدعم الفني');
+    return data;
+  },
+
+  async updateAdminSupportTicket(id: string, updates: { status?: string; adminNotes?: string }) {
+    const res = await fetch(`${API_BASE_URL}/admin/support-tickets/${id}`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(updates),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث تذكرة الدعم');
+    return data;
+  },
+
+  async deleteAdminSupportTicket(id: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/support-tickets/${id}`, {
+      method: 'DELETE',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف تذكرة الدعم');
     return data;
   },
 };

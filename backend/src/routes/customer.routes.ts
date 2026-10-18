@@ -1698,4 +1698,132 @@ router.post("/wallet/convert-points", async (req: AuthRequest, res: Response) =>
   }
 });
 
+// 13. حذف حساب المستخدم وتفريغ بياناته الشخصية نهائياً
+router.delete("/account", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        orders: {
+          where: {
+            status: {
+              in: ["PENDING", "ACCEPTED", "PREPARING", "READY", "ON_THE_WAY"],
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "المستخدم غير موجود" });
+      return;
+    }
+
+    // منع الحذف إذا كانت هناك طلبات جارية لم تكتمل بعد
+    if (user.orders.length > 0) {
+      res.status(400).json({ 
+        error: "لا يمكنك حذف الحساب حالياً نظراً لوجود طلب قيد التنفيذ بالمطعم. يُرجى الانتظار حتى اكتمال واستلام طلبك أولاً." 
+      });
+      return;
+    }
+
+    // حذف العناوين المسجلة للمستخدم
+    await prisma.userAddress.deleteMany({ where: { userId } });
+
+    // فحص ما إذا كان للمستخدم أي طلبات مسجلة مسبقاً في النظام
+    const totalOrdersCount = await prisma.order.count({ where: { userId } });
+
+    if (totalOrdersCount === 0) {
+      // إذا لم يكن له أي طلبات نهائياً، يتم حذفه بالكامل من قاعدة البيانات
+      await prisma.user.delete({ where: { id: userId } });
+    } else {
+      // إذا كانت له طلبات سابقة، يتم طمس وتجهيل بياناته الشخصية للحفاظ على القيود المالية والمحاسبية للمطاعم
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: "مستخدم محذوف",
+          phone: `deleted_${Date.now()}_${userId.slice(0, 6)}`,
+          password: "",
+          isBlocked: true,
+          walletBalance: 0,
+          loyaltyPoints: 0,
+          restaurantNotes: "تم حذف الحساب نهائياً بناءً على طلب العميل",
+        },
+      });
+    }
+
+    res.json({ success: true, message: "تم حذف حسابك وجميع بياناتك وعناوينك بنجاح." });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    res.status(500).json({ error: "فشل حذف الحساب، يرجى المحاولة لاحقاً" });
+  }
+});
+
+// 14. إرسال بلاغ أو تذكرة دعم فني للوحة الإدارة
+router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { category, subject, message, orderNumber } = req.body;
+
+    if (!subject || !subject.trim() || !message || !message.trim()) {
+      res.status(400).json({ error: "يرجى كتابة عنوان المشكلة وتفاصيل الرسالة بوضوح" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, phone: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "المستخدم غير موجود" });
+      return;
+    }
+
+    const ticketId = `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const categoryLabels: Record<string, string> = {
+      ORDER_ISSUE: "مشكلة في طلب سابق",
+      PAYMENT_ISSUE: "مشكلة في الدفع أو المحفظة",
+      TECH_ISSUE: "مشكلة تقنية في التطبيق",
+      SUGGESTION: "اقتراح أو فكرة تطوير",
+      GENERAL: "استفسار عام أو مساعدة",
+    };
+
+    const ticketData = {
+      id: ticketId,
+      userId: user.id,
+      userName: user.name,
+      userPhone: user.phone,
+      category: category || "GENERAL",
+      categoryLabel: categoryLabels[category] || "استفسار عام",
+      subject: subject.trim(),
+      message: message.trim(),
+      orderNumber: orderNumber ? String(orderNumber).trim() : undefined,
+      status: "OPEN", // "OPEN" | "IN_PROGRESS" | "RESOLVED"
+      adminNotes: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await prisma.systemSetting.upsert({
+      where: { key: `support_ticket_${ticketId}` },
+      update: { value: JSON.stringify(ticketData) },
+      create: {
+        key: `support_ticket_${ticketId}`,
+        value: JSON.stringify(ticketData),
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "تم إرسال بلاغك لإدارة المنظومة بنجاح، وسيتم مراجعته والتواصل معك قريباً.",
+      ticket: ticketData,
+    });
+  } catch (error) {
+    console.error("Submit support ticket error:", error);
+    res.status(500).json({ error: "فشل إرسال رسالة الدعم" });
+  }
+});
+
 export default router;

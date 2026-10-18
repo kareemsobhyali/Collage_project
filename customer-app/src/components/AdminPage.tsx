@@ -63,7 +63,10 @@ import {
   Wallet,
   Coins,
   Navigation,
-  Utensils
+  Utensils,
+  Headphones,
+  LifeBuoy,
+  MessageCircle
 } from 'lucide-react';
 
 
@@ -109,7 +112,11 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'FINANCE' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS'>('BRANCHES');
+  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'FINANCE' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS' | 'SUPPORT'>('BRANCHES');
+  const [supportTickets, setSupportTickets] = useState<any[]>([]);
+  const [loadingSupportTickets, setLoadingSupportTickets] = useState(false);
+  const [supportFilter, setSupportFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL');
+  const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
   const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
   const [showMobileMoreMenu, setShowMobileMoreMenu] = useState(false);
@@ -602,7 +609,7 @@ export const AdminPage: React.FC = () => {
     if (!token && !adminUser) return;
     try {
       setLoading(true);
-      const [statsRes, branchesRes, ordersRes, studentsRes, bannersRes, promosRes, reviewsRes, driversRes] = await Promise.all([
+      const [statsRes, branchesRes, ordersRes, studentsRes, bannersRes, promosRes, reviewsRes, driversRes, supportRes] = await Promise.all([
         fetch(`${API_BASE_URL}/admin/stats`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/branches`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/orders?limit=100`, { headers: getAdminHeaders() }),
@@ -611,6 +618,7 @@ export const AdminPage: React.FC = () => {
         fetch(`${API_BASE_URL}/admin/promo-codes`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/reviews`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/drivers`, { headers: getAdminHeaders() }),
+        fetch(`${API_BASE_URL}/admin/support-tickets`, { headers: getAdminHeaders() }).catch(() => null),
       ]);
 
       if (statsRes.ok) setStats(await statsRes.json());
@@ -627,10 +635,52 @@ export const AdminPage: React.FC = () => {
       if (driversRes && driversRes.ok) {
         setDrivers(await driversRes.json());
       }
+      if (supportRes && supportRes.ok) {
+        const supData = await supportRes.json();
+        setSupportTickets(supData.tickets || []);
+      }
     } catch (err) {
       console.error('Fetch dashboard error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSupportTickets = async () => {
+    try {
+      setLoadingSupportTickets(true);
+      const res = await api.getAdminSupportTickets();
+      if (res && res.tickets) {
+        setSupportTickets(res.tickets);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingSupportTickets(false);
+    }
+  };
+
+  const handleUpdateTicketStatus = async (ticketId: string, newStatus: string) => {
+    try {
+      setUpdatingTicketId(ticketId);
+      const res = await api.updateAdminSupportTicket(ticketId, { status: newStatus });
+      if (res && res.ticket) {
+        setSupportTickets(prev => prev.map(t => t.id === ticketId ? res.ticket : t));
+      }
+    } catch (e: any) {
+      alert(e.message || 'فشل تحديث حالة التذكرة');
+    } finally {
+      setUpdatingTicketId(null);
+    }
+  };
+
+  const handleDeleteTicket = async (ticketId: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا البلاغ؟')) return;
+    try {
+      await api.deleteAdminSupportTicket(ticketId);
+      setSupportTickets(prev => prev.filter(t => t.id !== ticketId));
+    } catch (e: any) {
+      alert(e.message || 'فشل حذف التذكرة');
     }
   };
 
@@ -2460,6 +2510,23 @@ export const AdminPage: React.FC = () => {
               >
                 <Settings className="w-4 h-4 shrink-0 text-purple-400" />
                 <span>إعدادات النظام والأمان</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('SUPPORT')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'SUPPORT'
+                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/25 ring-1 ring-rose-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <Headphones className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>الدعم الفني والشكاوى</span>
+                {supportTickets.filter((t: any) => t.status === 'OPEN').length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-rose-500 text-white font-bold animate-pulse">
+                    {supportTickets.filter((t: any) => t.status === 'OPEN').length}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -6253,6 +6320,224 @@ export const AdminPage: React.FC = () => {
           </div>
         )}
 
+        {/* SUPPORT TAB */}
+        {activeTab === 'SUPPORT' && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-rose-950/40 via-slate-900 to-purple-950/40 border border-rose-500/30 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
+                  <Headphones className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                    <span>مركز الدعم الفني وبلاغات الطلاب</span>
+                    {supportTickets.filter((t: any) => t.status === 'OPEN').length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-rose-500 text-white font-black animate-pulse">
+                        {supportTickets.filter((t: any) => t.status === 'OPEN').length} جديد
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    متابعة بلاغات وشكاوى واقتراحات الطلاب والتواصل الفوري معهم عبر الواتساب أو الهاتف
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Filter buttons */}
+                <div className="bg-slate-950/80 p-1 rounded-xl border border-slate-800 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSupportFilter('ALL')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      supportFilter === 'ALL'
+                        ? 'bg-purple-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    الكل ({supportTickets.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSupportFilter('OPEN')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      supportFilter === 'OPEN'
+                        ? 'bg-rose-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    المفتوحة ({supportTickets.filter((t: any) => t.status === 'OPEN').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSupportFilter('RESOLVED')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      supportFilter === 'RESOLVED'
+                        ? 'bg-emerald-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    تم الحل ({supportTickets.filter((t: any) => t.status === 'RESOLVED').length})
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchSupportTickets}
+                  disabled={loadingSupportTickets}
+                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all active:scale-95"
+                  title="تحديث البلاغات"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingSupportTickets ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Tickets List */}
+            {loadingSupportTickets ? (
+              <div className="text-center py-12 text-slate-400 text-xs font-bold">
+                جاري تحميل بلاغات الدعم الفني...
+              </div>
+            ) : supportTickets.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
+                <LifeBuoy className="w-12 h-12 text-slate-600 mx-auto" />
+                <h4 className="text-white font-black text-sm">لا توجد أي بلاغات دعم فني مسجلة حتى الآن</h4>
+                <p className="text-xs text-slate-500">
+                  عندما يرسل أي طالب بلاغاً أو مشكلة من صفحة حسابي بالتطبيق ستظهر هنا فوراً.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {supportTickets
+                  .filter((ticket: any) => {
+                    if (supportFilter === 'OPEN') return ticket.status === 'OPEN';
+                    if (supportFilter === 'RESOLVED') return ticket.status === 'RESOLVED';
+                    return true;
+                  })
+                  .map((ticket: any) => {
+                    const cleanPhone = String(ticket.userPhone || '').replace(/\D/g, '');
+                    const isResolved = ticket.status === 'RESOLVED';
+
+                    return (
+                      <div
+                        key={ticket.id}
+                        className={`bg-slate-900 border rounded-3xl p-5 shadow-lg flex flex-col justify-between gap-4 transition-all ${
+                          isResolved
+                            ? 'border-slate-800/80 opacity-75'
+                            : 'border-rose-500/30 ring-1 ring-rose-500/20'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          {/* Card Header: category & status */}
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300">
+                              {ticket.categoryLabel || ticket.category || 'استفسار عام'}
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              {ticket.orderNumber && (
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-amber-300 border border-amber-400/20">
+                                  طلب #{ticket.orderNumber}
+                                </span>
+                              )}
+                              <span
+                                className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+                                  isResolved
+                                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                    : 'bg-rose-500/20 text-rose-400 border-rose-500/30 animate-pulse'
+                                }`}
+                              >
+                                {isResolved ? '✓ تم الحل' : '⚠️ مفتوح للمراجعة'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Subject & Message */}
+                          <div>
+                            <h4 className="font-black text-sm text-white mb-1">
+                              {ticket.subject}
+                            </h4>
+                            <p className="text-xs text-slate-300 bg-slate-950/70 p-3 rounded-2xl border border-slate-800 leading-relaxed whitespace-pre-wrap">
+                              {ticket.message}
+                            </p>
+                          </div>
+
+                          {/* Student Info & Date */}
+                          <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/80">
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-slate-200 block text-xs">
+                                👤 {ticket.userName || 'طالب جامعي'}
+                              </span>
+                              <span className="text-[11px] font-mono text-slate-400 block" dir="ltr">
+                                📞 {ticket.userPhone}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80 flex-wrap">
+                          <a
+                            href={`https://wa.me/20${cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone}?text=${encodeURIComponent(`مرحباً يا ${ticket.userName || 'بطل'}، بخصوص بلاغك في تطبيق UniFood [${ticket.subject}]...`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>محادثة واتساب</span>
+                          </a>
+
+                          <a
+                            href={`tel:${ticket.userPhone}`}
+                            className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all"
+                            title="اتصال هاتفي"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                          </a>
+
+                          {isResolved ? (
+                            <button
+                              type="button"
+                              disabled={updatingTicketId === ticket.id}
+                              onClick={() => handleUpdateTicketStatus(ticket.id, 'OPEN')}
+                              className="py-2 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition-all"
+                              title="إعادة فتح البلاغ"
+                            >
+                              إعادة فتح
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={updatingTicketId === ticket.id}
+                              onClick={() => handleUpdateTicketStatus(ticket.id, 'RESOLVED')}
+                              className="py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all"
+                              title="تعليم كتم الحل"
+                            >
+                              {updatingTicketId === ticket.id ? '...' : '✓ تم الحل'}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTicket(ticket.id)}
+                            className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl border border-transparent hover:border-rose-500/30 transition-all"
+                            title="حذف البلاغ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
@@ -6596,6 +6881,34 @@ export const AdminPage: React.FC = () => {
                 <div>
                   <span className="text-xs font-black block text-white">إعدادات النظام والأمان</span>
                   <span className="text-[10px] text-slate-400 block">التنبيهات وتصفير المنظومة</span>
+                </div>
+              </button>
+              {/* SUPPORT */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('SUPPORT');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 col-span-2 ${
+                  activeTab === 'SUPPORT'
+                    ? 'bg-rose-950/70 border-rose-600 text-white shadow-md'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                    <Headphones className="w-4 h-4" />
+                  </div>
+                  {supportTickets.filter((t: any) => t.status === 'OPEN').length > 0 && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white font-mono animate-pulse">
+                      {supportTickets.filter((t: any) => t.status === 'OPEN').length} بلاغات جديدة
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-white">الدعم الفني والشكاوى</span>
+                  <span className="text-[10px] text-slate-400 block">رسائل وبلاغات الطلاب والمشاكل</span>
                 </div>
               </button>
             </div>

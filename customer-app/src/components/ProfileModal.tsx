@@ -16,7 +16,14 @@ import {
   Bell,
   BellRing,
   Gift,
-  Navigation
+  Navigation,
+  Headphones,
+  LifeBuoy,
+  ShieldAlert,
+  MessageCircle,
+  MessageSquarePlus,
+  Send,
+  HelpCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { 
@@ -36,12 +43,14 @@ interface ProfileModalProps {
   user: any;
   onUpdateUser: (updatedUser: any) => void;
   onClose: () => void;
+  onLogout?: () => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
   user,
   onUpdateUser,
   onClose,
+  onLogout,
 }) => {
   const [name, setName] = useState(user.name || '');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -69,6 +78,72 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [detectingGps, setDetectingGps] = useState(false);
   const [capturedGps, setCapturedGps] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsSuccessMsg, setGpsSuccessMsg] = useState<string | null>(null);
+
+  // Support Ticket State
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportCategory, setSupportCategory] = useState<'GENERAL' | 'ORDER_ISSUE' | 'PAYMENT_ISSUE' | 'TECH_ISSUE' | 'SUGGESTION'>('GENERAL');
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [supportOrderNumber, setSupportOrderNumber] = useState('');
+  const [sendingSupport, setSendingSupport] = useState(false);
+  const [supportSuccessMsg, setSupportSuccessMsg] = useState<string | null>(null);
+  const [supportErrorMsg, setSupportErrorMsg] = useState<string | null>(null);
+
+  // Delete Account State
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+
+  const handleSubmitSupport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supportSubject.trim() || !supportMessage.trim()) {
+      setSupportErrorMsg('يرجى كتابة عنوان المشكلة وتفاصيل الرسالة.');
+      return;
+    }
+    try {
+      setSendingSupport(true);
+      setSupportErrorMsg(null);
+      const res = await api.submitSupportTicket({
+        category: supportCategory,
+        subject: supportSubject.trim(),
+        message: supportMessage.trim(),
+        orderNumber: supportOrderNumber.trim() || undefined,
+      });
+      setSupportSuccessMsg(res.message || 'تم إرسال بلاغك لإدارة المنظومة بنجاح!');
+      setSupportSubject('');
+      setSupportMessage('');
+      setSupportOrderNumber('');
+      setTimeout(() => {
+        setShowSupportModal(false);
+        setSupportSuccessMsg(null);
+      }, 2200);
+    } catch (err: any) {
+      setSupportErrorMsg(err.message || 'فشل إرسال رسالة الدعم');
+    } finally {
+      setSendingSupport(false);
+    }
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    try {
+      setDeletingAccount(true);
+      setDeleteAccountError(null);
+      await api.deleteAccount();
+      alert('تم حذف حسابك وعناوينك بنجاح.');
+      if (onLogout) {
+        onLogout();
+      } else {
+        localStorage.removeItem('customer_token');
+        localStorage.removeItem('customer_user');
+        window.location.reload();
+      }
+      onClose();
+    } catch (err: any) {
+      setDeleteAccountError(err.message || 'فشل حذف الحساب');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
 
   // تحميل العناوين والبيانات المالية للمحفظة
   const loadProfileData = async () => {
@@ -637,7 +712,232 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Help & Support Center Card */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50 via-purple-50 to-slate-50 border border-indigo-100/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-sm">
+                  <Headphones className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-800">مركز المساعدة والدعم الفني</h4>
+                  <p className="text-[10px] text-slate-500">واجهتك مشكلة أو لديك استفسار؟ فريق الإدارة في خدمتك</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSupportErrorMsg(null);
+                  setSupportSuccessMsg(null);
+                  setShowSupportModal(true);
+                }}
+                className="w-full py-2.5 px-3 bg-white hover:bg-indigo-50/60 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-xs transition-all active:scale-98"
+              >
+                <MessageSquarePlus className="w-4 h-4 text-indigo-600" />
+                <span>إرسال بلاغ أو مشكلة للإدارة</span>
+              </button>
+
+              <a
+                href="https://wa.me/201016629986?text=مرحباً، أحتاج مساعدة بخصوص تطبيق UniFood"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>محادثة واتساب مباشرة للدعم</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Account Security & Deletion Section */}
+          <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-rose-100 text-rose-700 rounded-lg">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-rose-950">الأمان وإدارة الحساب</h4>
+                  <p className="text-[10px] text-rose-700">حذف الحساب نهائياً وإلغاء تفعيل البيانات</p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              إذا كنت ترغب في حذف حسابك نهائياً من المنظومة، سيتم تفريغ عناوينك المحفوظة ورصيدك فوراً وإلغاء تسجيل الدخول.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full py-2 px-3 border border-rose-300 hover:bg-rose-600 hover:text-white text-rose-700 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all active:scale-98"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>حذف حسابي نهائياً</span>
+            </button>
+          </div>
         </div>
+
+        {/* Support Ticket Modal Dialog */}
+        {showSupportModal && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-fadeIn">
+            <div className="bg-white rounded-2xl max-w-sm w-full p-4.5 shadow-2xl space-y-3.5 border border-slate-100 max-h-[90%] overflow-y-auto">
+              <div className="flex items-center justify-between border-b pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">
+                    <LifeBuoy className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900">إرسال بلاغ أو مشكلة للإدارة</h4>
+                    <p className="text-[10px] text-slate-500">سيتم مراجعتها من فريق الإدارة فوراً</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSupportModal(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {supportErrorMsg && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{supportErrorMsg}</span>
+                </div>
+              )}
+
+              {supportSuccessMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                  <Sparkles className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>{supportSuccessMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitSupport} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">نوع المشكلة / الموضوع:</label>
+                  <select
+                    value={supportCategory}
+                    onChange={(e: any) => setSupportCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                  >
+                    <option value="GENERAL">❓ استفسار عام أو مساعدة</option>
+                    <option value="ORDER_ISSUE">🛍️ مشكلة في طلب سابق</option>
+                    <option value="PAYMENT_ISSUE">💳 مشكلة في الدفع أو رصيد المحفظة</option>
+                    <option value="TECH_ISSUE">⚙️ عطل أو مشكلة تقنية في التطبيق</option>
+                    <option value="SUGGESTION">💡 اقتراح أو فكرة لتطوير التطبيق</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">عنوان البلاغ:</label>
+                  <input
+                    type="text"
+                    placeholder="مثال: خصم خاطئ من المحفظة، تأخر استلام طلب..."
+                    value={supportSubject}
+                    onChange={(e) => setSupportSubject(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                {supportCategory === 'ORDER_ISSUE' && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">رقم الطلب (اختياري):</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: 1042"
+                      value={supportOrderNumber}
+                      onChange={(e) => setSupportOrderNumber(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">تفاصيل المشكلة:</label>
+                  <textarea
+                    rows={3}
+                    placeholder="اشرح المشكلة التي واجهتك بالتفصيل حتى يتمكن فريق الإدارة من مساعدتك سريعاً..."
+                    value={supportMessage}
+                    onChange={(e) => setSupportMessage(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowSupportModal(false)}
+                    className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={sendingSupport}
+                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{sendingSupport ? 'جاري الإرسال...' : 'إرسال للإدارة'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Account Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 animate-fadeIn">
+            <div className="bg-white rounded-2xl max-w-sm w-full p-4.5 shadow-2xl space-y-3.5 border border-rose-200">
+              <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+
+              <div className="text-center space-y-1">
+                <h4 className="text-sm font-black text-slate-900">هل أنت متأكد من حذف حسابك؟</h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  سيؤدي هذا الإجراء إلى حذف جميع عناوينك المسجلة، نقاط الولاء، ورصيدك في المحفظة نهائياً. لا يمكن التراجع عن هذا الإجراء بعد تنفيذه.
+                </p>
+              </div>
+
+              {deleteAccountError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{deleteAccountError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={deletingAccount}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                >
+                  إلغاء وتراجع
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingAccount}
+                  onClick={handleConfirmDeleteAccount}
+                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{deletingAccount ? 'جاري الحذف...' : 'نعم، حذف الحساب'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-4 border-t bg-slate-50 flex items-center justify-end pb-safe">

@@ -997,6 +997,7 @@ export function App() {
           user={user}
           onUpdateUser={(updated) => setUser(updated)}
           onClose={() => setShowProfileModal(false)}
+          onLogout={handleLogout}
         />
       )}
 
