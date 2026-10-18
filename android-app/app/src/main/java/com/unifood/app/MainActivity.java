@@ -744,6 +744,7 @@ public class MainActivity extends Activity {
                         .setContentTitle(title)
                         .setContentText(body)
                         .setStyle(new Notification.BigTextStyle().bigText(body))
+                        .setOnlyAlertOnce(true)
                         .setAutoCancel(true)
                         .setContentIntent(pendingIntent);
 

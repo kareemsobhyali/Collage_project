@@ -95,25 +95,27 @@ router.get("/poll", async (req: Request, res: Response) => {
         }
         // ب) الطلب جاهز في المطبخ ولم يستلمه الكابتن بعد
         else if (order.status === "READY" && !order.driverPickedUpAt) {
-          notifications.push({
-            id: `driver_ready_${order.orderNumber}_${orderUpdatedMs}`,
-            tag: `order_${order.orderNumber}`,
-            channel: "ORDERS",
-            title: `👨‍🍳 الوجبة جاهزة للاستلام #${order.orderNumber}`,
-            body: `المطبخ جهز الطلب بالكامل، توجه لفرع (${order.branch?.name}) لاستلامه والبدء بالتوصيل`,
-            subText: "جاهز للتسليم",
-            color: "#10B981",
-            soundType: "CHIME",
-            actionUrl: "/delivery",
-            timestamp: orderUpdatedMs,
-          });
+          if (sinceParam === 0 || orderUpdatedMs > sinceParam) {
+            notifications.push({
+              id: `driver_ready_${order.orderNumber}_${orderUpdatedMs}`,
+              tag: `order_${order.orderNumber}`,
+              channel: "ORDERS",
+              title: `👨‍🍳 الوجبة جاهزة للاستلام #${order.orderNumber}`,
+              body: `المطبخ جهز الطلب بالكامل، توجه لفرع (${order.branch?.name}) لاستلامه والبدء بالتوصيل`,
+              subText: "جاهز للتسليم",
+              color: "#10B981",
+              soundType: "CHIME",
+              actionUrl: "/delivery",
+              timestamp: orderUpdatedMs,
+            });
+          }
         }
 
         // ج) فحص الرسائل السريعة الواردة من الطالب لهذا الطلب
         const msgs = orderQuickMessages.get(order.id) || [];
         for (const msg of msgs) {
           const msgTime = new Date(msg.createdAt).getTime();
-          if (msg.senderRole === "CUSTOMER" && (sinceParam === 0 || msgTime > sinceParam - 10000)) {
+          if (msg.senderRole === "CUSTOMER" && (sinceParam === 0 || msgTime > sinceParam)) {
             notifications.push({
               id: `chat_${msg.id}`,
               tag: `chat_${order.orderNumber}`,
@@ -133,15 +135,16 @@ router.get("/poll", async (req: Request, res: Response) => {
 
     // 2. إشعارات الطالب (STUDENT)
     else if (role === "STUDENT" && userId) {
-      const recentWindow = new Date(Math.max(sinceParam > 0 ? sinceParam - 15000 : 0, Date.now() - 30 * 60 * 1000));
+      // إذا أرسل العميل وقت آخر استعلام sinceParam، نبحث فقط عن الطلبات التي طرأ عليها تحديث بعد هذا الوقت
+      // وإذا كان أول استعلام (sinceParam == 0)، نكتفي بالطلبات الحديثة خلال آخر 10 دقائق فقط
+      const minUpdatedDate = sinceParam > 0
+        ? new Date(sinceParam)
+        : new Date(Date.now() - 10 * 60 * 1000);
 
       const studentOrders = await prisma.order.findMany({
         where: {
           userId,
-          OR: [
-            { status: { in: ["ACCEPTED", "PREPARING", "READY"] } },
-            { updatedAt: { gte: recentWindow } },
-          ],
+          updatedAt: { gt: minUpdatedDate },
         },
         include: {
           branch: { select: { name: true, phone: true } },
@@ -153,6 +156,11 @@ router.get("/poll", async (req: Request, res: Response) => {
 
       for (const order of studentOrders) {
         const orderUpdatedMs = new Date(order.updatedAt).getTime();
+        // تأكيد إضافي: تخطي أي طلب لم يطرأ عليه تحديث بعد وقت آخر استعلام
+        if (sinceParam > 0 && orderUpdatedMs <= sinceParam) {
+          continue;
+        }
+
         const branchName = order.branch?.name || "المطعم";
         const driverName = order.driver?.name?.replace(/\s*\(طيار عام\)\s*/g, "") || "الكابتن";
 
@@ -225,7 +233,7 @@ router.get("/poll", async (req: Request, res: Response) => {
         const msgs = orderQuickMessages.get(order.id) || [];
         for (const msg of msgs) {
           const msgTime = new Date(msg.createdAt).getTime();
-          if (msg.senderRole === "DRIVER" && (sinceParam === 0 || msgTime > sinceParam - 10000)) {
+          if (msg.senderRole === "DRIVER" && (sinceParam === 0 || msgTime > sinceParam)) {
             notifications.push({
               id: `chat_${msg.id}`,
               tag: `chat_${order.orderNumber}`,
@@ -256,18 +264,20 @@ router.get("/poll", async (req: Request, res: Response) => {
 
       for (const order of pendingOrders) {
         const orderCreatedMs = new Date(order.createdAt).getTime();
-        notifications.push({
-          id: `branch_pending_${order.orderNumber}`,
-          tag: `order_${order.orderNumber}`,
-          channel: "ORDERS",
-          title: `🔔 طلب جديد وارد للمطعم #${order.orderNumber}!`,
-          body: `العميل: ${order.customerName || "طالب"} • الإجمالي: ${order.total} ج.م • اضغط للقبول`,
-          subText: "طلب جديد بانتظار الموافقة",
-          color: "#F59E0B",
-          soundType: "ALARM",
-          actionUrl: "/branch",
-          timestamp: orderCreatedMs,
-        });
+        if (sinceParam === 0 || orderCreatedMs > sinceParam) {
+          notifications.push({
+            id: `branch_pending_${order.orderNumber}`,
+            tag: `order_${order.orderNumber}`,
+            channel: "ORDERS",
+            title: `🔔 طلب جديد وارد للمطعم #${order.orderNumber}!`,
+            body: `العميل: ${order.customerName || "طالب"} • الإجمالي: ${order.total} ج.م • اضغط للقبول`,
+            subText: "طلب جديد بانتظار الموافقة",
+            color: "#F59E0B",
+            soundType: "ALARM",
+            actionUrl: "/branch",
+            timestamp: orderCreatedMs,
+          });
+        }
       }
     }
 

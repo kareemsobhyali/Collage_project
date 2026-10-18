@@ -42,6 +42,9 @@ public class UniFoodNotificationService extends Service {
     public static final String CHANNEL_URGENT_ALARM = "unifood_urgent_alarm_channel";
     public static final String CHANNEL_CHAT = "unifood_chat_channel";
 
+    public static final String PREFS_HISTORY = "unifood_alerted_history";
+    public static final String KEY_ALERTED_IDS = "alerted_ids_set";
+
     private static final int SERVICE_NOTIFICATION_ID = 9901;
 
     public static volatile boolean isAppInForeground = false;
@@ -57,6 +60,14 @@ public class UniFoodNotificationService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannels();
+        try {
+            SharedPreferences historyPrefs = getSharedPreferences(PREFS_HISTORY, MODE_PRIVATE);
+            Set<String> saved = historyPrefs.getStringSet(KEY_ALERTED_IDS, null);
+            if (saved != null) {
+                alertedNotificationIds.addAll(saved);
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     @Override
@@ -200,6 +211,55 @@ public class UniFoodNotificationService extends Service {
         }
     }
 
+    private synchronized boolean isNotificationAlreadyAlerted(String id) {
+        if (id == null || id.isEmpty()) return false;
+        if (alertedNotificationIds.contains(id)) {
+            return true;
+        }
+        try {
+            SharedPreferences historyPrefs = getSharedPreferences(PREFS_HISTORY, MODE_PRIVATE);
+            Set<String> saved = historyPrefs.getStringSet(KEY_ALERTED_IDS, null);
+            if (saved != null && saved.contains(id)) {
+                alertedNotificationIds.add(id);
+                return true;
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    private synchronized void markNotificationAlerted(String id) {
+        if (id == null || id.isEmpty()) return;
+        alertedNotificationIds.add(id);
+        if (alertedNotificationIds.size() > 300) {
+            Set<String> trimmed = new HashSet<>();
+            int count = 0;
+            for (String s : alertedNotificationIds) {
+                trimmed.add(s);
+                if (++count >= 150) break;
+            }
+            alertedNotificationIds.clear();
+            alertedNotificationIds.addAll(trimmed);
+        }
+        try {
+            SharedPreferences historyPrefs = getSharedPreferences(PREFS_HISTORY, MODE_PRIVATE);
+            Set<String> saved = historyPrefs.getStringSet(KEY_ALERTED_IDS, new HashSet<>());
+            Set<String> updated = new HashSet<>(saved);
+            updated.add(id);
+            if (updated.size() > 300) {
+                Set<String> trimmed = new HashSet<>();
+                int count = 0;
+                for (String s : updated) {
+                    trimmed.add(s);
+                    if (++count >= 150) break;
+                }
+                updated = trimmed;
+            }
+            historyPrefs.edit().putStringSet(KEY_ALERTED_IDS, updated).apply();
+        } catch (Exception ignored) {
+        }
+    }
+
     private void handleNotificationItem(JSONObject item) {
         try {
             String id = item.optString("id", "");
@@ -209,16 +269,15 @@ public class UniFoodNotificationService extends Service {
             // لأن واجهة التطبيق تتولى التحديث اللحظي وتشغيل صوت التنبيه المخصص بدون أي تضارب
             if (isAppInForeground) {
                 // تسجيل المعرف حتى لا يرن النظام لاحقاً لنفس الحدث إذا أغلق المستخدم التطبيق
-                alertedNotificationIds.add(id);
+                markNotificationAlerted(id);
                 return;
             }
 
-            // منع تكرار التنبيه الصوتي لنفس الحدث
-            boolean isNewEvent = !alertedNotificationIds.contains(id);
-            if (alertedNotificationIds.size() > 500) {
-                alertedNotificationIds.clear();
+            // فحص هل تم تنبيه المستخدم بهذا الإشعار مسبقاً لمنع التكرار والإزعاج نهائياً
+            if (isNotificationAlreadyAlerted(id)) {
+                return;
             }
-            alertedNotificationIds.add(id);
+            markNotificationAlerted(id);
 
             String channel = item.optString("channel", "ORDERS");
 
@@ -273,6 +332,7 @@ public class UniFoodNotificationService extends Service {
                     .setSmallIcon(R.mipmap.ic_launcher)
                     .setColor(accentColor)
                     .setStyle(new Notification.BigTextStyle().bigText(body).setSummaryText(subText))
+                    .setOnlyAlertOnce(true)
                     .setAutoCancel(true)
                     .setContentIntent(pendingIntent);
 
@@ -284,15 +344,19 @@ public class UniFoodNotificationService extends Service {
             int notifId = Math.abs(tag.hashCode());
             manager.notify(tag, notifId, builder.build());
 
-            // إذا كان حدثاً جديداً، نطلق الرنين والاهتزاز المناسب
-            if (isNewEvent) {
-                triggerAlert(soundType);
-            }
+            // إطلاق التنبيه الصوتي المناسب (فقط إذا لم يكن نظام أندرويد 8+ يتكفل به عبر القناة)
+            triggerAlert(soundType);
         } catch (Exception ignored) {
         }
     }
 
     private void triggerAlert(String soundType) {
+        // على أندرويد 8+ (Oreo أو أحدث) تتكفل قنوات NotificationChannel بالرنين الصوتي النظيف والاهتزاز تلقائياً
+        // نشغل الرنين اليدوي فقط إذا كان إنذاراً طارئاً ALARM (مثل طلب جديد وارد للطيار أو المطعم)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !"ALARM".equalsIgnoreCase(soundType)) {
+            return;
+        }
+
         mainHandler.post(() -> {
             try {
                 // 1. الاهتزاز

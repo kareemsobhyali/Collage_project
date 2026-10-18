@@ -103,7 +103,38 @@ export async function requestPushPermission(): Promise<boolean> {
   }
 }
 
-const notifiedOrderStatuses = new Map<string, string>();
+const NOTIFIED_STATUS_STORAGE_KEY = 'unifood_notified_order_statuses';
+
+function getStoredNotifiedStatuses(): Map<string, string> {
+  const map = new Map<string, string>();
+  if (typeof window === 'undefined') return map;
+  try {
+    const raw = sessionStorage.getItem(NOTIFIED_STATUS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        for (const [k, v] of Object.entries(parsed)) {
+          if (typeof v === 'string') map.set(k, v);
+        }
+      }
+    }
+  } catch (_e) {}
+  return map;
+}
+
+function saveNotifiedStatus(orderId: string, status: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const map = getStoredNotifiedStatuses();
+    map.set(orderId, status);
+    const obj: Record<string, string> = {};
+    const entries = Array.from(map.entries()).slice(-60);
+    for (const [k, v] of entries) {
+      obj[k] = v;
+    }
+    sessionStorage.setItem(NOTIFIED_STATUS_STORAGE_KEY, JSON.stringify(obj));
+  } catch (_e) {}
+}
 
 export async function sendWebNotification(
   title: string,
@@ -178,12 +209,12 @@ export async function sendWebNotification(
 export function notifyOrderStatusPush(order: any): void {
   if (!order || !order.id || !order.status) return;
 
-  // منع التكرار لنفس الحالة
-  const lastStatus = notifiedOrderStatuses.get(order.id);
-  if (lastStatus === order.status) {
+  // منع التكرار لنفس الحالة نهائياً
+  const storedStatuses = getStoredNotifiedStatuses();
+  if (storedStatuses.get(order.id) === order.status) {
     return;
   }
-  notifiedOrderStatuses.set(order.id, order.status);
+  saveNotifiedStatus(order.id, order.status);
 
   // إرسال تنبيه مرئي داخل واجهة التطبيق فقط (In-App Toast) بدون أي إشعارات نظام أو شريط علوي
   const orderNum = order.orderNumber || '';
