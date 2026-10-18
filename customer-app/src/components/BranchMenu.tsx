@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   ArrowRight, 
   MapPin, 
@@ -71,18 +71,104 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
 }) => {
   const items: any[] = Array.isArray(category.items) ? category.items : [];
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [activeIndex, setActiveIndex] = useState<number>(0);
-  const touchStartX = useRef<number | null>(null);
+
+  // إنشاء مسار لا نهائي مكرر بحساب دقيق لضمان استمرارية السكرول بدون توقف
+  const { displayCards, middleSetStartIndex, middleSetIndex } = useMemo(() => {
+    if (items.length <= 1) {
+      return {
+        displayCards: items.map((item, idx) => ({
+          item,
+          originalIndex: idx,
+          uniqueKey: `item-${item.id || idx}`,
+        })),
+        middleSetStartIndex: 0,
+        middleSetIndex: 0,
+      };
+    }
+
+    // نضمن 15 بطاقة على الأقل كمسار متصل ومستمر للسحب
+    const minCards = 15;
+    const rawRepeats = Math.max(3, Math.ceil(minCards / items.length));
+    const repeats = rawRepeats % 2 === 0 ? rawRepeats + 1 : rawRepeats;
+    const midSet = Math.floor(repeats / 2);
+
+    const cards: Array<{
+      item: any;
+      originalIndex: number;
+      uniqueKey: string;
+    }> = [];
+
+    for (let s = 0; s < repeats; s++) {
+      for (let i = 0; i < items.length; i++) {
+        cards.push({
+          item: items[i],
+          originalIndex: i,
+          uniqueKey: `item-${items[i].id || i}-set-${s}`,
+        });
+      }
+    }
+
+    return {
+      displayCards: cards,
+      middleSetStartIndex: midSet * items.length,
+      middleSetIndex: midSet,
+    };
+  }, [items]);
+
+  const [activeIndex, setActiveIndex] = useState<number>(middleSetStartIndex);
+  const isTouching = useRef<boolean>(false);
+  const isNormalizing = useRef<boolean>(false);
   const isProgrammaticScroll = useRef<boolean>(false);
+  const normalizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const programmaticScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // إعادة المحاذاة غير المرئية إلى المجموعة المركزية بدون أي قفز بصري
+  const normalizeToMiddleSet = (fromIndex?: number) => {
+    if (items.length <= 1 || isTouching.current || isProgrammaticScroll.current) return;
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const currentIdx = typeof fromIndex === 'number' ? fromIndex : activeIndex;
+    const currentSet = Math.floor(currentIdx / items.length);
+
+    if (currentSet === middleSetIndex) return;
+
+    const itemPos = currentIdx % items.length;
+    const targetCardIdx = middleSetStartIndex + itemPos;
+
+    const cards = container.querySelectorAll('[data-carousel-card="true"]');
+    const currentCard = cards[currentIdx] as HTMLElement | undefined;
+    const targetCard = cards[targetCardIdx] as HTMLElement | undefined;
+
+    if (currentCard && targetCard) {
+      const currentCardRect = currentCard.getBoundingClientRect();
+      const targetCardRect = targetCard.getBoundingClientRect();
+      const diff = targetCardRect.left - currentCardRect.left;
+
+      if (Math.abs(diff) > 2) {
+        isNormalizing.current = true;
+        container.scrollBy({
+          left: diff,
+          behavior: 'instant' as ScrollBehavior,
+        });
+        setActiveIndex(targetCardIdx);
+        requestAnimationFrame(() => {
+          isNormalizing.current = false;
+        });
+      }
+    }
+  };
 
   const centerCardInContainer = (index: number, smooth: boolean) => {
     const container = scrollRef.current;
-    if (!container || items.length === 0) return;
-    const bounded = ((index % items.length) + items.length) % items.length;
+    if (!container || displayCards.length === 0) return;
+    const bounded = Math.max(0, Math.min(index, displayCards.length - 1));
     const cards = container.querySelectorAll('[data-carousel-card="true"]');
     const target = cards[bounded] as HTMLElement | undefined;
     if (target) {
       isProgrammaticScroll.current = true;
+      if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
+
       const cRect = container.getBoundingClientRect();
       const tRect = target.getBoundingClientRect();
       const diff = (tRect.left + tRect.width / 2) - (cRect.left + cRect.width / 2);
@@ -93,29 +179,37 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
         });
       }
       setActiveIndex(bounded);
-      setTimeout(() => {
+      programmaticScrollTimer.current = setTimeout(() => {
         isProgrammaticScroll.current = false;
-      }, 350);
+        if (items.length > 1) {
+          normalizeToMiddleSet(bounded);
+        }
+      }, smooth ? 350 : 50);
     }
   };
 
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container || items.length === 0) {
+    if (!container || displayCards.length === 0) {
       setActiveIndex(0);
       return;
     }
-    setActiveIndex(0);
+    setActiveIndex(middleSetStartIndex);
     const timer = setTimeout(() => {
-      centerCardInContainer(0, false);
+      centerCardInContainer(middleSetStartIndex, false);
     }, 60);
-    return () => clearTimeout(timer);
-  }, [category.id, items.length]);
+    return () => {
+      clearTimeout(timer);
+      if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
+      if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
+    };
+  }, [category.id, items.length, middleSetStartIndex]);
 
   const handleScroll = () => {
-    if (isProgrammaticScroll.current) return;
+    if (isNormalizing.current || isProgrammaticScroll.current) return;
     const container = scrollRef.current;
-    if (!container || items.length <= 1) return;
+    if (!container || displayCards.length <= 1) return;
+
     const containerRect = container.getBoundingClientRect();
     const containerCenter = containerRect.left + containerRect.width / 2;
 
@@ -136,32 +230,35 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
     if (closestIdx !== activeIndex) {
       setActiveIndex(closestIdx);
     }
+
+    if (items.length > 1) {
+      if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
+      normalizeTimer.current = setTimeout(() => {
+        if (!isTouching.current && !isProgrammaticScroll.current) {
+          normalizeToMiddleSet(closestIdx);
+        }
+      }, 150);
+    }
   };
 
   const scrollToCard = (index: number) => {
     centerCardInContainer(index, true);
   };
 
-  // معالجة السحب باللمس للالتفاف الدائري السلس عند الوصول للبطاقة الأخيرة أو الأولى
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+  const handleTouchStart = () => {
+    isTouching.current = true;
+    if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || items.length <= 1) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const diffX = touchEndX - touchStartX.current;
-    touchStartX.current = null;
-
-    // في الاتجاه العربي (RTL):
-    // السحب يساراً (diffX < -35) يعني التقدم للأمام
-    // فإذا كان المستخدم عند الصنف الأخير وسحب يساراً، يلتف فوراً إلى الصنف الأول
-    if (diffX < -35 && activeIndex === items.length - 1) {
-      scrollToCard(0);
-    }
-    // وإذا كان عند الصنف الأول وسحب يميناً (diffX > 35)، يلتف إلى الصنف الأخير
-    else if (diffX > 35 && activeIndex === 0) {
-      scrollToCard(items.length - 1);
+  const handleTouchEnd = () => {
+    isTouching.current = false;
+    if (items.length > 1) {
+      if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
+      normalizeTimer.current = setTimeout(() => {
+        if (!isTouching.current && !isProgrammaticScroll.current) {
+          normalizeToMiddleSet();
+        }
+      }, 180);
     }
   };
 
@@ -182,7 +279,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
             <span className="text-[10px] font-bold text-slate-400 ml-1">اسحب للجانبين</span>
             <button
               type="button"
-              onClick={() => scrollToCard(activeIndex === 0 ? items.length - 1 : activeIndex - 1)}
+              onClick={() => scrollToCard(activeIndex - 1)}
               className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-90"
               title="السابق"
             >
@@ -190,7 +287,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => scrollToCard(activeIndex === items.length - 1 ? 0 : activeIndex + 1)}
+              onClick={() => scrollToCard(activeIndex + 1)}
               className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-90"
               title="التالي"
             >
@@ -200,7 +297,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
         )}
       </div>
 
-      {/* Horizontal Peek Carousel (Right Card + Center Card + Left Card) */}
+      {/* Horizontal Peek Carousel (Endless continuous track) */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -212,8 +309,9 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
             : 'gap-3 px-[16%] sm:px-[22%]'
         }`}
       >
-        {items.map((item: any, idx: number) => {
-          const isCenter = items.length === 1 || idx === activeIndex;
+        {displayCards.map((cardData, idx: number) => {
+          const item = cardData.item;
+          const isCenter = displayCards.length === 1 || idx === activeIndex;
           const isItemAvailable = item.isAvailable !== false && (!item.unavailableUntil || new Date() >= new Date(item.unavailableUntil));
           const isFavItem = favItemIds.includes(item.id);
           const fallbackImg = getItemFallbackImage(item.name, category?.name, branchName);
@@ -221,11 +319,12 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
 
           return (
             <div
-              key={item.id}
+              key={cardData.uniqueKey}
               data-carousel-card="true"
               onClick={() => {
-                if (!isCenter && items.length > 1) {
+                if (!isCenter && displayCards.length > 1) {
                   scrollToCard(idx);
+                  return;
                 }
                 if (!isItemAvailable) {
                   alert(`عذراً، صنف "${item.name}" غير متوفر حالياً بالمطعم.`);
@@ -328,19 +427,23 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
       {/* Carousel Dots Indicator */}
       {items.length > 1 && (
         <div className="flex items-center justify-center gap-1.5 pt-0.5">
-          {items.map((item: any, idx: number) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => scrollToCard(idx)}
-              className={`h-1.5 rounded-full transition-all ${
-                idx === activeIndex
-                  ? 'w-5 bg-indigo-600'
-                  : 'w-1.5 bg-slate-300 hover:bg-slate-400'
-              }`}
-              aria-label={`انتقال إلى ${item.name}`}
-            />
-          ))}
+          {items.map((item: any, idx: number) => {
+            const activeRealIndex = ((activeIndex % items.length) + items.length) % items.length;
+            const isActive = idx === activeRealIndex;
+            return (
+              <button
+                key={`dot-${item.id || idx}`}
+                type="button"
+                onClick={() => scrollToCard(middleSetStartIndex + idx)}
+                className={`h-1.5 rounded-full transition-all ${
+                  isActive
+                    ? 'w-5 bg-indigo-600'
+                    : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                }`}
+                aria-label={`انتقال إلى ${item.name}`}
+              />
+            );
+          })}
         </div>
       )}
     </div>
