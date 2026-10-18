@@ -629,6 +629,21 @@ export const api = {
     return data;
   },
 
+  async driverReturnOrder(orderId: string, pin: string, reason?: string) {
+    const token = localStorage.getItem('driver_token');
+    const res = await fetch(`${API_BASE_URL}/driver/orders/${orderId}/return-to-branch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token || ''}`,
+      },
+      body: JSON.stringify({ pin, reason }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إرجاع الطلب للفرع');
+    return data;
+  },
+
   async driverPickupOrder(orderId: string) {
     const token = localStorage.getItem('driver_token');
     const res = await fetch(`${API_BASE_URL}/driver/orders/${orderId}/pickup`, {

@@ -382,6 +382,26 @@ export const api = {
     return data;
   },
 
+  async getBranchReturnPin(orderId: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/orders/${orderId}/return-pin`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل توليد رمز استلام الطلب');
+    return data;
+  },
+
+  async confirmReturnFromDriver(orderId: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/orders/${orderId}/confirm-return-from-driver`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استلام الطلب من الطيار');
+    return data;
+  },
+
   // تبديل التوفر السريع (مع دعم النفاد المؤقت لفترة للأصناف والإضافات)
   async quickToggleStock(payload: { type: 'item' | 'modifier'; id: string; isAvailable: boolean; durationMinutes?: number }) {
     const res = await fetch(`${API_BASE_URL}/branch/quick-toggle-stock`, {

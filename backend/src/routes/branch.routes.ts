@@ -9,10 +9,11 @@ import {
   notifyDriverAssigned,
   notifyBranchMenuChanged,
   notifyMenuItemAvailabilityChanged,
+  notifyDriverUnassigned,
   latestDriverLocations
 } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert, getRestaurantLocationSettings } from "../services/settings.service.js";
-import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver } from "../services/driver.service.js";
+import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
 
 
 const router = Router();
@@ -1537,11 +1538,17 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
       }
     }
 
+    const oldDriverId = order.driverId;
+
+    // مسح أي قبول سابق لهذا الطلب لضمان ظهور شاشة القبول/الرفض وصوت الرنين من البداية للطيار
+    await clearOrderAcceptedByDriver(id);
+
     const rawUpdated = await prisma.order.update({
       where: { id },
       data: {
         driverId: finalDriverId,
         driverAssignedAt: finalDriverId ? new Date() : null,
+        driverPickedUpAt: finalDriverId ? order.driverPickedUpAt : null,
       },
       include: {
         items: true,
@@ -1566,8 +1573,13 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
 
     const updated = {
       ...rawUpdated,
-      isDriverAccepted: Boolean(rawUpdated.driverPickedUpAt) || (finalDriverId ? await isOrderAcceptedByDriver(id) : false),
+      isDriverAccepted: Boolean(rawUpdated.driverPickedUpAt) || (finalDriverId ? await isOrderAcceptedByDriver(id, finalDriverId) : false),
     };
+
+    // إذا تم تغيير أو سحب الطلب من طيار قديم، نبلغه لإزالته من قائمته فوراً
+    if (oldDriverId && oldDriverId !== finalDriverId) {
+      notifyDriverUnassigned(oldDriverId, id);
+    }
 
     // إشعار الطيار المعين عبر Socket.io بصوت تنبيه فوري
     if (finalDriverId) {
@@ -1702,6 +1714,103 @@ router.put("/quick-toggle-stock", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Quick toggle stock error:", error);
     res.status(500).json({ error: "فشل تعديل حالة التوفر" });
+  }
+});
+
+// 25. جلب أو توليد رمز استلام الطلب من الطيار (Branch Return PIN)
+router.get("/orders/:id/return-pin", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const id = req.params.id as string;
+    const order = await prisma.order.findFirst({
+      where: { id, branchId },
+      include: { driver: { select: { name: true, phone: true } } },
+    });
+    if (!order) {
+      res.status(404).json({ error: "الطلب غير موجود" });
+      return;
+    }
+
+    const key = `branch_return_pin_${id}`;
+    let record = await prisma.systemSetting.findUnique({ where: { key } });
+    let pin = "";
+    if (record && record.value) {
+      try {
+        const parsed = JSON.parse(record.value);
+        pin = parsed.pin;
+      } catch (_e) {}
+    }
+    if (!pin) {
+      pin = String(Math.floor(1000 + Math.random() * 9000));
+      await prisma.systemSetting.upsert({
+        where: { key },
+        update: { value: JSON.stringify({ pin, createdAt: new Date().toISOString() }) },
+        create: { key, value: JSON.stringify({ pin, createdAt: new Date().toISOString() }) },
+      });
+    }
+
+    res.json({
+      success: true,
+      pin,
+      orderNumber: order.orderNumber,
+      driverName: order.driver?.name || "الطيار",
+    });
+  } catch (error) {
+    console.error("Get branch return pin error:", error);
+    res.status(500).json({ error: "فشل توليد رمز استلام الطلب" });
+  }
+});
+
+// 26. تأكيد استلام الوجبة المرتجعة من الطيار فورياً من جهة الكاشير (Confirm Return From Driver)
+router.post("/orders/:id/confirm-return-from-driver", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const id = req.params.id as string;
+    const order = await prisma.order.findFirst({
+      where: { id, branchId },
+      include: { driver: { select: { name: true } } },
+    });
+    if (!order) {
+      res.status(404).json({ error: "الطلب غير موجود" });
+      return;
+    }
+
+    const oldDriverId = order.driverId;
+    const driverName = order.driver?.name || "الطيار";
+
+    await clearOrderAcceptedByDriver(id);
+    await prisma.systemSetting.deleteMany({ where: { key: `branch_return_pin_${id}` } });
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: {
+        driverId: null,
+        driverAssignedAt: null,
+        driverPickedUpAt: null,
+        status: "READY", // يعود بالمطبخ جاهزاً لإعادة إسناده لكابتن آخر
+        notes: `${order.notes ? order.notes + " | " : ""}تم استلام الوجبة بالفرع من الكابتن (${driverName})`,
+      },
+      include: {
+        items: true,
+        branch: { select: { id: true, name: true, phone: true, address: true, logoUrl: true } },
+        user: { select: { id: true, name: true, phone: true } },
+      },
+    });
+
+    // إشعار الطيار بإلغاء الطلب من عليه وإشعار العميل والديسكتوب
+    if (oldDriverId) {
+      notifyDriverUnassigned(oldDriverId, id);
+    }
+    notifyOrderStatusChanged(id, branchId, updated);
+
+    res.json({
+      success: true,
+      message: "تم استلام الوجبة من الطيار بنجاح وإلغاء مسؤوليته عنها",
+      order: updated,
+    });
+  } catch (error) {
+    console.error("Confirm return from driver error:", error);
+    res.status(500).json({ error: "فشل استلام الطلب من الطيار" });
   }
 });
 

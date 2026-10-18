@@ -17,6 +17,7 @@ import {
   Truck,
   Printer,
   AlertTriangle,
+  RotateCcw,
   X
 } from 'lucide-react';
 import { api } from './services/api';
@@ -60,6 +61,13 @@ export function App() {
     orderId: string;
     order?: any;
   } | null>(null);
+  const [driverReturnAlert, setDriverReturnAlert] = useState<{
+    orderNumber: number;
+    driverName: string;
+    orderId: string;
+    reason?: string;
+    order?: any;
+  } | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
   // حساب العداد التنازلي وتحديثه كل ثانية عندما يكون الفرع مغلقاً مؤقتاً
@@ -100,8 +108,8 @@ export function App() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // قفل السكرول فقط عند ظهور تنبيه رفض السائق العاجل (باقي النوافذ تدير القفل ذاتياً بأمان)
-  useLockBodyScroll(Boolean(driverRejectionAlert));
+  // قفل السكرول فقط عند ظهور تنبيه عاجل لرفض أو إرجاع السائق (باقي النوافذ تدير القفل ذاتياً بأمان)
+  useLockBodyScroll(Boolean(driverRejectionAlert || driverReturnAlert));
 
   // 1. تحميل البيانات عند تسجيل الدخول
   const loadData = async () => {
@@ -215,6 +223,24 @@ export function App() {
         orderNumber: data.orderNumber || data.order?.orderNumber,
         driverName: data.driverName || 'الطيار',
         orderId: data.orderId || data.order?.id,
+        order: data.order,
+      });
+    });
+
+    // استلام تنبيه فوري وتشغيل جرس إنذار عند إرجاع الطيار للطلب إلى الفرع
+    socket.on('driver_returned_order', (data: any) => {
+      if (data?.order) {
+        setOrders(prev => prev.map(o => o.id === data.order.id ? data.order : o));
+      }
+      // تشغيل جرس التنبيه المستمر فوراً لتنبيه الكاشير والمطبخ
+      soundNotifier.startRepeatingAlarm();
+
+      // إظهار نافذة التنبيه العاجل لإرجاع الطلب
+      setDriverReturnAlert({
+        orderNumber: data.orderNumber || data.order?.orderNumber,
+        driverName: data.driverName || 'الطيار',
+        orderId: data.orderId || data.order?.id,
+        reason: data.reason,
         order: data.order,
       });
     });
@@ -763,6 +789,63 @@ export function App() {
                 onClick={() => {
                   soundNotifier.stopRepeatingAlarm();
                   setDriverRejectionAlert(null);
+                }}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors"
+              >
+                إيقاف الإنذار الصوتي وإغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Driver Return Order Alert Dialog */}
+      {driverReturnAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border-2 border-amber-500 space-y-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto border-2 border-amber-300 animate-bounce">
+              <RotateCcw className="w-8 h-8" />
+            </div>
+
+            <div>
+              <span className="text-xs font-black text-amber-600 uppercase tracking-wider block mb-1">
+                ⚠️ إرجاع وجبة: قام الطيار بإرجاع الطلب للفرع
+              </span>
+              <h3 className="font-black text-lg text-slate-900">
+                تم استلام وجبة طلب #{driverReturnAlert.orderNumber} بالفرع
+              </h3>
+              <p className="text-xs text-slate-600 font-bold mt-2 leading-relaxed">
+                قام الكابتن <span className="text-amber-600 font-black">"{driverReturnAlert.driverName}"</span> بإرجاع هذا الطلب وتأكيده برمز الفرع. الطلب عاد لحالة (جاهز) بالمطبخ ويمكن إسناده لطيار آخر.
+              </p>
+              {driverReturnAlert.reason && (
+                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-900 font-semibold text-right">
+                  <span className="font-black text-amber-950">سبب الإرجاع: </span>
+                  {driverReturnAlert.reason}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  soundNotifier.stopRepeatingAlarm();
+                  setActiveTab('ORDERS');
+                  const target = orders.find(o => o.id === driverReturnAlert.orderId) || driverReturnAlert.order;
+                  setTargetedDetailedOrder(target || null);
+                  setDriverReturnAlert(null);
+                }}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs sm:text-sm font-black shadow-lg shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Truck className="w-4 h-4" />
+                <span>فتح تفاصيل الطلب لإعادة التعيين</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  soundNotifier.stopRepeatingAlarm();
+                  setDriverReturnAlert(null);
                 }}
                 className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors"
               >

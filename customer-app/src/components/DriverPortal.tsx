@@ -31,7 +31,8 @@ import {
   Wallet,
   Sparkles,
   Radio,
-  Navigation
+  Navigation,
+  RotateCcw
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp, openExternalLink, registerNativeBackgroundSession, clearNativeBackgroundSession } from '../services/notifications';
@@ -65,6 +66,13 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   const [inputPin, setInputPin] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
   const [deliveringLoading, setDeliveringLoading] = useState(false);
+
+  // Return order to branch PIN dialog
+  const [returningOrder, setReturningOrder] = useState<any | null>(null);
+  const [returnPin, setReturnPin] = useState('');
+  const [returnReason, setReturnReason] = useState('');
+  const [returnError, setReturnError] = useState<string | null>(null);
+  const [returnLoading, setReturnLoading] = useState(false);
 
   // Custom Confirmation Dialog & Toast States
   const [driverConfirmDialog, setDriverConfirmDialog] = useState<{
@@ -215,7 +223,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   const [showDriverExitDialog, setShowDriverExitDialog] = useState(false);
 
   // قفل تمرير الشاشة الخلفية تلقائياً عند فتح أي نافذة منبثقة للطيار (Universal Scroll Lock)
-  const isDriverModalOpen = Boolean(selectedOrder || deliveringOrder || driverConfirmDialog || showDriverExitDialog);
+  const isDriverModalOpen = Boolean(selectedOrder || deliveringOrder || returningOrder || driverConfirmDialog || showDriverExitDialog);
 
   useEffect(() => {
     // Clear any previous documentElement lock to ensure smooth scrolling
@@ -582,6 +590,14 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       setSelectedOrder((prev: any) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
     });
 
+    socket.on('order_unassigned', ({ orderId }: { orderId: string }) => {
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setSelectedOrder((prev: any) => (prev && prev.id === orderId ? null : prev));
+      setReturningOrder((prev: any) => (prev && prev.id === orderId ? null : prev));
+      setDeliveringOrder((prev: any) => (prev && prev.id === orderId ? null : prev));
+      showToast('تم إلغاء إسناد الطلب وإعادته للفرع', 'info');
+    });
+
     socket.on('order_quick_messages_history', (payload: { orderId: string; messages: any[] }) => {
       if (payload?.orderId && Array.isArray(payload.messages)) {
         setQuickMessagesByOrder((prev) => ({
@@ -880,6 +896,33 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       setPinError(err.message || 'رمز PIN غير مطابق! تأكد من الطالب.');
     } finally {
       setDeliveringLoading(false);
+    }
+  };
+
+  // Confirm returning order to branch with branch PIN
+  const handleConfirmReturn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!returningOrder || !returnPin.trim()) {
+      setReturnError('يرجى إدخال رمز الاستلام (PIN) المكون من 4 أرقام');
+      return;
+    }
+
+    try {
+      setReturnLoading(true);
+      setReturnError(null);
+      await api.driverReturnOrder(returningOrder.id, returnPin.trim(), returnReason.trim() || undefined);
+      showToast('تم إرجاع الوجبة للمطعم وإلغاء الطلب من عليك بنجاح ✅', 'success');
+      setReturningOrder(null);
+      setReturnPin('');
+      setReturnReason('');
+      loadDriverData();
+      if (selectedOrder?.id === returningOrder.id) {
+        setSelectedOrder(null);
+      }
+    } catch (err: any) {
+      setReturnError(err.message || 'رمز الاستلام غير صحيح! يرجى مراجعة موظف الفرع');
+    } finally {
+      setReturnLoading(false);
     }
   };
 
@@ -1476,26 +1519,50 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                             </button>
                           </div>
                         ) : !isPickedUp && order.isDriverAccepted ? (
-                          <button
-                            type="button"
-                            onClick={() => handlePickup(order)}
-                            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                          >
-                            <Truck className="w-3.5 h-3.5" />
-                            <span>تأكيد الاستلام وبدء التوصيل 🛵</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handlePickup(order)}
+                              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                              <span>تأكيد الاستلام وبدء التوصيل 🛵</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReject(order)}
+                              className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all shrink-0"
+                              title="الاعتذار عن الطلب وإعادته للمطعم"
+                            >
+                              اعتذار
+                            </button>
+                          </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeliveringOrder(order);
-                              setSelectedOrder(null);
-                            }}
-                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                          >
-                            <KeyRound className="w-3.5 h-3.5" />
-                            <span>تأكيد التسليم للطالب (PIN) 🔑</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeliveringOrder(order);
+                                setSelectedOrder(null);
+                              }}
+                              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                            >
+                              <KeyRound className="w-3.5 h-3.5" />
+                              <span>تأكيد التسليم للطالب (PIN) 🔑</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReturningOrder(order);
+                                setSelectedOrder(null);
+                              }}
+                              className="px-3 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1"
+                              title="إرجاع الوجبة للمطعم وإلغاء مسؤوليته عنك"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>إرجاع للفرع</span>
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1603,6 +1670,78 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 >
                   {deliveringLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                   <span>إنهاء التسليم</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Return to Branch PIN Modal */}
+      {returningOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fadeIn overscroll-contain" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 overscroll-contain">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center mx-auto">
+                <RotateCcw className="w-6 h-6" />
+              </div>
+              <h3 className="font-black text-base text-slate-800">إرجاع الطلب للمطعم #{returningOrder.orderNumber}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                اطلب رمز الاستلام (PIN) المكون من 4 أرقام المعروض على شاشة كاشير مطعم ({returningOrder.branch?.name || 'الفرع'}) لتأكيد تسليم الوجبة وإلغاء مسؤوليته عنك.
+              </p>
+            </div>
+
+            {returnError && (
+              <div className="p-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold text-center">
+                {returnError}
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmReturn} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1 text-right">رمز تأكيد استلام الفرع (PIN):</label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={returnPin}
+                  onChange={(e) => setReturnPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••"
+                  autoFocus
+                  className="w-full text-center text-3xl font-black tracking-widest p-3 bg-slate-50 border-2 border-amber-200 rounded-2xl focus:border-amber-600 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1 text-right">سبب الإرجاع (اختياري):</label>
+                <input
+                  type="text"
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value)}
+                  placeholder="مثال: عطل في الدراجة، تعذر الوصول..."
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-amber-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReturningOrder(null);
+                    setReturnPin('');
+                    setReturnReason('');
+                    setReturnError(null);
+                  }}
+                  className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={returnLoading || returnPin.length !== 4}
+                  className="py-2.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 text-white rounded-xl font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                >
+                  {returnLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                  <span>تأكيد الإرجاع</span>
                 </button>
               </div>
             </form>
@@ -1979,31 +2118,57 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
               {/* Pickup button if already accepted */}
               {selectedOrder.status !== 'COMPLETED' && !selectedOrder.driverPickedUpAt && selectedOrder.isDriverAccepted && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handlePickup(selectedOrder);
-                  }}
-                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                >
-                  <Truck className="w-4 h-4" />
-                  <span>تأكيد الاستلام من المطعم وبدء التوصيل</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handlePickup(selectedOrder);
+                    }}
+                    className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <Truck className="w-4 h-4" />
+                    <span>تأكيد الاستلام وبدء التوصيل</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleReject(selectedOrder);
+                    }}
+                    className="px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs"
+                    title="الاعتذار عن الطلب وإعادته للمطعم"
+                  >
+                    اعتذار
+                  </button>
+                </>
               )}
 
               {/* Deliver button with PIN */}
               {selectedOrder.status !== 'COMPLETED' && selectedOrder.driverPickedUpAt && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeliveringOrder(selectedOrder);
-                    setSelectedOrder(null);
-                  }}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                >
-                  <KeyRound className="w-4 h-4" />
-                  <span>تأكيد التسليم للطالب (PIN)</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeliveringOrder(selectedOrder);
+                      setSelectedOrder(null);
+                    }}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <KeyRound className="w-4 h-4" />
+                    <span>تأكيد التسليم للطالب (PIN)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReturningOrder(selectedOrder);
+                      setSelectedOrder(null);
+                    }}
+                    className="px-3.5 py-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl font-bold text-xs flex items-center gap-1 shrink-0"
+                    title="إرجاع الوجبة للمطعم وإلغاء مسؤوليته عنك"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>إرجاع للفرع</span>
+                  </button>
+                </>
               )}
 
               {/* Close button */}

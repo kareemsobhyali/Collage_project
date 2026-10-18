@@ -419,6 +419,20 @@ export function notifyDriverRejectedOrder(branchId: string, payload: { orderId: 
   }
 }
 
+export function notifyDriverReturnedOrder(branchId: string, payload: { orderId: string; orderNumber: number; driverName?: string; order: any; reason?: string }): void {
+  if (io) {
+    // إشعار فوري للفرع مع تنبيه صوتي عاجل عند إرجاع الطيار للطلب إلى الفرع
+    io.to(`branch_${branchId}`).emit("driver_returned_order", payload);
+  }
+}
+
+export function notifyDriverUnassigned(driverId: string, orderId: string): void {
+  if (io) {
+    // إشعار الطيار بإلغاء إسناد الطلب وإزالته فوراً من قائمته
+    io.to(`driver_${driverId}`).emit("order_unassigned", { orderId });
+  }
+}
+
 export function notifyGroupCartUpdated(shareCode: string, cartData: any): void {
   if (io) {
     io.to(`group_cart_${shareCode}`).emit("group_cart_updated", cartData);

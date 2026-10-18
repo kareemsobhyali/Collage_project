@@ -25,6 +25,7 @@ import {
   Calendar,
   Users,
   KeyRound,
+  RotateCcw,
   MessageSquare,
   ArrowRight,
   Copy,
@@ -96,6 +97,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [detailedOrder, setDetailedOrder] = useState<any | null>(null);
   const [copiedPhone, setCopiedPhone] = useState<boolean>(false);
   const [showDriverPicker, setShowDriverPicker] = useState<boolean>(false);
+
+  // Return Modal state (PIN and direct confirm from cashier)
+  const [returnModalOrder, setReturnModalOrder] = useState<any | null>(null);
+  const [returnPin, setReturnPin] = useState<string>('');
+  const [returnPinLoading, setReturnPinLoading] = useState<boolean>(false);
+  const [confirmingDirectReturn, setConfirmingDirectReturn] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialDetailedOrder) {
@@ -241,6 +248,35 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       toast.error(error.message || 'فشل إسناد الطلب للطيار');
     } finally {
       setAssigningDriverOrderId(null);
+    }
+  };
+
+  const handleOpenReturnModal = async (order: any) => {
+    setReturnModalOrder(order);
+    setReturnPin('');
+    setReturnPinLoading(true);
+    try {
+      const res = await api.getBranchReturnPin(order.id);
+      setReturnPin(res.pin);
+    } catch (err: any) {
+      toast.error(err.message || 'فشل استخراج رمز الاستلام');
+    } finally {
+      setReturnPinLoading(false);
+    }
+  };
+
+  const handleConfirmDirectReturn = async () => {
+    if (!returnModalOrder) return;
+    try {
+      setConfirmingDirectReturn(true);
+      await api.confirmReturnFromDriver(returnModalOrder.id);
+      toast.success('تم تأكيد استلام الوجبة من الطيار بنجاح ✅');
+      setReturnModalOrder(null);
+      onRefreshOrders();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل استلام الطلب من الطيار');
+    } finally {
+      setConfirmingDirectReturn(false);
     }
   };
 
@@ -609,9 +645,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
                   <div className="text-xs">
                     {isPickedUpByDriver ? (
-                      <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-2xl border border-emerald-300 font-bold flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-emerald-700 shrink-0" />
-                        <span>استلم الطيار الوجبة من الفرع وخرج للتوصيل ({formatTimeOnly(dOrder.driverPickedUpAt)})</span>
+                      <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-2xl border border-emerald-300 font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CheckCircle className="w-4 h-4 text-emerald-700 shrink-0" />
+                          <span className="truncate">استلم الطيار الوجبة من الفرع وخرج للتوصيل ({formatTimeOnly(dOrder.driverPickedUpAt)})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReturnModal(dOrder)}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-xs transition-all active:scale-95 shrink-0 flex items-center justify-center gap-1.5"
+                          title="عرض رمز الاستلام المكون من 4 أرقام أو استلام الوجبة من الكابتن"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>استلام من الطيار (PIN)</span>
+                        </button>
                       </div>
                     ) : dOrder.isDriverAccepted ? (
                       <div className="p-2.5 bg-indigo-50 text-indigo-900 rounded-2xl border border-indigo-300 font-bold flex items-center gap-2">
@@ -1797,6 +1844,63 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Return from Driver Modal */}
+      {returnModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 text-center animate-scaleIn">
+            <div className="w-12 h-12 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center mx-auto">
+              <KeyRound className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="font-black text-base text-slate-800">
+                استلام الطلب #{returnModalOrder.orderNumber} من الطيار
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                أعطِ هذا الرمز للطيار ليكتبه في تطبيقه لتأكيد استلامك للوجبة وإلغاء مسؤوليته عنها:
+              </p>
+            </div>
+
+            {/* 4-Digit PIN Display */}
+            <div className="py-2">
+              {returnPinLoading ? (
+                <div className="py-4 flex justify-center">
+                  <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl py-3 px-6 inline-block tracking-widest text-3xl font-mono font-black text-amber-900 shadow-inner">
+                  {returnPin || '••••'}
+                </div>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-normal">
+              أو يمكنك الضغط أدناه لتأكيد الاستلام مباشرة إذا استلمت الوجبة بالفعل من الكابتن:
+            </p>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                disabled={confirmingDirectReturn || returnPinLoading}
+                onClick={handleConfirmDirectReturn}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>{confirmingDirectReturn ? 'جاري التأكيد...' : 'تأكيد استلام الوجبة من الطيار مباشرة'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReturnModalOrder(null)}
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+              >
+                إغلاق النافذة
+              </button>
+            </div>
           </div>
         </div>
       )}

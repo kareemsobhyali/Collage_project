@@ -3,9 +3,9 @@ import bcrypt from "bcryptjs";
 import prisma from "../prisma.js";
 import { generateToken, authenticateDriver, AuthRequest } from "../middleware/auth.js";
 import { authLimiter } from "../middleware/rateLimiter.js";
-import { notifyOrderStatusChanged, notifyDriverRejectedOrder } from "../sockets/socketManager.js";
+import { notifyOrderStatusChanged, notifyDriverRejectedOrder, notifyDriverReturnedOrder } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted } from "../services/settings.service.js";
-import { getDriverBranchConfig, markOrderAcceptedByDriver, isOrderAcceptedByDriver } from "../services/driver.service.js";
+import { getDriverBranchConfig, markOrderAcceptedByDriver, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
 
 const router = Router();
 
@@ -243,6 +243,8 @@ router.put("/orders/:id/reject", async (req: AuthRequest, res: Response) => {
     });
     const driverName = driverInfo?.name || "الطيار";
 
+    await clearOrderAcceptedByDriver(orderId);
+
     const updated = await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -283,6 +285,89 @@ router.put("/orders/:id/reject", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Driver reject order error:", error);
     res.status(500).json({ error: "فشل الاعتذار عن الطلب" });
+  }
+});
+
+// 4.1. إرجاع الطلب للفرع بعد استلامه باستخدام رمز أمان الفرع (Branch Return PIN)
+router.post("/orders/:id/return-to-branch", authLimiter, async (req: AuthRequest, res: Response) => {
+  try {
+    const orderId = req.params.id as string;
+    const driverId = req.driver!.driverId;
+    const { pin, reason } = req.body;
+
+    if (!pin) {
+      res.status(400).json({ error: "رمز الاستلام (PIN) مطلوب لإتمام الإرجاع" });
+      return;
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { branch: true },
+    });
+
+    if (!order || order.driverId !== driverId) {
+      res.status(404).json({ error: "الطلب غير مسند لك" });
+      return;
+    }
+
+    // التحقق من رمز الـ PIN المأخوذ من شاشة المطعم
+    const key = `branch_return_pin_${orderId}`;
+    const record = await prisma.systemSetting.findUnique({ where: { key } });
+    let expectedPin = "";
+    if (record && record.value) {
+      try {
+        expectedPin = JSON.parse(record.value).pin;
+      } catch (_e) {}
+    }
+
+    if (!expectedPin || expectedPin !== String(pin).trim()) {
+      res.status(400).json({ error: "رمز الاستلام (PIN) غير صحيح! يرجى أخذ الرمز المعروض على شاشة المطعم" });
+      return;
+    }
+
+    const driverInfo = await prisma.deliveryDriver.findUnique({
+      where: { id: driverId },
+      select: { name: true, phone: true },
+    });
+    const driverName = driverInfo?.name || "الطيار";
+
+    await clearOrderAcceptedByDriver(orderId);
+    await prisma.systemSetting.deleteMany({ where: { key } });
+
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        driverId: null,
+        driverAssignedAt: null,
+        driverPickedUpAt: null,
+        status: "READY", // يعود بالمطبخ جاهزاً للإسناد لكابتن بديل
+        notes: `${order.notes ? order.notes + " | " : ""}تم إرجاع الطلب للفرع من الكابتن (${driverName})${reason ? ` - سبب الإرجاع: ${reason}` : ""}`,
+      },
+      include: {
+        branch: true,
+        items: true,
+        user: { select: { id: true, name: true, phone: true } },
+      },
+    });
+
+    // إشعار الفرع فوراً بالصوت والتحديث
+    notifyOrderStatusChanged(order.id, order.branchId, updated);
+    notifyDriverReturnedOrder(order.branchId, {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      driverName,
+      order: updated,
+      reason: reason || "تم تأكيد إرجاع الوجبة للفرع برمز PIN",
+    });
+
+    res.json({
+      success: true,
+      message: "تم تسليم الوجبة للفرع بنجاح وإلغاء مسؤوليته عنك",
+      order: sanitizeOrderForDriver(updated),
+    });
+  } catch (error) {
+    console.error("Driver return order error:", error);
+    res.status(500).json({ error: "فشل إرجاع الطلب للفرع" });
   }
 });
 

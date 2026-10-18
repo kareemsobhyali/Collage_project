@@ -88,15 +88,42 @@ export async function markOrderAcceptedByDriver(orderId: string, driverId: strin
 /**
  * فحص هل تم قبول الطلب من قِبل الطيار
  */
-export async function isOrderAcceptedByDriver(orderId: string): Promise<boolean> {
+export async function isOrderAcceptedByDriver(orderId: string, expectedDriverId?: string | null): Promise<boolean> {
   try {
     const record = await prisma.systemSetting.findUnique({
       where: { key: `driver_accepted_order_${orderId}` },
     });
-    return Boolean(record && record.value);
+    if (!record || !record.value) return false;
+    if (expectedDriverId) {
+      try {
+        const parsed = JSON.parse(record.value);
+        if (parsed.driverId && parsed.driverId !== expectedDriverId) {
+          return false;
+        }
+      } catch (_e) {}
+    }
+    return true;
   } catch (_e) {
     return false;
   }
+}
+
+/**
+ * مسح حالة قبول الطلب من قِبل الطيار عند إعادة الإسناد أو الإلغاء
+ */
+export async function clearOrderAcceptedByDriver(orderId: string): Promise<void> {
+  try {
+    await prisma.systemSetting.deleteMany({
+      where: {
+        key: {
+          in: [
+            `driver_accepted_order_${orderId}`,
+            `driver_alert_sent_${orderId}`,
+          ],
+        },
+      },
+    });
+  } catch (_e) {}
 }
 
 /**
