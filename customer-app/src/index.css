@@ -100,20 +100,86 @@ button, a, input, select, textarea {
 
 @keyframes splash-progress {
   0% { width: 5%; }
-  60% { width: 75%; }
+  50% { width: 70%; }
   100% { width: 100%; }
 }
 
+@keyframes hub-breathing {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 28px rgba(245, 158, 11, 0.28), 0 0 55px rgba(99, 102, 241, 0.32);
+  }
+  50% {
+    transform: scale(1.035);
+    box-shadow: 0 0 42px rgba(245, 158, 11, 0.48), 0 0 80px rgba(99, 102, 241, 0.5);
+  }
+}
+
+@keyframes radar-scan-pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  70% {
+    opacity: 0.25;
+  }
+  100% {
+    transform: scale(1.42);
+    opacity: 0;
+  }
+}
+
+@keyframes satellite-bloom {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  75% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .animate-spin-orbit {
-  animation: orbit-rotate 18s linear infinite;
+  animation: orbit-rotate 24s linear infinite;
+  will-change: transform;
 }
 
 .animate-counter-spin {
-  animation: orbit-counter-rotate 18s linear infinite;
+  animation: orbit-counter-rotate 24s linear infinite;
+  will-change: transform;
+}
+
+.animate-hub-breathing {
+  animation: hub-breathing 3.6s ease-in-out infinite;
+  will-change: transform, box-shadow;
+}
+
+.animate-radar-scan-pulse {
+  animation: radar-scan-pulse 2.8s cubic-bezier(0.1, 0.6, 0.3, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.animate-satellite-bloom {
+  animation: satellite-bloom 0.65s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
+  will-change: transform, opacity;
 }
 
 .animate-splash-bar {
-  animation: splash-progress 2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: splash-progress 2.2s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
 }
 
 /* Animations for Mobile Drawers & Dialogs */

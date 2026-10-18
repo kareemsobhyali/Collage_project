@@ -40,7 +40,17 @@ export function App() {
     window.location.search.includes('app')
   );
   const [showSplash, setShowSplash] = useState(isMobileAppExperience);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const cached = localStorage.getItem('unifood_cached_branches');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_e) {}
+    return [];
+  });
   const isAdminRoute = typeof window !== 'undefined' && (
     (window as any).AndroidBridge?.getFlavor?.() === 'admin' ||
     window.location.pathname.startsWith('/admin') ||
@@ -356,6 +366,9 @@ export function App() {
       const data = await api.getBranches();
       const loadedBranches = data || [];
       setBranches(loadedBranches);
+      try {
+        localStorage.setItem('unifood_cached_branches', JSON.stringify(loadedBranches));
+      } catch (_e) {}
 
       // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
       if (typeof window !== 'undefined') {
