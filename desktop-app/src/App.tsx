@@ -33,7 +33,7 @@ import { BranchStatusModal } from './components/BranchStatusModal';
 import { PrinterSettingsModal } from './components/PrinterSettingsModal';
 import { getAutoPrintOnNewOrder, printOrderReceipt } from './services/printer';
 import { Logo } from './components/Logo';
-import { ToastContainer } from './utils/toast';
+import { ToastContainer, toast } from './utils/toast';
 import { useLockBodyScroll } from './utils/scrollLock';
 
 export function App() {
@@ -201,6 +201,10 @@ export function App() {
     // تحديث حالة طلب
     socket.on('order_status_updated', (updatedOrder: any) => {
       setOrders(prev => {
+        const existing = prev.find(o => o.id === updatedOrder.id);
+        if (existing && existing.status !== 'REJECTED' && updatedOrder.status === 'REJECTED') {
+          toast.warning(`⚠️ تم إلغاء طلب #${updatedOrder.orderNumber || ''} من قِبل العميل`);
+        }
         const next = prev.map(o => o.id === updatedOrder.id ? updatedOrder : o);
         const hasPending = next.some(o => o.status === 'PENDING');
         if (!hasPending) {

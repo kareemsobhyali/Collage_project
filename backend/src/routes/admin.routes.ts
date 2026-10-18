@@ -821,6 +821,7 @@ router.get("/users", async (_req: AuthRequest, res: Response) => {
         id: true,
         name: true,
         phone: true,
+        isVerified: true,
         loyaltyPoints: true,
         walletBalance: true,
         isBlocked: true,
@@ -837,6 +838,43 @@ router.get("/users", async (_req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Get users error:", error);
     res.status(500).json({ error: "فشل استرجاع قائمة المستخدمين" });
+  }
+});
+
+// تفعيل أو إلغاء تفعيل حساب طالب يدوياً من لوحة الإدارة (Toggle Phone Verification)
+router.put("/users/:id/toggle-verify", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      res.status(404).json({ error: "المستخدم غير موجود" });
+      return;
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { isVerified: !user.isVerified },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        isVerified: true,
+        loyaltyPoints: true,
+        walletBalance: true,
+        isBlocked: true,
+      },
+    });
+
+    notifyUserUpdated(id, updated);
+
+    res.json({
+      success: true,
+      message: updated.isVerified ? "تم تفعيل وتأكيد حساب الطالب بنجاح" : "تم إلغاء تفعيل حساب الطالب",
+      user: updated,
+    });
+  } catch (error) {
+    console.error("Toggle user verify error:", error);
+    res.status(500).json({ error: "فشل تعديل حالة تفعيل الطالب" });
   }
 });
 

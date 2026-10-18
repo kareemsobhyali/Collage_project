@@ -4752,6 +4752,15 @@ export const AdminPage: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <h4 className="font-bold text-white text-sm">{student.name}</h4>
+                          {student.isVerified ? (
+                            <span className="text-[10px] font-black bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+                              ✓ مفعل
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black bg-amber-950/80 text-amber-300 border border-amber-800/60 px-2 py-0.5 rounded-full animate-pulse">
+                              ⏳ غير مفعل
+                            </span>
+                          )}
                           {student.isBlocked && (
                             <span className="text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 px-2 py-0.5 rounded-full">
                               🚫 موقوف
@@ -8474,6 +8483,49 @@ export const AdminPage: React.FC = () => {
                   onChange={e => setEditStudentPassword(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
                 />
+              </div>
+
+              <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white">حالة تفعيل رقم الهاتف:</span>
+                    {editingStudentWallet.isVerified ? (
+                      <span className="text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded-full">
+                        ✓ مفعل ومؤكد
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded-full">
+                        ⏳ بانتظار التفعيل
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {editingStudentWallet.isVerified
+                      ? 'يمكن للطالب تسجيل الدخول وإجراء الطلبات مباشرة'
+                      : 'في حال لم يصل كود الواتساب للطالب، يمكنك تفعيل حسابه يدوياً فوراً'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await api.adminToggleUserVerify(editingStudentWallet.id);
+                      if (res.user) {
+                        setEditingStudentWallet({ ...editingStudentWallet, isVerified: res.user.isVerified });
+                        setStudents(students.map(s => s.id === editingStudentWallet.id ? { ...s, isVerified: res.user.isVerified } : s));
+                      }
+                    } catch (err: any) {
+                      alert(err.message || 'فشل تعديل حالة التفعيل');
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 shrink-0 ${
+                    editingStudentWallet.isVerified
+                      ? 'bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30'
+                  }`}
+                >
+                  {editingStudentWallet.isVerified ? 'إلغاء التفعيل' : '✓ تفعيل الحساب الآن'}
+                </button>
               </div>
 
               <label className={`flex items-start gap-2.5 p-3 rounded-2xl border cursor-pointer transition-all ${

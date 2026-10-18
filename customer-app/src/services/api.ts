@@ -710,6 +710,20 @@ export const api = {
     return data;
   },
 
+  async adminToggleUserVerify(userId: string) {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/toggle-verify`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token || ''}`,
+      },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعديل حالة تفعيل حساب الطالب');
+    return data;
+  },
+
   // 36. تغيير كلمة مرور الإدارة
   async changeAdminPassword(currentPassword: string, newPassword: string) {
     const res = await fetch(`${API_BASE_URL}/admin/change-password`, {
