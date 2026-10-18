@@ -178,74 +178,51 @@ export async function sendWebNotification(
 export function notifyOrderStatusPush(order: any): void {
   if (!order || !order.id || !order.status) return;
 
-  // في تطبيق الأندرويد الناتيف (APK)، تتولى خدمة UniFoodNotificationService إرسال كافة التنبيهات في الخلفية بدون تكرار
-  if (isRunningInNativeApk()) {
-    return;
-  }
-
-  // منع التكرار نهائياً: إذا تم إرسال إشعار لنفس الطلب بنفس الحالة مسبقاً، نتجاهل الإرسال
+  // منع التكرار لنفس الحالة
   const lastStatus = notifiedOrderStatuses.get(order.id);
   if (lastStatus === order.status) {
     return;
   }
   notifiedOrderStatuses.set(order.id, order.status);
 
+  // إرسال تنبيه مرئي داخل واجهة التطبيق فقط (In-App Toast) بدون أي إشعارات نظام أو شريط علوي
   const orderNum = order.orderNumber || '';
   const branchName = order.branch?.name || 'المطعم';
-  const tag = `order_${order.orderNumber || order.id}`;
+
+  let title = '';
+  let msg = '';
 
   switch (order.status) {
     case 'ACCEPTED':
-      sendWebNotification(
-        `✅ تم قبول طلبك #${orderNum}`,
-        `استلم مطعم (${branchName}) طلبك وجاري البدء في تجهيزه الآن!`,
-        '/',
-        tag
-      );
+      title = `✅ تم قبول طلبك #${orderNum}`;
+      msg = `استلم مطعم (${branchName}) طلبك وجاري البدء في تجهيزه!`;
       break;
     case 'PREPARING':
-      sendWebNotification(
-        `👨‍🍳 طلبك #${orderNum} قيد التحضير`,
-        `الشيف يجهز وجبتك الآن في (${branchName})!`,
-        '/',
-        tag
-      );
+      title = `👨‍🍳 طلبك #${orderNum} قيد التحضير`;
+      msg = `الشيف يجهز وجبتك الآن في (${branchName})!`;
       break;
     case 'READY':
-      if (order.orderType === 'DELIVERY') {
-        sendWebNotification(
-          `🛵 طلبك #${orderNum} في الطريق إليك!`,
-          `خرج كابتن التوصيل بالطلب الآن، جهز رمز الاستلام السري PIN: (${order.pickupPin || '----'})`,
-          '/',
-          tag
-        );
-      } else {
-        sendWebNotification(
-          `🎉 طلبك #${orderNum} جاهز للاستلام!`,
-          `توجه لفرع (${branchName}) لاستلام وجبتك، رمز الاستلام: (${order.pickupPin || '----'})`,
-          '/',
-          tag
-        );
-      }
+      title = order.orderType === 'DELIVERY' ? `🛵 طلبك #${orderNum} في الطريق إليك!` : `🎉 طلبك #${orderNum} جاهز للاستلام!`;
+      msg = order.orderType === 'DELIVERY'
+        ? `خرج كابتن التوصيل بالطلب الآن، رمز الاستلام PIN: (${order.pickupPin || '----'})`
+        : `توجه لفرع (${branchName}) لاستلام وجبتك، رمز الاستلام: (${order.pickupPin || '----'})`;
       break;
     case 'COMPLETED':
-      sendWebNotification(
-        `🥳 بالهنا والشفا! اكتمل طلبك #${orderNum}`,
-        `تم تسليم الطلب بنجاح وإضافة نقاط الولاء لمحفظتك الجامعية!`,
-        '/',
-        tag
-      );
+      title = `🥳 اكتمل طلبك #${orderNum}`;
+      msg = `تم تسليم الطلب بنجاح وإضافة نقاط الولاء لمحفظتك!`;
       break;
     case 'REJECTED':
-      sendWebNotification(
-        `⚠️ تم إلغاء الطلب #${orderNum}`,
-        `نعتذر، تعذر تنفيذ الطلب من (${branchName}).`,
-        '/',
-        tag
-      );
+      title = `⚠️ تم إلغاء الطلب #${orderNum}`;
+      msg = `نعتذر، تعذر تنفيذ الطلب من (${branchName}).`;
       break;
-    default:
-      break;
+  }
+
+  if (title && typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('unifood-inapp-notify', {
+        detail: { title, message: msg },
+      })
+    );
   }
 }
 

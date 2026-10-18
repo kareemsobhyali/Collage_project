@@ -544,6 +544,10 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         UniFoodNotificationService.isAppInForeground = true;
+        if (webView != null) {
+            webView.onResume();
+            webView.resumeTimers();
+        }
         // عند عودة المستخدم للتطبيق من الخلفية، نتحقق في الخلفية إذا تغير الدومين على GitHub
         syncRemoteConfigFromGitHub(null, true);
     }
@@ -569,7 +573,20 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         UniFoodNotificationService.isAppInForeground = false;
+        if (webView != null) {
+            webView.onPause();
+            webView.pauseTimers();
+        }
         CookieManager.getInstance().flush();
+    }
+
+    @Override
+    protected void onDestroy() {
+        UniFoodNotificationService.isAppInForeground = false;
+        if (webView != null) {
+            webView.destroy();
+        }
+        super.onDestroy();
     }
 
     @Override

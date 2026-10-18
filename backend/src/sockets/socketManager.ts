@@ -43,11 +43,8 @@ export function isAppRunningInForeground(role: "BRANCH" | "STUDENT" | "DRIVER", 
   const normRole = (role || "").toUpperCase().trim() as "BRANCH" | "STUDENT" | "DRIVER";
   const normId = String(id || "").trim();
   if (!normRole || !normId) return false;
-  const key = `${normRole}_${normId}`;
-  const session = appSessions.get(key);
-  if (session && session.socketIds.size > 0 && session.state === "foreground") {
-    return true;
-  }
+
+  // 1. فحص غرف Socket.io النشطة: طالما أن هناك اتصال سوكيت حي في الغرفة، فالتطبيق مفتوح وشغال حالياً
   if (io) {
     let roomName = "";
     if (normRole === "BRANCH") roomName = `branch_${normId}`;
@@ -57,12 +54,18 @@ export function isAppRunningInForeground(role: "BRANCH" | "STUDENT" | "DRIVER", 
     if (roomName) {
       const room = io.sockets.adapter.rooms.get(roomName);
       if (room && room.size > 0) {
-        if (!session || session.state === "foreground") {
-          return true;
-        }
+        return true;
       }
     }
   }
+
+  // 2. فحص جلسة التطبيق المسجلة
+  const key = `${normRole}_${normId}`;
+  const session = appSessions.get(key);
+  if (session && session.socketIds.size > 0 && session.state === "foreground") {
+    return true;
+  }
+
   return false;
 }
 
