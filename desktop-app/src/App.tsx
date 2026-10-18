@@ -18,6 +18,7 @@ import {
   Printer,
   AlertTriangle,
   RotateCcw,
+  LifeBuoy,
   X
 } from 'lucide-react';
 import { api } from './services/api';
@@ -27,6 +28,7 @@ import { OrdersView } from './components/OrdersView';
 import { MenuManager } from './components/MenuManager';
 import { ModifiersManager } from './components/ModifiersManager';
 import { DriversManager } from './components/DriversManager';
+import { BranchSupportView } from './components/BranchSupportView';
 import { QuickStockModal } from './components/QuickStockModal';
 import { BranchProfileView } from './components/BranchProfileView';
 import { BranchStatusModal } from './components/BranchStatusModal';
@@ -43,10 +45,11 @@ export function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [activeTab, setActiveTab] = useState<'ORDERS' | 'MENU' | 'MODIFIERS' | 'DRIVERS' | 'PROFILE'>('ORDERS');
+  const [activeTab, setActiveTab] = useState<'ORDERS' | 'MENU' | 'MODIFIERS' | 'DRIVERS' | 'SUPPORT' | 'PROFILE'>('ORDERS');
   const [orders, setOrders] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [modifierGroups, setModifierGroups] = useState<any[]>([]);
+  const [openComplaintsCount, setOpenComplaintsCount] = useState<number>(0);
   const [socketConnected, setSocketConnected] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -116,10 +119,11 @@ export function App() {
     if (!token) return;
     try {
       setLoading(true);
-      const [profileData, ordersData, menuData] = await Promise.all([
+      const [profileData, ordersData, menuData, ticketsData] = await Promise.all([
         api.getProfile().catch(() => null),
         api.getOrders(),
         api.getMenu(),
+        api.getSupportTickets().catch(() => []),
       ]);
 
       if (profileData) {
@@ -129,6 +133,10 @@ export function App() {
       setOrders(ordersData || []);
       setCategories(menuData.categories || []);
       setModifierGroups(menuData.modifierGroups || []);
+      if (Array.isArray(ticketsData)) {
+        const openCount = ticketsData.filter((t: any) => t.status === 'OPEN').length;
+        setOpenComplaintsCount(openCount);
+      }
     } catch (err: any) {
       console.error("Load data error:", err);
       if (err.message && err.message.includes("401")) {
@@ -539,6 +547,23 @@ export function App() {
             </button>
 
             <button
+              onClick={() => setActiveTab('SUPPORT')}
+              className={`h-9 sm:h-10 px-4 rounded-xl text-xs font-black flex items-center gap-2 transition-all whitespace-nowrap shrink-0 relative ${
+                activeTab === 'SUPPORT'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                  : 'bg-white text-slate-600 hover:text-indigo-700 border border-slate-200/80'
+              }`}
+            >
+              <LifeBuoy className="w-4 h-4 shrink-0" />
+              <span>شكاوى وبلاغات العملاء</span>
+              {openComplaintsCount > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
+                  {openComplaintsCount}
+                </span>
+              )}
+            </button>
+
+            <button
               onClick={() => setActiveTab('PROFILE')}
               className={`h-9 sm:h-10 px-4 rounded-xl text-xs font-black flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'PROFILE'
@@ -624,6 +649,10 @@ export function App() {
           <DriversManager />
         )}
 
+        {activeTab === 'SUPPORT' && (
+          <BranchSupportView />
+        )}
+
         {activeTab === 'PROFILE' && (
           <BranchProfileView 
             branch={branch}
@@ -644,7 +673,7 @@ export function App() {
             : 'opacity-100 translate-y-0'
         }`}
       >
-        <div className="grid grid-cols-5 gap-1 items-center">
+        <div className="grid grid-cols-6 gap-0.5 items-center">
           {/* 1. الطلبات */}
           <button
             type="button"
@@ -710,7 +739,30 @@ export function App() {
             <span className="text-[10px] sm:text-[11px] leading-tight mt-1 whitespace-nowrap">الطيارين</span>
           </button>
 
-          {/* 5. الفرع */}
+          {/* 5. الشكاوى */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('SUPPORT')}
+            className={`flex flex-col items-center justify-center py-2 px-0.5 rounded-2xl transition-all duration-200 relative active:scale-95 ${
+              activeTab === 'SUPPORT'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/70 font-bold'
+            }`}
+          >
+            <div className="relative">
+              <LifeBuoy className="w-5 h-5 shrink-0" />
+              {openComplaintsCount > 0 && (
+                <span className={`absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-0.5 rounded-full text-[9px] font-black flex items-center justify-center leading-none ring-2 ${
+                  activeTab === 'SUPPORT' ? 'bg-amber-400 text-amber-950 ring-indigo-600 animate-bounce' : 'bg-rose-500 text-white ring-white animate-pulse'
+                }`}>
+                  {openComplaintsCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[9px] sm:text-[10px] leading-tight mt-1 whitespace-nowrap">الشكاوى</span>
+          </button>
+
+          {/* 6. الفرع */}
           <button
             type="button"
             onClick={() => setActiveTab('PROFILE')}

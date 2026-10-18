@@ -1815,6 +1815,30 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
       GENERAL: "استفسار عام أو مساعدة",
     };
 
+    let branchId: string | undefined = undefined;
+    let branchName: string | undefined = undefined;
+
+    if (orderNumber) {
+      const cleanNum = String(orderNumber).replace('#', '').trim();
+      const parsedNum = parseInt(cleanNum, 10);
+      try {
+        const matchedOrder = await prisma.order.findFirst({
+          where: !isNaN(parsedNum)
+            ? { OR: [{ orderNumber: parsedNum }, { id: cleanNum }] }
+            : { id: cleanNum },
+          include: {
+            branch: { select: { id: true, name: true } },
+          },
+        });
+        if (matchedOrder) {
+          branchId = matchedOrder.branchId;
+          branchName = matchedOrder.branch?.name;
+        }
+      } catch (_e) {
+        // Continue without blocking ticket creation
+      }
+    }
+
     const ticketData = {
       id: ticketId,
       userId: user.id,
@@ -1825,8 +1849,11 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
       subject: subject.trim(),
       message: message.trim(),
       orderNumber: orderNumber ? String(orderNumber).trim() : undefined,
+      branchId,
+      branchName,
       status: "OPEN", // "OPEN" | "IN_PROGRESS" | "RESOLVED"
       adminNotes: "",
+      branchNotes: "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

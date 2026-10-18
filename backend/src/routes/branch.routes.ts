@@ -741,6 +741,41 @@ router.post("/modifier-groups", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 11.1 تعديل مجموعة إضافات (الاسم والشروط)
+router.put("/modifier-groups/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const branchId = req.branch!.branchId;
+    const { title, isRequired, minSelection, maxSelection } = req.body;
+
+    const existingGroup = await prisma.modifierGroup.findFirst({
+      where: { id, branchId },
+    });
+    if (!existingGroup) {
+      res.status(404).json({ error: "مجموعة الإضافات غير موجودة أو لا تتبع هذا الفرع" });
+      return;
+    }
+
+    const updated = await prisma.modifierGroup.update({
+      where: { id },
+      data: {
+        title: title ? title.trim() : undefined,
+        isRequired: isRequired !== undefined ? Boolean(isRequired) : undefined,
+        minSelection: minSelection !== undefined ? parseInt(minSelection, 10) : undefined,
+        maxSelection: maxSelection !== undefined ? parseInt(maxSelection, 10) : undefined,
+      },
+      include: { options: true },
+    });
+
+    notifyBranchMenuChanged(branchId);
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Update modifier group error:", error);
+    res.status(500).json({ error: "فشل تعديل مجموعة الإضافات" });
+  }
+});
+
 // 12. إضافة خيار جديد داخل مجموعة إضافات
 router.post("/modifier-groups/:groupId/options", async (req: AuthRequest, res: Response) => {
   try {
@@ -808,6 +843,34 @@ router.put("/modifier-options/:id", async (req: AuthRequest, res: Response) => {
     res.json(option);
   } catch (error) {
     res.status(500).json({ error: "فشل تعديل خيار الإضافة" });
+  }
+});
+
+// 13.1 حذف خيار إضافة
+router.delete("/modifier-options/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const branchId = req.branch!.branchId;
+
+    const existingOption = await prisma.modifierOption.findUnique({
+      where: { id },
+      include: { group: { select: { branchId: true } } },
+    });
+    if (!existingOption || existingOption.group.branchId !== branchId) {
+      res.status(404).json({ error: "خيار الإضافة غير موجود أو لا يتبع هذا الفرع" });
+      return;
+    }
+
+    await prisma.modifierOption.delete({
+      where: { id },
+    });
+
+    notifyBranchMenuChanged(branchId);
+
+    res.json({ success: true, message: "تم حذف خيار الإضافة بنجاح" });
+  } catch (error) {
+    console.error("Delete modifier option error:", error);
+    res.status(500).json({ error: "فشل حذف خيار الإضافة" });
   }
 });
 
@@ -1811,6 +1874,138 @@ router.post("/orders/:id/confirm-return-from-driver", async (req: AuthRequest, r
   } catch (error) {
     console.error("Confirm return from driver error:", error);
     res.status(500).json({ error: "فشل استلام الطلب من الطيار" });
+  }
+});
+
+// 30. استعلام شكاوى وبلاغات العملاء الخاصة بهذا الفرع
+router.get("/support-tickets", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+
+    const settings = await prisma.systemSetting.findMany({
+      where: { key: { startsWith: "support_ticket_" } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const allTickets = settings
+      .map((s) => {
+        try {
+          return JSON.parse(s.value);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    // Retrieve branch orders to associate legacy or untagged tickets
+    const branchOrders = await prisma.order.findMany({
+      where: { branchId },
+      select: {
+        id: true,
+        orderNumber: true,
+        total: true,
+        status: true,
+        createdAt: true,
+        items: { select: { itemName: true, quantity: true, totalPrice: true } },
+      },
+    });
+
+    const branchOrderNumbers = new Map<string, any>();
+    const branchOrderIds = new Map<string, any>();
+    for (const ord of branchOrders) {
+      branchOrderNumbers.set(String(ord.orderNumber), ord);
+      branchOrderIds.set(ord.id, ord);
+    }
+
+    const branchTickets = allTickets
+      .filter((ticket: any) => {
+        if (ticket.branchId && ticket.branchId === branchId) {
+          return true;
+        }
+        if (ticket.orderNumber) {
+          const cleanNum = String(ticket.orderNumber).replace('#', '').trim();
+          return branchOrderNumbers.has(cleanNum) || branchOrderIds.has(cleanNum);
+        }
+        return false;
+      })
+      .map((ticket: any) => {
+        if (ticket.orderNumber) {
+          const cleanNum = String(ticket.orderNumber).replace('#', '').trim();
+          const ord = branchOrderNumbers.get(cleanNum) || branchOrderIds.get(cleanNum);
+          if (ord) {
+            return {
+              ...ticket,
+              branchId,
+              orderTotal: ord.total,
+              orderStatus: ord.status,
+              orderCreatedAt: ord.createdAt,
+              orderItemsSummary: ord.items?.map((it: any) => `${it.quantity}x ${it.itemName}`).join(', ') || undefined,
+            };
+          }
+        }
+        return ticket;
+      });
+
+    res.json({ success: true, tickets: branchTickets });
+  } catch (error) {
+    console.error("Branch get support-tickets error:", error);
+    res.status(500).json({ error: "فشل جلب بلاغات الدعم الخاصة بالفرع" });
+  }
+});
+
+// 31. تحديث حالة أو إضافة رد المطعم على الشكوى
+router.put("/support-tickets/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const branchId = req.branch!.branchId;
+    const { status, branchNotes } = req.body;
+
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: `support_ticket_${id}` },
+    });
+
+    if (!setting) {
+      res.status(404).json({ error: "تذكرة الدعم غير موجودة" });
+      return;
+    }
+
+    const ticket = JSON.parse(setting.value);
+
+    // Verify ownership
+    let belongsToBranch = ticket.branchId === branchId;
+    if (!belongsToBranch && ticket.orderNumber) {
+      const cleanNum = String(ticket.orderNumber).replace('#', '').trim();
+      const order = await prisma.order.findFirst({
+        where: {
+          branchId,
+          OR: [
+            { orderNumber: parseInt(cleanNum, 10) || -1 },
+            { id: cleanNum }
+          ]
+        }
+      });
+      if (order) belongsToBranch = true;
+    }
+
+    if (!belongsToBranch) {
+      res.status(403).json({ error: "غير مصرح لك بتعديل هذه التذكرة لأنها لا تخص هذا الفرع" });
+      return;
+    }
+
+    if (status) ticket.status = status;
+    if (branchNotes !== undefined) ticket.branchNotes = branchNotes;
+    ticket.branchId = branchId;
+    ticket.updatedAt = new Date().toISOString();
+
+    await prisma.systemSetting.update({
+      where: { key: `support_ticket_${id}` },
+      data: { value: JSON.stringify(ticket) },
+    });
+
+    res.json({ success: true, ticket });
+  } catch (error) {
+    console.error("Branch update support-ticket error:", error);
+    res.status(500).json({ error: "فشل تحديث تذكرة الدعم" });
   }
 });
 

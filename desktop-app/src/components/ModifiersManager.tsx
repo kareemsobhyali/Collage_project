@@ -11,8 +11,9 @@ interface ModifiersManagerProps {
 }
 
 export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGroups, onRefresh }) => {
-  // New Group Modal
+  // Group Modal (Create or Edit)
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [groupTitle, setGroupTitle] = useState('');
   const [isRequired, setIsRequired] = useState(false);
   const [minSelection, setMinSelection] = useState('0');
@@ -20,8 +21,9 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
   const [groupError, setGroupError] = useState<string | null>(null);
   const [submittingGroup, setSubmittingGroup] = useState(false);
 
-  // New Option Modal
+  // Option Modal (Create or Edit)
   const [showOptionModal, setShowOptionModal] = useState(false);
+  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [targetGroupId, setTargetGroupId] = useState<string | null>(null);
   const [optionName, setOptionName] = useState('');
   const [optionPrice, setOptionPrice] = useState('');
@@ -32,10 +34,34 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<{ id: string; title: string } | null>(null);
   const [deletingGroup, setDeletingGroup] = useState(false);
 
-  // Lock background scroll when either modal is active
-  useLockBodyScroll(showGroupModal || showOptionModal || !!confirmDeleteGroup);
+  // Delete Option State
+  const [confirmDeleteOption, setConfirmDeleteOption] = useState<{ id: string; name: string } | null>(null);
+  const [deletingOption, setDeletingOption] = useState(false);
 
-  const handleCreateGroup = async (e: React.FormEvent) => {
+  // Lock background scroll when any modal is active
+  useLockBodyScroll(showGroupModal || showOptionModal || !!confirmDeleteGroup || !!confirmDeleteOption);
+
+  const handleOpenCreateGroup = () => {
+    setEditingGroupId(null);
+    setGroupTitle('');
+    setIsRequired(false);
+    setMinSelection('0');
+    setMaxSelection('1');
+    setGroupError(null);
+    setShowGroupModal(true);
+  };
+
+  const handleStartEditGroup = (group: any) => {
+    setEditingGroupId(group.id);
+    setGroupTitle(group.title);
+    setIsRequired(group.isRequired || false);
+    setMinSelection(String(group.minSelection ?? 0));
+    setMaxSelection(String(group.maxSelection ?? 1));
+    setGroupError(null);
+    setShowGroupModal(true);
+  };
+
+  const handleSaveGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!groupTitle.trim()) {
       setGroupError('يرجى كتابة عنوان أو اسم القسم الإضافي');
@@ -45,22 +71,28 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
     try {
       setSubmittingGroup(true);
       setGroupError(null);
-      await api.createModifierGroup({
+
+      const payload = {
         title: groupTitle.trim(),
         isRequired,
-        minSelection: parseInt(minSelection) || 0,
-        maxSelection: parseInt(maxSelection) || 1,
-      });
+        minSelection: parseInt(minSelection, 10) || 0,
+        maxSelection: parseInt(maxSelection, 10) || 1,
+      };
 
-      toast.success(`تم إنشاء قسم "${groupTitle.trim()}" بنجاح`);
-      setGroupTitle('');
-      setIsRequired(false);
-      setMinSelection('0');
-      setMaxSelection('1');
+      if (editingGroupId) {
+        await api.updateModifierGroup(editingGroupId, payload);
+        toast.success(`تم تحديث قسم "${groupTitle.trim()}" بنجاح`);
+      } else {
+        await api.createModifierGroup(payload);
+        toast.success(`تم إنشاء قسم "${groupTitle.trim()}" بنجاح`);
+      }
+
       setShowGroupModal(false);
+      setEditingGroupId(null);
+      setGroupTitle('');
       onRefresh();
     } catch (err: any) {
-      setGroupError(err.message || 'فشل إنشاء مجموعة الإضافات');
+      setGroupError(err.message || 'فشل حفظ مجموعة الإضافات');
     } finally {
       setSubmittingGroup(false);
     }
@@ -85,31 +117,76 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
     }
   };
 
-  const handleCreateOption = async (e: React.FormEvent) => {
+  const handleOpenCreateOption = (groupId: string) => {
+    setEditingOptionId(null);
+    setTargetGroupId(groupId);
+    setOptionName('');
+    setOptionPrice('');
+    setOptionError(null);
+    setShowOptionModal(true);
+  };
+
+  const handleStartEditOption = (opt: any, groupId: string) => {
+    setEditingOptionId(opt.id);
+    setTargetGroupId(groupId);
+    setOptionName(opt.name);
+    setOptionPrice(String(opt.price ?? 0));
+    setOptionError(null);
+    setShowOptionModal(true);
+  };
+
+  const handleSaveOption = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!optionName.trim()) {
       setOptionError('يرجى كتابة اسم الإضافة أو الخيار');
       return;
     }
-    if (!targetGroupId) return;
 
     try {
       setSubmittingOption(true);
       setOptionError(null);
-      await api.addModifierOption(targetGroupId, {
-        name: optionName.trim(),
-        price: parseFloat(optionPrice) || 0,
-      });
 
-      toast.success(`تمت إضافة الخيار "${optionName.trim()}" بنجاح`);
+      const parsedPrice = parseFloat(optionPrice) || 0;
+
+      if (editingOptionId) {
+        await api.updateModifierOption(editingOptionId, {
+          name: optionName.trim(),
+          price: parsedPrice,
+        });
+        toast.success(`تم تحديث خيار "${optionName.trim()}" بنجاح`);
+      } else {
+        if (!targetGroupId) return;
+        await api.addModifierOption(targetGroupId, {
+          name: optionName.trim(),
+          price: parsedPrice,
+        });
+        toast.success(`تمت إضافة الخيار "${optionName.trim()}" بنجاح`);
+      }
+
+      setShowOptionModal(false);
+      setEditingOptionId(null);
       setOptionName('');
       setOptionPrice('');
-      setShowOptionModal(false);
       onRefresh();
     } catch (err: any) {
-      setOptionError(err.message || 'فشل إضافة خيار الإضافة');
+      setOptionError(err.message || 'فشل حفظ خيار الإضافة');
     } finally {
       setSubmittingOption(false);
+    }
+  };
+
+  const handleExecuteDeleteOption = async () => {
+    if (!confirmDeleteOption) return;
+    try {
+      setDeletingOption(true);
+      await api.deleteModifierOption(confirmDeleteOption.id);
+      toast.success(`تم حذف خيار "${confirmDeleteOption.name}" بنجاح`);
+      setConfirmDeleteOption(null);
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل حذف خيار الإضافة');
+    } finally {
+      setDeletingOption(false);
     }
   };
 
@@ -132,12 +209,12 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
         <div className="min-w-0">
           <h3 className="text-base font-black text-slate-800">أقسام ومجموعات الإضافات (Modifiers)</h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            أنشئ خيارات وإضافات الأصناف (مثل: الصوصات، أنواع الجبن، الإضافات الجانبية) واربطها بالصنف
+            أنشئ وعدّل خيارات وإضافات الأصناف (مثل: الصوصات، أنواع الجبن، الإضافات الجانبية) واربطها بالصنف
           </p>
         </div>
         <button
-          onClick={() => setShowGroupModal(true)}
-          className="h-9 flex items-center gap-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm whitespace-nowrap shrink-0"
+          onClick={handleOpenCreateGroup}
+          className="h-9 flex items-center gap-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm whitespace-nowrap shrink-0 active:scale-95"
         >
           <Plus className="w-4 h-4 shrink-0" />
           <span>إنشاء قسم إضافات جديد</span>
@@ -174,12 +251,22 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteGroup(group.id, group.title)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleStartEditGroup(group)}
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+                      title="تعديل اسم وشروط القسم"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGroup(group.id, group.title)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                      title="حذف القسم"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Options List */}
@@ -198,11 +285,11 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                         }`}
                       >
                         <span className="font-bold text-slate-800">{opt.name}</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-indigo-700 font-black">+{opt.price} ج.م</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-indigo-700 font-black ml-1">+{opt.price} ج.م</span>
                           <button
                             onClick={() => handleToggleOption(opt)}
-                            className="p-0.5 text-slate-400 hover:text-slate-600"
+                            className="p-1 text-slate-400 hover:text-slate-600"
                             title={opt.isAvailable ? 'متوفر' : 'غير متوفر'}
                           >
                             {opt.isAvailable ? (
@@ -210,6 +297,20 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                             ) : (
                               <ToggleLeft className="w-4 h-4 text-rose-500" />
                             )}
+                          </button>
+                          <button
+                            onClick={() => handleStartEditOption(opt, group.id)}
+                            className="p-1 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+                            title="تعديل خيار الإضافة"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteOption({ id: opt.id, name: opt.name })}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                            title="حذف خيار الإضافة"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -220,13 +321,7 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
 
               {/* Add Option inside this Group */}
               <button
-                onClick={() => {
-                  setTargetGroupId(group.id);
-                  setOptionName('');
-                  setOptionPrice('');
-                  setOptionError(null);
-                  setShowOptionModal(true);
-                }}
+                onClick={() => handleOpenCreateOption(group.id)}
                 className="w-full py-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 border border-dashed border-slate-300 text-slate-600 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -237,7 +332,7 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
         </div>
       )}
 
-      {/* Modal: Create Modifier Group */}
+      {/* Modal: Create or Edit Modifier Group */}
       {showGroupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl w-full max-w-sm p-5 sm:p-6 shadow-2xl border border-slate-200">
@@ -246,18 +341,28 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                 <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
                   <Layers className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm sm:text-base font-black text-slate-800">إنشاء قسم إضافات جديد</h3>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-800">
+                    {editingGroupId ? 'تعديل قسم الإضافات' : 'إنشاء قسم إضافات جديد'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {editingGroupId ? 'تعديل الاسم والحد الأدنى والأقصى للاختيار' : 'تحديد اسم المجموعة وشروط الاختيار'}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setShowGroupModal(false)}
+                onClick={() => {
+                  setShowGroupModal(false);
+                  setEditingGroupId(null);
+                }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateGroup} noValidate className="space-y-4">
+            <form onSubmit={handleSaveGroup} noValidate className="space-y-4">
               {groupError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -266,7 +371,7 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">عنوان القسم *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">عنوان أو اسم القسم *</label>
                 <input
                   type="text"
                   placeholder="مثال: إضافات صوص، إضافات جبن"
@@ -276,6 +381,7 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                     if (groupError) setGroupError(null);
                   }}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-all"
+                  autoFocus
                 />
               </div>
 
@@ -318,7 +424,10 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowGroupModal(false)}
+                  onClick={() => {
+                    setShowGroupModal(false);
+                    setEditingGroupId(null);
+                  }}
                   className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors text-center"
                 >
                   إلغاء
@@ -328,7 +437,9 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                   disabled={submittingGroup}
                   className="flex-1 sm:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 text-center"
                 >
-                  {submittingGroup ? 'جاري الإنشاء...' : 'إنشاء القسم'}
+                  {submittingGroup
+                    ? (editingGroupId ? 'جاري الحفظ...' : 'جاري الإنشاء...')
+                    : (editingGroupId ? 'حفظ التعديلات' : 'إنشاء القسم')}
                 </button>
               </div>
             </form>
@@ -336,7 +447,7 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
         </div>
       )}
 
-      {/* Modal: Add Option */}
+      {/* Modal: Create or Edit Option */}
       {showOptionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl w-full max-w-sm p-5 sm:p-6 shadow-2xl border border-slate-200">
@@ -346,20 +457,27 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                   <Tag className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-black text-slate-800">إضافة خيار جديد</h3>
-                  <p className="text-[11px] text-slate-500">إضافة صوص أو نكهة أو مكون إضافي</p>
+                  <h3 className="text-sm sm:text-base font-black text-slate-800">
+                    {editingOptionId ? 'تعديل خيار الإضافة' : 'إضافة خيار جديد'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {editingOptionId ? 'تعديل اسم أو سعر الإضافة المحددة' : 'إضافة صوص أو نكهة أو مكون إضافي'}
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setShowOptionModal(false)}
+                onClick={() => {
+                  setShowOptionModal(false);
+                  setEditingOptionId(null);
+                }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateOption} noValidate className="space-y-4">
+            <form onSubmit={handleSaveOption} noValidate className="space-y-4">
               {optionError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -397,7 +515,10 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowOptionModal(false)}
+                  onClick={() => {
+                    setShowOptionModal(false);
+                    setEditingOptionId(null);
+                  }}
                   className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors text-center"
                 >
                   إلغاء
@@ -407,7 +528,9 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                   disabled={submittingOption}
                   className="flex-1 sm:flex-none px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 text-center"
                 >
-                  {submittingOption ? 'جاري الإضافة...' : 'إضافة الخيار'}
+                  {submittingOption
+                    ? (editingOptionId ? 'جاري التعديل...' : 'جاري الإضافة...')
+                    : (editingOptionId ? 'حفظ التعديلات' : 'إضافة الخيار')}
                 </button>
               </div>
             </form>
@@ -426,6 +549,19 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
         loading={deletingGroup}
         onConfirm={handleExecuteDeleteGroup}
         onClose={() => !deletingGroup && setConfirmDeleteGroup(null)}
+      />
+
+      {/* تأكيد حذف خيار الإضافة */}
+      <ConfirmModal
+        isOpen={!!confirmDeleteOption}
+        title="حذف خيار الإضافة"
+        message={`هل أنت متأكد من حذف خيار "${confirmDeleteOption?.name}" من هذا القسم نهائياً؟`}
+        confirmText="نعم، احذف الخيار"
+        cancelText="إلغاء"
+        variant="danger"
+        loading={deletingOption}
+        onConfirm={handleExecuteDeleteOption}
+        onClose={() => !deletingOption && setConfirmDeleteOption(null)}
       />
     </div>
   );

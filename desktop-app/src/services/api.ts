@@ -294,6 +294,17 @@ export const api = {
     return data;
   },
 
+  async updateModifierGroup(id: string, groupData: { title?: string; isRequired?: boolean; minSelection?: number; maxSelection?: number }) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-groups/${id}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(groupData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعديل مجموعة الإضافات');
+    return data;
+  },
+
   async deleteModifierGroup(id: string) {
     const res = await fetch(`${API_BASE_URL}/branch/modifier-groups/${id}`, {
       method: 'DELETE',
@@ -301,6 +312,16 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل حذف مجموعة الإضافات');
+    return data;
+  },
+
+  async deleteModifierOption(id: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-options/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف خيار الإضافة');
     return data;
   },
 
@@ -472,5 +493,26 @@ export const api = {
     } catch (_e) {
       return { success: true, enabled: true, soundUrl: '', volume: 1.0 };
     }
+  },
+
+  // 15. استعلام وتحديث شكاوى العملاء الخاصة بالفرع
+  async getSupportTickets() {
+    const res = await fetch(`${API_BASE_URL}/branch/support-tickets`, {
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع بلاغات الدعم والشكاوى');
+    return data.tickets || [];
+  },
+
+  async updateSupportTicket(id: string, payload: { status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'; branchNotes?: string }) {
+    const res = await fetch(`${API_BASE_URL}/branch/support-tickets/${id}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث الشكوى');
+    return data.ticket;
   },
 };
