@@ -33,6 +33,7 @@ import {
 import { api, getFullImageUrl } from '../services/api';
 import { toast } from '../utils/toast';
 import { useLockBodyScroll } from '../utils/scrollLock';
+import { getDisplayAddress } from '../utils/address';
 import { ReceiptModal } from './ReceiptModal';
 import { soundNotifier } from '../services/audioAlert';
 import { getAutoPrintEnabled, getAutoPrintOnAccept, printOrderReceipt } from '../services/printer';
@@ -386,9 +387,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         const isPickedUpByDriver = Boolean(dOrder.driverPickedUpAt);
 
         return (
-          <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto animate-fadeIn pb-24 sm:pb-16">
+          <div className="space-y-3 sm:space-y-4 max-w-3xl mx-auto animate-fadeIn pb-24 sm:pb-20">
             {/* Top Navigation Bar with Back Button & Order ID */}
-            <div className="bg-white/95 backdrop-blur-md p-3.5 sm:p-4 rounded-3xl border border-slate-200/90 shadow-sm flex items-center justify-between gap-3 sticky top-14 sm:top-20 z-20">
+            <div className="bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between gap-3 sticky top-14 sm:top-20 z-20">
               <button
                 type="button"
                 onClick={() => {
@@ -396,33 +397,29 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   onClearDetailedOrder?.();
                   onDetailedOrderOpenChange?.(false);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-black rounded-2xl text-xs sm:text-sm transition-all active:scale-95 shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs sm:text-sm transition-all active:scale-95 shrink-0"
               >
                 <ArrowRight className="w-4 h-4 shrink-0 text-slate-600" />
-                <span>رجوع</span>
+                <span>رجوع للأوردرات</span>
               </button>
 
-              <div className="flex items-center gap-2 sm:gap-3 text-right min-w-0">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 justify-end flex-wrap">
-                    <span className="font-mono font-black text-base sm:text-xl text-slate-900 whitespace-nowrap">
-                      طلب #{dOrder.orderNumber}
-                    </span>
-                    <span className={`text-[11px] sm:text-xs px-2.5 py-0.5 rounded-full font-black whitespace-nowrap shrink-0 flex items-center gap-1 ${
-                      dOrder.orderType === 'DELIVERY' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'
-                    }`}>
-                      {dOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام من الفرع'}
-                    </span>
-                  </div>
-                  <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono block whitespace-nowrap mt-0.5">
-                    {new Date(dOrder.createdAt).toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' })} • {new Date(dOrder.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
+              <div className="flex items-center gap-2 text-right min-w-0">
+                <span className="font-mono font-black text-base sm:text-lg text-slate-900 whitespace-nowrap">
+                  طلب #{dOrder.orderNumber}
+                </span>
+                <span className={`text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full font-black whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                  dOrder.orderType === 'DELIVERY' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  {dOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'}
+                </span>
+                <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono hidden xs:inline whitespace-nowrap">
+                  • {new Date(dOrder.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
             </div>
 
             {/* Status & Timing Banner */}
-            <div className={`p-4 sm:p-5 rounded-3xl text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 ${
+            <div className={`p-3 sm:p-3.5 rounded-2xl text-white shadow-xs flex items-center justify-between gap-3 ${
               isPending
                 ? 'bg-gradient-to-r from-amber-500 to-amber-600'
                 : isPreparing
@@ -433,23 +430,23 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 ? 'bg-gradient-to-r from-emerald-600 to-emerald-700'
                 : 'bg-gradient-to-r from-slate-600 to-slate-700'
             }`}>
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 shadow-inner">
-                  {isPending && <Clock className="w-5 h-5 animate-spin" />}
-                  {isPreparing && <ChefHat className="w-5 h-5" />}
-                  {isReady && <Truck className="w-5 h-5" />}
-                  {isCompleted && <CheckCircle className="w-5 h-5" />}
-                  {isRejected && <XCircle className="w-5 h-5" />}
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 shadow-inner">
+                  {isPending && <Clock className="w-4 h-4 animate-spin" />}
+                  {isPreparing && <ChefHat className="w-4 h-4" />}
+                  {isReady && <Truck className="w-4 h-4" />}
+                  {isCompleted && <CheckCircle className="w-4 h-4" />}
+                  {isRejected && <XCircle className="w-4 h-4" />}
                 </div>
-                <div>
-                  <div className="font-black text-sm sm:text-base leading-tight">
+                <div className="min-w-0">
+                  <div className="font-black text-xs sm:text-sm leading-tight truncate">
                     {isPending && 'طلب جديد بانتظار استجابتك وقبوله'}
                     {isPreparing && (isOverdue ? `⚠️ متأخر في التحضير بـ ${overdueMins} دقيقة!` : 'الطلب قيد التحضير في المطبخ')}
                     {isReady && 'الطلب جاهز للتسليم / خروج مع الطيار'}
                     {isCompleted && 'تم تسليم الطلب وإكماله بنجاح'}
                     {isRejected && `الطلب ملغي / مرفوض (${dOrder.rejectionReason || 'بدون سبب'})`}
                   </div>
-                  <div className="text-xs opacity-90 mt-1 font-mono">
+                  <div className="text-[10px] sm:text-xs opacity-90 font-mono mt-0.5">
                     {isPending && `بانتظار الموافقة منذ: ${formatDuration(waitMins)}`}
                     {isPreparing && `المحدد: ${dOrder.estimatedMinutes || 15} د • مضى: ${formatDuration(prepMins)}`}
                     {isReady && `في انتظار الاستلام منذ: ${formatDuration(deliveryMins)}`}
@@ -457,107 +454,81 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   </div>
                 </div>
               </div>
-
-              <div className="flex items-center justify-end gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setPrintingOrder(dOrder)}
-                  className="px-3.5 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>طباعة بون المطبخ</span>
-                </button>
-              </div>
             </div>
 
             {/* Customer Information Card */}
-            <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <span className="text-xs font-black text-slate-800 flex items-center gap-2">
-                  <User className="w-4 h-4 text-indigo-600" />
-                  <span>بيانات العميل والطالب</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleOpenCustomerCRM(dOrder, customerOrderCount)}
-                  className="text-[11px] sm:text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl transition-colors flex items-center gap-1.5"
-                >
-                  <User className="w-3 h-3 text-indigo-600" />
-                  <span>سجل وملاحظات العميل ({customerOrderCount === 1 ? 'طلب واحد' : `${customerOrderCount} طلبات`})</span>
-                </button>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 bg-slate-50/70 rounded-2xl border border-slate-200/80">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 font-black text-base flex items-center justify-center shrink-0 border border-indigo-200/60 shadow-2xs">
+            <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 font-black text-sm flex items-center justify-center shrink-0 border border-indigo-200/60 shadow-2xs">
                     {(dOrder.customerName || 'ط').charAt(0)}
                   </div>
-                  <div>
-                    <span className="block font-black text-slate-900 text-sm sm:text-base leading-tight">
+                  <div className="min-w-0">
+                    <span className="block font-black text-slate-900 text-xs sm:text-sm leading-tight truncate">
                       {dOrder.customerName || 'طالب'}
                     </span>
-                    <span className="text-xs font-mono font-bold text-slate-600 mt-0.5 block" dir="ltr">
+                    <span className="text-[11px] font-mono font-bold text-slate-500 mt-0.5 block" dir="ltr">
                       {customerPhone || 'بدون رقم هاتف'}
                     </span>
                   </div>
                 </div>
 
-                {customerPhone && (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(cleanPhone);
-                        setCopiedPhone(true);
-                        setTimeout(() => setCopiedPhone(false), 2000);
-                        toast.success('تم نسخ رقم الهاتف');
-                      }}
-                      className="px-2.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200 text-xs font-bold transition-all flex items-center gap-1 shadow-2xs"
-                      title="نسخ الرقم"
-                    >
-                      {copiedPhone ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span className="hidden xs:inline">{copiedPhone ? 'تم النسخ' : 'نسخ'}</span>
-                    </button>
-                    <a
-                      href={`tel:${customerPhone}`}
-                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 font-bold text-xs shadow-2xs active:scale-95"
-                    >
-                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>اتصال</span>
-                    </a>
-                    <a
-                      href={`https://wa.me/${whatsappNumber}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors flex items-center gap-1.5 font-bold text-xs shadow-sm active:scale-95"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>واتساب</span>
-                    </a>
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {customerPhone && (
+                    <>
+                      <a
+                        href={`tel:${customerPhone}`}
+                        className="p-2 sm:px-2.5 sm:py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs active:scale-95"
+                        title="اتصال"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="hidden sm:inline">اتصال</span>
+                      </a>
+                      <a
+                        href={`https://wa.me/${whatsappNumber}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2 sm:px-2.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs active:scale-95"
+                        title="واتساب"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">واتساب</span>
+                      </a>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCustomerCRM(dOrder, customerOrderCount)}
+                    className="p-2 sm:px-2.5 sm:py-1.5 text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 rounded-xl transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs"
+                    title="سجل وملاحظات العميل"
+                  >
+                    <User className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="hidden sm:inline">السجل ({customerOrderCount})</span>
+                  </button>
+                </div>
               </div>
 
-              {dOrder.deliveryLocation && (
-                <div className="bg-indigo-50/50 border border-indigo-100 p-3 rounded-2xl text-xs">
-                  <span className="text-indigo-950 font-black block mb-1 flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>مكان التوصيل داخل الحرم الجامعي:</span>
+              {(dOrder.deliveryLocation || dOrder.deliveryZoneName || dOrder.addressText) && (
+                <div className="bg-slate-50 border border-slate-200/80 p-2.5 rounded-xl text-xs flex items-center gap-2 text-slate-700">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span className="font-bold truncate">
+                    {dOrder.deliveryZoneName ? `${dOrder.deliveryZoneName} • ` : ''}
+                    {getDisplayAddress(dOrder.deliveryLocation || dOrder.addressText, 'موقع العميل بالحرم')}
                   </span>
-                  <p className="font-bold text-slate-800 leading-relaxed">{dOrder.deliveryLocation}</p>
                 </div>
               )}
 
               {dOrder.orderNotes && (
-                <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl text-amber-900 text-xs">
-                  <span className="font-black block mb-1">📝 ملاحظات خاصة مع الطلب:</span>
+                <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl text-amber-900 text-xs">
+                  <span className="font-black block mb-0.5">📝 ملاحظات خاصة مع الطلب:</span>
                   <p className="font-medium leading-relaxed">{dOrder.orderNotes}</p>
                 </div>
               )}
             </div>
 
-            {/* Delivery Driver Assignment Section */}
-            <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-3.5">
+            {/* Delivery Driver Assignment Section: Only shown after order is accepted AND orderType is DELIVERY */}
+            {!isPending && dOrder.orderType === 'DELIVERY' && (
+              <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
               <div className="flex items-center justify-between text-xs flex-wrap gap-2 border-b border-slate-100 pb-3">
                 <span className="font-black text-slate-800 flex items-center gap-2">
                   <Truck className="w-4 h-4 text-indigo-600 shrink-0" />
@@ -824,6 +795,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 );
               })()}
             </div>
+            )}
 
             {/* Group Cart Details if present */}
             {dOrder.groupCartDetails && (() => {
@@ -982,24 +954,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             </div>
 
             {/* Action Controls Bar (Sticky Floating Card at bottom) */}
-            <div className="p-3.5 sm:p-4 bg-white/95 backdrop-blur-xl rounded-3xl border border-slate-200/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sticky bottom-3 sm:bottom-4 z-30">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDetailedOrder(null);
-                    onClearDetailedOrder?.();
-                    onDetailedOrderOpenChange?.(false);
-                  }}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs sm:text-sm transition-colors"
-                >
-                  <ArrowRight className="w-4 h-4 shrink-0" />
-                  <span>رجوع للأوردرات</span>
-                </button>
+            <div className="p-3 sm:p-3.5 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] flex items-center justify-between gap-2.5 sticky bottom-2.5 sm:bottom-4 z-30">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setPrintingOrder(dOrder)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-2xl text-xs font-bold transition-colors shadow-2xs"
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300/80 rounded-xl text-xs font-bold transition-colors shadow-2xs active:scale-95"
                 >
                   <Printer className="w-4 h-4 text-indigo-600 shrink-0" />
                   <span>طباعة بون</span>
@@ -1016,7 +976,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         setPrepMinutes(15);
                         setAcceptDriverId(dOrder.driverId || '');
                       }}
-                      className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2"
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
                     >
                       <Check className="w-4 h-4" />
                       <span>قبول وبدء التجهيز</span>
@@ -1027,7 +987,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         setRejectingOrder(dOrder);
                         setRejectionReason('نفاد المكونات المطلوبة');
                       }}
-                      className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-2xl text-xs font-bold transition-colors"
+                      className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition-colors"
                     >
                       رفض الطلب
                     </button>

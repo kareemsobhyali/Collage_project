@@ -171,27 +171,6 @@ export function App() {
       // تشغيل جرس التنبيه المستمر
       soundNotifier.startRepeatingAlarm();
 
-      // إرسال إشعار فوري لشريط إشعارات الأندرويد في حال كان التطبيق بالخلفية
-      if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        const bridge = (window as any).AndroidBridge;
-        if (bridge?.showNotificationWithTag) {
-          try {
-            bridge.showNotificationWithTag(
-              `🔔 طلب جديد #${newOrder.orderNumber}!`,
-              `طلب جديد بقيمة ${newOrder.totalAmount} ج.م (${newOrder.items?.length || 1} أصناف) - افتح للتحضير`,
-              `order_${newOrder.orderNumber || newOrder.id}`
-            );
-          } catch (_e) {}
-        } else if (bridge?.showNotification) {
-          try {
-            bridge.showNotification(
-              `🔔 طلب جديد #${newOrder.orderNumber}!`,
-              `طلب جديد بقيمة ${newOrder.totalAmount} ج.م (${newOrder.items?.length || 1} أصناف) - افتح للتحضير`
-            );
-          } catch (_e) {}
-        }
-      }
-
       // طباعة تلقائية فورية للبون دون أي تدخل يدوي إن كانت مفعلة
       if (getAutoPrintOnNewOrder()) {
         printOrderReceipt(newOrder, branch?.name || 'UniFood');
@@ -210,27 +189,6 @@ export function App() {
       }
       // تشغيل جرس التنبيه المستمر فوراً لتنبيه الكاشير
       soundNotifier.startRepeatingAlarm();
-
-      // إشعار أندرويد باعتذار الكابتن
-      if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        const bridge = (window as any).AndroidBridge;
-        if (bridge?.showNotificationWithTag) {
-          try {
-            bridge.showNotificationWithTag(
-              `⚠️ اعتذار طيار عن طلب #${data.orderNumber || ''}`,
-              `اعتذر ${data.driverName || 'الطيار'} عن استلام الطلب - يُرجى إعادة التعيين`,
-              `order_${data.orderNumber || data.order?.id || ''}`
-            );
-          } catch (_e) {}
-        } else if (bridge?.showNotification) {
-          try {
-            bridge.showNotification(
-              `⚠️ اعتذار طيار عن طلب #${data.orderNumber || ''}`,
-              `اعتذر ${data.driverName || 'الطيار'} عن استلام الطلب - يُرجى إعادة التعيين`
-            );
-          } catch (_e) {}
-        }
-      }
 
       // إظهار نافذة التنبيه العاجل
       setDriverRejectionAlert({
