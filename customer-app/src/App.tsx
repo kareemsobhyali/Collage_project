@@ -610,6 +610,7 @@ export function App() {
     // 7. تحديث شاشة تتبع الطلب المفتوحة لحظياً عند قبول الطلب أو إسناد الطيار أو تغيير الحالة
     socket.on('order_status_updated', (updatedOrder: any) => {
       if (!updatedOrder || !updatedOrder.id) return;
+      window.dispatchEvent(new CustomEvent('order_status_updated', { detail: updatedOrder }));
       setTrackingOrder((prevOrder: any) => {
         if (!prevOrder || prevOrder.id !== updatedOrder.id) return prevOrder;
         return {
@@ -920,6 +921,7 @@ export function App() {
             branches={branches}
             onSelectBranch={handleSelectBranch}
             onQuickReorder={handleReorder}
+            onTrackOrder={(order) => setTrackingOrder(order)}
             user={user}
           />
         )}
@@ -944,6 +946,7 @@ export function App() {
           onRequireAuth={() => setShowAuthModal(true)}
           onOrderSuccess={(createdOrder) => {
             setTrackingOrder(createdOrder);
+            window.dispatchEvent(new CustomEvent('order_created', { detail: createdOrder }));
             setGroupCartDetailsForCheckout(null);
             handleActiveGroupCodeChange(null);
             try {
@@ -1013,6 +1016,7 @@ export function App() {
           order={trackingOrder}
           onOrderUpdated={(updatedOrder) => {
             setTrackingOrder(updatedOrder);
+            window.dispatchEvent(new CustomEvent('order_status_updated', { detail: updatedOrder }));
             try {
               const saved = localStorage.getItem('customer_user');
               if (saved) setUser(JSON.parse(saved));

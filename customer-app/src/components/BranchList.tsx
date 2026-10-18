@@ -19,7 +19,8 @@ import {
   Zap,
   Copy,
   Check,
-  RotateCcw
+  RotateCcw,
+  ChefHat
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress } from '../services/campusLocations';
@@ -28,6 +29,7 @@ interface BranchListProps {
   branches: any[];
   onSelectBranch: (branch: any, autoOpenItemId?: string | null) => void;
   onQuickReorder?: (order: any) => void;
+  onTrackOrder?: (order: any) => void;
   user?: any | null;
 }
 
@@ -114,7 +116,7 @@ const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
   );
 };
 
-export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch, onQuickReorder, user }) => {
+export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch, onQuickReorder, onTrackOrder, user }) => {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'OPEN' | 'FAVORITES' | 'DELIVERY' | 'PICKUP'>('ALL');
 
@@ -240,6 +242,334 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     }, 4500);
     return () => clearInterval(interval);
   }, [banners.length]);
+
+  // ==========================================
+  // Active Orders Live Tracking Under Banners
+  // ==========================================
+  const [activeOrders, setActiveOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchActiveOrders = async () => {
+      if (!user) {
+        if (isMounted) setActiveOrders([]);
+        return;
+      }
+      try {
+        const orders = await api.getMyOrders();
+        if (!isMounted || !Array.isArray(orders)) return;
+
+        const now = Date.now();
+        const active = orders.filter((o: any) => {
+          if (!o || o.status === 'REJECTED' || o.status === 'CANCELLED') return false;
+          // Active ongoing orders
+          if (['PENDING', 'PREPARING', 'ACCEPTED', 'READY'].includes(o.status)) return true;
+          // Show freshly completed orders (within 12 seconds) so user sees completion before disappearing
+          if (o.status === 'COMPLETED' && o.completedAt) {
+            const diff = now - new Date(o.completedAt).getTime();
+            return diff < 12000;
+          }
+          return false;
+        });
+
+        setActiveOrders(active);
+      } catch (err) {
+        console.error('Failed to load active orders:', err);
+      }
+    };
+
+    fetchActiveOrders();
+
+    // Regular interval poll every 8 seconds
+    const pollInterval = setInterval(fetchActiveOrders, 8000);
+
+    // Realtime socket events dispatched from App.tsx
+    const handleStatusUpdate = (e: any) => {
+      const updated = e.detail;
+      if (!updated || !updated.id) return;
+
+      setActiveOrders((prev) => {
+        const exists = prev.some((o) => o.id === updated.id);
+        if (exists) {
+          if (updated.status === 'REJECTED' || updated.status === 'CANCELLED') {
+            return prev.filter((o) => o.id !== updated.id);
+          }
+          return prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o));
+        } else if (['PENDING', 'PREPARING', 'ACCEPTED', 'READY'].includes(updated.status)) {
+          return [updated, ...prev];
+        }
+        return prev;
+      });
+
+      // If status updated to COMPLETED, auto-dismiss after 8 seconds ("وبعدها يختفي")
+      if (updated.status === 'COMPLETED') {
+        setTimeout(() => {
+          if (isMounted) {
+            setActiveOrders((prev) => prev.filter((o) => o.id !== updated.id));
+          }
+        }, 8000);
+      }
+    };
+
+    const handleOrderCreated = (e: any) => {
+      const created = e.detail;
+      if (created && created.id) {
+        setActiveOrders((prev) => {
+          const exists = prev.some((o) => o.id === created.id);
+          return exists ? prev : [created, ...prev];
+        });
+      }
+    };
+
+    window.addEventListener('order_status_updated', handleStatusUpdate);
+    window.addEventListener('order_created', handleOrderCreated);
+
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+      window.removeEventListener('order_status_updated', handleStatusUpdate);
+      window.removeEventListener('order_created', handleOrderCreated);
+    };
+  }, [user]);
+
+  // Auto-dismiss completed orders after 8s
+  useEffect(() => {
+    const completedOrders = activeOrders.filter((o) => o.status === 'COMPLETED');
+    if (completedOrders.length === 0) return;
+
+    const timers = completedOrders.map((o) => {
+      return setTimeout(() => {
+        setActiveOrders((prev) => prev.filter((item) => item.id !== o.id));
+      }, 8000);
+    });
+
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+    };
+  }, [activeOrders]);
+
+  const handleDismissOrder = (e: React.MouseEvent, orderId: string) => {
+    e.stopPropagation();
+    setActiveOrders((prev) => prev.filter((o) => o.id !== orderId));
+  };
+
+  const renderOrderTrackerCard = (order: any) => {
+    const isDelivery = order.orderType === 'DELIVERY';
+    const status = order.status;
+
+    // Stages: 0: في انتظار القبول, 1: جاري التجهيز, 2: في التوصيل / جاهز للاستلام, 3: مكتمل
+    let currentStep = 0;
+    if (status === 'PREPARING' || status === 'ACCEPTED') currentStep = 1;
+    else if (status === 'READY') currentStep = 2;
+    else if (status === 'COMPLETED') currentStep = 3;
+
+    const steps = [
+      { label: 'في انتظار القبول', icon: Clock },
+      { label: 'جاري التجهيز', icon: ChefHat },
+      { label: isDelivery ? 'في التوصيل' : 'جاهز للاستلام', icon: isDelivery ? Truck : ShoppingBag },
+      { label: 'مكتمل', icon: CheckCircle2 },
+    ];
+
+    const branch = branches.find((b) => b.id === order.branchId) || order.branch;
+    const branchName = branch?.name || order.branch?.name || 'مطعم الجامعة';
+    const branchLogo = branch?.logoUrl || order.branch?.logoUrl;
+
+    const itemsSummary = (order.items || [])
+      .map((it: any) => `${it.quantity}× ${it.itemName || it.name}`)
+      .join(' ، ');
+
+    return (
+      <div
+        key={order.id}
+        onClick={() => onTrackOrder?.(order)}
+        className="bg-white rounded-3xl p-4 sm:p-5 border border-indigo-100 shadow-md hover:shadow-lg transition-all cursor-pointer relative overflow-hidden group select-none flex flex-col justify-between"
+      >
+        {/* Top Color Accent Line */}
+        <div
+          className={`absolute top-0 left-0 right-0 h-1.5 transition-colors ${
+            status === 'COMPLETED'
+              ? 'bg-emerald-500'
+              : status === 'READY'
+              ? 'bg-sky-500'
+              : status === 'PREPARING' || status === 'ACCEPTED'
+              ? 'bg-indigo-600'
+              : 'bg-amber-500'
+          }`}
+        />
+
+        <div>
+          {/* 1. Header: Branch Info + Order Type Badge + Live Pulse or Dismiss */}
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+                {branchLogo ? (
+                  <img src={getFullImageUrl(branchLogo)} alt={branchName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-xl">🍔</span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <h4 className="font-black text-xs sm:text-sm text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                  {branchName}
+                </h4>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] font-mono font-black text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded-md border border-indigo-100">
+                    #{order.orderNumber}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500">
+                    {isDelivery ? '🛵 توصيل مباشر' : '🛍️ استلام من الفرع'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {status === 'COMPLETED' ? (
+                <button
+                  type="button"
+                  onClick={(e) => handleDismissOrder(e, order.id)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                  title="إخفاء البطاقة"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  <span>مباشر</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Visual Status Stepper (4 Steps Progress Bar) */}
+          <div className="my-3 px-1">
+            <div className="relative flex items-center justify-between">
+              {/* Background Gray Connector Line */}
+              <div className="absolute top-4 right-7 left-7 h-1 bg-slate-200 z-0 rounded-full" />
+
+              {/* Dynamic Animated Active Filled Line */}
+              <div
+                className="absolute top-4 right-7 h-1 bg-gradient-to-l from-indigo-600 via-violet-600 to-emerald-500 z-0 rounded-full transition-all duration-700"
+                style={{
+                  width: `${(currentStep / 3) * 100}%`,
+                  maxWidth: 'calc(100% - 56px)',
+                }}
+              />
+
+              {steps.map((st, idx) => {
+                const Icon = st.icon;
+                const isDone = idx < currentStep;
+                const isActive = idx === currentStep;
+
+                return (
+                  <div key={idx} className="flex flex-col items-center relative z-10 text-center w-1/4">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+                        isDone
+                          ? 'bg-emerald-500 text-white shadow-xs'
+                          : isActive
+                          ? status === 'COMPLETED'
+                            ? 'bg-emerald-600 text-white ring-4 ring-emerald-100 shadow-md scale-110'
+                            : status === 'READY'
+                            ? 'bg-sky-600 text-white ring-4 ring-sky-100 shadow-md scale-110 animate-pulse'
+                            : status === 'PREPARING' || status === 'ACCEPTED'
+                            ? 'bg-indigo-600 text-white ring-4 ring-indigo-100 shadow-md scale-110 animate-pulse'
+                            : 'bg-amber-500 text-white ring-4 ring-amber-100 shadow-md scale-110 animate-pulse'
+                          : 'bg-slate-100 text-slate-400 border border-slate-200'
+                      }`}
+                    >
+                      {isDone ? (
+                        <Check className="w-4 h-4 stroke-[3]" />
+                      ) : (
+                        <Icon className="w-3.5 h-3.5" />
+                      )}
+                    </div>
+
+                    <span
+                      className={`text-[10px] mt-2 block leading-tight text-center ${
+                        isActive
+                          ? 'font-black text-slate-900'
+                          : isDone
+                          ? 'font-bold text-emerald-700'
+                          : 'font-medium text-slate-400'
+                      }`}
+                    >
+                      {st.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3. Live Contextual Status Message Banner */}
+          <div
+            className={`p-2.5 rounded-2xl flex items-center justify-between text-xs mb-3 border ${
+              status === 'COMPLETED'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                : status === 'READY'
+                ? 'bg-sky-50 border-sky-200 text-sky-900'
+                : status === 'PREPARING' || status === 'ACCEPTED'
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-900'
+                : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base shrink-0">
+                {status === 'COMPLETED'
+                  ? '🎉'
+                  : status === 'READY'
+                  ? isDelivery
+                    ? '🛵'
+                    : '🛍️'
+                  : status === 'PREPARING' || status === 'ACCEPTED'
+                  ? '👨‍🍳'
+                  : '⏳'}
+              </span>
+              <span className="font-bold text-[11px] truncate">
+                {status === 'COMPLETED' && 'تم استلام طلبك بنجاح، بالهنا والشفا!'}
+                {status === 'READY' && (isDelivery ? (order.driver?.name ? `الكابتن ${order.driver.name} في الطريق إليك` : 'الكابتن في الطريق إليك') : 'طلبك جاهز للاستلام من الفرع')}
+                {(status === 'PREPARING' || status === 'ACCEPTED') && (order.estimatedMinutes ? `جاري التجهيز بالمطبخ (~${order.estimatedMinutes} دقيقة متبقية)` : 'جاري تجهيز وجبتك طازجة بالمطبخ')}
+                {status === 'PENDING' && 'المطعم يراجع طلبك وسيقوم بقبوله الآن'}
+              </span>
+            </div>
+
+            {order.estimatedMinutes && (status === 'PREPARING' || status === 'ACCEPTED') && (
+              <span className="text-[10px] font-mono font-black text-indigo-700 bg-white/90 px-2 py-0.5 rounded-lg border border-indigo-100 shrink-0 shadow-2xs">
+                {order.estimatedMinutes} د
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* 4. Order Items Summary & Track Action Button */}
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+          <div className="min-w-0">
+            <p className="text-[11px] text-slate-500 font-medium truncate" title={itemsSummary}>
+              🍱 {itemsSummary || 'وجبة'}
+            </p>
+            <span className="text-xs font-mono font-black text-slate-900">
+              {order.total} ج.م
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTrackOrder?.(order);
+            }}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-95 text-white rounded-xl text-xs font-black shadow-xs transition-all flex items-center gap-1 shrink-0"
+          >
+            <span>تتبع الطلب</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const filteredBranches = branches.filter(b => {
     const q = search.trim().toLowerCase();
@@ -398,6 +728,50 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             🎓🍔
           </div>
         </div>
+      )}
+
+      {/* 1.2 Under Banners: Active Orders Live Tracking Carousel ("تتبع حالات الطلبات الجارية") */}
+      {activeOrders.length > 0 && (
+        <section className="space-y-2.5 animate-fadeIn">
+          {activeOrders.length > 1 && (
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                  متابعة طلباتك الجارية ({activeOrders.length})
+                </h3>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+                <span>اسحب للتنقل بين طلباتك</span>
+                <ArrowLeft className="w-3.5 h-3.5 animate-pulse" />
+              </div>
+            </div>
+          )}
+
+          <div
+            className={
+              activeOrders.length > 1
+                ? "flex gap-3.5 overflow-x-auto pb-3 pt-1 px-1 scrollbar-none snap-x snap-mandatory scroll-smooth -mx-2 px-2 sm:mx-0 sm:px-0"
+                : "w-full"
+            }
+          >
+            {activeOrders.map((ord) => (
+              <div
+                key={ord.id}
+                className={
+                  activeOrders.length > 1
+                    ? "w-[88vw] sm:w-[420px] shrink-0 snap-center"
+                    : "w-full"
+                }
+              >
+                {renderOrderTrackerCard(ord)}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* 1.5 Smart Usual Order 1-Tap Card ("اطلب وجبتك المعتادة بضغطة واحدة") */}
