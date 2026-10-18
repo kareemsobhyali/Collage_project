@@ -19,6 +19,31 @@ router.get("/public/restaurant-location", async (_req: Request, res: Response) =
   }
 });
 
+// جلب رقم واتساب الدعم الفني العام للطلاب
+router.get("/public/support-contact", async (_req: Request, res: Response) => {
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: "support_whatsapp_phone" },
+    });
+    const rawPhone = setting?.value?.trim() || "01016629986";
+    let cleanPhone = rawPhone.replace(/\D/g, "");
+    if (cleanPhone.startsWith("0")) cleanPhone = "2" + cleanPhone;
+    else if (!cleanPhone.startsWith("2") && cleanPhone.length === 10) cleanPhone = "20" + cleanPhone;
+
+    res.json({
+      whatsappPhone: rawPhone,
+      cleanPhone,
+      whatsappUrl: `https://wa.me/${cleanPhone}`,
+    });
+  } catch (error) {
+    res.json({
+      whatsappPhone: "01016629986",
+      cleanPhone: "201016629986",
+      whatsappUrl: "https://wa.me/201016629986",
+    });
+  }
+});
+
 // 0. استعراض البانرات الإعلانية الترويجية
 router.get("/banners", async (_req: Request, res: Response) => {
   try {

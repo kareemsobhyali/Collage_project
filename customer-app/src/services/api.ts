@@ -1062,6 +1062,40 @@ export const api = {
     if (!res.ok) throw new Error(data.error || 'فشل حذف تذكرة الدعم');
     return data;
   },
+
+  async getPublicSupportContact() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/customer/public/support-contact`);
+      const data = await res.json();
+      return data;
+    } catch {
+      return {
+        whatsappPhone: '01016629986',
+        cleanPhone: '201016629986',
+        whatsappUrl: 'https://wa.me/201016629986',
+      };
+    }
+  },
+
+  async getAdminSupportSettings() {
+    const res = await fetch(`${API_BASE_URL}/admin/support-settings`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع إعدادات الدعم');
+    return data;
+  },
+
+  async updateAdminSupportSettings(whatsappPhone: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/support-settings`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ whatsappPhone }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ إعدادات الدعم');
+    return data;
+  },
 };
 
 

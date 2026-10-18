@@ -2330,6 +2330,49 @@ router.delete("/support-tickets/:id", async (req: AuthRequest, res: Response) =>
   }
 });
 
+// جلب إعدادات الدعم الفني ورقم الواتساب
+router.get("/support-settings", async (_req: AuthRequest, res: Response) => {
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: "support_whatsapp_phone" },
+    });
+    res.json({
+      success: true,
+      whatsappPhone: setting?.value?.trim() || "01016629986",
+    });
+  } catch (error) {
+    console.error("Admin get support-settings error:", error);
+    res.status(500).json({ error: "فشل استرجاع إعدادات الدعم" });
+  }
+});
+
+// تحديث رقم واتساب استقبال البلاغات والدعم الفني
+router.put("/support-settings", async (req: AuthRequest, res: Response) => {
+  try {
+    const { whatsappPhone } = req.body;
+    if (!whatsappPhone || !String(whatsappPhone).trim()) {
+      res.status(400).json({ error: "يرجى إدخال رقم هاتف الواتساب" });
+      return;
+    }
+
+    const clean = String(whatsappPhone).trim();
+    await prisma.systemSetting.upsert({
+      where: { key: "support_whatsapp_phone" },
+      update: { value: clean },
+      create: { key: "support_whatsapp_phone", value: clean },
+    });
+
+    res.json({
+      success: true,
+      message: "تم تحديث رقم واتساب الدعم الفني بنجاح",
+      whatsappPhone: clean,
+    });
+  } catch (error) {
+    console.error("Admin update support-settings error:", error);
+    res.status(500).json({ error: "فشل حفظ رقم الواتساب" });
+  }
+});
+
 export default router;
 
 

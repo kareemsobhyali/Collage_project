@@ -117,6 +117,9 @@ export const AdminPage: React.FC = () => {
   const [loadingSupportTickets, setLoadingSupportTickets] = useState(false);
   const [supportFilter, setSupportFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL');
   const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
+  const [supportWhatsappInput, setSupportWhatsappInput] = useState<string>('01016629986');
+  const [savingSupportWhatsapp, setSavingSupportWhatsapp] = useState<boolean>(false);
+  const [supportWhatsappSaveSuccess, setSupportWhatsappSaveSuccess] = useState<boolean>(false);
   const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
   const [showMobileMoreMenu, setShowMobileMoreMenu] = useState(false);
@@ -649,14 +652,38 @@ export const AdminPage: React.FC = () => {
   const fetchSupportTickets = async () => {
     try {
       setLoadingSupportTickets(true);
-      const res = await api.getAdminSupportTickets();
+      const [res, settingsRes] = await Promise.all([
+        api.getAdminSupportTickets().catch(() => null),
+        api.getAdminSupportSettings().catch(() => null),
+      ]);
       if (res && res.tickets) {
         setSupportTickets(res.tickets);
+      }
+      if (settingsRes && settingsRes.whatsappPhone) {
+        setSupportWhatsappInput(settingsRes.whatsappPhone);
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoadingSupportTickets(false);
+    }
+  };
+
+  const handleSaveSupportWhatsapp = async () => {
+    if (!supportWhatsappInput.trim()) {
+      alert('يرجى إدخال رقم هاتف الواتساب');
+      return;
+    }
+    try {
+      setSavingSupportWhatsapp(true);
+      setSupportWhatsappSaveSuccess(false);
+      await api.updateAdminSupportSettings(supportWhatsappInput.trim());
+      setSupportWhatsappSaveSuccess(true);
+      setTimeout(() => setSupportWhatsappSaveSuccess(false), 3500);
+    } catch (e: any) {
+      alert(e.message || 'فشل حفظ رقم الواتساب');
+    } finally {
+      setSavingSupportWhatsapp(false);
     }
   };
 
@@ -6392,6 +6419,74 @@ export const AdminPage: React.FC = () => {
                   <RefreshCw className={`w-4 h-4 ${loadingSupportTickets ? 'animate-spin' : ''}`} />
                 </button>
               </div>
+            </div>
+
+            {/* WhatsApp Support Reception Number Card */}
+            <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl p-5 sm:p-6 shadow-xl space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <span>رقم واتساب استقبال بلاغات ودعم الطلاب</span>
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
+                        تحديث فوري للطلاب ⚡
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      الرقم الذي يتم توجيه الطلاب إليه عند النقر على (محادثة واتساب مباشرة للدعم) في صفحة حسابي بالتطبيق
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://wa.me/20${supportWhatsappInput.replace(/\D/g, '').replace(/^0/, '')}?text=${encodeURIComponent('تجربة اتصال دعم فني من لوحة إدارة UniFood')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shadow-sm"
+                    title="تجربة فتح المحادثة في الواتساب"
+                  >
+                    <span>تجربة فتح الرابط</span>
+                    <Share2 className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-500">
+                    <Phone className="w-4 h-4 text-emerald-500/70" />
+                  </div>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    placeholder="مثال: 01016629986"
+                    value={supportWhatsappInput}
+                    onChange={(e) => setSupportWhatsappInput(e.target.value)}
+                    className="w-full pr-10 pl-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveSupportWhatsapp}
+                  disabled={savingSupportWhatsapp}
+                  className="py-2.5 px-6 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-600/25 active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{savingSupportWhatsapp ? 'جاري الحفظ...' : 'حفظ رقم الواتساب'}</span>
+                </button>
+              </div>
+
+              {supportWhatsappSaveSuccess && (
+                <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>✓ تم تحديث رقم واتساب الدعم بنجاح وتفعيله لجميع الطلاب بالتطبيق فوراً.</span>
+                </div>
+              )}
             </div>
 
             {/* Tickets List */}

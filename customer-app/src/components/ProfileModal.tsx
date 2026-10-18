@@ -39,6 +39,14 @@ import {
   extractCoordinatesFromAddress
 } from '../services/campusLocations';
 
+const SUPPORT_CATEGORIES = [
+  { id: 'GENERAL', label: 'استفسار عام', desc: 'مساعدة أو سؤال حول المنظومة', icon: '❓' },
+  { id: 'ORDER_ISSUE', label: 'مشكلة في طلب', desc: 'تأخر، نقص أو خطأ في الوجبة', icon: '🛍️' },
+  { id: 'PAYMENT_ISSUE', label: 'الدفع والمحفظة', desc: 'خصم خاطئ، رصيد، أو استرداد', icon: '💳' },
+  { id: 'TECH_ISSUE', label: 'عطل في التطبيق', desc: 'مشكلة فنية أو شاشة لا تعمل', icon: '⚙️' },
+  { id: 'SUGGESTION', label: 'اقتراح وتطوير', desc: 'فكرة أو ميزة تريد إضافتها', icon: '💡' },
+] as const;
+
 interface ProfileModalProps {
   user: any;
   onUpdateUser: (updatedUser: any) => void;
@@ -88,6 +96,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [sendingSupport, setSendingSupport] = useState(false);
   const [supportSuccessMsg, setSupportSuccessMsg] = useState<string | null>(null);
   const [supportErrorMsg, setSupportErrorMsg] = useState<string | null>(null);
+  const [supportWhatsappData, setSupportWhatsappData] = useState<{ whatsappPhone: string; whatsappUrl: string }>({
+    whatsappPhone: '01016629986',
+    whatsappUrl: 'https://wa.me/201016629986',
+  });
 
   // Delete Account State
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -149,11 +161,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const loadProfileData = async () => {
     try {
       setLoadingAddresses(true);
-      const [addrData, walletData] = await Promise.all([
+      const [addrData, walletData, supportData] = await Promise.all([
         api.getAddresses().catch(() => []),
         api.getWallet().catch(() => null),
+        api.getPublicSupportContact().catch(() => null),
       ]);
       setAddresses(Array.isArray(addrData) ? addrData : []);
+      if (supportData?.whatsappUrl) {
+        setSupportWhatsappData({
+          whatsappPhone: supportData.whatsappPhone || '01016629986',
+          whatsappUrl: supportData.whatsappUrl,
+        });
+      }
       if (walletData) {
         setLoyaltyPoints(walletData.loyaltyPoints ?? 0);
         setWalletBalance(walletData.walletBalance ?? 0);
@@ -742,7 +761,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </button>
 
               <a
-                href="https://wa.me/201016629986?text=مرحباً، أحتاج مساعدة بخصوص تطبيق UniFood"
+                href={supportWhatsappData.whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98"
@@ -785,7 +804,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         {/* Support Ticket Modal Dialog */}
         {showSupportModal && (
           <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-fadeIn">
-            <div className="bg-white rounded-2xl max-w-sm w-full p-4.5 shadow-2xl space-y-3.5 border border-slate-100 max-h-[90%] overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-md w-full p-4.5 shadow-2xl space-y-3.5 border border-slate-100 max-h-[92%] overflow-y-auto">
               <div className="flex items-center justify-between border-b pb-2.5">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">
@@ -799,10 +818,36 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowSupportModal(false)}
-                  className="p-1 text-slate-400 hover:text-slate-600"
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
                 >
                   <X className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* Fast WhatsApp direct contact banner */}
+              <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-200/80 rounded-2xl flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <MessageCircle className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-emerald-950">هل تفضل الرد الفوري؟</p>
+                    <p className="text-[10px] text-emerald-700 truncate">تحدث مع مشرف الدعم عبر واتساب مباشرة</p>
+                  </div>
+                </div>
+                <a
+                  href={supportWhatsappData.whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black rounded-xl transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                >
+                  <span>محادثة فورية</span>
+                </a>
+              </div>
+
+              <div className="relative flex items-center justify-center my-1">
+                <div className="border-t border-slate-200 w-full" />
+                <span className="bg-white px-2.5 text-[10px] font-bold text-slate-400 shrink-0">أو أرسل تذكرة داخلية للمنظومة</span>
               </div>
 
               {supportErrorMsg && (
@@ -820,23 +865,55 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               )}
 
               <form onSubmit={handleSubmitSupport} className="space-y-3">
+                {/* Category Selection as interactive cards instead of native select */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">نوع المشكلة / الموضوع:</label>
-                  <select
-                    value={supportCategory}
-                    onChange={(e: any) => setSupportCategory(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600 focus:outline-none"
-                  >
-                    <option value="GENERAL">❓ استفسار عام أو مساعدة</option>
-                    <option value="ORDER_ISSUE">🛍️ مشكلة في طلب سابق</option>
-                    <option value="PAYMENT_ISSUE">💳 مشكلة في الدفع أو رصيد المحفظة</option>
-                    <option value="TECH_ISSUE">⚙️ عطل أو مشكلة تقنية في التطبيق</option>
-                    <option value="SUGGESTION">💡 اقتراح أو فكرة لتطوير التطبيق</option>
-                  </select>
+                  <label className="block text-[11px] font-black text-slate-700 mb-1.5">نوع المشكلة / الموضوع:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {SUPPORT_CATEGORIES.map((cat, idx) => {
+                      const isSelected = supportCategory === cat.id;
+                      const isFullWidth = idx === SUPPORT_CATEGORIES.length - 1 && SUPPORT_CATEGORIES.length % 2 !== 0;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setSupportCategory(cat.id as any)}
+                          className={`${
+                            isFullWidth ? 'col-span-2 py-2 px-3 flex items-center justify-between' : 'p-2.5 flex flex-col justify-between'
+                          } rounded-xl border text-right transition-all cursor-pointer relative active:scale-98 ${
+                            isSelected
+                              ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-950 shadow-xs'
+                              : 'bg-slate-50 border-slate-200/80 hover:bg-slate-100 hover:border-slate-300 text-slate-800'
+                          }`}
+                        >
+                          <div className={`flex ${isFullWidth ? 'items-center gap-2.5' : 'flex-col gap-1'}`}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-base">{cat.icon}</span>
+                              {!isFullWidth && isSelected && (
+                                <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-xs font-black">{cat.label}</div>
+                              <div className={`text-[10px] ${isSelected ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
+                                {cat.desc}
+                              </div>
+                            </div>
+                          </div>
+                          {isFullWidth && isSelected && (
+                            <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">عنوان البلاغ:</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">عنوان البلاغ أو المشكلة:</label>
                   <input
                     type="text"
                     placeholder="مثال: خصم خاطئ من المحفظة، تأخر استلام طلب..."
@@ -864,7 +941,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">تفاصيل المشكلة:</label>
                   <textarea
                     rows={3}
-                    placeholder="اشرح المشكلة التي واجهتك بالتفصيل حتى يتمكن فريق الإدارة من مساعدتك سريعاً..."
+                    placeholder="اشرح المشكلة بالتفصيل حتى يتمكن فريق الإدارة من حلها سريعاً..."
                     value={supportMessage}
                     onChange={(e) => setSupportMessage(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
@@ -876,14 +953,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowSupportModal(false)}
-                    className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                    className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                   >
                     إلغاء
                   </button>
                   <button
                     type="submit"
                     disabled={sendingSupport}
-                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>{sendingSupport ? 'جاري الإرسال...' : 'إرسال للإدارة'}</span>
