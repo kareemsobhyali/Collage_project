@@ -2957,11 +2957,13 @@ export const AdminPage: React.FC = () => {
                       <div className="flex sm:flex-col items-end justify-between sm:justify-center gap-2 shrink-0">
                         <div className="text-left">
                           <span className="text-base font-black text-white font-mono">{order.total} ج.م</span>
-                          <span className="block text-[10px] text-slate-500">
-                            {order.paymentMethod === 'CASH' && 'كاش'}
-                            {order.paymentMethod === 'VODAFONE_CASH' && 'فودافون كاش'}
-                            {order.paymentMethod === 'INSTAPAY' && 'إنستاباي'}
-                            {order.paymentMethod === 'CARD' && 'فيزا'}
+                          <span className="block text-[10px] text-slate-400">
+                            {order.paymentMethod === 'CASH' && '💵 كاش'}
+                            {order.paymentMethod === 'VODAFONE_CASH' && '📱 فودافون كاش'}
+                            {order.paymentMethod === 'INSTAPAY' && '⚡ إنستاباي'}
+                            {order.paymentMethod === 'CARD' && '💳 فيزا'}
+                            {order.paymentSenderPhone && ` (${order.paymentSenderPhone})`}
+                            {order.paymentProofUrl && ' 📎'}
                           </span>
                         </div>
 
@@ -8018,10 +8020,58 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
               )}
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-slate-400">طريقة الدفع:</span>
-                <span className="font-bold text-slate-200">{selectedOrderDetails.paymentMethod}</span>
+                <span className="font-bold text-amber-300">
+                  {selectedOrderDetails.paymentMethod === 'VODAFONE_CASH'
+                    ? '📱 فودافون كاش / محفظة'
+                    : selectedOrderDetails.paymentMethod === 'INSTAPAY'
+                    ? '⚡ إنستاباي'
+                    : selectedOrderDetails.paymentMethod === 'CARD'
+                    ? '💳 بطاقة بنكية'
+                    : '💵 كاش'}
+                </span>
               </div>
+              {selectedOrderDetails.paymentSenderPhone && (
+                <div className="flex justify-between items-center pt-1 border-t border-slate-800/80">
+                  <span className="text-slate-400">رقم / حساب المحوّل منه:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-black text-amber-400 dir-ltr">{selectedOrderDetails.paymentSenderPhone}</span>
+                    <a
+                      href={`https://wa.me/20${selectedOrderDetails.paymentSenderPhone.replace(/\D/g, '').replace(/^20/, '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-[10px] font-bold"
+                      title="مراسلة عبر واتساب"
+                    >
+                      واتساب
+                    </a>
+                  </div>
+                </div>
+              )}
+              {selectedOrderDetails.paymentProofUrl && (
+                <div className="mt-2 pt-2 border-t border-slate-800/80 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">إيصال التحويل:</span>
+                    <a
+                      href={getFullImageUrl(selectedOrderDetails.paymentProofUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-indigo-400 hover:text-indigo-300 text-[11px] underline font-bold"
+                    >
+                      فتح بحجم كامل ↗
+                    </a>
+                  </div>
+                  <div className="rounded-lg overflow-hidden border border-slate-800 bg-slate-900 max-h-56 flex items-center justify-center p-1">
+                    <img
+                      src={getFullImageUrl(selectedOrderDetails.paymentProofUrl)}
+                      alt="إيصال التحويل"
+                      className="max-h-52 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity rounded"
+                      onClick={() => window.open(getFullImageUrl(selectedOrderDetails.paymentProofUrl), '_blank')}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Stage Timings Breakdown in Admin Details Modal */}

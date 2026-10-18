@@ -529,8 +529,9 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     try {
       setUploadingProof(true);
       const res = await api.uploadImage(file);
-      if (res.url) {
-        setPaymentProofUrl(res.url);
+      const proofUrl = res.fileUrl || res.url;
+      if (proofUrl) {
+        setPaymentProofUrl(proofUrl);
       }
     } catch (err: any) {
       setError(err.message || 'فشل رفع لقطة شاشة التحويل');

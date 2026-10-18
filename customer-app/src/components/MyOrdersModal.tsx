@@ -127,6 +127,13 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ onSelectOrderToTra
                   <div className="flex items-center justify-between border-t pt-2 gap-2">
                     <div>
                       <span className="text-xs font-black text-slate-900">الإجمالي: {order.total} ج.م</span>
+                      <div className="text-[10px] text-slate-500 font-bold mt-0.5">
+                        {order.paymentMethod === 'VODAFONE_CASH' && '📱 فودافون كاش'}
+                        {order.paymentMethod === 'INSTAPAY' && '⚡ إنستاباي'}
+                        {order.paymentMethod === 'CARD' && '💳 فيزا'}
+                        {order.paymentMethod === 'CASH' && '💵 كاش'}
+                        {order.paymentSenderPhone && ` (${order.paymentSenderPhone})`}
+                      </div>
                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                         {order.discount && order.discount > 0 ? (
                           <span className="text-[10px] text-emerald-600 font-bold">

@@ -74,6 +74,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, branchName, o
                 {order.paymentMethod === 'CARD' && 'بطاقة دفع'}
               </span>
             </div>
+            {order.paymentSenderPhone && (
+              <div className="flex justify-between items-center text-xs mb-2 bg-slate-100 p-1.5 rounded">
+                <span className="font-bold">المحول منه:</span>
+                <span className="font-mono font-bold">{order.paymentSenderPhone}</span>
+              </div>
+            )}
 
             <div className="border-b border-dashed border-slate-300 my-2"></div>
 

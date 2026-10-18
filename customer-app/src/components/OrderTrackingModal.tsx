@@ -1009,6 +1009,11 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 {order.paymentMethod === 'INSTAPAY' && '⚡ إنستاباي'}
                 {order.paymentMethod === 'CARD' && '💳 فيزا / بطاقة'}
               </span>
+              {order.paymentSenderPhone && (
+                <span className="block text-[10px] text-indigo-700 font-mono font-bold mt-0.5">
+                  رقم التحويل: {order.paymentSenderPhone}
+                </span>
+              )}
             </div>
             <div className="text-left">
               <span className="text-slate-500 block text-[10px]">الإجمالي الكلي</span>

@@ -24,13 +24,15 @@ export const getFullImageUrl = (url?: string | null) => {
     }
     return url;
   }
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
   if (typeof window !== 'undefined' && window.location.protocol !== 'file:') {
     if (window.location.port === '5173' || window.location.port === '5174' || window.location.port === '3000') {
-      return `http://${window.location.hostname || 'localhost'}:5000${url.startsWith('/') ? '' : '/'}${url}`;
+      return `http://${window.location.hostname || 'localhost'}:5000${cleanPath}`;
     }
-    return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+    return `${window.location.origin}${cleanPath}`;
   }
-  return `http://localhost:5000${url.startsWith('/') ? '' : '/'}${url}`;
+  const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '');
+  return `${baseUrl}${cleanPath}`;
 };
 
 function getHeaders(isFormData: boolean = false): HeadersInit {
