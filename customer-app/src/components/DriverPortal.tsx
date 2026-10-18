@@ -210,6 +210,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
   });
   const audioContextRef = useRef<AudioContext | null>(null);
   const alarmIntervalRef = useRef<any>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const [showDriverExitDialog, setShowDriverExitDialog] = useState(false);
 
@@ -429,16 +430,48 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
 
   const startRepeatingAlarm = () => {
     stopAlarm();
-    playAlertSound();
+    if (isMuted) return;
+
+    if (customSoundUrl) {
+      try {
+        const fullUrl = customSoundUrl.startsWith('http')
+          ? customSoundUrl
+          : `${API_BASE_URL.replace('/api', '')}${customSoundUrl.startsWith('/') ? '' : '/'}${customSoundUrl}`;
+        const audio = new Audio(fullUrl);
+        audio.volume = customVolume;
+        audio.loop = true;
+        activeAudioRef.current = audio;
+        const p = audio.play();
+        if (p !== undefined) {
+          p.catch(() => {
+            playSyntheticLoop();
+          });
+        }
+        return;
+      } catch (_e) {}
+    }
+
+    playSyntheticLoop();
+  };
+
+  const playSyntheticLoop = () => {
+    playSyntheticBeep();
     alarmIntervalRef.current = setInterval(() => {
-      playAlertSound();
-    }, 2200);
+      playSyntheticBeep();
+    }, 2500);
   };
 
   const stopAlarm = () => {
     if (alarmIntervalRef.current) {
       clearInterval(alarmIntervalRef.current);
       alarmIntervalRef.current = null;
+    }
+    if (activeAudioRef.current) {
+      try {
+        activeAudioRef.current.pause();
+        activeAudioRef.current.currentTime = 0;
+      } catch (_e) {}
+      activeAudioRef.current = null;
     }
   };
 

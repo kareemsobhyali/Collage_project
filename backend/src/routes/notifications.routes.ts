@@ -83,7 +83,7 @@ router.get("/poll", async (req: Request, res: Response) => {
           notifications.push({
             id: `driver_new_${order.orderNumber}_${orderUpdatedMs}`,
             tag: `order_${order.orderNumber}`,
-            channel: "URGENT_ALARM",
+            channel: "ORDERS",
             title: `🛵 طلب توصيل جديد مسند لك #${order.orderNumber}!`,
             body: `استلام من مطعم (${order.branch?.name || "المطعم"}) • العميل: ${order.customerName || "طالب"}`,
             subText: "UniFood Driver ⚡",
@@ -242,7 +242,7 @@ router.get("/poll", async (req: Request, res: Response) => {
         notifications.push({
           id: `branch_pending_${order.orderNumber}`,
           tag: `order_${order.orderNumber}`,
-          channel: "URGENT_ALARM",
+          channel: "ORDERS",
           title: `🔔 طلب جديد وارد للمطعم #${order.orderNumber}!`,
           body: `العميل: ${order.customerName || "طالب"} • الإجمالي: ${order.total} ج.م • اضغط للقبول`,
           subText: "طلب جديد بانتظار الموافقة",

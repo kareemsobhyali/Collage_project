@@ -1,12 +1,13 @@
 import { api, getFullImageUrl } from './api';
 
-// نظام تنبيهات صوتية ذكي: يشغل الصوت المخصص المرفوع من لوحة تحكم الإدارة، مع دعم احتياطي لنغمة Web Audio API التخليقية
+// نظام تنبيهات صوتية ذكي وموحد: يشغل الصوت المخصص بنقاء وتكرار بدون تداخل، مع دعم Web Audio API التخليقي
 class SoundNotifier {
   private audioCtx: AudioContext | null = null;
   private intervalId: any = null;
   private isMuted: boolean = false;
   private customAudioUrl: string | null = null;
   private customVolume: number = 1.0;
+  private activeAudio: HTMLAudioElement | null = null;
 
   constructor() {
     this.setupUserGestureUnlock();
@@ -33,7 +34,7 @@ class SoundNotifier {
     } catch (_e) {}
   }
 
-  // فك حظر تشغيل الصوت تلقائياً فور أول تفاعل من المستخدم مع الصفحة امتثالاً لسياسة المتصفحات الصارمة
+  // فك حظر تشغيل الصوت تلقائياً فور أول تفاعل من المستخدم مع الصفحة
   private setupUserGestureUnlock() {
     if (typeof window === 'undefined') return;
     const unlock = () => {
@@ -62,7 +63,7 @@ class SoundNotifier {
   }
 
   // عزف النغمة التخليقية الثنائية
-  private playSyntheticChime() {
+  public playSyntheticChime() {
     try {
       this.initCtx();
       if (!this.audioCtx) return;
@@ -81,7 +82,7 @@ class SoundNotifier {
       osc1.start(now);
       osc1.stop(now + 0.4);
 
-      // النغمة الثانية (أعلى وأقوى بعد 150 ملي ثانية)
+      // النغمة الثانية (أعلى بعد 150 ملي ثانية)
       const osc2 = this.audioCtx.createOscillator();
       const gain2 = this.audioCtx.createGain();
       osc2.type = 'sine';
@@ -93,23 +94,27 @@ class SoundNotifier {
       osc2.start(now + 0.15);
       osc2.stop(now + 0.6);
     } catch (e) {
-      console.warn("Sound play error:", e);
+      console.warn('Sound play error:', e);
     }
   }
 
-  // عزف النغمة المخصصة أو الاحتياطية
-  private playChime() {
+  // تشغيل تنبيه متكرر ذكي: يشغل الصوت المخصص عبر loop نظيف يمنع تكرار/تداخل الصوت مع نفسه
+  public startRepeatingAlarm() {
+    this.stopRepeatingAlarm();
     if (this.isMuted) return;
 
     if (this.customAudioUrl) {
       try {
         const audio = new Audio(this.customAudioUrl);
         audio.volume = this.customVolume;
+        audio.loop = true; // تكرار تلقائي نظيف لنفس الملف الصوتي
+        this.activeAudio = audio;
+
         const playPromise = audio.play();
         if (playPromise !== undefined) {
-          playPromise.catch((_err) => {
-            // في حال منع المتصفح تشغيل ملف الصوت المخصص، نلجأ فوراً لـ Web Audio API التخليقي
-            this.playSyntheticChime();
+          playPromise.catch(() => {
+            // في حال منع المتصفح تشغيل الملف الصوتي المخصص، نلجأ للرنين التخليقي
+            this.startSyntheticLoop();
           });
         }
         return;
@@ -118,22 +123,28 @@ class SoundNotifier {
       }
     }
 
+    this.startSyntheticLoop();
+  }
+
+  private startSyntheticLoop() {
     this.playSyntheticChime();
-  }
-
-  // تشغيل تنبيه متكرر لا يتوقف حتى يقوم الكاشير بالاستجابة
-  public startRepeatingAlarm() {
-    this.stopRepeatingAlarm();
-    this.playChime();
     this.intervalId = setInterval(() => {
-      this.playChime();
-    }, 2000); // تكرار كل ثانيتين
+      this.playSyntheticChime();
+    }, 2500);
   }
 
+  // إيقاف التنبيه الصوتي فوراً وبشكل قاطع
   public stopRepeatingAlarm() {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
+    }
+    if (this.activeAudio) {
+      try {
+        this.activeAudio.pause();
+        this.activeAudio.currentTime = 0;
+      } catch (_e) {}
+      this.activeAudio = null;
     }
   }
 

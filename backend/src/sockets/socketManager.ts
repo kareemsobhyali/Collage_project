@@ -272,16 +272,17 @@ export function recordAndBroadcastOrderQuickMessage(params: {
   orderQuickMessages.set(params.orderId, nextList);
 
   if (io) {
-    io.to(`order_${params.orderId}`).emit("order_quick_message", msg);
+    let target = io.to(`order_${params.orderId}`);
     if (params.userId) {
-      io.to(`user_${params.userId}`).emit("order_quick_message", msg);
+      target = target.to(`user_${params.userId}`);
     }
     if (params.driverId) {
-      io.to(`driver_${params.driverId}`).emit("order_quick_message", msg);
+      target = target.to(`driver_${params.driverId}`);
     }
     if (params.branchId) {
-      io.to(`branch_${params.branchId}`).emit("order_quick_message", msg);
+      target = target.to(`branch_${params.branchId}`);
     }
+    target.emit("order_quick_message", msg);
   }
 
   return msg;
@@ -306,12 +307,16 @@ export function notifyBranchNewOrder(branchId: string, order: any): void {
 
 export function notifyOrderStatusChanged(orderId: string, branchId: string, order: any, driverId?: string): void {
   if (io) {
-    // تحديث العميل والديسكتوب
-    io.to(`order_${orderId}`).emit("order_status_updated", order);
+    // إرسال التحديث لغرف الطلب والمستخدم والفرع في إرسال موحد لتجنب تكرار استلام الحدث لنفس الاتصال
+    let target = io.to(`order_${orderId}`);
     if (order?.userId) {
-      io.to(`user_${order.userId}`).emit("order_status_updated", order);
+      target = target.to(`user_${order.userId}`);
     }
-    io.to(`branch_${branchId}`).emit("order_status_updated", order);
+    if (branchId) {
+      target = target.to(`branch_${branchId}`);
+    }
+    target.emit("order_status_updated", order);
+
     if (driverId || order?.driverId) {
       io.to(`driver_${driverId || order.driverId}`).emit("order_status_updated", sanitizeOrderForDriverSocket(order));
     }
