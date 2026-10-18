@@ -26,15 +26,22 @@ body {
   position: relative;
 }
 
+html.modal-open,
 body.modal-open {
   overflow: hidden !important;
-  overscroll-behavior: contain !important;
+  height: 100% !important;
+  max-height: 100dvh !important;
+  overscroll-behavior: none !important;
+  touch-action: none;
 }
 
 /* تحسين السكرول في الهواتف وحاويات النوافذ المنبثقة */
-.modal-scroll {
+.modal-scroll,
+html.modal-open .modal-scroll,
+body.modal-open .modal-scroll {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 /* إخفاء شريط التمرير للأقسام الأفقية في الهواتف مع الحفاظ على اللمس السلس */

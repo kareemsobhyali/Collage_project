@@ -130,22 +130,29 @@ export function App() {
   );
 
   useEffect(() => {
-    // Clear any previous documentElement lock to ensure smooth scrolling
-    if (document.documentElement.style.overflow) {
-      document.documentElement.style.overflow = '';
-      document.documentElement.style.overscrollBehavior = '';
-    }
-
     if (isAnyModalOpen) {
+      document.documentElement.classList.add('modal-open');
       document.body.classList.add('modal-open');
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overscrollBehavior = 'none';
+      document.body.style.overscrollBehavior = 'none';
     } else {
+      document.documentElement.classList.remove('modal-open');
       document.body.classList.remove('modal-open');
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.documentElement.style.overscrollBehavior = '';
+      document.body.style.overscrollBehavior = '';
     }
 
     return () => {
+      document.documentElement.classList.remove('modal-open');
       document.body.classList.remove('modal-open');
       document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
       document.documentElement.style.overscrollBehavior = '';
+      document.body.style.overscrollBehavior = '';
     };
   }, [isAnyModalOpen]);
 

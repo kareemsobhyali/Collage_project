@@ -106,6 +106,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
 
+  // Disable background scrolling when ProfileModal opens, restore when it closes
+  useEffect(() => {
+    document.documentElement.classList.add('modal-open');
+    document.body.classList.add('modal-open');
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+    document.body.style.overscrollBehavior = 'none';
+
+    return () => {
+      document.documentElement.classList.remove('modal-open');
+      document.body.classList.remove('modal-open');
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.documentElement.style.overscrollBehavior = '';
+      document.body.style.overscrollBehavior = '';
+    };
+  }, []);
+
   const handleSubmitSupport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supportSubject.trim() || !supportMessage.trim()) {
@@ -389,7 +408,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-5 overflow-y-auto modal-scroll flex-1 space-y-5">
+        <div className={`p-5 modal-scroll flex-1 space-y-5 ${showSupportModal || showDeleteConfirm ? 'overflow-hidden pointer-events-none' : 'overflow-y-auto'}`}>
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -803,164 +822,192 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
         {/* Support Ticket Modal Dialog */}
         {showSupportModal && (
-          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-fadeIn">
-            <div className="bg-white rounded-2xl max-w-md w-full p-4.5 shadow-2xl space-y-3.5 border border-slate-100 max-h-[92%] overflow-y-auto">
-              <div className="flex items-center justify-between border-b pb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">
-                    <LifeBuoy className="w-4 h-4" />
+          <div 
+            className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowSupportModal(false);
+            }}
+            onTouchMove={(e) => {
+              if (e.target === e.currentTarget) e.preventDefault();
+            }}
+          >
+            <div 
+              className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 flex flex-col max-h-[88vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                    <LifeBuoy className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-black text-slate-900">إرسال بلاغ أو مشكلة للإدارة</h4>
-                    <p className="text-[10px] text-slate-500">سيتم مراجعتها من فريق الإدارة فوراً</p>
+                    <h4 className="text-sm font-black text-slate-900">إرسال بلاغ أو مشكلة للإدارة</h4>
+                    <p className="text-[10px] text-slate-500 font-medium">فريق الدعم جاهز لمساعدتك وحل مشكلتك فوراً</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowSupportModal(false)}
-                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                  className="w-8 h-8 rounded-xl bg-slate-200/70 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Fast WhatsApp direct contact banner */}
-              <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-200/80 rounded-2xl flex items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <MessageCircle className="w-4 h-4" />
+              {/* Form Content - Scrollable */}
+              <form onSubmit={handleSubmitSupport} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="p-4 space-y-3.5 overflow-y-auto modal-scroll flex-1">
+                  {/* WhatsApp Fast Track Banner */}
+                  <a
+                    href={supportWhatsappData.whatsappUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 rounded-2xl flex items-center justify-between gap-2.5 transition-all group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                        <MessageCircle className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                          <span>تحتاج رداً فورياً؟</span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-200 text-emerald-900 rounded-full">واتساب مباشر</span>
+                        </div>
+                        <p className="text-[10px] text-emerald-700 truncate">تحدث مع مشرف الدعم على {supportWhatsappData.whatsappPhone}</p>
+                      </div>
+                    </div>
+                    <span className="px-3 py-1 bg-emerald-600 text-white text-[11px] font-black rounded-xl shrink-0 shadow-xs flex items-center gap-1">
+                      فتح المحادثة
+                    </span>
+                  </a>
+
+                  <div className="relative flex items-center justify-center my-0.5">
+                    <div className="border-t border-slate-200 w-full" />
+                    <span className="bg-white px-3 text-[10px] font-bold text-slate-400 shrink-0">أو سجّل تذكرة داخل المنظومة</span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-black text-emerald-950">هل تفضل الرد الفوري؟</p>
-                    <p className="text-[10px] text-emerald-700 truncate">تحدث مع مشرف الدعم عبر واتساب مباشرة</p>
-                  </div>
-                </div>
-                <a
-                  href={supportWhatsappData.whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black rounded-xl transition-all shadow-xs flex items-center gap-1 active:scale-95"
-                >
-                  <span>محادثة فورية</span>
-                </a>
-              </div>
 
-              <div className="relative flex items-center justify-center my-1">
-                <div className="border-t border-slate-200 w-full" />
-                <span className="bg-white px-2.5 text-[10px] font-bold text-slate-400 shrink-0">أو أرسل تذكرة داخلية للمنظومة</span>
-              </div>
+                  {supportErrorMsg && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{supportErrorMsg}</span>
+                    </div>
+                  )}
 
-              {supportErrorMsg && (
-                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{supportErrorMsg}</span>
-                </div>
-              )}
+                  {supportSuccessMsg && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                      <Sparkles className="w-4 h-4 shrink-0 text-emerald-600" />
+                      <span>{supportSuccessMsg}</span>
+                    </div>
+                  )}
 
-              {supportSuccessMsg && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
-                  <Sparkles className="w-4 h-4 shrink-0 text-emerald-600" />
-                  <span>{supportSuccessMsg}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmitSupport} className="space-y-3">
-                {/* Category Selection as interactive cards instead of native select */}
-                <div>
-                  <label className="block text-[11px] font-black text-slate-700 mb-1.5">نوع المشكلة / الموضوع:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {SUPPORT_CATEGORIES.map((cat, idx) => {
-                      const isSelected = supportCategory === cat.id;
-                      const isFullWidth = idx === SUPPORT_CATEGORIES.length - 1 && SUPPORT_CATEGORIES.length % 2 !== 0;
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setSupportCategory(cat.id as any)}
-                          className={`${
-                            isFullWidth ? 'col-span-2 py-2 px-3 flex items-center justify-between' : 'p-2.5 flex flex-col justify-between'
-                          } rounded-xl border text-right transition-all cursor-pointer relative active:scale-98 ${
-                            isSelected
-                              ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-950 shadow-xs'
-                              : 'bg-slate-50 border-slate-200/80 hover:bg-slate-100 hover:border-slate-300 text-slate-800'
-                          }`}
-                        >
-                          <div className={`flex ${isFullWidth ? 'items-center gap-2.5' : 'flex-col gap-1'}`}>
-                            <div className="flex items-center justify-between">
-                              <span className="text-base">{cat.icon}</span>
-                              {!isFullWidth && isSelected && (
-                                <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                                  <Check className="w-2.5 h-2.5 stroke-[3]" />
-                                </span>
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-xs font-black">{cat.label}</div>
-                              <div className={`text-[10px] ${isSelected ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
-                                {cat.desc}
+                  {/* Symmetrical Category Selection */}
+                  <div>
+                    <label className="block text-[11px] font-black text-slate-700 mb-1.5">
+                      اختر نوع المشكلة / الموضوع:
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SUPPORT_CATEGORIES.map((cat, idx) => {
+                        const isSelected = supportCategory === cat.id;
+                        const isFullWidth = idx === SUPPORT_CATEGORIES.length - 1 && SUPPORT_CATEGORIES.length % 2 !== 0;
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setSupportCategory(cat.id as any)}
+                            className={`${isFullWidth ? 'col-span-2' : ''} p-2.5 rounded-2xl border text-right transition-all cursor-pointer flex items-center justify-between gap-2 active:scale-98 ${
+                              isSelected
+                                ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-950 shadow-xs'
+                                : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/80 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 transition-colors ${
+                                isSelected ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white border border-slate-200'
+                              }`}>
+                                {cat.icon}
+                              </div>
+                              <div className="min-w-0 text-right">
+                                <div className={`text-xs font-black truncate ${isSelected ? 'text-indigo-950' : 'text-slate-900'}`}>
+                                  {cat.label}
+                                </div>
+                                <div className={`text-[10px] truncate ${isSelected ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
+                                  {cat.desc}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          {isFullWidth && isSelected && (
-                            <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                              <Check className="w-2.5 h-2.5 stroke-[3]" />
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
+
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                              isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white'
+                            }`}>
+                              {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">عنوان البلاغ أو المشكلة:</label>
-                  <input
-                    type="text"
-                    placeholder="مثال: خصم خاطئ من المحفظة، تأخر استلام طلب..."
-                    value={supportSubject}
-                    onChange={(e) => setSupportSubject(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-600 focus:outline-none"
-                    required
-                  />
-                </div>
-
-                {supportCategory === 'ORDER_ISSUE' && (
+                  {/* Subject input */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">رقم الطلب (اختياري):</label>
+                    <label className="block text-[11px] font-black text-slate-700 mb-1">
+                      عنوان البلاغ أو المشكلة <span className="text-rose-500">*</span>
+                    </label>
                     <input
                       type="text"
-                      placeholder="مثال: 1042"
-                      value={supportOrderNumber}
-                      onChange={(e) => setSupportOrderNumber(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                      placeholder="مثال: خصم خاطئ من المحفظة، تأخر استلام طلب..."
+                      value={supportSubject}
+                      onChange={(e) => setSupportSubject(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all placeholder:text-slate-400"
+                      required
                     />
                   </div>
-                )}
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">تفاصيل المشكلة:</label>
-                  <textarea
-                    rows={3}
-                    placeholder="اشرح المشكلة بالتفصيل حتى يتمكن فريق الإدارة من حلها سريعاً..."
-                    value={supportMessage}
-                    onChange={(e) => setSupportMessage(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
-                    required
-                  />
+                  {/* Order Number input */}
+                  {supportCategory === 'ORDER_ISSUE' && (
+                    <div className="animate-fadeIn">
+                      <label className="block text-[11px] font-black text-slate-700 mb-1">
+                        رقم الطلب (اختياري):
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="مثال: #1042"
+                        value={supportOrderNumber}
+                        onChange={(e) => setSupportOrderNumber(e.target.value)}
+                        className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+                  )}
+
+                  {/* Message textarea */}
+                  <div>
+                    <label className="block text-[11px] font-black text-slate-700 mb-1">
+                      تفاصيل المشكلة <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="اشرح المشكلة بالتفصيل حتى يتمكن المشرف من حلها سريعاً..."
+                      value={supportMessage}
+                      onChange={(e) => setSupportMessage(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all placeholder:text-slate-400 resize-none"
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div className="flex gap-2 pt-1">
+                {/* Footer Buttons */}
+                <div className="p-3.5 border-t border-slate-100 bg-slate-50 flex items-center gap-2.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => setShowSupportModal(false)}
-                    className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    className="flex-1 py-2.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
                   >
                     إلغاء
                   </button>
                   <button
                     type="submit"
                     disabled={sendingSupport}
-                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/25 active:scale-98 disabled:opacity-50 cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>{sendingSupport ? 'جاري الإرسال...' : 'إرسال للإدارة'}</span>
@@ -973,13 +1020,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
         {/* Delete Account Confirmation Dialog */}
         {showDeleteConfirm && (
-          <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 animate-fadeIn">
-            <div className="bg-white rounded-2xl max-w-sm w-full p-4.5 shadow-2xl space-y-3.5 border border-rose-200">
-              <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
-                <ShieldAlert className="w-5 h-5" />
+          <div 
+            className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !deletingAccount) setShowDeleteConfirm(false);
+            }}
+            onTouchMove={(e) => {
+              if (e.target === e.currentTarget) e.preventDefault();
+            }}
+          >
+            <div 
+              className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 border border-rose-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto shadow-xs">
+                <ShieldAlert className="w-6 h-6" />
               </div>
 
-              <div className="text-center space-y-1">
+              <div className="text-center space-y-1.5">
                 <h4 className="text-sm font-black text-slate-900">هل أنت متأكد من حذف حسابك؟</h4>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
                   سيؤدي هذا الإجراء إلى حذف جميع عناوينك المسجلة، نقاط الولاء، ورصيدك في المحفظة نهائياً. لا يمكن التراجع عن هذا الإجراء بعد تنفيذه.
@@ -993,12 +1051,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2.5 pt-1">
                 <button
                   type="button"
                   disabled={deletingAccount}
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   إلغاء وتراجع
                 </button>
@@ -1006,7 +1064,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   type="button"
                   disabled={deletingAccount}
                   onClick={handleConfirmDeleteAccount}
-                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-600/25 active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{deletingAccount ? 'جاري الحذف...' : 'نعم، حذف الحساب'}</span>
