@@ -2658,16 +2658,17 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Restaurant.apk')}
+                <a
+                  href="/branch/"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all active:scale-95"
-                  title="تحميل تطبيق أندرويد APK مخصص لكاشير ومطبخ المطعم لاستقبال الطلبات الفورية"
+                  title="فتح بوابة كاشير ومطبخ المطعم مباشرة في المتصفح"
                 >
-                  <Smartphone className="w-4 h-4 text-emerald-400" />
-                  <span className="hidden sm:inline">تحميل</span>
-                  <span>تطبيق كاشير المطاعم (APK)</span>
-                </button>
+                  <Store className="w-4 h-4 text-emerald-400" />
+                  <span className="hidden sm:inline">فتح بوابة</span>
+                  <span>كاشير المطاعم (Web)</span>
+                </a>
 
                 <button
                   onClick={() => setShowAddBranchModal(true)}
@@ -6317,33 +6318,32 @@ export const AdminPage: React.FC = () => {
 
               {/* Action Buttons for Both Apps */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* 1. Restaurant Kitchen APK */}
+                {/* 1. Restaurant Kitchen Web Portal */}
                 <div className="p-4 bg-emerald-950/30 border border-emerald-800/50 rounded-2xl flex flex-col justify-between gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
                         <Store className="w-4 h-4 text-emerald-400" />
-                        <span>نسخة كاشير ومطبخ المطعم (Foodify Business)</span>
+                        <span>لوحة كاشير ومطبخ المطعم (Foodify Business)</span>
                       </span>
                       <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-bold rounded">
-                        com.foodify.restaurant
+                        Web & Desktop
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-relaxed">
-                      مخصصة لهواتف وتابلت كاشير ومطبخ المطاعم لاستقبال الطلبات فورياً مع إنذار صوتي مستمر وإبقاء الشاشة مفعلة دائماً.
+                      تعمل مباشرة عبر المتصفح أو الكمبيوتر أو التابلت لاستقبال الطلبات فورياً مع إنذار صوتي وطباعة الإيصالات الحرارية.
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Restaurant.apk');
-                    }}
+                  <a
+                    href="/branch/"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 shrink-0"
                   >
-                    <Smartphone className="w-4 h-4" />
-                    <span>تحميل تطبيق كاشير ومطبخ المطعم</span>
-                  </button>
+                    <Store className="w-4 h-4" />
+                    <span>فتح لوحة كاشير ومطبخ المطعم</span>
+                  </a>
                 </div>
 
                 {/* 2. Admin Control Panel APK */}
