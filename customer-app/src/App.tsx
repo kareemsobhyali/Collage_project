@@ -906,7 +906,7 @@ export function App() {
             {!isRunningInNativeApk() && (
               <button
                 type="button"
-                onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk')}
+                onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Customer.apk')}
                 className="h-9 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0"
                 title="تثبيت تطبيق الطلاب للأندرويد"
               >

@@ -2325,7 +2325,7 @@ export const AdminPage: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
               <span>العودة لشاشة متجر الطلاب</span>
             </button>
-            <span className="text-[11px] text-slate-600 font-mono">UniFood v1.0</span>
+            <span className="text-[11px] text-slate-600 font-mono">Foodify v1.0</span>
           </div>
         </div>
       </div>
@@ -2660,7 +2660,7 @@ export const AdminPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Restaurant.apk')}
+                  onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Restaurant.apk')}
                   className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all active:scale-95"
                   title="تحميل تطبيق أندرويد APK مخصص لكاشير ومطبخ المطعم لاستقبال الطلبات الفورية"
                 >
@@ -6323,10 +6323,10 @@ export const AdminPage: React.FC = () => {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
                         <Store className="w-4 h-4 text-emerald-400" />
-                        <span>نسخة كاشير ومطبخ المطعم (Restaurant APK)</span>
+                        <span>نسخة كاشير ومطبخ المطعم (Foodify Business)</span>
                       </span>
                       <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-bold rounded">
-                        com.unifood.restaurant
+                        com.foodify.restaurant
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-relaxed">
@@ -6337,7 +6337,7 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Restaurant.apk');
+                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Restaurant.apk');
                     }}
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 shrink-0"
                   >
@@ -6352,10 +6352,10 @@ export const AdminPage: React.FC = () => {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-purple-400" />
-                        <span>نسخة لوحة تحكم الإدارة (Admin APK)</span>
+                        <span>نسخة لوحة تحكم الإدارة (Foodify Admin)</span>
                       </span>
                       <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[9px] font-mono font-bold rounded">
-                        com.unifood.admin
+                        com.foodify.admin
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-relaxed">
@@ -6366,7 +6366,7 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
+                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Admin.apk');
                     }}
                     className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 shrink-0"
                   >
@@ -7129,7 +7129,7 @@ export const AdminPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
+                  triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Admin.apk');
                 }}
                 className="w-full p-3 bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/70 border border-purple-700/60 rounded-2xl flex items-center justify-between gap-3 text-white transition-all active:scale-98 shadow-md"
               >
