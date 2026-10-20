@@ -44,6 +44,9 @@ model Branch {
   openingTime       String?               @default("08:00") // موعد بدء العمل اليومي (مثال: 08:00)
   closingTime       String?               @default("22:00") // موعد إغلاق العمل اليومي (مثال: 22:00)
   workingDays       String?               @default("SUN,MON,TUE,WED,THU,FRI,SAT") // أيام العمل المتاحة
+  isSubscriptionActive  Boolean           @default(true) // تفعيل/تجميد اشتراك المطعم
+  subscriptionExpiresAt DateTime?                                // تاريخ انتهاء الصلاحية
+  subscriptionPlan      String?           @default("MONTHLY") // باقة الاشتراك: "TRIAL" | "MONTHLY" | "YEARLY" | "LIFETIME"
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
   users             BranchUser[]

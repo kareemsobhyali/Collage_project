@@ -54,10 +54,21 @@ router.post("/login", async (req: Request, res: Response) => {
       username: branchUser.username,
     });
 
+    const now = new Date();
+    const isSubscriptionExpired = branchUser.branch.isSubscriptionActive === false || 
+      (branchUser.branch.subscriptionExpiresAt ? now > new Date(branchUser.branch.subscriptionExpiresAt) : false);
+    const daysLeft = branchUser.branch.subscriptionExpiresAt 
+      ? Math.max(0, Math.ceil((new Date(branchUser.branch.subscriptionExpiresAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) 
+      : null;
+
     res.json({
       success: true,
       token,
-      branch: branchUser.branch,
+      branch: {
+        ...branchUser.branch,
+        isSubscriptionExpired,
+        daysLeft,
+      },
     });
   } catch (error) {
     console.error("Branch login error:", error);
@@ -123,7 +134,18 @@ router.get("/profile", async (req: AuthRequest, res: Response) => {
       });
     }
 
-    res.json(branch);
+    const now = new Date();
+    const isSubscriptionExpired = branch.isSubscriptionActive === false || 
+      (branch.subscriptionExpiresAt ? now > new Date(branch.subscriptionExpiresAt) : false);
+    const daysLeft = branch.subscriptionExpiresAt 
+      ? Math.max(0, Math.ceil((new Date(branch.subscriptionExpiresAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) 
+      : null;
+
+    res.json({
+      ...branch,
+      isSubscriptionExpired,
+      daysLeft,
+    });
   } catch (error) {
     res.status(500).json({ error: "فشل استرجاع بيانات الفرع" });
   }

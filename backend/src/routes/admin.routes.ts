@@ -145,6 +145,9 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
       slug,
       username,
       password,
+      subscriptionPlan,
+      subscriptionExpiresAt,
+      isSubscriptionActive,
     } = req.body;
 
     if (!name) {
@@ -186,6 +189,11 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
         allowDelivery: allowDelivery !== undefined ? Boolean(allowDelivery) : true,
         allowPickup: allowPickup !== undefined ? Boolean(allowPickup) : true,
         isActive: true,
+        isSubscriptionActive: isSubscriptionActive !== undefined ? Boolean(isSubscriptionActive) : true,
+        subscriptionPlan: subscriptionPlan ? String(subscriptionPlan).trim() : "MONTHLY",
+        subscriptionExpiresAt: subscriptionExpiresAt 
+          ? new Date(subscriptionExpiresAt) 
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // الافتراضي 30 يوماً
         // إعدادات الدفع الافتراضية للفرع
         paymentConfig: {
           create: {
@@ -274,7 +282,10 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
       workingDays,
       operationalStatus,
       closedUntil,
-      closingReason
+      closingReason,
+      subscriptionPlan,
+      subscriptionExpiresAt,
+      isSubscriptionActive,
     } = req.body;
 
     let formattedSlug: string | null | undefined = undefined;
@@ -310,6 +321,9 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
         operationalStatus: operationalStatus !== undefined ? String(operationalStatus).trim() : undefined,
         closedUntil: closedUntil !== undefined ? (closedUntil ? new Date(closedUntil) : null) : undefined,
         closingReason: closingReason !== undefined ? (closingReason ? String(closingReason).trim() : null) : undefined,
+        subscriptionPlan: subscriptionPlan !== undefined ? (subscriptionPlan ? String(subscriptionPlan).trim() : null) : undefined,
+        subscriptionExpiresAt: subscriptionExpiresAt !== undefined ? (subscriptionExpiresAt ? new Date(subscriptionExpiresAt) : null) : undefined,
+        isSubscriptionActive: isSubscriptionActive !== undefined ? Boolean(isSubscriptionActive) : undefined,
       },
     });
 
@@ -320,6 +334,53 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Update branch details error:", error);
     res.status(500).json({ error: "فشل تحديث بيانات الفرع" });
+  }
+});
+
+// تجديد اشتراك الفرع وإطالة فترة الصلاحية
+router.post("/branches/:id/renew-subscription", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { days = 30, plan } = req.body;
+
+    const currentBranch = await prisma.branch.findUnique({
+      where: { id },
+      select: { id: true, subscriptionExpiresAt: true },
+    });
+
+    if (!currentBranch) {
+      res.status(404).json({ error: "الفرع غير موجود" });
+      return;
+    }
+
+    const now = new Date();
+    // إذا كان الاشتراك منتهياً نبدأ من الآن، وإذا كان لا يزال سارياً نضيف الأيام فوق التاريخ المتبقي
+    const baseDate = currentBranch.subscriptionExpiresAt && currentBranch.subscriptionExpiresAt > now
+      ? currentBranch.subscriptionExpiresAt
+      : now;
+
+    const newExpiresAt = new Date(baseDate.getTime() + Number(days) * 24 * 60 * 60 * 1000);
+
+    const updated = await prisma.branch.update({
+      where: { id },
+      data: {
+        isSubscriptionActive: true,
+        subscriptionExpiresAt: newExpiresAt,
+        subscriptionPlan: plan ? String(plan).trim() : undefined,
+      },
+    });
+
+    notifyBranchStatusChanged(id, updated);
+    notifyBranchesListChanged();
+
+    res.json({
+      success: true,
+      message: `تم تجديد الاشتراك بنجاح لمدة ${days} يوماً`,
+      branch: updated,
+    });
+  } catch (error) {
+    console.error("Renew branch subscription error:", error);
+    res.status(500).json({ error: "فشل تجديد اشتراك الفرع" });
   }
 });
 
