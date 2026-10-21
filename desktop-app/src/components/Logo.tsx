@@ -30,19 +30,19 @@ export const Logo: React.FC<LogoProps> = ({
       <div className={`overflow-hidden shadow-md shrink-0 border border-indigo-100 ${iconSizes[size]}`}>
         <img
           src="/logo.png"
-          alt="Foodify Logo"
+          alt="UniFood Logo"
           className="w-full h-full object-cover"
         />
       </div>
 
       <div className="flex flex-col shrink-0">
         <div className={`font-black tracking-tight leading-none whitespace-nowrap ${textSizes[size]}`}>
-          <span className={lightText ? 'text-white' : 'text-indigo-950'}>Food</span>
-          <span className="text-amber-500">ify</span>
+          <span className={lightText ? 'text-white' : 'text-indigo-950'}>Uni</span>
+          <span className="text-amber-500">Food</span>
         </div>
         {showSubtitle && (
           <span className={`text-[10px] font-bold mt-0.5 leading-tight whitespace-nowrap ${lightText ? 'text-indigo-200' : 'text-slate-400'}`}>
-            Foodify Business • إدارة وكاشير المطعم
+            لوحة تحكم فروع المطاعم
           </span>
         )}
       </div>

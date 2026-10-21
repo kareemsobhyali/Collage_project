@@ -20,7 +20,6 @@ import {
 import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress } from '../services/campusLocations';
 import { getItemFallbackImage } from '../utils/foodImages';
-import { APP_CONFIG } from '../appConfig';
 
 interface BranchMenuProps {
   branch: any;
@@ -724,20 +723,13 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       {/* Top Navigation & Branch Info */}
       <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-          {APP_CONFIG.mode !== 'SINGLE_RESTAURANT' ? (
-            <button
-              onClick={onBack}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
-            >
-              <ArrowRight className="w-4 h-4 shrink-0" />
-              <span>العودة لقائمة المطاعم</span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>قائمة الطعام المباشرة</span>
-            </div>
-          )}
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+          >
+            <ArrowRight className="w-4 h-4 shrink-0" />
+            <span>العودة لقائمة المطاعم</span>
+          </button>
 
           <div className="flex items-center gap-1.5">
             {/* Verified Student Reviews Button ⭐ */}

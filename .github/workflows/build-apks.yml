@@ -62,7 +62,7 @@ jobs:
               -dname "CN=UniFood, OU=Campus, O=UniFood, L=Cairo, ST=Cairo, C=EG"
           fi
 
-      - name: Build Signed Customer, Driver & Admin APKs
+      - name: Build Signed Student, Driver, Admin & Restaurant APKs
         working-directory: android-app
         env:
           INPUT_BASE_URL: ${{ github.event.inputs.base_url }}
@@ -77,53 +77,58 @@ jobs:
           STUDENT_APK=$(find android-app/app/build/outputs/apk/student/release -name "*.apk" | head -n 1)
           DRIVER_APK=$(find android-app/app/build/outputs/apk/driver/release -name "*.apk" | head -n 1)
           ADMIN_APK=$(find android-app/app/build/outputs/apk/admin/release -name "*.apk" | head -n 1)
-          cp "$STUDENT_APK" ./Foodify-Customer.apk
-          cp "$DRIVER_APK" ./Foodify-Driver.apk
-          cp "$ADMIN_APK" ./Foodify-Admin.apk
+          RESTAURANT_APK=$(find android-app/app/build/outputs/apk/restaurant/release -name "*.apk" | head -n 1)
           cp "$STUDENT_APK" ./UniFood-Student.apk
           cp "$DRIVER_APK" ./UniFood-Driver.apk
           cp "$ADMIN_APK" ./UniFood-Admin.apk
-          ls -lh ./Foodify-*.apk ./UniFood-*.apk
+          cp "$RESTAURANT_APK" ./UniFood-Restaurant.apk
+          ls -lh ./UniFood-Student.apk ./UniFood-Driver.apk ./UniFood-Admin.apk ./UniFood-Restaurant.apk
 
-      - name: Upload Customer APK Artifact
+      - name: Upload Student APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Foodify-Customer-APK
-          path: ./Foodify-Customer.apk
+          name: UniFood-Student-APK
+          path: ./UniFood-Student.apk
           if-no-files-found: error
 
       - name: Upload Driver APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Foodify-Driver-APK
-          path: ./Foodify-Driver.apk
+          name: UniFood-Driver-APK
+          path: ./UniFood-Driver.apk
           if-no-files-found: error
 
       - name: Upload Admin APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Foodify-Admin-APK
-          path: ./Foodify-Admin.apk
+          name: UniFood-Admin-APK
+          path: ./UniFood-Admin.apk
+          if-no-files-found: error
+
+      - name: Upload Restaurant APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniFood-Restaurant-APK
+          path: ./UniFood-Restaurant.apk
           if-no-files-found: error
 
       - name: Publish APKs to GitHub Releases (latest-apk)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-apk
-          name: "📲 تطبيقات Foodify للأندرويد (العملاء + الطيارين + الإدارة)"
+          name: "📲 تطبيقات UniFood للأندرويد (الطلاب + الطيارين + الإدارة + المطاعم)"
           body: |
-            ### 🚀 تطبيقات منظومة Foodify الذكية للأندرويد (تحديث تلقائي)
-            - **نسخة لوحة التحكم المركزية (`Foodify-Admin.apk`)**: تفتح لوحة تحكم الإدارة المركزية والطلبات والفروع والاشتراكات مباشرة.
-            - **نسخة العملاء (`Foodify-Customer.apk`)**: تفتح متجر العملاء وسلة الطلبات مباشرة لكل مطعم.
-            - **نسخة كابتن التوصيل (`Foodify-Driver.apk`)**: تفتح بوابة الطيارين مباشرة مع إبقاء الشاشة نشطة والتنبيه الصوتي.
-            *(تطبيق كاشير المطاعم يعمل مباشرة عبر المتصفح والكمبيوتر والتابلت: `/branch/`)*
+            ### 🎓 تطبيقات منظومة يونيفود للأندرويد (تحديث تلقائي)
+            - **نسخة كاشير ومطبخ المطعم (`UniFood-Restaurant.apk`)**: تفتح شاشة الكاشير والـ POS للمطعم مباشرة، وتستقبل الطلبات فورياً مع إنذار صوتي مستمر وإبقاء الشاشة مفعلة.
+            - **نسخة لوحة التحكم المركزية (`UniFood-Admin.apk`)**: تفتح لوحة تحكم الإدارة المركزية والطلبات والفروع مباشرة.
+            - **نسخة الطلاب (`UniFood-Student.apk`)**: تفتح متجر الطلاب وسلة الشلة مباشرة.
+            - **نسخة كابتن التوصيل (`UniFood-Driver.apk`)**: تفتح بوابة الطيارين مباشرة مع إبقاء الشاشة نشطة والتنبيه الصوتي.
+            *(يمكن تثبيت التطبيقات الأربعة معاً على نفس الهاتف أو التابلت بدون أي تعارض لأن لكل تطبيق Package Name مستقل)*
           files: |
-            ./Foodify-Customer.apk
-            ./Foodify-Driver.apk
-            ./Foodify-Admin.apk
             ./UniFood-Student.apk
             ./UniFood-Driver.apk
             ./UniFood-Admin.apk
+            ./UniFood-Restaurant.apk
           prerelease: false
 
         env:

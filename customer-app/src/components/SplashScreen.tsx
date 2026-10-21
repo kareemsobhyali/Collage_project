@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { getFullImageUrl } from '../services/api';
 import { Sparkles, UtensilsCrossed, CheckCircle2, Store } from 'lucide-react';
-import { APP_CONFIG } from '../appConfig';
 
 interface SplashScreenProps {
   branches?: any[];
@@ -188,39 +187,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       {/* Top Welcome Pill */}
       <div className="pt-4 sm:pt-6 relative z-10 flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/15 text-xs font-bold text-indigo-100 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
         <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-        <span>
-          {APP_CONFIG.mode === 'SINGLE_RESTAURANT' 
-            ? (APP_CONFIG.brand.subTagline || APP_CONFIG.brand.name) 
-            : 'مطاعم الحرم الجامعي متجمعة لك • UniFood'}
-        </span>
+        <span>مطاعم الحرم الجامعي متجمعة لك • UniFood</span>
       </div>
 
-      {/* 2. Centerpiece: Single Restaurant Logo OR Orbiting Multi-Restaurant Logos */}
+      {/* 2. Centerpiece: Orbiting Restaurant Logos Carousel */}
       <div className="relative z-10 flex flex-col items-center text-center my-auto">
-        {APP_CONFIG.mode === 'SINGLE_RESTAURANT' ? (
-          <div className="relative flex flex-col items-center justify-center py-6">
-            <div className="relative z-20 flex items-center justify-center">
-              <div className="absolute w-36 h-36 sm:w-44 sm:h-44 rounded-full border border-amber-400/40 bg-amber-400/10 animate-radar-scan-pulse pointer-events-none" />
-              <div className="absolute w-48 h-48 sm:w-56 sm:h-56 rounded-full border border-indigo-400/25 bg-indigo-500/10 animate-radar-scan-pulse [animation-delay:1.2s] pointer-events-none" />
-
-              <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-3xl bg-white p-3 shadow-2xl border-2 border-indigo-400/40 flex items-center justify-center overflow-hidden animate-hub-breathing">
-                <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/20 via-transparent to-indigo-600/20 rounded-2xl pointer-events-none" />
-                {APP_CONFIG.brand.logoUrl ? (
-                  <img
-                    src={getFullImageUrl(APP_CONFIG.brand.logoUrl)}
-                    alt={APP_CONFIG.brand.name}
-                    className="w-full h-full object-cover rounded-2xl shadow-inner"
-                  />
-                ) : (
-                  <div className="w-full h-full rounded-2xl bg-gradient-to-tr from-indigo-900 to-purple-900 flex items-center justify-center text-amber-400 text-4xl font-black">
-                    🍔
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-        /* Orbit container */
+        {/* Orbit container */}
         <div 
           className="relative flex items-center justify-center"
           style={{ width: `${orbitContainerSize}px`, height: `${orbitContainerSize}px` }}
@@ -331,26 +303,15 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             </div>
           )}
         </div>
-      )}
 
         {/* Brand Typography */}
         <div className="mt-5 space-y-1">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-none">
-            {APP_CONFIG.mode === 'SINGLE_RESTAURANT' ? (
-              <span className="bg-gradient-to-r from-amber-400 via-white to-amber-300 bg-clip-text text-transparent">
-                {APP_CONFIG.brand.name}
-              </span>
-            ) : (
-              <>
-                <span className="text-white">Uni</span>
-                <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent">Food</span>
-              </>
-            )}
+            <span className="text-white">Uni</span>
+            <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent">Food</span>
           </h1>
           <p className="text-xs sm:text-sm text-indigo-200/90 font-bold">
-            {APP_CONFIG.mode === 'SINGLE_RESTAURANT'
-              ? (APP_CONFIG.brand.tagline || 'أشهى المأكولات وأسرع توصيل مباشرة إليك 🍕')
-              : 'كل مطاعم الحرم الجامعي في سلة واحدة 🎓🍔'}
+            كل مطاعم الحرم الجامعي في سلة واحدة 🎓🍔
           </p>
         </div>
       </div>
@@ -367,11 +328,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           {loadingStage === 0 && (
             <>
               <UtensilsCrossed className="w-3.5 h-3.5 text-amber-300 animate-spin" />
-              <span>
-                {APP_CONFIG.mode === 'SINGLE_RESTAURANT' 
-                  ? 'جاري تجهيز قائمة الأصناف...' 
-                  : 'جاري تجهيز قائمة المطاعم...'}
-              </span>
+              <span>جاري تجهيز قائمة المطاعم...</span>
             </>
           )}
           {loadingStage === 1 && (
@@ -383,11 +340,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           {loadingStage === 2 && (
             <>
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
-              <span className="text-emerald-300 font-extrabold">
-                {APP_CONFIG.mode === 'SINGLE_RESTAURANT'
-                  ? `أهلاً بك في ${APP_CONFIG.brand.name} ✨`
-                  : 'مرحباً بك في UniFood ✨'}
-              </span>
+              <span className="text-emerald-300 font-extrabold">مرحباً بك في UniFood ✨</span>
             </>
           )}
         </div>

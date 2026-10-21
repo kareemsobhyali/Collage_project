@@ -66,8 +66,7 @@ import {
   Utensils,
   Headphones,
   LifeBuoy,
-  MessageCircle,
-  Copy
+  MessageCircle
 } from 'lucide-react';
 
 
@@ -570,8 +569,6 @@ export const AdminPage: React.FC = () => {
   const [newDeliveryFee, setNewDeliveryFee] = useState('10');
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newSubscriptionPlan, setNewSubscriptionPlan] = useState<'30_DAYS' | '3_MONTHS' | '6_MONTHS' | '1_YEAR' | 'LIFETIME' | 'CUSTOM'>('30_DAYS');
-  const [newCustomExpiresAt, setNewCustomExpiresAt] = useState('');
 
   // Edit Branch Form
   const [editName, setEditName] = useState('');
@@ -590,9 +587,6 @@ export const AdminPage: React.FC = () => {
   const [editClosingTime, setEditClosingTime] = useState('22:00');
   const [editWorkingDays, setEditWorkingDays] = useState('SUN,MON,TUE,WED,THU,FRI,SAT');
   const [editOperationalStatus, setEditOperationalStatus] = useState('OPEN');
-  const [editSubscriptionActive, setEditSubscriptionActive] = useState(true);
-  const [editSubscriptionPlan, setEditSubscriptionPlan] = useState('MONTHLY');
-  const [editSubscriptionExpiresAt, setEditSubscriptionExpiresAt] = useState('');
 
   // Payment Form
   const [cashEnabled, setCashEnabled] = useState(true);
@@ -1945,19 +1939,6 @@ export const AdminPage: React.FC = () => {
         ? formatAddressWithCoordinates(newAddress, newLat, newLng)
         : (newAddress.trim() || undefined);
 
-      let calculatedExpiresAt: string | undefined = undefined;
-      if (newSubscriptionPlan === '30_DAYS') {
-        calculatedExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      } else if (newSubscriptionPlan === '3_MONTHS') {
-        calculatedExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
-      } else if (newSubscriptionPlan === '6_MONTHS') {
-        calculatedExpiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
-      } else if (newSubscriptionPlan === '1_YEAR') {
-        calculatedExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      } else if (newSubscriptionPlan === 'CUSTOM' && newCustomExpiresAt) {
-        calculatedExpiresAt = new Date(newCustomExpiresAt).toISOString();
-      }
-
       const res = await fetch(`${API_BASE_URL}/admin/branches`, {
         method: 'POST',
         headers: getAdminHeaders(),
@@ -1970,9 +1951,6 @@ export const AdminPage: React.FC = () => {
           deliveryFee: parseFloat(newDeliveryFee) || 10,
           username: newUsername.trim() || undefined,
           password: newPassword.trim() || undefined,
-          subscriptionPlan: newSubscriptionPlan,
-          subscriptionExpiresAt: calculatedExpiresAt,
-          isSubscriptionActive: true,
         }),
       });
       const data = await res.json();
@@ -1987,8 +1965,6 @@ export const AdminPage: React.FC = () => {
       setNewLogoUrl('');
       setNewUsername('');
       setNewPassword('');
-      setNewSubscriptionPlan('30_DAYS');
-      setNewCustomExpiresAt('');
       setShowAddBranchModal(false);
       fetchDashboardData();
     } catch (err: any) {
@@ -2013,9 +1989,6 @@ export const AdminPage: React.FC = () => {
     setEditClosingTime(branch.closingTime || '22:00');
     setEditWorkingDays(branch.workingDays || 'SUN,MON,TUE,WED,THU,FRI,SAT');
     setEditOperationalStatus(branch.operationalStatus || 'OPEN');
-    setEditSubscriptionActive(branch.isSubscriptionActive !== false);
-    setEditSubscriptionPlan(branch.subscriptionPlan || 'MONTHLY');
-    setEditSubscriptionExpiresAt(branch.subscriptionExpiresAt ? String(branch.subscriptionExpiresAt).slice(0, 10) : '');
   };
 
   const handleSaveEditBranch = async (e: React.FormEvent) => {
@@ -2043,9 +2016,6 @@ export const AdminPage: React.FC = () => {
           closingTime: editClosingTime.trim() || '22:00',
           workingDays: editWorkingDays.trim() || 'SUN,MON,TUE,WED,THU,FRI,SAT',
           operationalStatus: editOperationalStatus,
-          isSubscriptionActive: editSubscriptionActive,
-          subscriptionPlan: editSubscriptionPlan,
-          subscriptionExpiresAt: editSubscriptionExpiresAt ? new Date(editSubscriptionExpiresAt).toISOString() : null,
         }),
       });
       const data = await res.json();
@@ -2055,41 +2025,6 @@ export const AdminPage: React.FC = () => {
     } catch (err: any) {
       alert(err.message || 'خطأ في تحديث بيانات الفرع');
     }
-  };
-
-  const handleRenewSubscription = async (branch: any, days: number = 30) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/branches/${branch.id}/renew-subscription`, {
-        method: 'POST',
-        headers: getAdminHeaders(),
-        body: JSON.stringify({ days }),
-      });
-      if (!res.ok) throw new Error('فشل تجديد الاشتراك');
-      alert(`تم تجديد اشتراك مطعم "${branch.name}" بنجاح لمدة ${days} يوماً!`);
-      fetchDashboardData();
-    } catch (err: any) {
-      alert(err.message || 'فشل تجديد اشتراك المطعم');
-    }
-  };
-
-  const handleCopyAppConfig = (branch: any) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000';
-    const apiUrl = `${origin}/api`;
-    const configSnippet = {
-      mode: "SINGLE_RESTAURANT",
-      branchId: branch.id,
-      slug: branch.slug || branch.id,
-      restaurantName: branch.name,
-      tagline: `أشهى المأكولات السريعة من ${branch.name} 🍔`,
-      logoUrl: branch.logoUrl ? getFullImageUrl(branch.logoUrl) : "",
-      phone: branch.phone || "",
-      address: branch.address || "",
-      deliveryFee: branch.deliveryFee || 10,
-      apiUrl: apiUrl,
-    };
-    const jsonStr = JSON.stringify(configSnippet, null, 2);
-    navigator.clipboard.writeText(jsonStr);
-    alert(`تم نسخ كود إعدادات التطبيق (App Config) الخاص بمطعم "${branch.name}" بنجاح!\n\nيمكنك وضعه مباشرة في ملف appConfig.ts الخاص بالـ APK.`);
   };
 
   const handleDeleteBranch = (branch: any) => {
@@ -2325,7 +2260,7 @@ export const AdminPage: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
               <span>العودة لشاشة متجر الطلاب</span>
             </button>
-            <span className="text-[11px] text-slate-600 font-mono">Foodify v1.0</span>
+            <span className="text-[11px] text-slate-600 font-mono">UniFood v1.0</span>
           </div>
         </div>
       </div>
@@ -2658,17 +2593,16 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <a
-                  href="/branch/"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Restaurant.apk')}
                   className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all active:scale-95"
-                  title="فتح بوابة كاشير ومطبخ المطعم مباشرة في المتصفح"
+                  title="تحميل تطبيق أندرويد APK مخصص لكاشير ومطبخ المطعم لاستقبال الطلبات الفورية"
                 >
-                  <Store className="w-4 h-4 text-emerald-400" />
-                  <span className="hidden sm:inline">فتح بوابة</span>
-                  <span>كاشير المطاعم (Web)</span>
-                </a>
+                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                  <span className="hidden sm:inline">تحميل</span>
+                  <span>تطبيق كاشير المطاعم (APK)</span>
+                </button>
 
                 <button
                   onClick={() => setShowAddBranchModal(true)}
@@ -2726,29 +2660,6 @@ export const AdminPage: React.FC = () => {
                                 معطل
                               </span>
                             )}
-
-                            {/* شارة حالة الاشتراك والصلاحية */}
-                            {(() => {
-                              const isSubActive = branch.isSubscriptionActive !== false;
-                              const expiresAt = branch.subscriptionExpiresAt ? new Date(branch.subscriptionExpiresAt) : null;
-                              const isExpired = !isSubActive || (expiresAt ? new Date() > expiresAt : false);
-                              const daysLeft = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
-
-                              if (isExpired) {
-                                return (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-950/80 text-rose-300 border border-rose-800 shrink-0 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                                    <span>اشتراك منتهي ⛔</span>
-                                  </span>
-                                );
-                              }
-                              return (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-950/80 text-indigo-300 border border-indigo-800 shrink-0 flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                  <span>ساري {daysLeft !== null ? `(${daysLeft} يوم)` : '(مفتوح)'}</span>
-                                </span>
-                              );
-                            })()}
                           </div>
 
                           {/* Slug pill - on its own clean line */}
@@ -2850,7 +2761,7 @@ export const AdminPage: React.FC = () => {
 
                     {/* Action buttons (Clean responsive grid) */}
                     <div className="pt-3 border-t border-slate-800">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button
                           onClick={() => handleOpenEditBranch(branch)}
                           className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
@@ -2876,24 +2787,6 @@ export const AdminPage: React.FC = () => {
                         >
                           <Key className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                           <span>دخول الديسكتوب</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleCopyAppConfig(branch)}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/80 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
-                          title="نسخ كود الإعدادات لتطبيقه في ملف appConfig.ts الخاص بالـ APK"
-                        >
-                          <Copy className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                          <span>كود الـ APK</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleRenewSubscription(branch, 30)}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/80 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
-                          title="تجديد اشتراك المطعم لمدة 30 يوماً إضافية"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>تجديد 30 يوم</span>
                         </button>
 
                         <button
@@ -6318,32 +6211,33 @@ export const AdminPage: React.FC = () => {
 
               {/* Action Buttons for Both Apps */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* 1. Restaurant Kitchen Web Portal */}
+                {/* 1. Restaurant Kitchen APK */}
                 <div className="p-4 bg-emerald-950/30 border border-emerald-800/50 rounded-2xl flex flex-col justify-between gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
                         <Store className="w-4 h-4 text-emerald-400" />
-                        <span>لوحة كاشير ومطبخ المطعم (Foodify Business)</span>
+                        <span>نسخة كاشير ومطبخ المطعم (Restaurant APK)</span>
                       </span>
                       <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-bold rounded">
-                        Web & Desktop
+                        com.unifood.restaurant
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-relaxed">
-                      تعمل مباشرة عبر المتصفح أو الكمبيوتر أو التابلت لاستقبال الطلبات فورياً مع إنذار صوتي وطباعة الإيصالات الحرارية.
+                      مخصصة لهواتف وتابلت كاشير ومطبخ المطاعم لاستقبال الطلبات فورياً مع إنذار صوتي مستمر وإبقاء الشاشة مفعلة دائماً.
                     </p>
                   </div>
 
-                  <a
-                    href="/branch/"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Restaurant.apk');
+                    }}
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 shrink-0"
                   >
-                    <Store className="w-4 h-4" />
-                    <span>فتح لوحة كاشير ومطبخ المطعم</span>
-                  </a>
+                    <Smartphone className="w-4 h-4" />
+                    <span>تحميل تطبيق كاشير ومطبخ المطعم</span>
+                  </button>
                 </div>
 
                 {/* 2. Admin Control Panel APK */}
@@ -6352,10 +6246,10 @@ export const AdminPage: React.FC = () => {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-purple-400" />
-                        <span>نسخة لوحة تحكم الإدارة (Foodify Admin)</span>
+                        <span>نسخة لوحة تحكم الإدارة (Admin APK)</span>
                       </span>
                       <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[9px] font-mono font-bold rounded">
-                        com.foodify.admin
+                        com.unifood.admin
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-relaxed">
@@ -6366,7 +6260,7 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Admin.apk');
+                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
                     }}
                     className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 shrink-0"
                   >
@@ -7129,7 +7023,7 @@ export const AdminPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Admin.apk');
+                  triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
                 }}
                 className="w-full p-3 bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/70 border border-purple-700/60 rounded-2xl flex items-center justify-between gap-3 text-white transition-all active:scale-98 shadow-md"
               >
@@ -7440,56 +7334,6 @@ export const AdminPage: React.FC = () => {
                       className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
                     />
                   </div>
-                </div>
-              </div>
-
-              {/* مدة وباقة الاشتراك */}
-              <div className="p-3.5 bg-gradient-to-r from-indigo-950/40 to-slate-950/70 border border-indigo-800/40 rounded-xl space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-indigo-400" />
-                    <span>فترة صلاحية واشتراك المطعم</span>
-                  </span>
-                  <span className="text-[10px] text-slate-400">تحدد تاريخ إيقاف الخدمة تلقائياً</span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { id: '30_DAYS', label: '30 يوماً (شهر)' },
-                    { id: '3_MONTHS', label: '3 شهور' },
-                    { id: '6_MONTHS', label: '6 شهور' },
-                    { id: '1_YEAR', label: 'سنة كاملة' },
-                  ].map((plan) => (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      onClick={() => {
-                        setNewSubscriptionPlan(plan.id as any);
-                        setNewCustomExpiresAt('');
-                      }}
-                      className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border text-center ${
-                        newSubscriptionPlan === plan.id
-                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/30'
-                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {plan.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="pt-1 flex items-center gap-2">
-                  <label className="text-[11px] text-slate-400 shrink-0">أو حدد تاريخ مخصص:</label>
-                  <input
-                    type="date"
-                    value={newCustomExpiresAt}
-                    onChange={(e) => {
-                      setNewCustomExpiresAt(e.target.value);
-                      setNewSubscriptionPlan('CUSTOM');
-                    }}
-                    style={{ colorScheme: 'dark' }}
-                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-indigo-500 font-mono"
-                  />
                 </div>
               </div>
               </div>
@@ -7929,54 +7773,6 @@ export const AdminPage: React.FC = () => {
                     </div>
                   </div>
                 </label>
-              </div>
-
-              {/* إدارة الاشتراك والصلاحية */}
-              <div className="p-3.5 bg-gradient-to-r from-indigo-950/40 to-slate-950/70 border border-indigo-800/40 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-indigo-400" />
-                    <span>حالة اشتراك المطعم والصلاحية</span>
-                  </span>
-                  <label className="inline-flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editSubscriptionActive}
-                      onChange={(e) => setEditSubscriptionActive(e.target.checked)}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-900 border-slate-700 cursor-pointer"
-                    />
-                    <span className="text-xs font-bold text-slate-200">الاشتراك مفعل</span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1">باقة الاشتراك</label>
-                    <select
-                      value={editSubscriptionPlan}
-                      onChange={(e) => setEditSubscriptionPlan(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                    >
-                      <option value="TRIAL">فترة تجريبية (Trial)</option>
-                      <option value="MONTHLY">باقة شهرية (Monthly)</option>
-                      <option value="3_MONTHS">3 أشهر</option>
-                      <option value="6_MONTHS">6 أشهر</option>
-                      <option value="YEARLY">باقة سنوية (Yearly)</option>
-                      <option value="LIFETIME">اشتراك مفتوح (Lifetime)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1">تاريخ انتهاء الصلاحية</label>
-                    <input
-                      type="date"
-                      value={editSubscriptionExpiresAt}
-                      onChange={(e) => setEditSubscriptionExpiresAt(e.target.value)}
-                      style={{ colorScheme: 'dark' }}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-indigo-500 font-mono cursor-pointer"
-                    />
-                  </div>
-                </div>
               </div>
               </div>
 

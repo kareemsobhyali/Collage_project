@@ -54,8 +54,8 @@ android {
     productFlavors {
         student {
             dimension "role"
-            applicationId "com.foodify.customer"
-            resValue "string", "app_name", "Foodify | فوديفاي"
+            applicationId "com.unifood.student"
+            resValue "string", "app_name", "UniFood | يونيفود"
             buildConfigField "String", "START_URL", "\"${baseServerUrl}/\""
             buildConfigField "String", "FLAVOR_PATH", "\"/\""
             buildConfigField "String", "FLAVOR_TYPE", "\"student\""
@@ -64,8 +64,8 @@ android {
         }
         driver {
             dimension "role"
-            applicationId "com.foodify.driver"
-            resValue "string", "app_name", "Foodify Captain | كابتن التوصيل"
+            applicationId "com.unifood.driver"
+            resValue "string", "app_name", "UniFood Driver | كابتن التوصيل"
             buildConfigField "String", "START_URL", "\"${baseServerUrl}/driver\""
             buildConfigField "String", "FLAVOR_PATH", "\"/driver\""
             buildConfigField "String", "FLAVOR_TYPE", "\"driver\""
@@ -74,13 +74,23 @@ android {
         }
         admin {
             dimension "role"
-            applicationId "com.foodify.admin"
-            resValue "string", "app_name", "Foodify Admin | إدارة فوديفاي"
+            applicationId "com.unifood.admin"
+            resValue "string", "app_name", "UniFood Admin | إدارة يونيفود"
             buildConfigField "String", "START_URL", "\"${baseServerUrl}/admin\""
             buildConfigField "String", "FLAVOR_PATH", "\"/admin\""
             buildConfigField "String", "FLAVOR_TYPE", "\"admin\""
             buildConfigField "boolean", "KEEP_SCREEN_ON", "false"
             buildConfigField "int", "STATUS_BAR_COLOR", "0xFF0F172A"
+        }
+        restaurant {
+            dimension "role"
+            applicationId "com.unifood.restaurant"
+            resValue "string", "app_name", "UniFood Restaurant | كاشير ومطبخ المطعم"
+            buildConfigField "String", "START_URL", "\"${baseServerUrl}/branch/\""
+            buildConfigField "String", "FLAVOR_PATH", "\"/branch/\""
+            buildConfigField "String", "FLAVOR_TYPE", "\"restaurant\""
+            buildConfigField "boolean", "KEEP_SCREEN_ON", "true"
+            buildConfigField "int", "STATUS_BAR_COLOR", "0xFF065F46"
         }
     }
 

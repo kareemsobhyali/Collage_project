@@ -360,25 +360,6 @@ export function App() {
                       <span>جاري الاتصال...</span>
                     </span>
                   )}
-
-                  {/* Subscription Status Pill */}
-                  <span className="text-slate-300 hidden sm:inline">|</span>
-                  {branch.isSubscriptionExpired ? (
-                    <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] sm:text-[11px] font-black border border-rose-200 flex items-center gap-1 shrink-0">
-                      <span>⛔</span>
-                      <span>الاشتراك منتهي</span>
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] sm:text-[11px] font-bold border border-emerald-200 flex items-center gap-1 shrink-0">
-                      <span>✓</span>
-                      <span>
-                        الاشتراك سارٍ
-                        {branch.daysLeft !== null && branch.daysLeft !== undefined
-                          ? ` (متبقي ${branch.daysLeft} يوم)`
-                          : ''}
-                      </span>
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -596,21 +577,6 @@ export function App() {
           </nav>
         </div>
       </header>
-
-      {/* Subscription Expired Alert */}
-      {branch.isSubscriptionExpired && (
-        <div className="bg-gradient-to-r from-rose-600 to-rose-700 text-white px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-md border-b border-rose-800">
-          <div className="flex items-center gap-2.5 text-xs font-bold">
-            <span className="text-base shrink-0">⛔</span>
-            <span>
-              انتهت فترة اشتراك هذا المتجر! تم إيقاف استقبال الطلبات الجديدة من تطبيق الطلاب تلقائياً حتى تجديد الاشتراك.
-            </span>
-          </div>
-          <div className="text-[11px] font-black bg-black/25 px-3 py-1 rounded-lg border border-rose-300/30 whitespace-nowrap">
-            يرجى التواصل مع الإدارة للتجديد
-          </div>
-        </div>
-      )}
 
       {/* Operational Status Alerts */}
       {branch.operationalStatus === 'BUSY' && (

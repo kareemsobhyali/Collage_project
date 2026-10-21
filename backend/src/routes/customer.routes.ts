@@ -393,11 +393,6 @@ router.get("/branches", async (_req: Request, res: Response) => {
       const isWithinWorkingHours = isBranchWithinWorkingHours(b.openingTime, b.closingTime, now, b.workingDays);
       const crowdInfo = computeBranchCrowdInfo(activeMap.get(b.id) || 0);
       const ratingInfo = ratingMap.get(b.id) || { avgRating: 0, ratingsCount: 0 };
-      const isSubscriptionExpired = b.isSubscriptionActive === false || 
-        (b.subscriptionExpiresAt ? now > new Date(b.subscriptionExpiresAt) : false);
-      const daysLeft = b.subscriptionExpiresAt 
-        ? Math.max(0, Math.ceil((new Date(b.subscriptionExpiresAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) 
-        : null;
 
       return {
         ...b,
@@ -405,8 +400,6 @@ router.get("/branches", async (_req: Request, res: Response) => {
         closedUntil: currentClosedUntil,
         closingReason: currentReason,
         isWithinWorkingHours,
-        isSubscriptionExpired,
-        daysLeft,
         ...crowdInfo,
         avgRating: ratingInfo.avgRating,
         ratingsCount: ratingInfo.ratingsCount,
@@ -547,11 +540,6 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
     const crowdInfo = computeBranchCrowdInfo(activeOrdersCount);
     const avgRating = ratingStats._avg.rating ? Number(ratingStats._avg.rating.toFixed(1)) : 0;
     const ratingsCount = ratingStats._count.rating || 0;
-    const isSubscriptionExpired = branch.isSubscriptionActive === false || 
-      (branch.subscriptionExpiresAt ? now > new Date(branch.subscriptionExpiresAt) : false);
-    const daysLeft = branch.subscriptionExpiresAt 
-      ? Math.max(0, Math.ceil((new Date(branch.subscriptionExpiresAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) 
-      : null;
 
     res.json({
       branch: {
@@ -560,8 +548,6 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         closedUntil: currentClosedUntil,
         closingReason: currentReason,
         isWithinWorkingHours,
-        isSubscriptionExpired,
-        daysLeft,
         ...crowdInfo,
         avgRating,
         ratingsCount,
@@ -870,14 +856,8 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // التحقق من سريان اشتراك المطعم في المنظومة
-    const currentTime = new Date();
-    if (branch.isSubscriptionActive === false || (branch.subscriptionExpiresAt && new Date(branch.subscriptionExpiresAt) < currentTime)) {
-      res.status(403).json({ error: "عذراً، خدمة الطلبات متوقفة مؤقتاً لانتهاء فترة اشتراك المطعم. يرجى التواصل مع إدارة المطعم للتجديد." });
-      return;
-    }
-
     // التحقق من حالة استقبال الطلبات (مغلق مؤقتاً أو مغلق تماماً أو خارج مواعيد العمل الرسمية)
+    const currentTime = new Date();
     if (branch.operationalStatus === "CLOSED") {
       res.status(400).json({ error: "عذراً، هذا المطعم مغلق حالياً ولا يستقبل أي طلبات فورية أو حجز مسبق." });
       return;

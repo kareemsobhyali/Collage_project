@@ -32,7 +32,6 @@ import { DriverPortal } from './components/DriverPortal';
 import { GroupCartModal } from './components/GroupCartModal';
 import { Logo } from './components/Logo';
 import { SplashScreen } from './components/SplashScreen';
-import { APP_CONFIG } from './appConfig';
 
 export function App() {
   const isMobileAppExperience = typeof window !== 'undefined' && (
@@ -157,17 +156,6 @@ export function App() {
     };
   }, [isAnyModalOpen]);
 
-  // ضبط عنوان الصفحة بناءً على وضع التطبيق (منفرد أو متعدد)
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      if (APP_CONFIG.mode === 'SINGLE_RESTAURANT') {
-        document.title = `${APP_CONFIG.brand.name} | طلب وتوصيل الطعام`;
-      } else {
-        document.title = 'UniFood | كل مطاعم الحرم الجامعي في سلة واحدة';
-      }
-    }
-  }, []);
-
   // إدارة زر الرجوع في الهاتف (Android Back Button & In-App Navigation)
   const isHandlingPopstateRef = useRef(false);
   const historyDepthRef = useRef(0);
@@ -236,17 +224,9 @@ export function App() {
       } else if (showAuthModal) {
         setShowAuthModal(false);
       }
-      // ثالثاً: إذا كان المستخدم داخل منيو فرع، الرجوع لشاشة الفروع الرئيسية (أو تأكيد الخروج في وضع المطعم المنفرد)
+      // ثالثاً: إذا كان المستخدم داخل منيو فرع، الرجوع لشاشة الفروع الرئيسية
       else if (selectedBranch) {
-        if (APP_CONFIG.mode === 'SINGLE_RESTAURANT') {
-          try {
-            window.history.pushState({ uniFoodStep: 1 }, '');
-            historyDepthRef.current = 1;
-          } catch (_e) {}
-          setShowExitAppDialog(true);
-        } else {
-          setSelectedBranch(null);
-        }
+        setSelectedBranch(null);
       }
       // رابعاً: إذا كان في الشاشة الرئيسية ولا توجد أي شاشة فرعية -> إظهار تأكيد الخروج
       else {
@@ -400,44 +380,6 @@ export function App() {
       try {
         localStorage.setItem('unifood_cached_branches', JSON.stringify(loadedBranches));
       } catch (_e) {}
-
-      // وضع المطعم المنفرد (Single Restaurant White-Label Mode)
-      if (APP_CONFIG.mode === 'SINGLE_RESTAURANT') {
-        const itemParam = typeof window !== 'undefined'
-          ? (new URLSearchParams(window.location.search).get('item') || new URLSearchParams(window.location.search).get('offer'))
-          : null;
-        const targetSlug = APP_CONFIG.singleRestaurant?.slug?.trim().toLowerCase();
-        const targetId = APP_CONFIG.singleRestaurant?.branchId;
-        const target = loadedBranches.find(
-          (b: any) =>
-            (targetId && b.id === targetId) ||
-            (targetSlug && b.slug && b.slug.trim().toLowerCase() === targetSlug)
-        ) || loadedBranches[0];
-
-        if (target) {
-          handleSelectBranch(target, itemParam);
-          return;
-        } else if (targetId || targetSlug) {
-          api.getBranchMenu(targetId || targetSlug!)
-            .then((menuData) => {
-              if (menuData && menuData.branch) {
-                setSelectedBranch({ ...menuData.branch, reviews: menuData.reviews || [] });
-                setBranchCategories(menuData.categories || []);
-                if (itemParam && Array.isArray(menuData.categories)) {
-                  for (const cat of menuData.categories) {
-                    const found = (cat.items || []).find((it: any) => it.id === itemParam);
-                    if (found) {
-                      setCustomizingItem(found);
-                      break;
-                    }
-                  }
-                }
-              }
-            })
-            .catch((err) => console.warn('Could not auto-open single restaurant branch:', err));
-          return;
-        }
-      }
 
       // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
       if (typeof window !== 'undefined') {
@@ -861,43 +803,12 @@ export function App() {
       {/* Top Mobile/Desktop Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-3 sm:px-4 py-2.5 shadow-sm w-full">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">
-          {/* Right: Logo & Brand Name */}
+          {/* Right: Logo */}
           <div
-            onClick={() => {
-              if (APP_CONFIG.mode !== 'SINGLE_RESTAURANT') {
-                setSelectedBranch(null);
-              }
-            }}
-            className={`shrink-0 ${APP_CONFIG.mode !== 'SINGLE_RESTAURANT' ? 'cursor-pointer' : ''}`}
+            onClick={() => setSelectedBranch(null)}
+            className="cursor-pointer shrink-0"
           >
-            {APP_CONFIG.mode === 'SINGLE_RESTAURANT' ? (
-              <div className="flex items-center gap-2">
-                {APP_CONFIG.brand.logoUrl ? (
-                  <img
-                    src={APP_CONFIG.brand.logoUrl}
-                    alt={APP_CONFIG.brand.name}
-                    className="w-9 h-9 rounded-2xl object-cover border border-slate-200 shadow-xs"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-lg">
-                    🍽️
-                  </div>
-                )}
-                <div className="flex flex-col text-right">
-                  <span className="font-black text-sm sm:text-base text-slate-900 leading-tight">
-                    {APP_CONFIG.brand.name}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-bold leading-none mt-0.5">
-                    {APP_CONFIG.brand.tagline}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <Logo size="sm" />
-            )}
+            <Logo size="sm" />
           </div>
 
           {/* Left: User & Orders Tools (All h-9 shrink-0 so nothing ever overlaps) */}
@@ -906,7 +817,7 @@ export function App() {
             {!isRunningInNativeApk() && (
               <button
                 type="button"
-                onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/Foodify-Customer.apk')}
+                onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk')}
                 className="h-9 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0"
                 title="تثبيت تطبيق الطلاب للأندرويد"
               >
@@ -1026,49 +937,15 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 p-3 sm:p-4 max-w-3xl w-full mx-auto overflow-x-hidden">
-        {selectedBranch?.isSubscriptionExpired ? (
-          <div className="my-8 p-6 sm:p-8 bg-rose-50 border-2 border-rose-200 rounded-3xl text-center space-y-4 shadow-sm animate-pulse">
-            <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner">
-              ⏳
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-xl sm:text-2xl font-black text-rose-900">
-                خدمة استقبال الطلبات متوقفة مؤقتاً
-              </h2>
-              <p className="text-sm sm:text-base text-rose-700 font-medium">
-                عذراً، متجر <strong>{selectedBranch.name}</strong> متوقف حالياً للتجديد الدوري للاشتراك.
-              </p>
-            </div>
-            <div className="p-3.5 bg-white/80 rounded-2xl border border-rose-200 text-xs text-rose-800 font-bold max-w-md mx-auto">
-              يرجى التواصل مع إدارة المتجر أو الدعم الفني لإعادة تفعيل الخدمة واستقبال طلباتكم في أقرب وقت.
-            </div>
-            {APP_CONFIG.mode !== 'SINGLE_RESTAURANT' && (
-              <button
-                onClick={() => setSelectedBranch(null)}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95"
-              >
-                العودة لقائمة باقي المطاعم
-              </button>
-            )}
-          </div>
-        ) : selectedBranch ? (
+        {selectedBranch ? (
           <BranchMenu
             branch={selectedBranch}
             categories={branchCategories}
             cart={cart}
-            onBack={() => {
-              if (APP_CONFIG.mode !== 'SINGLE_RESTAURANT') {
-                setSelectedBranch(null);
-              }
-            }}
+            onBack={() => setSelectedBranch(null)}
             onSelectItem={(item) => setCustomizingItem(item)}
             onOpenCart={() => setShowCartModal(true)}
           />
-        ) : APP_CONFIG.mode === 'SINGLE_RESTAURANT' ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-500 font-bold text-sm">
-            <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            <span>جاري تجهيز قائمة طعام {APP_CONFIG.brand.name}...</span>
-          </div>
         ) : (
           <BranchList
             branches={branches}
