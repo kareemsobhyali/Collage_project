@@ -231,12 +231,19 @@ function computeBranchCrowdInfo(activeKitchenOrders: number) {
 router.get("/flash-deals", async (_req: Request, res: Response) => {
   try {
     const now = new Date();
-    const [activePromos, branches, comboItems] = await Promise.all([
-      prisma.promoCode.findMany({
+    let activePromos: any[] = [];
+    try {
+      activePromos = await prisma.promoCode.findMany({
         where: { isActive: true },
         orderBy: { createdAt: "desc" },
         take: 10,
-      }),
+      });
+    } catch (promoErr: any) {
+      console.warn("Could not load promo codes for flash-deals:", promoErr?.message);
+      prisma.$executeRawUnsafe(`ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "applicableBranchIds" TEXT;`).catch(() => {});
+    }
+
+    const [branches, comboItems] = await Promise.all([
       prisma.branch.findMany({
         where: { isActive: true },
         select: { id: true, name: true, slug: true, logoUrl: true },
