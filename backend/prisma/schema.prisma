@@ -53,6 +53,7 @@ model Branch {
   items             MenuItem[]
   modifierGroups    ModifierGroup[]
   orders            Order[]
+  flashDeals        FlashDeal[]
 
   @@index([isActive])
   @@index([operationalStatus])
@@ -387,6 +388,34 @@ model UploadedFile {
   createdAt DateTime @default(now())
 
   @@index([filename])
+}
+
+model FlashDeal {
+  id              String    @id @default(uuid())
+  title           String
+  subtitle        String?
+  dealType        String    @default("COMBO") // "COMBO" | "PROMO" | "CUSTOM"
+  branchId        String?
+  branch          Branch?   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  menuItemId      String?
+  originalPrice   Float?
+  discountPrice   Float?
+  discountPercent Int?
+  promoCode       String?
+  badgeText       String?   // "عرض البريك 🔥", "خصم 30%", "توفير جامعي"
+  imageUrl        String?
+  maxQuantity     Int?      // الكمية المتاحة للعرض (مثال: 50)
+  soldQuantity    Int       @default(0) // الكمية المستهلكة
+  startsAt        DateTime  @default(now())
+  expiresAt       DateTime
+  isActive        Boolean   @default(true)
+  displayOrder    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([expiresAt])
+  @@index([branchId])
 }
 
 

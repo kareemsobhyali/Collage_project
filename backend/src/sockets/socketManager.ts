@@ -483,6 +483,13 @@ export function notifyPromosUpdated(): void {
   }
 }
 
+export function notifyFlashDealsUpdated(): void {
+  if (io) {
+    // إشعار فوري بتحديث عروض الفلاش الموقوتة
+    io.emit("flash_deals_updated");
+  }
+}
+
 export function notifyUserUpdated(userId: string, userData: any): void {
   if (io) {
     // إشعار خاص فقط بغرفة الطالب المعني ولوحة الإدارة (منع تسريب بيانات المحفظة لباقي المتصلين)

@@ -231,6 +231,47 @@ function computeBranchCrowdInfo(activeKitchenOrders: number) {
 router.get("/flash-deals", async (_req: Request, res: Response) => {
   try {
     const now = new Date();
+
+    // 1. جلب عروض الفلاش المخصصة المدارة من لوحة الإدارة
+    let customDeals: any[] = [];
+    try {
+      const activeCustomDeals = await prisma.flashDeal.findMany({
+        where: {
+          isActive: true,
+          expiresAt: { gt: now }
+        },
+        include: {
+          branch: { select: { id: true, name: true, slug: true, logoUrl: true } }
+        },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }]
+      });
+
+      customDeals = activeCustomDeals.map((d) => ({
+        id: `custom_${d.id}`,
+        dbId: d.id,
+        type: d.dealType, // "COMBO" | "PROMO" | "CUSTOM"
+        title: d.title,
+        subtitle: d.subtitle,
+        originalPrice: d.originalPrice,
+        discountPrice: d.discountPrice,
+        price: d.discountPrice || d.originalPrice,
+        discountPercent: d.discountPercent,
+        promoCode: d.promoCode,
+        code: d.promoCode,
+        badgeText: d.badgeText || "عرض البريك 🔥",
+        imageUrl: d.imageUrl,
+        expiresAt: d.expiresAt.toISOString(),
+        maxUses: d.maxQuantity || 50,
+        usedCount: d.soldQuantity || 0,
+        remainingUses: Math.max(1, (d.maxQuantity || 50) - (d.soldQuantity || 0)),
+        targetBranch: d.branch,
+        branchId: d.branchId,
+        menuItemId: d.menuItemId
+      }));
+    } catch (_e) {
+      // Table may not exist yet on initial boot
+    }
+
     let activePromos: any[] = [];
     try {
       activePromos = await prisma.promoCode.findMany({
@@ -299,8 +340,10 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
           id: `promo_${p.id}`,
           type: "PROMO_CODE",
           code: p.code,
+          promoCode: p.code,
           discountType: p.discountType,
           value: p.value,
+          badgeText: p.discountType === "PERCENTAGE" ? `خصم ${p.value}% ⚡` : `خصم ${p.value} ج.م ⚡`,
           title:
             p.discountType === "PERCENTAGE"
               ? `خصم فلاش ${p.value}% بكود ${p.code}`
@@ -321,15 +364,30 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
       id: `combo_${item.id}`,
       type: "COMBO_ITEM",
       itemId: item.id,
+      menuItemId: item.id,
       title: item.name,
       subtitle: item.description || `وجبة كومبو توفيرية من ${item.branch.name}`,
       price: item.basePrice,
+      discountPrice: item.basePrice,
+      originalPrice: item.basePrice ? Math.round(item.basePrice * 1.25) : undefined,
+      badgeText: "كومبو توفير 🍱",
       imageUrl: item.imageUrl,
       expiresAt: defaultBreakEnd.toISOString(),
       targetBranch: item.branch,
+      remainingUses: 15,
+      maxUses: 20
     }));
 
+    // دمج العروض لتقديم قائمة متكاملة تبدأ بالعروض المخصصة المدارة ثم الكوبونات والكومبوهات
+    const allDeals = [
+      ...customDeals,
+      ...(customDeals.length === 0 ? promoDeals : promoDeals.slice(0, 2)),
+      ...(customDeals.length === 0 ? comboDeals : comboDeals.slice(0, 4))
+    ];
+
     res.json({
+      deals: allDeals,
+      customDeals,
       promoDeals,
       comboDeals,
       serverTime: now.toISOString(),

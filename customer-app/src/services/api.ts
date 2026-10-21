@@ -487,6 +487,58 @@ export const api = {
     return data;
   },
 
+  // 12.1 عروض الفلاش الموقوتة (Flash Deals)
+  async getAdminFlashDeals() {
+    const res = await fetch(`${API_BASE_URL}/admin/flash-deals`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب عروض الفلاش');
+    return data;
+  },
+
+  async createAdminFlashDeal(dealData: any) {
+    const res = await fetch(`${API_BASE_URL}/admin/flash-deals`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(dealData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إنشاء عرض الفلاش');
+    return data;
+  },
+
+  async updateAdminFlashDeal(id: string, dealData: any) {
+    const res = await fetch(`${API_BASE_URL}/admin/flash-deals/${id}`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(dealData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث عرض الفلاش');
+    return data;
+  },
+
+  async deleteAdminFlashDeal(id: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/flash-deals/${id}`, {
+      method: 'DELETE',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف عرض الفلاش');
+    return data;
+  },
+
+  async toggleAdminFlashDeal(id: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/flash-deals/${id}/toggle`, {
+      method: 'PATCH',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تغيير حالة عرض الفلاش');
+    return data;
+  },
+
   async getAdminReviews(params?: { branchId?: string; rating?: string; hasText?: boolean }) {
     const query = new URLSearchParams();
     if (params?.branchId) query.set('branchId', params.branchId);

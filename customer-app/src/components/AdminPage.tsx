@@ -66,7 +66,9 @@ import {
   Utensils,
   Headphones,
   LifeBuoy,
-  MessageCircle
+  MessageCircle,
+  Flame,
+  Zap
 } from 'lucide-react';
 
 
@@ -112,7 +114,7 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'FINANCE' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'WHATSAPP' | 'SETTINGS' | 'SUPPORT'>('BRANCHES');
+  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'FINANCE' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'FLASH_DEALS' | 'WHATSAPP' | 'SETTINGS' | 'SUPPORT'>('BRANCHES');
   const [supportTickets, setSupportTickets] = useState<any[]>([]);
   const [loadingSupportTickets, setLoadingSupportTickets] = useState(false);
   const [supportFilter, setSupportFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL');
@@ -244,6 +246,26 @@ export const AdminPage: React.FC = () => {
   const [editingBanner, setEditingBanner] = useState<any | null>(null);
   const [showAddPromoModal, setShowAddPromoModal] = useState(false);
   const [editingPromo, setEditingPromo] = useState<any | null>(null);
+
+  // Flash Deals State
+  const [flashDealsList, setFlashDealsList] = useState<any[]>([]);
+  const [showAddFlashDealModal, setShowAddFlashDealModal] = useState(false);
+  const [editingFlashDeal, setEditingFlashDeal] = useState<any | null>(null);
+  const [dealTitle, setDealTitle] = useState('');
+  const [dealSubtitle, setDealSubtitle] = useState('');
+  const [dealType, setDealType] = useState<'COMBO' | 'PROMO' | 'CUSTOM'>('COMBO');
+  const [dealBranchId, setDealBranchId] = useState('');
+  const [dealMenuItemId, setDealMenuItemId] = useState('');
+  const [dealOriginalPrice, setDealOriginalPrice] = useState('');
+  const [dealDiscountPrice, setDealDiscountPrice] = useState('');
+  const [dealPromoCode, setDealPromoCode] = useState('');
+  const [dealBadge, setDealBadge] = useState('عرض البريك 🔥');
+  const [dealImageUrl, setDealImageUrl] = useState('');
+  const [dealMaxQuantity, setDealMaxQuantity] = useState('30');
+  const [dealExpiresAt, setDealExpiresAt] = useState('');
+  const [dealIsActive, setDealIsActive] = useState(true);
+  const [dealBranchItems, setDealBranchItems] = useState<any[]>([]);
+  const [uploadingDealImage, setUploadingDealImage] = useState(false);
 
   // New Banner Form
   const [newBannerTitle, setNewBannerTitle] = useState('');
@@ -385,6 +407,7 @@ export const AdminPage: React.FC = () => {
     editingBanner ||
     showAddPromoModal ||
     editingPromo ||
+    showAddFlashDealModal ||
     showAddDriverModal ||
     editingDriver ||
     showAdminExitDialog
@@ -443,6 +466,7 @@ export const AdminPage: React.FC = () => {
     Boolean(editingBanner),
     Boolean(showAddPromoModal),
     Boolean(editingPromo),
+    Boolean(showAddFlashDealModal),
     Boolean(showAddDriverModal),
     Boolean(editingDriver)
   ].filter(Boolean).length;
@@ -487,6 +511,7 @@ export const AdminPage: React.FC = () => {
       else if (showAddBannerModal) setShowAddBannerModal(false);
       else if (editingPromo) setEditingPromo(null);
       else if (showAddPromoModal) setShowAddPromoModal(false);
+      else if (showAddFlashDealModal) setShowAddFlashDealModal(false);
       else if (editingDriver) setEditingDriver(null);
       else if (showAddDriverModal) setShowAddDriverModal(false);
       // ثالثاً: إذا كان في تبويب غير الفروع -> الرجوع لتبويب الفروع الرئيسي
@@ -551,6 +576,7 @@ export const AdminPage: React.FC = () => {
     showAddBannerModal,
     editingPromo,
     showAddPromoModal,
+    showAddFlashDealModal,
     editingDriver,
     showAddDriverModal,
     activeTab
@@ -612,13 +638,14 @@ export const AdminPage: React.FC = () => {
     if (!token && !adminUser) return;
     try {
       setLoading(true);
-      const [statsRes, branchesRes, ordersRes, studentsRes, bannersRes, promosRes, reviewsRes, driversRes, supportRes] = await Promise.all([
+      const [statsRes, branchesRes, ordersRes, studentsRes, bannersRes, promosRes, flashDealsRes, reviewsRes, driversRes, supportRes] = await Promise.all([
         fetch(`${API_BASE_URL}/admin/stats`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/branches`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/orders?limit=100`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/users`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/banners`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/promo-codes`, { headers: getAdminHeaders() }),
+        fetch(`${API_BASE_URL}/admin/flash-deals`, { headers: getAdminHeaders() }).catch(() => null),
         fetch(`${API_BASE_URL}/admin/reviews`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/drivers`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/support-tickets`, { headers: getAdminHeaders() }).catch(() => null),
@@ -630,6 +657,7 @@ export const AdminPage: React.FC = () => {
       if (studentsRes.ok) setStudents(await studentsRes.json());
       if (bannersRes.ok) setBanners(await bannersRes.json());
       if (promosRes.ok) setPromos(await promosRes.json());
+      if (flashDealsRes && flashDealsRes.ok) setFlashDealsList(await flashDealsRes.json());
       if (reviewsRes && reviewsRes.ok) {
         const revData = await reviewsRes.json();
         setReviews(revData.reviews || []);
@@ -1804,6 +1832,183 @@ export const AdminPage: React.FC = () => {
     });
   };
 
+  // Flash Deals Handlers
+  const fetchFlashDeals = async () => {
+    try {
+      const data = await api.getAdminFlashDeals();
+      setFlashDealsList(Array.isArray(data) ? data : []);
+    } catch (_e) {}
+  };
+
+  const loadBranchItemsForDeal = async (bId: string) => {
+    if (!bId) {
+      setDealBranchItems([]);
+      return;
+    }
+    try {
+      const data = await api.getBranchMenu(bId);
+      const items: any[] = [];
+      if (Array.isArray(data?.categories)) {
+        for (const cat of data.categories) {
+          for (const item of (cat.items || [])) {
+            items.push(item);
+          }
+        }
+      }
+      setDealBranchItems(items);
+    } catch {
+      setDealBranchItems([]);
+    }
+  };
+
+  const handleOpenAddFlashDeal = () => {
+    setEditingFlashDeal(null);
+    setDealTitle('');
+    setDealSubtitle('');
+    setDealType('COMBO');
+    const firstBranchId = branches[0]?.id || '';
+    setDealBranchId(firstBranchId);
+    setDealMenuItemId('');
+    setDealOriginalPrice('');
+    setDealDiscountPrice('');
+    setDealPromoCode('');
+    setDealBadge('عرض البريك 🔥');
+    setDealImageUrl('');
+    setDealMaxQuantity('30');
+    // Default 3 hours from now
+    const exp = new Date(Date.now() + 3 * 3600 * 1000);
+    const tzOffset = exp.getTimezoneOffset() * 60000;
+    setDealExpiresAt(new Date(exp.getTime() - tzOffset).toISOString().slice(0, 16));
+    setDealIsActive(true);
+    setShowAddFlashDealModal(true);
+
+    if (firstBranchId) {
+      loadBranchItemsForDeal(firstBranchId);
+    }
+  };
+
+  const handleOpenEditFlashDeal = (deal: any) => {
+    setEditingFlashDeal(deal);
+    setDealTitle(deal.title || '');
+    setDealSubtitle(deal.subtitle || '');
+    setDealType(deal.dealType || 'COMBO');
+    setDealBranchId(deal.branchId || '');
+    setDealMenuItemId(deal.menuItemId || '');
+    setDealOriginalPrice(deal.originalPrice ? String(deal.originalPrice) : '');
+    setDealDiscountPrice(deal.discountPrice ? String(deal.discountPrice) : '');
+    setDealPromoCode(deal.promoCode || '');
+    setDealBadge(deal.badgeText || 'عرض البريك 🔥');
+    setDealImageUrl(deal.imageUrl || '');
+    setDealMaxQuantity(deal.maxQuantity ? String(deal.maxQuantity) : '30');
+    
+    if (deal.expiresAt) {
+      const exp = new Date(deal.expiresAt);
+      const tzOffset = exp.getTimezoneOffset() * 60000;
+      setDealExpiresAt(new Date(exp.getTime() - tzOffset).toISOString().slice(0, 16));
+    } else {
+      const exp = new Date(Date.now() + 3 * 3600 * 1000);
+      const tzOffset = exp.getTimezoneOffset() * 60000;
+      setDealExpiresAt(new Date(exp.getTime() - tzOffset).toISOString().slice(0, 16));
+    }
+
+    setDealIsActive(deal.isActive !== false);
+    setShowAddFlashDealModal(true);
+
+    if (deal.branchId) {
+      loadBranchItemsForDeal(deal.branchId);
+    }
+  };
+
+  const handleUploadDealImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingDealImage(true);
+      const res = await api.uploadImage(file);
+      if (res.url) {
+        setDealImageUrl(res.url);
+      }
+    } catch (err: any) {
+      alert(err.message || 'فشل رفع صورة العرض');
+    } finally {
+      setUploadingDealImage(false);
+    }
+  };
+
+  const handleSaveFlashDeal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dealTitle.trim()) {
+      alert('يرجى كتابة عنوان العرض أولاً');
+      return;
+    }
+    if (!dealExpiresAt) {
+      alert('يرجى تحديد موعد وتاريخ انتهاء العرض');
+      return;
+    }
+
+    const payload = {
+      title: dealTitle.trim(),
+      subtitle: dealSubtitle.trim() || null,
+      dealType,
+      branchId: dealBranchId || null,
+      menuItemId: dealMenuItemId || null,
+      originalPrice: dealOriginalPrice ? parseFloat(dealOriginalPrice) : null,
+      discountPrice: dealDiscountPrice ? parseFloat(dealDiscountPrice) : null,
+      promoCode: dealPromoCode ? dealPromoCode.trim().toUpperCase() : null,
+      badgeText: dealBadge.trim() || 'عرض البريك 🔥',
+      imageUrl: dealImageUrl.trim() || null,
+      maxQuantity: dealMaxQuantity ? parseInt(dealMaxQuantity) : null,
+      expiresAt: new Date(dealExpiresAt).toISOString(),
+      isActive: dealIsActive,
+    };
+
+    try {
+      if (editingFlashDeal) {
+        const res = await api.updateAdminFlashDeal(editingFlashDeal.id, payload);
+        if (res.deal) {
+          setFlashDealsList(prev => prev.map(d => d.id === editingFlashDeal.id ? res.deal : d));
+        }
+      } else {
+        const res = await api.createAdminFlashDeal(payload);
+        if (res.deal) {
+          setFlashDealsList(prev => [res.deal, ...prev]);
+        }
+      }
+      setShowAddFlashDealModal(false);
+      setEditingFlashDeal(null);
+    } catch (err: any) {
+      alert(err.message || 'فشل حفظ عرض الفلاش');
+    }
+  };
+
+  const handleDeleteFlashDeal = (id: string) => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'حذف عرض الفلاش',
+      message: 'هل أنت متأكد من حذف هذا العرض الموقوت بشكل نهائي؟',
+      confirmText: 'نعم، احذف العرض',
+      cancelText: 'إلغاء',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await api.deleteAdminFlashDeal(id);
+          setFlashDealsList(prev => prev.filter(d => d.id !== id));
+        } catch (err: any) {
+          alert(err.message || 'فشل حذف عرض الفلاش');
+        }
+      }
+    });
+  };
+
+  const handleToggleFlashDeal = async (id: string) => {
+    try {
+      const res = await api.toggleAdminFlashDeal(id);
+      setFlashDealsList(prev => prev.map(d => d.id === id ? { ...d, isActive: res.isActive } : d));
+    } catch (err: any) {
+      alert(err.message || 'فشل تغيير حالة العرض');
+    }
+  };
+
   // Student Wallet, Loyalty Points, Notes & Account Block Handlers
   const handleOpenStudentWallet = (student: any) => {
     setEditingStudentWallet(student);
@@ -2517,6 +2722,21 @@ export const AdminPage: React.FC = () => {
                 <span>كوبونات الخصم</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'PROMOS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
                   {promos.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('FLASH_DEALS')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'FLASH_DEALS'
+                    ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md shadow-rose-600/25 ring-1 ring-rose-400/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                }`}
+              >
+                <Flame className="w-4 h-4 shrink-0 text-amber-400 fill-amber-400 animate-pulse" />
+                <span>عروض الفلاش والبريك 🔥</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'FLASH_DEALS' ? 'bg-rose-900/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                  {flashDealsList.length}
                 </span>
               </button>
 
@@ -5311,6 +5531,255 @@ export const AdminPage: React.FC = () => {
           </div>
         )}
 
+        {/* Flash Deals Tab */}
+        {activeTab === 'FLASH_DEALS' && (
+          <div className="space-y-6">
+            {/* Header Card */}
+            <div className="bg-gradient-to-r from-rose-950/40 via-slate-900 to-amber-950/30 border border-rose-900/40 rounded-3xl p-6 sm:p-8 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-black mb-2">
+                    <Flame className="w-3.5 h-3.5 animate-pulse text-rose-500" />
+                    <span>عروض البريك الموقوتة والصفقات السريعة</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white">إدارة عروض الفلاش (Flash Deals)</h3>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                    أنشئ عروضاً مؤقتة مع عداد تنازلي مباشر يظهر لجميع الطلاب أعلى واجهة التطبيق. يمكنك ربط العرض بفرع وصنف معين أو كود خصم، وتحديد عدد الوجبات ووقت الانتهاء.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={fetchFlashDeals}
+                    className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl border border-slate-700 transition-colors"
+                    title="تحديث القائمة"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddFlashDeal}
+                    className="px-5 py-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-rose-600/30 transition-all flex items-center gap-2 active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>إضافة عرض فلاش جديد</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick stats pills */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-800/80">
+                <div className="bg-slate-800/60 rounded-2xl p-3.5 border border-slate-700/50">
+                  <span className="text-[11px] text-slate-400 font-bold block">إجمالي العروض</span>
+                  <span className="text-xl font-black text-white font-mono mt-0.5 block">{flashDealsList.length}</span>
+                </div>
+                <div className="bg-emerald-950/30 rounded-2xl p-3.5 border border-emerald-800/40">
+                  <span className="text-[11px] text-emerald-400 font-bold block">العروض النشطة</span>
+                  <span className="text-xl font-black text-emerald-300 font-mono mt-0.5 block">
+                    {flashDealsList.filter(d => d.isActive && (!d.expiresAt || new Date(d.expiresAt).getTime() > Date.now())).length}
+                  </span>
+                </div>
+                <div className="bg-amber-950/30 rounded-2xl p-3.5 border border-amber-800/40">
+                  <span className="text-[11px] text-amber-400 font-bold block">المنتهية أو المغلقة</span>
+                  <span className="text-xl font-black text-amber-300 font-mono mt-0.5 block">
+                    {flashDealsList.filter(d => !d.isActive || (d.expiresAt && new Date(d.expiresAt).getTime() <= Date.now())).length}
+                  </span>
+                </div>
+                <div className="bg-purple-950/30 rounded-2xl p-3.5 border border-purple-800/40">
+                  <span className="text-[11px] text-purple-300 font-bold block">إجمالي الطلبات المباعة</span>
+                  <span className="text-xl font-black text-purple-200 font-mono mt-0.5 block">
+                    {flashDealsList.reduce((acc, d) => acc + (d.soldQuantity || 0), 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Deals Grid */}
+            {flashDealsList.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
+                <div className="w-16 h-16 rounded-3xl bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto text-2xl border border-rose-500/20">
+                  🔥
+                </div>
+                <div>
+                  <h4 className="text-base font-black text-white">لا توجد عروض فلاش مضافة حتى الآن</h4>
+                  <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                    أنشئ أول عرض فلاش موقوت مع عد تنازلي لجذب الطلاب وزيادة مبيعات وجبات البريك والعروض الخاصة!
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenAddFlashDeal}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black shadow-lg shadow-rose-600/30 transition-all inline-flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إنشاء أول عرض فلاش</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {flashDealsList.map(deal => {
+                  const isExpired = deal.expiresAt ? new Date(deal.expiresAt).getTime() <= Date.now() : false;
+                  const branch = branches.find(b => b.id === deal.branchId);
+                  const discountPct = deal.discountPercent || (
+                    deal.originalPrice && deal.discountPrice 
+                      ? Math.round(((deal.originalPrice - deal.discountPrice) / deal.originalPrice) * 100)
+                      : null
+                  );
+
+                  return (
+                    <div
+                      key={deal.id}
+                      className={`relative bg-slate-900 border rounded-3xl p-5 flex flex-col justify-between transition-all group overflow-hidden ${
+                        !deal.isActive || isExpired
+                          ? 'border-slate-800 opacity-75'
+                          : 'border-slate-800 hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-950/20'
+                      }`}
+                    >
+                      {/* Top ribbon: Status and Badge */}
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                            <Flame className="w-3 h-3 text-rose-400" />
+                            <span>{deal.badgeText || 'عرض البريك 🔥'}</span>
+                          </span>
+
+                          <span className="px-2 py-0.5 rounded-lg text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                            {deal.dealType === 'COMBO' ? 'وجبة / كومبو' : deal.dealType === 'PROMO' ? 'كود خصم' : 'عرض مخصص'}
+                          </span>
+                        </div>
+
+                        {/* Active Toggle Switch */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFlashDeal(deal.id)}
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-colors flex items-center gap-1 shrink-0 ${
+                            deal.isActive && !isExpired
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}
+                          title={deal.isActive ? 'العرض مفعل - اضغط للتعطيل' : 'العرض معطل - اضغط للتفعيل'}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${deal.isActive && !isExpired ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                          <span>{deal.isActive && !isExpired ? 'نشط' : isExpired ? 'منتهي' : 'معطل'}</span>
+                        </button>
+                      </div>
+
+                      {/* Image + Info */}
+                      <div className="flex items-start gap-3 mb-4">
+                        {deal.imageUrl ? (
+                          <img
+                            src={getFullImageUrl(deal.imageUrl)}
+                            alt={deal.title}
+                            className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-800 bg-slate-800"
+                            onError={e => { (e.currentTarget as any).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120'; }}
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-950/60 to-slate-800 border border-rose-900/30 flex items-center justify-center text-2xl shrink-0">
+                            🍔
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm font-black text-white truncate" title={deal.title}>{deal.title}</h4>
+                          {deal.subtitle && (
+                            <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{deal.subtitle}</p>
+                          )}
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-1">
+                            <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                            <span className="truncate">{branch ? branch.name : 'كافة المطاعم'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pricing or Code */}
+                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-3 mb-3 space-y-2">
+                        {deal.discountPrice ? (
+                          <div className="flex items-baseline justify-between">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-base font-black text-rose-400 font-mono">{deal.discountPrice} ج.م</span>
+                              {deal.originalPrice && (
+                                <span className="text-xs text-slate-500 line-through font-mono">{deal.originalPrice} ج.م</span>
+                              )}
+                            </div>
+                            {discountPct && (
+                              <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black">
+                                خصم {discountPct}%
+                              </span>
+                            )}
+                          </div>
+                        ) : deal.promoCode ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 font-bold">كود الخصم:</span>
+                            <span className="px-2 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono font-black text-xs tracking-wider">
+                              {deal.promoCode}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-amber-300 font-bold">عرض خاص وموقوت</span>
+                        )}
+
+                        {/* Expiry line */}
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/80">
+                          <div className="flex items-center gap-1">
+                            <Timer className="w-3 h-3 text-amber-400 shrink-0" />
+                            <span>ينتهي:</span>
+                          </div>
+                          <span className={`font-mono font-bold ${isExpired ? 'text-rose-400' : 'text-slate-200'}`}>
+                            {deal.expiresAt ? new Date(deal.expiresAt).toLocaleString('ar-EG', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'مستمر'}
+                          </span>
+                        </div>
+
+                        {/* Sold / Limit Progress */}
+                        {deal.maxQuantity && (
+                          <div className="space-y-1 pt-1 border-t border-slate-800/60">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-400 font-bold">الكمية المباعة:</span>
+                              <span className="text-slate-300 font-mono font-black">{deal.soldQuantity || 0} من {deal.maxQuantity}</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
+                                style={{ width: `${Math.min(100, Math.round(((deal.soldQuantity || 0) / deal.maxQuantity) * 100))}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Actions */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {deal.createdAt ? new Date(deal.createdAt).toLocaleDateString('ar-EG') : ''}
+                        </span>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditFlashDeal(deal)}
+                            className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors"
+                            title="تعديل العرض"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFlashDeal(deal.id)}
+                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-950/40 rounded-xl transition-colors"
+                            title="حذف العرض"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 7. Tab 6: WhatsApp Bot & Self-Hosted OTP */}
         {activeTab === 'WHATSAPP' && (
           <div className="space-y-6">
@@ -6934,6 +7403,33 @@ export const AdminPage: React.FC = () => {
                 <div>
                   <span className="text-xs font-black block text-white">كوبونات الخصم</span>
                   <span className="text-[10px] text-slate-400 block">خصومات الفروع والعامة</span>
+                </div>
+              </button>
+
+              {/* FLASH DEALS */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('FLASH_DEALS');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
+                  activeTab === 'FLASH_DEALS'
+                    ? 'bg-rose-950/70 border-rose-600 text-white shadow-md'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                    <Flame className="w-4 h-4 fill-rose-400" />
+                  </div>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                    {flashDealsList.length}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-white">عروض الفلاش والبريك 🔥</span>
+                  <span className="text-[10px] text-slate-400 block">عروض موقوتة وكومبوهات</span>
                 </div>
               </button>
 
@@ -8834,6 +9330,395 @@ export const AdminPage: React.FC = () => {
                   className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
                   حفظ التعديلات
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Flash Deal Add/Edit Modal */}
+      {showAddFlashDealModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl my-auto flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0 bg-slate-900/90">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500/20 to-amber-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                  <Flame className="w-5 h-5 text-rose-500" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-white">
+                    {editingFlashDeal ? 'تعديل عرض الفلاش الموقوت' : 'إنشاء عرض فلاش موقوت جديد 🔥'}
+                  </h3>
+                  <span className="text-[11px] text-slate-400">عروض البريك والصفقات الترويجية مع عد تنازلي حي</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddFlashDealModal(false);
+                  setEditingFlashDeal(null);
+                }}
+                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition-colors"
+                title="إغلاق النافذة"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveFlashDeal} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    عنوان العرض الرئيسي *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="مثال: وجبة بريك كرسبي + كانز هدية"
+                    value={dealTitle}
+                    onChange={e => setDealTitle(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 placeholder-slate-500 font-bold"
+                  />
+                </div>
+
+                {/* Subtitle */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    وصف أو تفاصيل العرض (اختياري)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="مثال: عرض خاص ومحدود حتى نهاية فترة البريك"
+                    value={dealSubtitle}
+                    onChange={e => setDealSubtitle(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 placeholder-slate-500"
+                  />
+                </div>
+
+                {/* Badge text & quick presets */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    شارة العرض (Badge)
+                  </label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {['عرض البريك 🔥', 'ساعة الحظ ⚡', 'وفر للغدا 🍔', 'عرض المساء 🌙', 'خصم حصري 🏷️', 'كومبو التوفير 🚀'].map(preset => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setDealBadge(preset)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
+                          dealBadge === preset
+                            ? 'bg-rose-500 text-white border-rose-400 shadow-sm'
+                            : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={dealBadge}
+                    onChange={e => setDealBadge(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-bold"
+                  />
+                </div>
+
+                {/* Deal Type */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">نوع العرض</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDealType('COMBO')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                        dealType === 'COMBO'
+                          ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
+                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      وجبة / كومبو 🍔
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDealType('PROMO')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                        dealType === 'PROMO'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      كوبون خصم 🏷️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDealType('CUSTOM')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                        dealType === 'CUSTOM'
+                          ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-600/30'
+                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      عرض مخصص ✨
+                    </button>
+                  </div>
+                </div>
+
+                {/* Branch Selection */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      المطعم / الفرع المرتبط
+                    </label>
+                    <select
+                      value={dealBranchId}
+                      onChange={e => {
+                        const newBId = e.target.value;
+                        setDealBranchId(newBId);
+                        setDealMenuItemId('');
+                        loadBranchItemsForDeal(newBId);
+                      }}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500"
+                    >
+                      <option value="">بدون مطعم محدد (عام)</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Menu Item picker (if branch is chosen) */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      ربط بصنف من القائمة
+                    </label>
+                    <select
+                      value={dealMenuItemId}
+                      onChange={e => {
+                        const mId = e.target.value;
+                        setDealMenuItemId(mId);
+                        const selectedItem = dealBranchItems.find(it => it.id === mId);
+                        if (selectedItem) {
+                          if (!dealTitle || dealTitle === '') {
+                            setDealTitle(selectedItem.name);
+                          }
+                          if (selectedItem.price) {
+                            setDealOriginalPrice(String(selectedItem.price));
+                          }
+                          if (selectedItem.imageUrl && !dealImageUrl) {
+                            setDealImageUrl(selectedItem.imageUrl);
+                          }
+                        }
+                      }}
+                      disabled={!dealBranchId}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 disabled:opacity-50"
+                    >
+                      <option value="">{dealBranchId ? '-- اختر صنفاً لربطه --' : 'اختر الفرع أولاً'}</option>
+                      {dealBranchItems.map(item => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} ({item.price} ج.م)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Prices: Original & Discount */}
+                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">
+                        السعر الأصلي قبل الخصم (ج.م)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        placeholder="مثال: 95"
+                        value={dealOriginalPrice}
+                        onChange={e => setDealOriginalPrice(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-rose-400 mb-1">
+                        سعر الفلاش المخفض (ج.م) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        placeholder="مثال: 65"
+                        value={dealDiscountPrice}
+                        onChange={e => setDealDiscountPrice(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-rose-500/50 rounded-xl text-xs text-rose-300 focus:ring-2 focus:ring-rose-500 font-mono font-black"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Calculated savings display */}
+                  {Boolean(dealOriginalPrice && dealDiscountPrice && parseFloat(dealOriginalPrice) > parseFloat(dealDiscountPrice)) && (
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-950/40 border border-emerald-800/40 text-[11px]">
+                      <span className="text-emerald-400 font-bold">
+                        🎉 نسبة التوفير للطالب:
+                      </span>
+                      <span className="text-emerald-300 font-black font-mono">
+                        وفر {(parseFloat(dealOriginalPrice) - parseFloat(dealDiscountPrice)).toFixed(1)} ج.م (
+                        {Math.round(((parseFloat(dealOriginalPrice) - parseFloat(dealDiscountPrice)) / parseFloat(dealOriginalPrice)) * 100)}%)
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Promo Code if applicable */}
+                {dealType === 'PROMO' && (
+                  <div>
+                    <label className="block text-xs font-bold text-purple-300 mb-1">
+                      كود الخصم المرتبط *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="مثال: FLASH20"
+                      value={dealPromoCode}
+                      onChange={e => setDealPromoCode(e.target.value.toUpperCase())}
+                      className="w-full px-3.5 py-2 bg-slate-800 border border-purple-500/50 rounded-xl text-xs text-purple-200 uppercase font-mono font-black tracking-wider focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                )}
+
+                {/* Expiry Date & Duration Presets */}
+                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                      <Timer className="w-3.5 h-3.5 text-amber-400" />
+                      <span>موعد وتاريخ انتهاء العرض (العد التنازلي) *</span>
+                    </label>
+                  </div>
+
+                  {/* Quick Duration Buttons */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: '+ 1 ساعة', hours: 1 },
+                      { label: '+ 2 ساعة', hours: 2 },
+                      { label: '+ 3 ساعات (البريك)', hours: 3 },
+                      { label: '+ 6 ساعات', hours: 6 },
+                      { label: '+ 12 ساعة', hours: 12 },
+                      { label: '+ 24 ساعة', hours: 24 }
+                    ].map(btn => (
+                      <button
+                        key={btn.hours}
+                        type="button"
+                        onClick={() => {
+                          const exp = new Date(Date.now() + btn.hours * 3600 * 1000);
+                          const tzOffset = exp.getTimezoneOffset() * 60000;
+                          setDealExpiresAt(new Date(exp.getTime() - tzOffset).toISOString().slice(0, 16));
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:text-amber-300 hover:border-amber-500/50 transition-colors"
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <input
+                    type="datetime-local"
+                    required
+                    value={dealExpiresAt}
+                    onChange={e => setDealExpiresAt(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-amber-500 font-mono font-bold"
+                  />
+                </div>
+
+                {/* Max Quantity */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      الحد الأقصى للكمية (وجبة/طلب)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="30 (اتركه فارغاً لغير محدود)"
+                      value={dealMaxQuantity}
+                      onChange={e => setDealMaxQuantity(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-mono font-bold"
+                    />
+                  </div>
+
+                  {/* Active Toggle */}
+                  <div className="flex flex-col justify-end">
+                    <label className="flex items-center gap-2 p-2.5 bg-slate-800 rounded-xl cursor-pointer border border-slate-700/60 hover:bg-slate-700/50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={dealIsActive}
+                        onChange={e => setDealIsActive(e.target.checked)}
+                        className="rounded text-rose-600 focus:ring-0 w-4 h-4 accent-rose-600 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-slate-200">العرض نشط ويظهر للطلاب فوراً</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Deal Image URL + Upload */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">صورة العرض</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="رابط الصورة (URL) أو ارفع من جهازك"
+                      value={dealImageUrl}
+                      onChange={e => setDealImageUrl(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500"
+                    />
+                    <label className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors">
+                      <Upload className="w-3.5 h-3.5 text-rose-400" />
+                      <span>{uploadingDealImage ? 'جاري الرفع...' : 'رفع صورة'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingDealImage}
+                        onChange={handleUploadDealImage}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {dealImageUrl && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <img
+                        src={getFullImageUrl(dealImageUrl)}
+                        alt="معاينة"
+                        className="w-12 h-12 rounded-xl object-cover border border-slate-700 bg-slate-800"
+                      />
+                      <span className="text-[10px] text-slate-400">معاينة صورة العرض المحددة</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddFlashDealModal(false);
+                    setEditingFlashDeal(null);
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white rounded-xl text-xs font-black shadow-lg shadow-rose-600/30 transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                  <Flame className="w-4 h-4" />
+                  <span>{editingFlashDeal ? 'حفظ التعديلات' : 'نشر عرض الفلاش الآن 🔥'}</span>
                 </button>
               </div>
             </form>

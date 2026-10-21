@@ -220,6 +220,31 @@ const PORT = Number(process.env.PORT) || 5000;
 async function autoSyncDatabaseSchema() {
   try {
     const patches = [
+      `CREATE TABLE IF NOT EXISTS "FlashDeal" (
+        "id" TEXT PRIMARY KEY,
+        "title" TEXT NOT NULL,
+        "subtitle" TEXT,
+        "dealType" TEXT NOT NULL DEFAULT 'COMBO',
+        "branchId" TEXT,
+        "menuItemId" TEXT,
+        "originalPrice" DOUBLE PRECISION,
+        "discountPrice" DOUBLE PRECISION,
+        "discountPercent" INTEGER,
+        "promoCode" TEXT,
+        "badgeText" TEXT,
+        "imageUrl" TEXT,
+        "maxQuantity" INTEGER,
+        "soldQuantity" INTEGER NOT NULL DEFAULT 0,
+        "startsAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "expiresAt" TIMESTAMP(3) NOT NULL,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "displayOrder" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+      `CREATE INDEX IF NOT EXISTS "FlashDeal_isActive_idx" ON "FlashDeal"("isActive");`,
+      `CREATE INDEX IF NOT EXISTS "FlashDeal_expiresAt_idx" ON "FlashDeal"("expiresAt");`,
+      `CREATE INDEX IF NOT EXISTS "FlashDeal_branchId_idx" ON "FlashDeal"("branchId");`,
       `ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "applicableBranchIds" TEXT;`,
       `ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "maxUses" INTEGER;`,
       `ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "usedCount" INTEGER DEFAULT 0;`,

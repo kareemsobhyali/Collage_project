@@ -21,6 +21,7 @@ import {
   notifyBranchesListChanged,
   notifyBannersUpdated,
   notifyPromosUpdated,
+  notifyFlashDealsUpdated,
   notifyUserUpdated,
   notifySoundSettingsChanged,
   notifyRestaurantLocationChanged
@@ -1160,6 +1161,204 @@ router.delete("/promo-codes/:id", async (req: AuthRequest, res: Response) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "فشل حذف الكوبون" });
+  }
+});
+
+// ==========================================
+// إدارة عروض الفلاش والبريك الموقوتة (Flash Deals)
+// ==========================================
+
+// 1. جلب كافة عروض الفلاش الموقوتة
+router.get("/flash-deals", async (_req: AuthRequest, res: Response) => {
+  try {
+    const deals = await prisma.flashDeal.findMany({
+      include: {
+        branch: {
+          select: { id: true, name: true, slug: true, logoUrl: true }
+        }
+      },
+      orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }]
+    });
+    res.json(deals);
+  } catch (error) {
+    console.error("Get admin flash deals error:", error);
+    res.status(500).json({ error: "فشل استرجاع عروض الفلاش" });
+  }
+});
+
+// 2. إنشاء عرض فلاش موقوت جديد
+router.post("/flash-deals", async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      title,
+      subtitle,
+      dealType,
+      branchId,
+      menuItemId,
+      originalPrice,
+      discountPrice,
+      discountPercent,
+      promoCode,
+      badgeText,
+      imageUrl,
+      maxQuantity,
+      expiresAt,
+      isActive,
+      displayOrder
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      res.status(400).json({ error: "عنوان العرض مطلوب" });
+      return;
+    }
+
+    if (!expiresAt) {
+      res.status(400).json({ error: "تاريخ وساعة انتهاء العرض مطلوبة" });
+      return;
+    }
+
+    const origPrice = originalPrice !== undefined && originalPrice !== "" && !isNaN(Number(originalPrice)) ? Number(originalPrice) : null;
+    const discPrice = discountPrice !== undefined && discountPrice !== "" && !isNaN(Number(discountPrice)) ? Number(discountPrice) : null;
+    let discPercent = discountPercent !== undefined && discountPercent !== "" && !isNaN(Number(discountPercent)) ? parseInt(discountPercent) : null;
+    if (!discPercent && origPrice && discPrice && origPrice > discPrice) {
+      discPercent = Math.round(((origPrice - discPrice) / origPrice) * 100);
+    }
+
+    const deal = await prisma.flashDeal.create({
+      data: {
+        title: title.trim(),
+        subtitle: subtitle ? subtitle.trim() : null,
+        dealType: dealType || "COMBO",
+        branchId: branchId && String(branchId).trim() ? String(branchId).trim() : null,
+        menuItemId: menuItemId && String(menuItemId).trim() ? String(menuItemId).trim() : null,
+        originalPrice: origPrice,
+        discountPrice: discPrice,
+        discountPercent: discPercent,
+        promoCode: promoCode ? promoCode.trim().toUpperCase() : null,
+        badgeText: badgeText ? badgeText.trim() : "عرض البريك 🔥",
+        imageUrl: imageUrl ? imageUrl.trim() : null,
+        maxQuantity: maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : null,
+        expiresAt: new Date(expiresAt),
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+        displayOrder: displayOrder !== undefined ? parseInt(displayOrder) || 0 : 0
+      },
+      include: {
+        branch: { select: { id: true, name: true, slug: true, logoUrl: true } }
+      }
+    });
+
+    notifyFlashDealsUpdated();
+
+    res.status(201).json({ success: true, deal });
+  } catch (error) {
+    console.error("Create flash deal error:", error);
+    res.status(500).json({ error: "فشل إنشاء عرض الفلاش" });
+  }
+});
+
+// 3. تعديل عرض فلاش موقوت
+router.put("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const {
+      title,
+      subtitle,
+      dealType,
+      branchId,
+      menuItemId,
+      originalPrice,
+      discountPrice,
+      discountPercent,
+      promoCode,
+      badgeText,
+      imageUrl,
+      maxQuantity,
+      expiresAt,
+      isActive,
+      displayOrder
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      res.status(400).json({ error: "عنوان العرض مطلوب" });
+      return;
+    }
+
+    const origPrice = originalPrice !== undefined && originalPrice !== "" && !isNaN(Number(originalPrice)) ? Number(originalPrice) : null;
+    const discPrice = discountPrice !== undefined && discountPrice !== "" && !isNaN(Number(discountPrice)) ? Number(discountPrice) : null;
+    let discPercent = discountPercent !== undefined && discountPercent !== "" && !isNaN(Number(discountPercent)) ? parseInt(discountPercent) : null;
+    if (!discPercent && origPrice && discPrice && origPrice > discPrice) {
+      discPercent = Math.round(((origPrice - discPrice) / origPrice) * 100);
+    }
+
+    const updated = await prisma.flashDeal.update({
+      where: { id },
+      data: {
+        title: title.trim(),
+        subtitle: subtitle ? subtitle.trim() : null,
+        dealType: dealType || "COMBO",
+        branchId: branchId && String(branchId).trim() ? String(branchId).trim() : null,
+        menuItemId: menuItemId && String(menuItemId).trim() ? String(menuItemId).trim() : null,
+        originalPrice: origPrice,
+        discountPrice: discPrice,
+        discountPercent: discPercent,
+        promoCode: promoCode ? promoCode.trim().toUpperCase() : null,
+        badgeText: badgeText ? badgeText.trim() : "عرض البريك 🔥",
+        imageUrl: imageUrl ? imageUrl.trim() : null,
+        maxQuantity: maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : null,
+        ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {}),
+        ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
+        ...(displayOrder !== undefined ? { displayOrder: parseInt(displayOrder) || 0 } : {})
+      },
+      include: {
+        branch: { select: { id: true, name: true, slug: true, logoUrl: true } }
+      }
+    });
+
+    notifyFlashDealsUpdated();
+
+    res.json({ success: true, deal: updated });
+  } catch (error) {
+    console.error("Update flash deal error:", error);
+    res.status(500).json({ error: "فشل تحديث عرض الفلاش" });
+  }
+});
+
+// 4. حذف عرض فلاش موقوت
+router.delete("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    await prisma.flashDeal.delete({ where: { id } });
+
+    notifyFlashDealsUpdated();
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete flash deal error:", error);
+    res.status(500).json({ error: "فشل حذف عرض الفلاش" });
+  }
+});
+
+// 5. تبديل حالة التفعيل
+router.patch("/flash-deals/:id/toggle", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const deal = await prisma.flashDeal.findUnique({ where: { id } });
+    if (!deal) {
+      res.status(404).json({ error: "عرض الفلاش غير موجود" });
+      return;
+    }
+
+    const updated = await prisma.flashDeal.update({
+      where: { id },
+      data: { isActive: !deal.isActive }
+    });
+
+    notifyFlashDealsUpdated();
+
+    res.json({ success: true, isActive: updated.isActive });
+  } catch (error) {
+    console.error("Toggle flash deal error:", error);
+    res.status(500).json({ error: "فشل تغيير حالة عرض الفلاش" });
   }
 });
 
