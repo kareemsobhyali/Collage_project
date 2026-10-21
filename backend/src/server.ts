@@ -278,16 +278,6 @@ async function autoSyncDatabaseSchema() {
       await prisma.$executeRawUnsafe(sql).catch(() => {});
     }
     console.log("[DB Auto-Sync] Database schema columns verified and updated successfully.");
-
-    // مزامنة خلفية آمنة لباقي الجداول والموديلات والفهارس الجديدة
-    try {
-      const { exec } = await import("child_process");
-      exec("npx prisma db push --skip-generate --accept-data-loss", { cwd: process.cwd() }, (error) => {
-        if (!error) {
-          console.log("[Prisma DB Push] Background schema push completed successfully.");
-        }
-      });
-    } catch (_e) {}
   } catch (err: any) {
     console.warn("[DB Auto-Sync] Column patch warning:", err?.message || err);
   }
@@ -340,7 +330,23 @@ server.listen(PORT, "0.0.0.0", () => {
       console.warn("[Scheduler] Could not start alert schedulers:", err);
     });
 
-  // مزامنة الصور المحلية الموجودة على القرص وحفظها في قاعدة البيانات PostgreSQL لضمان عدم فقدانها عند إعادة تشغيل السيرفر
+  // مراقبة دورية لاستهلاك الذاكرة (Memory Watchdog) لضمان البقاء تحت سقف 512MB RAM
+  setInterval(() => {
+    const mem = process.memoryUsage();
+    const heapUsedMb = Math.round(mem.heapUsed / 1024 / 1024);
+    const rssMb = Math.round(mem.rss / 1024 / 1024);
+    if (rssMb > 340 || heapUsedMb > 280) {
+      console.warn(`[Memory Watchdog] High RAM usage detected: RSS=${rssMb}MB, Heap=${heapUsedMb}MB.`);
+      if (typeof global.gc === "function") {
+        try {
+          global.gc();
+          console.log("[Memory Watchdog] Garbage Collection triggered successfully.");
+        } catch (_gcErr) {}
+      }
+    }
+  }, 60 * 1000);
+
+  // مزامنة تدريجية للصور المحلية بعد استقرار إقلاع السيرفر (30 ثانية) لتجنب الضغط على الرام
   setTimeout(async () => {
     try {
       if (fs.existsSync(uploadsPath)) {
@@ -367,6 +373,8 @@ server.listen(PORT, "0.0.0.0", () => {
                   },
                 });
                 console.log(`[Backup] Synced image ${file} to PostgreSQL database.`);
+                // إتاحة فرصة لـ Garbage Collection بين كل ملف والآخر
+                await new Promise((resolve) => setTimeout(resolve, 150));
               }
             }
           }
@@ -375,7 +383,7 @@ server.listen(PORT, "0.0.0.0", () => {
     } catch (err) {
       console.warn("[Backup] Image auto-sync to DB encountered:", err);
     }
-  }, 5000);
+  }, 30000);
 
   // فحص ما إذا كانت قاعدة البيانات جديدة/فارغة وحقن البيانات التجريبية تلقائياً (فقط في بيئة التطوير أو عند تفعيل ENABLE_AUTO_SEED)
   if (process.env.NODE_ENV !== "production" || process.env.ENABLE_AUTO_SEED === "true") {

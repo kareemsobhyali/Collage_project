@@ -3,7 +3,8 @@ import fs from 'fs';
 import makeWASocket, { 
   DisconnectReason, 
   useMultiFileAuthState, 
-  WASocket 
+  WASocket,
+  isJidBroadcast
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 // @ts-ignore
@@ -17,6 +18,8 @@ class WhatsAppService {
   private currentQrDataUrl: string | null = null;
   private currentRawQr: string | null = null;
   private isInitializing: boolean = false;
+  private isSyncingFiles: boolean = false;
+  private sessionSyncTimer: NodeJS.Timeout | null = null;
   private sessionDir: string = process.env.WHATSAPP_SESSION_PATH || (
     fs.existsSync('/var/data') ? '/var/data/auth_info_baileys' : path.resolve(process.cwd(), 'auth_info_baileys')
   );
@@ -35,26 +38,128 @@ class WhatsAppService {
     }
   }
 
-  // استرجاع ملفات الجلسة من قاعدة البيانات PostgreSQL عند إعادة تشغيل السيرفرات السحابية المؤقتة
+  // استرجاع ملفات الجلسة الأساسية فقط من PostgreSQL مع تجنب تحميل آلاف المفاتيح القديمة لتوفير الرام
   private async restoreSessionFromDb() {
     try {
       this.ensureSessionDir();
       const credsPath = path.join(this.sessionDir, 'creds.json');
       if (!fs.existsSync(credsPath)) {
-        const records = await prisma.systemSetting.findMany({
-          where: { key: { startsWith: 'baileys_file_' } }
+        // 1. استرجاع creds.json أولاً
+        const credsRec = await prisma.systemSetting.findUnique({
+          where: { key: 'baileys_file_creds.json' }
         });
+        if (credsRec?.value) {
+          fs.writeFileSync(credsPath, credsRec.value, 'utf-8');
+        }
+
+        // 2. استرجاع باقي الملفات مع استبعاد الـ pre-keys التالفة والقديمة
+        const records = await prisma.systemSetting.findMany({
+          where: { 
+            key: { startsWith: 'baileys_file_' },
+            NOT: { key: 'baileys_file_creds.json' }
+          },
+          select: { key: true, value: true }
+        });
+
         if (records.length > 0) {
-          for (const rec of records) {
+          const preKeys = records
+            .filter(r => r.key.startsWith('baileys_file_pre-key-'))
+            .map(r => {
+              const m = r.key.match(/pre-key-(\d+)\.json/);
+              return { ...r, num: m ? parseInt(m[1], 10) : 0 };
+            })
+            .sort((a, b) => b.num - a.num);
+
+          const nonPreKeys = records.filter(r => !r.key.startsWith('baileys_file_pre-key-'));
+          const keepPreKeys = preKeys.slice(0, 40); // الاحتفاظ بأحدث 40 مفتاح مؤقت فقط
+          const obsoleteKeys = preKeys.slice(40).map(k => k.key);
+
+          const toWrite = [...nonPreKeys, ...keepPreKeys];
+          for (const rec of toWrite) {
             const rawFilename = rec.key.replace('baileys_file_', '');
             const filename = path.basename(rawFilename);
             fs.writeFileSync(path.join(this.sessionDir, filename), rec.value, 'utf-8');
           }
-          console.log(`[WhatsApp] Successfully restored ${records.length} session auth files from PostgreSQL database.`);
+          console.log(`[WhatsApp] Successfully restored ${toWrite.length} vital session auth files from PostgreSQL (optimized for 512MB RAM).`);
+
+          // تنظيف المفاتيح المنتهية من PostgreSQL لتخفيف استهلاك قاعدة البيانات والذاكرة
+          if (obsoleteKeys.length > 0) {
+            prisma.systemSetting.deleteMany({
+              where: { key: { in: obsoleteKeys } }
+            }).then(del => {
+              console.log(`[WhatsApp] Cleaned up ${del.count} obsolete pre-keys from PostgreSQL.`);
+            }).catch(() => {});
+          }
         }
       }
     } catch (err) {
       console.warn('[WhatsApp] Could not restore session from DB:', err);
+    }
+  }
+
+  // تنظيف الـ pre-keys القديمة دورياً من القرص وقاعدة البيانات لمنع تراكم آلاف الملفات
+  private async pruneObsoletePreKeys() {
+    try {
+      if (!fs.existsSync(this.sessionDir)) return;
+      const allFiles = fs.readdirSync(this.sessionDir);
+      const preKeyFiles = allFiles
+        .filter(f => f.startsWith('pre-key-') && f.endsWith('.json'))
+        .map(f => {
+          const m = f.match(/pre-key-(\d+)\.json/);
+          return { file: f, num: m ? parseInt(m[1], 10) : 0 };
+        })
+        .sort((a, b) => b.num - a.num);
+
+      if (preKeyFiles.length > 40) {
+        const toDelete = preKeyFiles.slice(40);
+        for (const item of toDelete) {
+          try {
+            fs.unlinkSync(path.join(this.sessionDir, item.file));
+          } catch (_e) {}
+        }
+        const dbKeys = toDelete.map(d => `baileys_file_${d.file}`);
+        await prisma.systemSetting.deleteMany({
+          where: { key: { in: dbKeys } }
+        }).catch(() => {});
+      }
+    } catch (_err) {}
+  }
+
+  // مزامنة خفيفة ومجدولة لملفات الجلسة الحيوية فقط بدون إجهاد الذاكرة
+  private async syncSessionFilesToDb() {
+    if (this.isSyncingFiles || !this.isConnected) return;
+    this.isSyncingFiles = true;
+    try {
+      if (!fs.existsSync(this.sessionDir)) return;
+      await this.pruneObsoletePreKeys();
+
+      const files = fs.readdirSync(this.sessionDir);
+      const nonPreKeys = files.filter(f => f.endsWith('.json') && !f.startsWith('pre-key-'));
+      const preKeys = files
+        .filter(f => f.startsWith('pre-key-') && f.endsWith('.json'))
+        .map(f => {
+          const m = f.match(/pre-key-(\d+)\.json/);
+          return { file: f, num: m ? parseInt(m[1], 10) : 0 };
+        })
+        .sort((a, b) => b.num - a.num)
+        .slice(0, 30)
+        .map(p => p.file);
+
+      const toSync = [...nonPreKeys, ...preKeys];
+      for (const file of toSync) {
+        const filePath = path.join(this.sessionDir, file);
+        if (fs.existsSync(filePath)) {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          await prisma.systemSetting.upsert({
+            where: { key: `baileys_file_${file}` },
+            update: { value: content },
+            create: { key: `baileys_file_${file}`, value: content },
+          }).catch(() => {});
+        }
+      }
+    } catch (_err) {
+    } finally {
+      this.isSyncingFiles = false;
     }
   }
 
@@ -74,29 +179,37 @@ class WhatsAppService {
         browser: ['UniFood Campus', 'Chrome', '1.0.0'],
         connectTimeoutMs: 60000,
         keepAliveIntervalMs: 25000,
+        syncFullHistory: false, // يمنع سحب أرشيف المحادثات الضخم إلى الرام
+        shouldIgnoreJid: (jid) => isJidBroadcast(jid) || jid.endsWith('@newsletter'),
+        getMessage: async () => undefined, // يمنع الاحتفاظ بنصوص الرسائل في ذاكرة الخادم
       });
 
       this.sock = socket;
 
+      // عند تحديث بيانات الاعتماد، نحفظ فقط creds.json (تجنباً لقراءة آلاف الملفات وإغراق الرام)
       socket.ev.on('creds.update', async () => {
         await saveCreds();
-        // مزامنة ملفات الجلسة تلقائياً في قاعدة البيانات PostgreSQL لحفظها من الفقدان
         try {
-          if (fs.existsSync(this.sessionDir)) {
-            const files = fs.readdirSync(this.sessionDir);
-            for (const file of files) {
-              if (file.endsWith('.json')) {
-                const content = fs.readFileSync(path.join(this.sessionDir, file), 'utf-8');
-                await prisma.systemSetting.upsert({
-                  where: { key: `baileys_file_${file}` },
-                  update: { value: content },
-                  create: { key: `baileys_file_${file}`, value: content },
-                }).catch(() => {});
-              }
-            }
+          const credsPath = path.join(this.sessionDir, 'creds.json');
+          if (fs.existsSync(credsPath)) {
+            const content = fs.readFileSync(credsPath, 'utf-8');
+            await prisma.systemSetting.upsert({
+              where: { key: 'baileys_file_creds.json' },
+              update: { value: content },
+              create: { key: 'baileys_file_creds.json', value: content },
+            }).catch(() => {});
           }
         } catch (_syncErr) {}
       });
+
+      // إيقاف أي مؤقت مزامنة سابق وتشغيل مؤقت خفيف كل 4 دقائق
+      if (this.sessionSyncTimer) {
+        clearInterval(this.sessionSyncTimer);
+        this.sessionSyncTimer = null;
+      }
+      this.sessionSyncTimer = setInterval(() => {
+        this.syncSessionFilesToDb().catch(() => {});
+      }, 4 * 60 * 1000);
 
       socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
@@ -120,6 +233,11 @@ class WhatsAppService {
           const rawId = socket.user?.id || '';
           this.botPhoneNumber = rawId.split(':')[0] || rawId.split('@')[0] || 'متصل';
           console.log(`[WhatsApp] Connected successfully! Active Phone: ${this.botPhoneNumber}`);
+          
+          // مزامنة أولية خفيفة بعد الاتصال بنصف دقيقة
+          setTimeout(() => {
+            this.syncSessionFilesToDb().catch(() => {});
+          }, 30000);
         } else if (connection === 'close') {
           this.isConnected = false;
           this.isInitializing = false;
@@ -151,6 +269,10 @@ class WhatsAppService {
 
   private cleanupSession() {
     try {
+      if (this.sessionSyncTimer) {
+        clearInterval(this.sessionSyncTimer);
+        this.sessionSyncTimer = null;
+      }
       if (fs.existsSync(this.sessionDir)) {
         fs.rmSync(this.sessionDir, { recursive: true, force: true });
         this.ensureSessionDir();
