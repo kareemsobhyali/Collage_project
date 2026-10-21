@@ -45,13 +45,12 @@ const BANNER_GRADIENTS = [
   'from-amber-600 via-amber-700 to-yellow-600'
 ];
 
-// Rich gradients for dynamic promotional banners
 const PROMO_BANNER_GRADIENTS = [
-  'from-purple-900 via-indigo-900 to-blue-900',
-  'from-rose-950 via-purple-900 to-indigo-950',
-  'from-blue-950 via-slate-900 to-emerald-950',
-  'from-amber-950 via-rose-900 to-purple-950',
-  'from-indigo-950 via-violet-900 to-purple-950',
+  'from-purple-950 via-indigo-900 to-blue-950',
+  'from-indigo-950 via-purple-900 to-rose-950',
+  'from-slate-950 via-indigo-950 to-blue-900',
+  'from-emerald-950 via-teal-900 to-indigo-950',
+  'from-rose-950 via-pink-900 to-purple-950'
 ];
 
 const FOOD_EMOJIS = ['🍔', '🍕', '🌯', '🥪', '☕', '🍗', '🍟', '🥤', '🧇', '🍝'];
@@ -227,20 +226,24 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     return () => clearInterval(timer);
   }, []);
 
-  // Dynamic Promotional Banners from Admin
+  // Dynamic Promotional Banners from Admin with Touch / Mouse Horizontal Scroll
   const [banners, setBanners] = useState<any[]>([]);
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
-
   const bannerScrollRef = useRef<HTMLDivElement | null>(null);
-  const isTouchingBanner = useRef<boolean>(false);
-  const isHoveringBanner = useRef<boolean>(false);
-  const isSwipingBanner = useRef<boolean>(false);
-  const isMouseDown = useRef<boolean>(false);
-  const mouseStartX = useRef<number>(0);
-  const mouseScrollLeft = useRef<number>(0);
-  const touchStartX = useRef<number>(0);
-  const touchStartY = useRef<number>(0);
-  const isScrollingRef = useRef<boolean>(false);
+  const activeBannerIdxRef = useRef<number>(0);
+  const isInteractingRef = useRef<boolean>(false);
+  const isProgrammaticScroll = useRef<boolean>(false);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef<boolean>(false);
+  const isMouseDownRef = useRef<boolean>(false);
+  const mouseStartXRef = useRef<number>(0);
+  const mouseScrollLeftRef = useRef<number>(0);
+  const mouseMovedRef = useRef<boolean>(false);
+  const scrollDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    activeBannerIdxRef.current = activeBannerIdx;
+  }, [activeBannerIdx]);
 
   useEffect(() => {
     const fetchBanners = () => {
@@ -257,125 +260,148 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     return () => window.removeEventListener('banners_updated', fetchBanners);
   }, []);
 
-  const scrollToBanner = (idx: number) => {
+  const scrollToBanner = (index: number, smooth: boolean = true) => {
     const container = bannerScrollRef.current;
-    if (!container) return;
+    if (!container || banners.length === 0) return;
+    const bounded = Math.max(0, Math.min(index, banners.length - 1));
     const slides = container.querySelectorAll('[data-banner-slide="true"]');
-    const target = slides[idx] as HTMLElement | undefined;
+    const target = slides[bounded] as HTMLElement | undefined;
     if (target) {
-      isScrollingRef.current = true;
-      const containerRect = container.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const diff = targetRect.left - containerRect.left;
-      container.scrollBy({ left: diff, behavior: 'smooth' });
-      setActiveBannerIdx(idx);
+      isProgrammaticScroll.current = true;
+      const cRect = container.getBoundingClientRect();
+      const tRect = target.getBoundingClientRect();
+      const diff = (tRect.left + tRect.width / 2) - (cRect.left + cRect.width / 2);
+      if (Math.abs(diff) > 2) {
+        container.scrollBy({
+          left: diff,
+          behavior: smooth ? 'smooth' : 'instant',
+        });
+      }
+      setActiveBannerIdx(bounded);
       setTimeout(() => {
-        isScrollingRef.current = false;
-      }, 450);
+        isProgrammaticScroll.current = false;
+      }, smooth ? 450 : 60);
     }
   };
 
   useEffect(() => {
     if (banners.length <= 1) return;
     const interval = setInterval(() => {
-      if (isTouchingBanner.current || isHoveringBanner.current || isSwipingBanner.current || isMouseDown.current) return;
-      setActiveBannerIdx((prev) => {
-        const next = (prev + 1) % banners.length;
-        scrollToBanner(next);
-        return next;
-      });
+      if (!isInteractingRef.current && !isMouseDownRef.current) {
+        const next = (activeBannerIdxRef.current + 1) % banners.length;
+        scrollToBanner(next, true);
+      }
     }, 5000);
     return () => clearInterval(interval);
   }, [banners.length]);
 
   const handleBannerScroll = () => {
-    if (isScrollingRef.current) return;
+    if (isProgrammaticScroll.current) return;
     const container = bannerScrollRef.current;
     if (!container || banners.length <= 1) return;
-    const containerRect = container.getBoundingClientRect();
-    const containerCenter = containerRect.left + containerRect.width / 2;
 
-    const slides = container.querySelectorAll('[data-banner-slide="true"]');
-    let closestIdx = 0;
-    let minDistance = Infinity;
+    if (scrollDebounceTimer.current) clearTimeout(scrollDebounceTimer.current);
+    scrollDebounceTimer.current = setTimeout(() => {
+      if (isProgrammaticScroll.current) return;
+      const containerRect = container.getBoundingClientRect();
+      const containerCenter = containerRect.left + containerRect.width / 2;
+      const slides = container.querySelectorAll('[data-banner-slide="true"]');
 
-    slides.forEach((slide, idx) => {
-      const rect = slide.getBoundingClientRect();
-      const slideCenter = rect.left + rect.width / 2;
-      const dist = Math.abs(containerCenter - slideCenter);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestIdx = idx;
+      let closestIdx = 0;
+      let minDistance = Infinity;
+
+      slides.forEach((slide, idx) => {
+        const rect = slide.getBoundingClientRect();
+        const slideCenter = rect.left + rect.width / 2;
+        const dist = Math.abs(containerCenter - slideCenter);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestIdx = idx;
+        }
+      });
+
+      if (closestIdx !== activeBannerIdxRef.current) {
+        setActiveBannerIdx(closestIdx);
       }
-    });
-
-    if (closestIdx !== activeBannerIdx) {
-      setActiveBannerIdx(closestIdx);
-    }
-  };
-
-  const handlePrevBanner = () => {
-    if (banners.length <= 1) return;
-    const targetIdx = (activeBannerIdx - 1 + banners.length) % banners.length;
-    scrollToBanner(targetIdx);
-  };
-
-  const handleNextBanner = () => {
-    if (banners.length <= 1) return;
-    const targetIdx = (activeBannerIdx + 1) % banners.length;
-    scrollToBanner(targetIdx);
+    }, 45);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    isTouchingBanner.current = true;
-    isSwipingBanner.current = false;
-    if (e.touches && e.touches[0]) {
-      touchStartX.current = e.touches[0].clientX;
-      touchStartY.current = e.touches[0].clientY;
-    }
+    isInteractingRef.current = true;
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    isDraggingRef.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches && e.touches[0]) {
-      const diffX = Math.abs(e.touches[0].clientX - touchStartX.current);
-      const diffY = Math.abs(e.touches[0].clientY - touchStartY.current);
-      if (diffX > 8 && diffX > diffY) {
-        isSwipingBanner.current = true;
-      }
+    if (!touchStartPos.current) return;
+    const touch = e.touches[0];
+    const diffX = Math.abs(touch.clientX - touchStartPos.current.x);
+    const diffY = Math.abs(touch.clientY - touchStartPos.current.y);
+    if (diffX > 8 || diffY > 8) {
+      isDraggingRef.current = true;
     }
   };
 
   const handleTouchEnd = () => {
     setTimeout(() => {
-      isTouchingBanner.current = false;
-      isSwipingBanner.current = false;
-    }, 150);
+      isInteractingRef.current = false;
+      isDraggingRef.current = false;
+    }, 1200);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (banners.length <= 1) return;
-    isMouseDown.current = true;
-    isSwipingBanner.current = false;
-    mouseStartX.current = e.clientX;
-    if (bannerScrollRef.current) {
-      mouseScrollLeft.current = bannerScrollRef.current.scrollLeft;
-    }
+    const container = bannerScrollRef.current;
+    if (!container) return;
+    isMouseDownRef.current = true;
+    mouseMovedRef.current = false;
+    mouseStartXRef.current = e.pageX - container.offsetLeft;
+    mouseScrollLeftRef.current = container.scrollLeft;
+    isInteractingRef.current = true;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isMouseDown.current || !bannerScrollRef.current) return;
-    const dx = e.clientX - mouseStartX.current;
-    if (Math.abs(dx) > 6) {
-      isSwipingBanner.current = true;
+    if (!isMouseDownRef.current) return;
+    const container = bannerScrollRef.current;
+    if (!container) return;
+    const x = e.pageX - container.offsetLeft;
+    const walk = x - mouseStartXRef.current;
+    if (Math.abs(walk) > 5) {
+      mouseMovedRef.current = true;
     }
-    bannerScrollRef.current.scrollLeft = mouseScrollLeft.current - dx;
+    container.scrollLeft = mouseScrollLeftRef.current - walk;
   };
 
-  const handleMouseUp = () => {
-    isMouseDown.current = false;
-    setTimeout(() => {
-      isSwipingBanner.current = false;
-    }, 150);
+  const handleMouseUpOrLeave = () => {
+    if (isMouseDownRef.current) {
+      isMouseDownRef.current = false;
+      setTimeout(() => {
+        isInteractingRef.current = false;
+        mouseMovedRef.current = false;
+      }, 400);
+    }
+  };
+
+  const handlePrevBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const prev = (activeBannerIdx - 1 + banners.length) % banners.length;
+    scrollToBanner(prev, true);
+  };
+
+  const handleNextBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = (activeBannerIdx + 1) % banners.length;
+    scrollToBanner(next, true);
+  };
+
+  const handleDotClick = (e: React.MouseEvent, idx: number) => {
+    e.stopPropagation();
+    scrollToBanner(idx, true);
+  };
+
+  const handleBannerCardClick = (banner: any) => {
+    if (isDraggingRef.current || mouseMovedRef.current) return;
+    handleBannerClick(banner);
   };
 
   // ==========================================
@@ -735,7 +761,6 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   });
 
   const handleBannerClick = (banner: any) => {
-    if (isSwipingBanner.current) return;
     if (!banner?.linkUrl) return;
     const url = banner.linkUrl.trim();
     if (!url) return;
@@ -774,17 +799,10 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
 
   return (
     <div className="space-y-5">
-      {/* 1. Dynamic or Default UniFood Campus Banner (Horizontal Scroll / Swipe Supported) */}
+      {/* 1. Dynamic or Default UniFood Campus Banner Carousel (يدعم السكرول والسحب يمين وشمال) */}
       {banners.length > 0 ? (
-        <div 
-          className="relative group/banners w-full select-none"
-          onMouseEnter={() => { isHoveringBanner.current = true; }}
-          onMouseLeave={() => { 
-            handleMouseUp(); 
-            isHoveringBanner.current = false; 
-          }}
-        >
-          {/* Scrollable Horizontal Track */}
+        <div className="relative group select-none">
+          {/* Horizontal Scrollable Carousel Container */}
           <div
             ref={bannerScrollRef}
             onScroll={handleBannerScroll}
@@ -793,126 +811,107 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             onTouchEnd={handleTouchEnd}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            className={`flex w-full overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth rounded-3xl touch-pan-x ${
-              banners.length > 1 ? 'cursor-grab active:cursor-grabbing' : ''
-            }`}
-            dir="rtl"
+            onMouseUp={handleMouseUpOrLeave}
+            onMouseLeave={handleMouseUpOrLeave}
+            className="flex overflow-x-auto scrollbar-none snap-x snap-mandatory scroll-smooth w-full rounded-3xl cursor-grab active:cursor-grabbing"
+            style={{
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-x pan-y',
+            }}
           >
             {banners.map((banner, idx) => (
               <div
                 key={banner.id || idx}
                 data-banner-slide="true"
-                className="w-full shrink-0 snap-center min-w-full"
+                id={`banner-slide-${idx}`}
+                onClick={() => handleBannerCardClick(banner)}
+                className={`w-full min-w-full shrink-0 snap-center relative overflow-hidden rounded-3xl bg-gradient-to-r ${PROMO_BANNER_GRADIENTS[idx % PROMO_BANNER_GRADIENTS.length]} text-white p-4 sm:p-6 shadow-md transition-all duration-300 ${
+                  banner.linkUrl ? 'cursor-pointer hover:shadow-xl' : ''
+                }`}
+                title={banner.linkUrl ? `اضغط لفتح: ${banner.linkUrl}` : undefined}
               >
-                <div
-                  onClick={() => handleBannerClick(banner)}
-                  className={`relative overflow-hidden rounded-3xl bg-gradient-to-r ${
-                    PROMO_BANNER_GRADIENTS[idx % PROMO_BANNER_GRADIENTS.length]
-                  } text-white p-4 sm:p-6 shadow-md transition-all duration-300 min-h-[145px] sm:min-h-[165px] flex flex-col justify-between ${
-                    banner.linkUrl ? 'cursor-pointer hover:shadow-xl group/card' : ''
-                  }`}
-                  title={banner.linkUrl ? `اضغط لفتح: ${banner.linkUrl}` : undefined}
-                >
-                  {banner.imageUrl && (
-                    <div className="absolute inset-0 z-0 opacity-25 group-hover/card:opacity-35 transition-opacity">
-                      <img
-                        src={getFullImageUrl(banner.imageUrl)}
-                        alt={banner.title}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    </div>
-                  )}
+                {banner.imageUrl && (
+                  <div className="absolute inset-0 z-0 opacity-25 group-hover:opacity-35 transition-opacity">
+                    <img
+                      src={getFullImageUrl(banner.imageUrl)}
+                      alt={banner.title}
+                      className="w-full h-full object-cover pointer-events-none"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
 
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 text-white px-2.5 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1 shadow-xs">
-                        <Sparkles className="w-3 h-3 text-amber-300" />
-                        <span>{banner.badgeText || 'إعلان حصري ⚡'}</span>
+                <div className="relative z-10 pb-7 sm:pb-5">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 text-white px-2.5 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1 shadow-2xs">
+                      <Sparkles className="w-3 h-3 text-amber-300" />
+                      <span>{banner.badgeText || 'إعلان حصري ⚡'}</span>
+                    </span>
+
+                    {banner.linkUrl && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-black/40 hover:bg-black/60 px-2.5 py-1 rounded-full backdrop-blur-md transition-all shadow-sm">
+                        <span>فتح الرابط</span>
+                        <ExternalLink className="w-3 h-3" />
                       </span>
-
-                      {banner.linkUrl && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-black/40 hover:bg-black/60 px-2.5 py-1 rounded-full backdrop-blur-md transition-all shadow-sm">
-                          <span>فتح الرابط</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </span>
-                      )}
-                    </div>
-
-                    <h2 className="text-lg sm:text-xl font-black mb-1 text-white group-hover/card:text-amber-200 transition-colors">
-                      {banner.title}
-                    </h2>
-                    {banner.subtitle && (
-                      <p className="text-xs text-indigo-100 max-w-md line-clamp-2">
-                        {banner.subtitle}
-                      </p>
                     )}
                   </div>
 
-                  {/* Visual swipe hint / banner counter for multiple banners */}
-                  {banners.length > 1 && (
-                    <div className="relative z-10 flex items-center justify-between mt-2 pt-1 border-t border-white/10 text-[10px] text-white/70">
-                      <span className="font-mono bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-xs">
-                        {idx + 1} / {banners.length}
-                      </span>
-                      <span className="text-[10px] text-amber-300/90 font-bold hidden sm:inline">
-                        اسحب يميناً ويساراً للتنقل بين العروض ↔
-                      </span>
-                    </div>
+                  <h2 className="text-lg sm:text-xl font-black mb-1 group-hover:text-amber-200 transition-colors">
+                    {banner.title}
+                  </h2>
+                  {banner.subtitle && (
+                    <p className="text-xs text-indigo-100 max-w-md line-clamp-2">
+                      {banner.subtitle}
+                    </p>
                   )}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Left & Right floating navigation arrows (when multiple banners exist) */}
+          {/* Navigation Controls: Arrows and Dots if banners.length > 1 */}
           {banners.length > 1 && (
             <>
+              {/* Prev / Next Arrows for Desktop & Quick Navigation */}
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrevBanner();
-                }}
-                aria-label="البانر السابق"
-                className="absolute top-1/2 -translate-y-1/2 right-2 sm:right-3 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md flex items-center justify-center transition-all opacity-80 hover:opacity-100 active:scale-90 shadow-md"
+                onClick={handlePrevBanner}
+                aria-label="الإعلان السابق"
+                className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/75 backdrop-blur-md text-white items-center justify-center transition-all opacity-0 group-hover:opacity-100 shadow-lg active:scale-90 border border-white/10"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4" />
               </button>
 
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNextBanner();
-                }}
-                aria-label="البانر التالي"
-                className="absolute top-1/2 -translate-y-1/2 left-2 sm:left-3 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md flex items-center justify-center transition-all opacity-80 hover:opacity-100 active:scale-90 shadow-md"
+                onClick={handleNextBanner}
+                aria-label="الإعلان التالي"
+                className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/75 backdrop-blur-md text-white items-center justify-center transition-all opacity-0 group-hover:opacity-100 shadow-lg active:scale-90 border border-white/10"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4" />
               </button>
 
-              {/* Centered Floating Dots Indicator inside the card */}
-              <div className="absolute bottom-2.5 left-0 right-0 z-20 flex items-center justify-center gap-1.5 pointer-events-none">
-                <div className="flex items-center gap-1.5 bg-black/35 backdrop-blur-md px-2.5 py-1 rounded-full pointer-events-auto shadow-xs">
+              {/* Bottom Overlay: Dots & Slide Counter */}
+              <div className="absolute bottom-2.5 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+                <div className="flex items-center gap-1.5 pointer-events-auto bg-black/35 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-sm">
                   {banners.map((_, idx) => (
                     <button
                       key={idx}
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        scrollToBanner(idx);
-                      }}
-                      aria-label={`انتقال للبانر ${idx + 1}`}
+                      onClick={(e) => handleDotClick(e, idx)}
+                      aria-label={`انتقال للإعلان ${idx + 1}`}
                       className={`h-1.5 rounded-full transition-all duration-300 ${
-                        idx === activeBannerIdx
-                          ? 'w-5 bg-amber-400'
-                          : 'w-1.5 bg-white/40 hover:bg-white/70'
+                        idx === activeBannerIdx ? 'w-5 bg-amber-400 shadow-xs' : 'w-1.5 bg-white/40 hover:bg-white/80'
                       }`}
                     />
                   ))}
+                </div>
+
+                <div className="pointer-events-auto bg-black/35 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-mono font-bold text-white/90 border border-white/10 shadow-sm flex items-center gap-1">
+                  <span>{activeBannerIdx + 1}</span>
+                  <span className="text-white/40">/</span>
+                  <span>{banners.length}</span>
                 </div>
               </div>
             </>
