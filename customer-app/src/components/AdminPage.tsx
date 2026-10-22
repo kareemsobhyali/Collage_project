@@ -5993,7 +5993,7 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Accounts Cards Grid */}
+              {/* Accounts Cards Horizontal Scrollable Carousel */}
               {whatsAppAccounts.length === 0 ? (
                 <div className="bg-slate-950/60 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
                   <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto text-2xl border border-emerald-500/20">
@@ -6015,145 +6015,159 @@ export const AdminPage: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {whatsAppAccounts.map(acc => {
-                    return (
-                      <div
-                        key={acc.id}
-                        className={`bg-slate-950/70 border rounded-3xl p-5 flex flex-col justify-between transition-all ${
-                          acc.isConnected
-                            ? 'border-emerald-800/60 hover:border-emerald-500/60 shadow-lg shadow-emerald-950/20'
-                            : acc.qrCode
-                            ? 'border-amber-800/60 hover:border-amber-500/60'
-                            : 'border-slate-800 opacity-80'
-                        }`}
-                      >
-                        <div className="space-y-4">
-                          {/* Top Row: Name, Status & Default Badge */}
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="text-base font-black text-white">{acc.name}</h4>
-                                {acc.isDefault && (
-                                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                                    <span>⭐</span>
-                                    <span>افتراضي عام</span>
-                                  </span>
-                                )}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+                    <span className="font-bold flex items-center gap-1.5 text-slate-300">
+                      <span>الأرقام المسجلة والمربوطة</span>
+                      <span className="px-2 py-0.5 rounded-full bg-slate-800 text-emerald-400 font-mono text-[10px] font-black border border-slate-700">
+                        {whatsAppAccounts.length}
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-slate-500 hidden sm:inline-flex items-center gap-1">
+                      <span>اسحب أفقياً للتنقل بين الأرقام ➔</span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-stretch gap-4 overflow-x-auto pb-4 pt-1 custom-scrollbar snap-x snap-mandatory scroll-smooth -mx-1 px-1 sm:mx-0 sm:px-0">
+                    {whatsAppAccounts.map(acc => {
+                      return (
+                        <div
+                          key={acc.id}
+                          className={`w-[85vw] max-w-[340px] sm:w-[350px] shrink-0 snap-center bg-slate-950/70 border rounded-3xl p-5 flex flex-col justify-between transition-all select-none ${
+                            acc.isConnected
+                              ? 'border-emerald-800/60 hover:border-emerald-500/60 shadow-lg shadow-emerald-950/20'
+                              : acc.qrCode
+                              ? 'border-amber-800/60 hover:border-amber-500/60 shadow-lg shadow-amber-950/20'
+                              : 'border-slate-800 opacity-80'
+                          }`}
+                        >
+                          <div className="space-y-4">
+                            {/* Top Row: Name, Status & Default Badge */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="text-base font-black text-white">{acc.name}</h4>
+                                  {acc.isDefault && (
+                                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                      <span>⭐</span>
+                                      <span>افتراضي عام</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-xs font-mono text-slate-400 block mt-1">
+                                  {acc.phoneNumber ? `📱 ${acc.phoneNumber}` : '⏳ لم يتم ربط الرقم بعد'}
+                                </span>
                               </div>
-                              <span className="text-xs font-mono text-slate-400 block mt-1">
-                                {acc.phoneNumber ? `📱 ${acc.phoneNumber}` : '⏳ لم يتم ربط الرقم بعد'}
+
+                              {/* Status Pill */}
+                              <span
+                                className={`px-3 py-1 rounded-full text-[11px] font-black border flex items-center gap-1.5 shrink-0 ${
+                                  acc.isConnected
+                                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                    : acc.qrCode
+                                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 animate-pulse'
+                                    : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                }`}
+                              >
+                                <span
+                                  className={`w-2 h-2 rounded-full ${
+                                    acc.isConnected ? 'bg-emerald-400' : acc.qrCode ? 'bg-amber-400' : 'bg-rose-400'
+                                  }`}
+                                />
+                                <span>{acc.isConnected ? 'متصل وجاهز ✅' : acc.qrCode ? 'بانتظار مسح QR ⏳' : 'غير متصل ❌'}</span>
                               </span>
                             </div>
 
-                            {/* Status Pill */}
-                            <span
-                              className={`px-3 py-1 rounded-full text-[11px] font-black border flex items-center gap-1.5 shrink-0 ${
-                                acc.isConnected
-                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                                  : acc.qrCode
-                                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 animate-pulse'
-                                  : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-                              }`}
-                            >
-                              <span
-                                className={`w-2 h-2 rounded-full ${
-                                  acc.isConnected ? 'bg-emerald-400' : acc.qrCode ? 'bg-amber-400' : 'bg-rose-400'
-                                }`}
-                              />
-                              <span>{acc.isConnected ? 'متصل وجاهز ✅' : acc.qrCode ? 'بانتظار مسح QR ⏳' : 'غير متصل ❌'}</span>
-                            </span>
-                          </div>
-
-                          {/* Roles & Allocation Badges */}
-                          <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-2">
-                            <span className="text-[11px] font-bold text-slate-400 block">الأدوار والتخصيصات المحددة لهذا الرقم:</span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {acc.sendOtp && (
-                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                                  <span>🔐</span>
-                                  <span>أكواد التحقق (OTP)</span>
-                                </span>
-                              )}
-                              {acc.sendAdminAlerts && (
-                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
-                                  <span>🚨</span>
-                                  <span>تنبيهات الإدارة والشيفت</span>
-                                </span>
-                              )}
-                              {acc.sendCustomerOrders && (
-                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1">
-                                  <span>🍔</span>
-                                  <span>مراحل وإشعارات الطلب</span>
-                                </span>
-                              )}
-                              {acc.branch ? (
-                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                                  <Store className="w-3 h-3 text-amber-400" />
-                                  <span>مخصص لمطعم: {acc.branch.name}</span>
-                                </span>
-                              ) : (
-                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                                  🌐 عام لكافة المطاعم
-                                </span>
-                              )}
+                            {/* Roles & Allocation Badges */}
+                            <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-2">
+                              <span className="text-[11px] font-bold text-slate-400 block">الأدوار والتخصيصات المحددة لهذا الرقم:</span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {acc.sendOtp && (
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                                    <span>🔐</span>
+                                    <span>أكواد التحقق (OTP)</span>
+                                  </span>
+                                )}
+                                {acc.sendAdminAlerts && (
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                                    <span>🚨</span>
+                                    <span>تنبيهات الإدارة والشيفت</span>
+                                  </span>
+                                )}
+                                {acc.sendCustomerOrders && (
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1">
+                                    <span>🍔</span>
+                                    <span>مراحل وإشعارات الطلب</span>
+                                  </span>
+                                )}
+                                {acc.branch ? (
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                    <Store className="w-3 h-3 text-amber-400" />
+                                    <span>مخصص لمطعم: {acc.branch.name}</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                                    🌐 عام لكافة المطاعم
+                                  </span>
+                                )}
+                              </div>
                             </div>
+
+                            {/* Quick QR button if not connected */}
+                            {!acc.isConnected && (
+                              <button
+                                type="button"
+                                onClick={() => setActiveQrAccount(acc)}
+                                className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+                              >
+                                <span>📱</span>
+                                <span>مسح رمز QR لربط هذا الرقم (10 ثوانٍ)</span>
+                              </button>
+                            )}
                           </div>
 
-                          {/* Quick QR button if not connected */}
-                          {!acc.isConnected && (
+                          {/* Card Action Footer */}
+                          <div className="flex items-center justify-between gap-2 pt-4 mt-4 border-t border-slate-800">
                             <button
                               type="button"
                               onClick={() => setActiveQrAccount(acc)}
-                              className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+                              className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 p-1 rounded-lg hover:bg-slate-800 transition-colors"
                             >
-                              <span>📱</span>
-                              <span>مسح رمز QR لربط هذا الرقم (10 ثوانٍ)</span>
+                              <span>📷</span>
+                              <span>{acc.isConnected ? 'معاينة حالة الربط' : 'عرض كود QR'}</span>
                             </button>
-                          )}
-                        </div>
 
-                        {/* Card Action Footer */}
-                        <div className="flex items-center justify-between gap-2 pt-4 mt-4 border-t border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setActiveQrAccount(acc)}
-                            className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 p-1 rounded-lg hover:bg-slate-800 transition-colors"
-                          >
-                            <span>📷</span>
-                            <span>{acc.isConnected ? 'معاينة حالة الربط' : 'عرض كود QR'}</span>
-                          </button>
-
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditWhatsAppAccount(acc)}
-                              className="p-2 text-slate-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition-colors"
-                              title="تعديل الأدوار والتخصيص"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDisconnectWhatsAppAccount(acc)}
-                              className="p-2 text-slate-400 hover:text-amber-400 hover:bg-amber-950/40 rounded-xl transition-colors"
-                              title="فصل الجلسة / تغيير الشريحة"
-                            >
-                              <RefreshCw className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteWhatsAppAccount(acc)}
-                              className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-950/40 rounded-xl transition-colors"
-                              title="حذف الحساب"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditWhatsAppAccount(acc)}
+                                className="p-2 text-slate-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition-colors"
+                                title="تعديل الأدوار والتخصيص"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDisconnectWhatsAppAccount(acc)}
+                                className="p-2 text-slate-400 hover:text-amber-400 hover:bg-amber-950/40 rounded-xl transition-colors"
+                                title="فصل الجلسة / تغيير الشريحة"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteWhatsAppAccount(acc)}
+                                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-950/40 rounded-xl transition-colors"
+                                title="حذف الحساب"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
