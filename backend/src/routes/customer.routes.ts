@@ -227,12 +227,12 @@ function computeBranchCrowdInfo(activeKitchenOrders: number) {
   };
 }
 
-// 0.8 عروض الفلاش الموقوتة وقت البريك (Flash Deals & Break Promo Codes)
+// 0.8 عروض الفلاش الموقوتة وقت البريك (Flash Deals المضافة حصراً من لوحة الإدارة)
 router.get("/flash-deals", async (_req: Request, res: Response) => {
   try {
     const now = new Date();
 
-    // 1. جلب عروض الفلاش المخصصة المدارة من لوحة الإدارة
+    // جلب عروض الفلاش المخصصة المدارة حصراً من لوحة الإدارة
     let customDeals: any[] = [];
     try {
       const activeCustomDeals = await prisma.flashDeal.findMany({
@@ -272,124 +272,11 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
       // Table may not exist yet on initial boot
     }
 
-    let activePromos: any[] = [];
-    try {
-      activePromos = await prisma.promoCode.findMany({
-        where: { isActive: true },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      });
-    } catch (promoErr: any) {
-      console.warn("Could not load promo codes for flash-deals:", promoErr?.message);
-      prisma.$executeRawUnsafe(`ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "applicableBranchIds" TEXT;`).catch(() => {});
-    }
-
-    const [branches, comboItems] = await Promise.all([
-      prisma.branch.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true, slug: true, logoUrl: true },
-      }),
-      prisma.menuItem.findMany({
-        where: {
-          isAvailable: true,
-          branch: { isActive: true },
-          OR: [
-            { comboItems: { not: null } },
-            { name: { contains: "عرض" } },
-            { name: { contains: "كومبو" } },
-            { name: { contains: "بوكس" } },
-          ],
-        },
-        include: {
-          branch: { select: { id: true, name: true, slug: true, logoUrl: true } },
-        },
-        take: 8,
-      }),
-    ]);
-
-    const branchMap = new Map(branches.map((b) => [b.id, b]));
-
-    // حساب نهاية فترة البريك اليومية الافتراضية (الساعة 4:00 عصراً أو نهاية اليوم) للعروض التي ليس لها تاريخ انتهاء محدد
-    const defaultBreakEnd = new Date(now);
-    if (now.getHours() < 16) {
-      defaultBreakEnd.setHours(16, 0, 0, 0);
-    } else {
-      defaultBreakEnd.setHours(23, 59, 59, 999);
-    }
-
-    const promoDeals = activePromos
-      .filter((p) => {
-        if (p.expiresAt && now > new Date(p.expiresAt)) return false;
-        if (p.maxUses && p.usedCount >= p.maxUses) return false;
-        return true;
-      })
-      .map((p) => {
-        let targetBranches: Array<{ id: string; name: string; slug: string | null; logoUrl: string | null }> = [];
-        if (p.applicableBranchIds) {
-          try {
-            const ids = JSON.parse(p.applicableBranchIds);
-            if (Array.isArray(ids)) {
-              targetBranches = ids.map((bid: string) => branchMap.get(bid)).filter(Boolean) as any[];
-            }
-          } catch (_e) {}
-        }
-        const totalQuota = p.maxUses || 50;
-        const remainingUses = Math.max(1, totalQuota - (p.usedCount || 0));
-
-        return {
-          id: `promo_${p.id}`,
-          type: "PROMO_CODE",
-          code: p.code,
-          promoCode: p.code,
-          discountType: p.discountType,
-          value: p.value,
-          badgeText: p.discountType === "PERCENTAGE" ? `خصم ${p.value}% ⚡` : `خصم ${p.value} ج.م ⚡`,
-          title:
-            p.discountType === "PERCENTAGE"
-              ? `خصم فلاش ${p.value}% بكود ${p.code}`
-              : `خصم فوري ${p.value} ج.م بكود ${p.code}`,
-          subtitle:
-            targetBranches.length > 0
-              ? `ساري في: ${targetBranches.map((b) => b.name).join(" ، ")}`
-              : "ساري في جميع مطاعم وكافيتريات الجامعة",
-          expiresAt: p.expiresAt ? new Date(p.expiresAt).toISOString() : defaultBreakEnd.toISOString(),
-          maxUses: totalQuota,
-          usedCount: p.usedCount || 0,
-          remainingUses,
-          targetBranch: targetBranches[0] || null,
-        };
-      });
-
-    const comboDeals = comboItems.map((item) => ({
-      id: `combo_${item.id}`,
-      type: "COMBO_ITEM",
-      itemId: item.id,
-      menuItemId: item.id,
-      title: item.name,
-      subtitle: item.description || `وجبة كومبو توفيرية من ${item.branch.name}`,
-      price: item.basePrice,
-      discountPrice: item.basePrice,
-      originalPrice: item.basePrice ? Math.round(item.basePrice * 1.25) : undefined,
-      badgeText: "كومبو توفير 🍱",
-      imageUrl: item.imageUrl,
-      expiresAt: defaultBreakEnd.toISOString(),
-      targetBranch: item.branch,
-      remainingUses: 15,
-      maxUses: 20
-    }));
-
-    // دمج العروض لتقديم قائمة متكاملة تبدأ بالعروض المخصصة المدارة ثم الكوبونات والكومبوهات
-    const allDeals = [
-      ...customDeals,
-      ...(customDeals.length === 0 ? promoDeals : promoDeals.slice(0, 2)),
-      ...(customDeals.length === 0 ? comboDeals : comboDeals.slice(0, 4))
-    ];
-
     res.json({
-      deals: allDeals,
+      deals: customDeals,
       customDeals,
-      promoDeals,
-      comboDeals,
+      promoDeals: customDeals.filter((d) => d.type === "PROMO"),
+      comboDeals: customDeals.filter((d) => d.type !== "PROMO"),
       serverTime: now.toISOString(),
     });
   } catch (error) {

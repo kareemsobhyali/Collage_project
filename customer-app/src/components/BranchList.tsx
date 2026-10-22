@@ -991,31 +991,31 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   return (
     <div className="space-y-4">
       {/* 0. Top Segmented Navigation Tabs */}
-      <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-1 sm:gap-2 select-none sticky top-2 z-20">
+      <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-lg grid grid-cols-3 gap-1 sm:gap-1.5 select-none sticky top-2 z-20">
         <button
           type="button"
           onClick={() => setMainTab('RESTAURANTS')}
-          className={`flex-1 py-2 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 whitespace-nowrap min-w-0 ${
+          className={`py-2 px-1 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap ${
             mainTab === 'RESTAURANTS'
               ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span>🍔</span>
-          <span className="truncate">المطاعم</span>
+          <span>المطاعم</span>
         </button>
 
         <button
           type="button"
           onClick={() => setMainTab('FLASH_DEALS')}
-          className={`flex-1 py-2 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 whitespace-nowrap min-w-0 ${
+          className={`py-2 px-1 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap ${
             mainTab === 'FLASH_DEALS'
               ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md shadow-rose-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span className="text-amber-400">🔥</span>
-          <span className="truncate">عروض الفلاش</span>
+          <span>العروض</span>
           {hasFlashSection && (
             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black shrink-0 ${
               mainTab === 'FLASH_DEALS' ? 'bg-black/30 text-amber-200' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
@@ -1028,14 +1028,14 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         <button
           type="button"
           onClick={() => setMainTab('ACTIVE_ORDERS')}
-          className={`flex-1 py-2 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 whitespace-nowrap min-w-0 relative ${
+          className={`py-2 px-1 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap relative ${
             mainTab === 'ACTIVE_ORDERS'
               ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md shadow-emerald-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span>🛵</span>
-          <span className="truncate">طلباتي</span>
+          <span>طلباتي</span>
           {activeOrders.length > 0 && (
             <span className="relative flex items-center gap-1 shrink-0">
               <span className="relative flex h-2 w-2">
