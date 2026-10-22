@@ -739,10 +739,10 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
   return (
     <div className="space-y-5 pb-36 w-full max-w-full overflow-x-clip">
-      {/* Top Navigation & Branch Info Card */}
+      {/* Top Navigation & Branch Info Card (Design 3: 3-Stat Geometric Grid) */}
       <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-3.5">
-        {/* Row 1: Quick Back Button & Operational Status */}
-        <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+        {/* Row 1: Back Button & Context Title */}
+        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
           <button
             type="button"
             onClick={onBack}
@@ -753,47 +753,22 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             <span>المطاعم</span>
           </button>
 
-          <div>
-            {branch?.isActive === false ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
-                <span className="w-2 h-2 rounded-full bg-slate-400" />
-                <span>موقوف مؤقتاً</span>
-              </span>
-            ) : branch.operationalStatus === 'CLOSED' ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                <span className="w-2 h-2 rounded-full bg-rose-500" />
-                <span>مغلق حالياً</span>
-              </span>
-            ) : branch.operationalStatus === 'BUSY' && secondsLeft > 0 ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <span>استراحة مؤقتة ({formatCountdown(secondsLeft)})</span>
-              </span>
-            ) : !isWithinWorkingHours ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                <span className="w-2 h-2 rounded-full bg-rose-500" />
-                <span>مغلق (خارج المواعيد)</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>مفتوح للطلب</span>
-              </span>
-            )}
-          </div>
+          <span className="text-xs font-bold text-slate-400">
+            قائمة المنيو
+          </span>
         </div>
 
-        {/* Row 2: Restaurant Identity & Meta */}
+        {/* Row 2: Restaurant Identity */}
         <div className="flex items-center gap-3.5 sm:gap-4">
           {branch.logoUrl ? (
             <img
               src={getFullImageUrl(branch.logoUrl)}
               alt={branch.name}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-slate-200 shadow-xs shrink-0 bg-white p-0.5"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-200/80 shadow-xs shrink-0 bg-white p-0.5"
             />
           ) : (
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-              <Store className="w-8 h-8" />
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+              <Store className="w-7 h-7" />
             </div>
           )}
 
@@ -808,75 +783,99 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
               <span className="truncate">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
             </div>
 
-            {/* Quick Meta Chips: Rating, Working Hours, Phone */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px]">
-              <button
-                type="button"
-                onClick={() => setShowReviewsModal(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200/80 font-black transition-all active:scale-95 cursor-pointer shadow-2xs"
-                title="عرض تقييمات ومراجعات الطلاب"
-              >
-                <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0" />
-                <span>{avgRating > 0 ? avgRating : 'جديد'}</span>
-                <span className="text-[10px] text-amber-700 font-bold">({ratingsCount})</span>
-              </button>
-
-              {(branch.openingTime || branch.closingTime) && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-bold">
-                  <Clock className="w-3 h-3 text-slate-400 shrink-0" />
-                  <span>{branch.openingTime || '08:00'} - {branch.closingTime || '22:00'}</span>
-                </span>
-              )}
-
-              {branch.phone && (
+            {/* Phone contact if available */}
+            {branch.phone && (
+              <div className="mt-1">
                 <a
                   href={`tel:${branch.phone}`}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 border border-indigo-100/80 font-mono font-bold transition-colors"
+                  className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
                 >
-                  <Phone className="w-3 h-3 shrink-0" />
+                  <Phone className="w-3 h-3 text-indigo-500 shrink-0" />
                   <span>{branch.phone}</span>
                 </a>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Row 3: Unified Kitchen Status & Reviews Strip */}
-        <div className="flex items-center justify-between gap-2 p-2 sm:p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                crowdLevel === 'HIGH'
-                  ? 'bg-rose-500 animate-ping'
-                  : crowdLevel === 'MEDIUM'
-                  ? 'bg-amber-500 animate-pulse'
-                  : 'bg-emerald-500'
-              }`}
-            />
-            <span className="font-bold text-slate-700 truncate text-[11px] sm:text-xs">
-              {crowdLevel === 'HIGH'
-                ? 'ضغط عالي وقت البريك'
-                : crowdLevel === 'MEDIUM'
-                ? 'المطبخ متوسط الازدحام'
-                : 'المطبخ هادئ الآن • تجهيز سريع'}
-            </span>
-            <span className="text-[10px] font-mono font-black text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
-              ~{estimatedPrepMins}
-            </span>
-          </div>
-
+        {/* Row 3: The 3 Equal Geometric Metric Badges (Zero Clutter, Rating appears ONLY in Card 1) */}
+        <div className="grid grid-cols-3 gap-2 pt-1 text-center select-none">
+          {/* Card 1: Verified Rating (The ONLY Place - Clickable to open reviews) */}
           <button
             type="button"
             onClick={() => setShowReviewsModal(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-900 border border-slate-200/80 hover:border-amber-200 text-[11px] font-bold transition-all shrink-0 shadow-2xs"
+            className="p-2 sm:p-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100/70 border border-amber-200/80 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-2xs"
+            title="انقر لعرض آراء وتقييمات الطلاب"
           >
-            <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span className="hidden xs:inline">آراء الطلاب</span>
-            <span className="xs:hidden">التقييمات</span>
-            <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded font-mono">
-              {ratingsCount}
+            <div className="text-amber-500 text-sm font-black flex items-center justify-center gap-1">
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+              <span>{avgRating > 0 ? avgRating : 'جديد'}</span>
+            </div>
+            <span className="text-[10px] text-amber-800 font-bold block mt-0.5 whitespace-nowrap">
+              {ratingsCount > 0 ? `${ratingsCount} تقييم موثق` : 'تقييم الطلاب'}
             </span>
           </button>
+
+          {/* Card 2: Kitchen Speed & Crowd Indicator */}
+          <div
+            className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center ${
+              crowdLevel === 'HIGH'
+                ? 'bg-rose-50 border-rose-200/80 text-rose-900'
+                : crowdLevel === 'MEDIUM'
+                ? 'bg-amber-50 border-amber-200/80 text-amber-900'
+                : 'bg-emerald-50 border-emerald-200/80 text-emerald-900'
+            }`}
+          >
+            <div className="text-sm font-black flex items-center justify-center gap-1 font-mono">
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  crowdLevel === 'HIGH'
+                    ? 'bg-rose-500 animate-ping'
+                    : crowdLevel === 'MEDIUM'
+                    ? 'bg-amber-500 animate-pulse'
+                    : 'bg-emerald-500'
+                }`}
+              />
+              <span>~{estimatedPrepMins}</span>
+            </div>
+            <span className="text-[10px] font-bold block mt-0.5 whitespace-nowrap truncate max-w-full">
+              {crowdLevel === 'HIGH'
+                ? 'ضغط عالي 🔴'
+                : crowdLevel === 'MEDIUM'
+                ? 'مطبخ متوسط 🟡'
+                : 'مطبخ هادئ 🟢'}
+            </span>
+          </div>
+
+          {/* Card 3: Operational Status & Working Hours */}
+          <div
+            className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center ${
+              !isBranchOpen
+                ? 'bg-rose-50 border-rose-200/80 text-rose-900'
+                : branch.operationalStatus === 'BUSY' && secondsLeft > 0
+                ? 'bg-amber-50 border-amber-200/80 text-amber-900 animate-pulse'
+                : 'bg-indigo-50/70 border-indigo-100 text-indigo-950'
+            }`}
+          >
+            <div className="text-xs sm:text-sm font-black whitespace-nowrap">
+              {branch?.isActive === false
+                ? 'موقوف'
+                : branch.operationalStatus === 'CLOSED'
+                ? 'مغلق'
+                : branch.operationalStatus === 'BUSY' && secondsLeft > 0
+                ? 'استراحة'
+                : !isWithinWorkingHours
+                ? 'خارج المواعيد'
+                : 'مفتوح للطلب'}
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 block mt-0.5 whitespace-nowrap">
+              {branch.operationalStatus === 'BUSY' && secondsLeft > 0
+                ? formatCountdown(secondsLeft)
+                : branch.closingTime
+                ? `حتى ${branch.closingTime}`
+                : 'متاح الآن'}
+            </span>
+          </div>
         </div>
 
         {/* Row 4: Category Tabs with Modern Smooth Pills */}
