@@ -827,9 +827,10 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   const renderDealCard = (deal: any) => {
     const isPromo = deal.type === 'PROMO_CODE' || deal.type === 'PROMO';
     const isCopied = copiedCode === (deal.promoCode || deal.code);
-    const remainingCount = deal.remainingUses ?? 15;
+    const remainingCount = Math.max(0, deal.remainingUses ?? 15);
     const totalQuota = deal.maxUses ?? 50;
-    const remainingPercent = Math.min(100, Math.max(10, Math.round((remainingCount / totalQuota) * 100)));
+    const remainingPercent = totalQuota > 0 ? Math.min(100, Math.max(0, Math.round((remainingCount / totalQuota) * 100))) : 0;
+    const isSoldOut = remainingCount <= 0;
     const targetBranchName = deal.targetBranch?.name || branches.find(b => b.id === deal.branchId)?.name || 'مطعم الجامعة';
 
     return (
@@ -928,15 +929,25 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           {/* Remaining Stock / Quota Indicator */}
           <div className="my-2.5">
             <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-              <span className="flex items-center gap-1 text-rose-600 font-black">
-                <Flame className="w-3 h-3 text-rose-500 fill-rose-500" />
-                <span>متبقي {remainingCount} فقط</span>
-              </span>
+              {isSoldOut ? (
+                <span className="flex items-center gap-1 text-slate-500 font-black">
+                  <span>نفدت الكمية ⌛</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-rose-600 font-black">
+                  <Flame className="w-3 h-3 text-rose-500 fill-rose-500" />
+                  <span>متبقي {remainingCount} فقط</span>
+                </span>
+              )}
               <span className="text-slate-400">{totalQuota} متاح</span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400 rounded-full transition-all duration-500"
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isSoldOut
+                    ? 'bg-slate-300 w-0'
+                    : 'bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400'
+                }`}
                 style={{ width: `${remainingPercent}%` }}
               />
             </div>
@@ -948,7 +959,9 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           {isPromo ? (
             <button
               type="button"
+              disabled={isSoldOut}
               onClick={() => {
+                if (isSoldOut) return;
                 const code = deal.promoCode || deal.code;
                 navigator.clipboard?.writeText(code);
                 try {
@@ -961,26 +974,53 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                   if (found) onSelectBranch(found);
                 }
               }}
-              className="w-full py-2 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+              className={`w-full py-2 px-3 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all ${
+                isSoldOut
+                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
+                  : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white active:scale-95 shadow-sm'
+              }`}
             >
-              {isCopied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-              <span>{isCopied ? `تم نسخ الكود (${deal.promoCode || deal.code}) ✓` : `نسخ الكود وتطبيق الخصم`}</span>
+              {isSoldOut ? (
+                <span>انتهت الكمية المتاحة</span>
+              ) : isCopied ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-300" />
+                  <span>{`تم نسخ الكود (${deal.promoCode || deal.code}) ✓`}</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  <span>نسخ الكود وتطبيق الخصم</span>
+                </>
+              )}
             </button>
           ) : (
             <button
               type="button"
+              disabled={isSoldOut}
               onClick={() => {
+                if (isSoldOut) return;
                 const bId = deal.targetBranch?.id || deal.branchId;
                 const found = bId ? branches.find((b) => b.id === bId) : branches[0];
                 if (found) {
                   onSelectBranch(found, deal.menuItemId || deal.itemId);
                 }
               }}
-              className="w-full py-2 px-3 bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-700 hover:to-orange-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-md shadow-rose-600/20"
+              className={`w-full py-2 px-3 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all ${
+                isSoldOut
+                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
+                  : 'bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-700 hover:to-orange-700 text-white active:scale-95 shadow-md shadow-rose-600/20'
+              }`}
             >
-              <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
-              <span>اطلب العرض الآن</span>
-              <ArrowLeft className="w-3.5 h-3.5" />
+              {isSoldOut ? (
+                <span>انتهت الكمية المتاحة</span>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                  <span>اطلب العرض الآن</span>
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                </>
+              )}
             </button>
           )}
         </div>

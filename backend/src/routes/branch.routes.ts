@@ -14,6 +14,7 @@ import {
 } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert, getRestaurantLocationSettings } from "../services/settings.service.js";
 import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
+import { restoreFlashDealsForOrder } from "../services/flashDeal.service.js";
 
 
 const router = Router();
@@ -1143,6 +1144,9 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
         if (claim.count === 0) {
           throw new Error("ORDER_ALREADY_REJECTED");
         }
+
+        // استرجاع كميات عروض الفلاش فوراً عند رفض أو إلغاء الطلب من المطعم
+        await restoreFlashDealsForOrder(id, tx);
 
         const orderRes = await tx.order.findUniqueOrThrow({
           where: { id },

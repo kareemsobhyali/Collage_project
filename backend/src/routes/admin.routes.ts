@@ -33,6 +33,7 @@ import {
   deleteDriverBranchConfig 
 } from "../services/driver.service.js";
 import { seedMockDatabase } from "../services/mockData.service.js";
+import { restoreFlashDealsForOrder } from "../services/flashDeal.service.js";
 
 
 
@@ -755,6 +756,8 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
         });
 
         if (claim.count === 1) {
+          // استرجاع كميات عروض الفلاش فوراً عند رفض أو إلغاء الطلب من الإدارة
+          await restoreFlashDealsForOrder(id, tx);
           if (existingOrder.walletDiscount > 0 || (existingOrder.pointsAwarded && existingOrder.pointsEarned > 0)) {
             const targetUser = await tx.user.findUnique({ where: { id: existingOrder.userId } });
             if (targetUser) {

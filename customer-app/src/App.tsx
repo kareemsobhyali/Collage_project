@@ -597,6 +597,21 @@ export function App() {
       window.dispatchEvent(new CustomEvent('banners_updated'));
     });
 
+    // 5.1 تحديث عروض الفلاش والكميات المستهلكة/المتبقية لحظياً لجميع الطلاب
+    socket.on('flash_deals_updated', () => {
+      window.dispatchEvent(new CustomEvent('flash_deals_updated'));
+      setSelectedBranch((currBranch: any) => {
+        if (currBranch && currBranch.id) {
+          api.getBranchMenu(currBranch.id).then((res) => {
+            if (res && res.categories) {
+              setBranchCategories(res.categories);
+            }
+          }).catch(() => {});
+        }
+        return currBranch;
+      });
+    });
+
     // 6. تحديث رصيد المحفظة ونقاط الولاء أو حظر الحساب للطالب فورياً
     socket.on('user_profile_updated', (data: any) => {
       setUser((prevUser: any) => {

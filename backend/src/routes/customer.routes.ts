@@ -6,6 +6,7 @@ import { authenticateUser, AuthRequest, JWT_SECRET } from "../middleware/auth.js
 import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated } from "../sockets/socketManager.js";
 import { getLoyaltySettings, awardLoyaltyPointsIfCompleted, getRestaurantLocationSettings } from "../services/settings.service.js";
 import { isOrderAcceptedByDriver } from "../services/driver.service.js";
+import { recordFlashDealsConsumption, restoreFlashDealsForOrder } from "../services/flashDeal.service.js";
 
 const router = Router();
 
@@ -263,7 +264,7 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
         expiresAt: d.expiresAt.toISOString(),
         maxUses: d.maxQuantity || 50,
         usedCount: d.soldQuantity || 0,
-        remainingUses: Math.max(1, (d.maxQuantity || 50) - (d.soldQuantity || 0)),
+        remainingUses: Math.max(0, (d.maxQuantity || 50) - (d.soldQuantity || 0)),
         targetBranch: d.branch,
         branchId: d.branchId,
         menuItemId: d.menuItemId
@@ -510,7 +511,8 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       ...cat,
       items: (cat.items || []).map((item) => {
         const matchingDeal = (activeFlashDeals || []).find((d) => d.menuItemId === item.id);
-        if (matchingDeal && matchingDeal.discountPrice != null && matchingDeal.discountPrice > 0) {
+        const isStockAvailable = !matchingDeal?.maxQuantity || (matchingDeal.soldQuantity < matchingDeal.maxQuantity);
+        if (matchingDeal && isStockAvailable && matchingDeal.discountPrice != null && matchingDeal.discountPrice > 0) {
           const originalPrice = matchingDeal.originalPrice || item.basePrice;
           const discountDiff = Math.max(0, originalPrice - matchingDeal.discountPrice);
           return {
@@ -969,7 +971,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         }
       }
 
-      // التحقق مما إذا كان الصنف مشمولاً في عرض فلاش مؤقت نشط حالياً
+      // التحقق مما إذا كان الصنف مشمولاً في عرض فلاش مؤقت نشط حالياً وتتوفر منه كمية
       const activeItemDeal = await prisma.flashDeal.findFirst({
         where: {
           menuItemId: dbItem.id,
@@ -979,9 +981,11 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         },
       });
 
+      const isStockAvailable = !activeItemDeal?.maxQuantity || (activeItemDeal.soldQuantity < activeItemDeal.maxQuantity);
+
       let effectiveItemBasePrice = dbItem.basePrice;
       let dealDiscountDiff = 0;
-      if (activeItemDeal && activeItemDeal.discountPrice != null && activeItemDeal.discountPrice > 0) {
+      if (activeItemDeal && isStockAvailable && activeItemDeal.discountPrice != null && activeItemDeal.discountPrice > 0) {
         const orig = activeItemDeal.originalPrice || dbItem.basePrice;
         effectiveItemBasePrice = activeItemDeal.discountPrice;
         dealDiscountDiff = Math.max(0, orig - activeItemDeal.discountPrice);
@@ -1361,6 +1365,9 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         },
       });
 
+      // تسجيل استهلاك كميات عروض الفلاش فوراً بمجرد إنشاء الطلب حتى لو كان الطلب قيد الانتظار (PENDING)
+      await recordFlashDealsConsumption(orderItemsData, verifiedPromoCode, branchId, tx);
+
       return { order: createdOrder, updatedUser: userAfterWallet };
     });
 
@@ -1496,6 +1503,9 @@ router.put("/orders/:id/cancel", async (req: AuthRequest, res: Response) => {
         where: { id },
         include: { items: true, branch: true },
       });
+
+      // استرجاع كميات عروض الفلاش فوراً عند إلغاء الطلب من الطالب
+      await restoreFlashDealsForOrder(id, tx);
 
       let refundedUser = null;
       const currentUser = await tx.user.findUnique({ where: { id: userId } });

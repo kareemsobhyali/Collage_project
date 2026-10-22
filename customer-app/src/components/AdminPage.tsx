@@ -2206,6 +2206,16 @@ export const AdminPage: React.FC = () => {
     }
   }, [adminUser]);
 
+  useEffect(() => {
+    const handleFlashDealsUpdate = () => {
+      fetchFlashDeals();
+    };
+    window.addEventListener('flash_deals_updated', handleFlashDealsUpdate);
+    return () => {
+      window.removeEventListener('flash_deals_updated', handleFlashDealsUpdate);
+    };
+  }, []);
+
   // Auth Handlers
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
