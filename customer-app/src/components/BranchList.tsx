@@ -129,6 +129,23 @@ const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
 export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch, onQuickReorder, onTrackOrder, user }) => {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'OPEN' | 'FAVORITES' | 'DELIVERY' | 'PICKUP'>('ALL');
+  const [mainTab, setMainTab] = useState<'RESTAURANTS' | 'FLASH_DEALS' | 'ACTIVE_ORDERS'>('RESTAURANTS');
+  const [dealsFilter, setDealsFilter] = useState<'ALL' | 'COMBOS' | 'PROMOS'>('ALL');
+
+  // Listen for global tab switch events if triggered from headers or modals
+  useEffect(() => {
+    const handleSwitchToDeals = () => setMainTab('FLASH_DEALS');
+    const handleSwitchToOrders = () => setMainTab('ACTIVE_ORDERS');
+    const handleSwitchToRestaurants = () => setMainTab('RESTAURANTS');
+    window.addEventListener('unifood_switch_tab_deals', handleSwitchToDeals);
+    window.addEventListener('unifood_switch_tab_orders', handleSwitchToOrders);
+    window.addEventListener('unifood_switch_tab_restaurants', handleSwitchToRestaurants);
+    return () => {
+      window.removeEventListener('unifood_switch_tab_deals', handleSwitchToDeals);
+      window.removeEventListener('unifood_switch_tab_orders', handleSwitchToOrders);
+      window.removeEventListener('unifood_switch_tab_restaurants', handleSwitchToRestaurants);
+    };
+  }, []);
 
   // Favorite Branches stored in localStorage
   const [favBranchIds, setFavBranchIds] = useState<string[]>(() => {
@@ -807,9 +824,263 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
 
   const hasFlashSection = allFlashDeals.length > 0;
 
+  const renderDealCard = (deal: any) => {
+    const isPromo = deal.type === 'PROMO_CODE' || deal.type === 'PROMO';
+    const isCopied = copiedCode === (deal.promoCode || deal.code);
+    const remainingCount = deal.remainingUses ?? 15;
+    const totalQuota = deal.maxUses ?? 50;
+    const remainingPercent = Math.min(100, Math.max(10, Math.round((remainingCount / totalQuota) * 100)));
+    const targetBranchName = deal.targetBranch?.name || branches.find(b => b.id === deal.branchId)?.name || 'مطعم الجامعة';
+
+    return (
+      <div
+        key={deal.id}
+        className="w-full bg-white rounded-3xl p-3 sm:p-4 border border-rose-100 shadow-md hover:shadow-xl transition-all flex flex-col justify-between group relative overflow-hidden select-none text-slate-900"
+      >
+        {/* Top Image & Floating Badges */}
+        <div className="relative h-32 sm:h-36 w-full rounded-2xl overflow-hidden bg-slate-100 mb-3 border border-slate-100 shrink-0">
+          {deal.imageUrl ? (
+            <img
+              src={getFullImageUrl(deal.imageUrl)}
+              alt={deal.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${isPromo ? 'from-purple-950 via-indigo-900 to-rose-950' : 'from-rose-600 via-orange-600 to-amber-500'} flex flex-col items-center justify-center text-white p-3 text-center`}>
+              <span className="text-3xl mb-1">{isPromo ? '🎟️' : '🍔'}</span>
+              <span className="text-xs font-black">{deal.title}</span>
+            </div>
+          )}
+
+          {/* Right Badge: Deal Label */}
+          <div className="absolute top-2 right-2 z-10">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-600 text-white shadow-md flex items-center gap-1 backdrop-blur-md">
+              <Flame className="w-3 h-3 text-amber-300 fill-amber-300" />
+              <span>{deal.badgeText || (isPromo ? 'كوبون فلاش ⚡' : 'عرض البريك 🔥')}</span>
+            </span>
+          </div>
+
+          {/* Left Badge: Live Countdown Timer */}
+          <div className="absolute top-2 left-2 z-10">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-black bg-black/75 text-amber-300 shadow-md backdrop-blur-md flex items-center gap-1 border border-white/15">
+              <Clock className="w-3 h-3 text-amber-400" />
+              <span>{formatFlashCountdown(deal.expiresAt)}</span>
+            </span>
+          </div>
+
+          {/* Discount Percentage Badge */}
+          {deal.discountPercent && deal.discountPercent > 0 && (
+            <div className="absolute bottom-2 right-2 z-10">
+              <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-400 text-slate-950 shadow-sm">
+                خصم {deal.discountPercent}%
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Middle Content */}
+        <div>
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 mb-1">
+            <Store className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{targetBranchName}</span>
+          </div>
+
+          <h4 className="font-black text-xs sm:text-sm text-slate-900 leading-snug group-hover:text-rose-600 transition-colors line-clamp-1">
+            {deal.title}
+          </h4>
+
+          {deal.subtitle && (
+            <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 font-medium">
+              {deal.subtitle}
+            </p>
+          )}
+
+          {/* Price & Savings or Promo Code Box */}
+          {deal.price !== undefined && Number(deal.price) > 0 ? (
+            <div className="flex items-baseline justify-between mt-2 pt-2 border-t border-slate-100">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-base font-black text-rose-600 font-mono">
+                  {deal.discountPrice || deal.price} ج.م
+                </span>
+                {deal.originalPrice && Number(deal.originalPrice) > Number(deal.discountPrice || deal.price) && (
+                  <span className="text-xs text-slate-400 line-through font-mono">
+                    {deal.originalPrice} ج.م
+                  </span>
+                )}
+              </div>
+
+              {deal.originalPrice && Number(deal.originalPrice) > Number(deal.discountPrice || deal.price) && (
+                <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md">
+                  توفير {Math.round(Number(deal.originalPrice) - Number(deal.discountPrice || deal.price))} ج.م
+                </span>
+              )}
+            </div>
+          ) : (deal.promoCode || deal.code) ? (
+            <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2 mt-2 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-amber-900">الكود:</span>
+              <span className="font-mono font-black text-xs text-amber-950 tracking-wider bg-amber-200/70 px-2 py-0.5 rounded-md">
+                {deal.promoCode || deal.code}
+              </span>
+            </div>
+          ) : null}
+
+          {/* Remaining Stock / Quota Indicator */}
+          <div className="my-2.5">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+              <span className="flex items-center gap-1 text-rose-600 font-black">
+                <Flame className="w-3 h-3 text-rose-500 fill-rose-500" />
+                <span>متبقي {remainingCount} فقط</span>
+              </span>
+              <span className="text-slate-400">{totalQuota} متاح</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400 rounded-full transition-all duration-500"
+                style={{ width: `${remainingPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <div className="pt-1">
+          {isPromo ? (
+            <button
+              type="button"
+              onClick={() => {
+                const code = deal.promoCode || deal.code;
+                navigator.clipboard?.writeText(code);
+                try {
+                  localStorage.setItem('unifood_auto_promo', code);
+                } catch {}
+                setCopiedCode(code);
+                setTimeout(() => setCopiedCode(null), 2500);
+                if (deal.targetBranch) {
+                  const found = branches.find((b) => b.id === deal.targetBranch.id);
+                  if (found) onSelectBranch(found);
+                }
+              }}
+              className="w-full py-2 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+            >
+              {isCopied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+              <span>{isCopied ? `تم نسخ الكود (${deal.promoCode || deal.code}) ✓` : `نسخ الكود وتطبيق الخصم`}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                const bId = deal.targetBranch?.id || deal.branchId;
+                const found = bId ? branches.find((b) => b.id === bId) : branches[0];
+                if (found) {
+                  onSelectBranch(found, deal.menuItemId || deal.itemId);
+                }
+              }}
+              className="w-full py-2 px-3 bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-700 hover:to-orange-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-md shadow-rose-600/20"
+            >
+              <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+              <span>اطلب العرض الآن</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-5">
-      {/* 1. Dynamic or Default UniFood Campus Banner Carousel (يدعم السكرول والسحب يمين وشمال) */}
+    <div className="space-y-4">
+      {/* 0. Top Segmented Navigation Tabs */}
+      <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-1.5 select-none sticky top-2 z-20">
+        <button
+          type="button"
+          onClick={() => setMainTab('RESTAURANTS')}
+          className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${
+            mainTab === 'RESTAURANTS'
+              ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span>🍔</span>
+          <span>المطاعم</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('FLASH_DEALS')}
+          className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${
+            mainTab === 'FLASH_DEALS'
+              ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md shadow-rose-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span className="text-amber-400">🔥</span>
+          <span>عروض الفلاش</span>
+          {hasFlashSection && (
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              mainTab === 'FLASH_DEALS' ? 'bg-black/30 text-amber-200' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+            }`}>
+              {allFlashDeals.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('ACTIVE_ORDERS')}
+          className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 relative ${
+            mainTab === 'ACTIVE_ORDERS'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md shadow-emerald-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span>🛵</span>
+          <span>طلباتي النشطة</span>
+          {activeOrders.length > 0 && (
+            <span className="relative flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+              </span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                mainTab === 'ACTIVE_ORDERS' ? 'bg-black/30 text-white' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              }`}>
+                {activeOrders.length}
+              </span>
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ============================================================ */}
+      {/* TAB 1: RESTAURANTS (المطاعم والكافيهات)                         */}
+      {/* ============================================================ */}
+      {mainTab === 'RESTAURANTS' && (
+        <div className="space-y-4 animate-fadeIn">
+          {/* Quick Active Order Alert Pill (if student has an active order) */}
+          {activeOrders.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setMainTab('ACTIVE_ORDERS')}
+              className="w-full bg-gradient-to-r from-emerald-500/10 via-indigo-500/10 to-emerald-500/10 hover:from-emerald-500/15 hover:to-indigo-500/15 border border-emerald-500/30 rounded-2xl px-3 py-2 flex items-center justify-between transition-all group shadow-2xs"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="text-xs font-black text-slate-800 truncate">
+                  🛵 لديك {activeOrders.length} {activeOrders.length === 1 ? 'طلب جاري' : 'طلبات جارية'}: تابع حالة التوصيل الآن
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-black text-indigo-600 shrink-0 group-hover:text-indigo-700">
+                <span>عرض الطلب</span>
+                <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              </div>
+            </button>
+          )}
+
+          {/* 1. Dynamic or Default UniFood Campus Banner Carousel (يدعم السكرول والسحب يمين وشمال) */}
       {banners.length > 0 ? (
         <div className="relative group select-none">
           {/* Horizontal Scrollable Carousel Container */}
@@ -955,50 +1226,6 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         </div>
       )}
 
-      {/* 1.2 Under Banners: Active Orders Live Tracking Carousel ("تتبع حالات الطلبات الجارية") */}
-      {activeOrders.length > 0 && (
-        <section className="space-y-2.5 animate-fadeIn">
-          {activeOrders.length > 1 && (
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                <h3 className="text-xs sm:text-sm font-black text-slate-900">
-                  متابعة طلباتك الجارية ({activeOrders.length})
-                </h3>
-              </div>
-              <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
-                <span>اسحب للتنقل بين طلباتك</span>
-                <ArrowLeft className="w-3.5 h-3.5 animate-pulse" />
-              </div>
-            </div>
-          )}
-
-          <div
-            className={
-              activeOrders.length > 1
-                ? "flex gap-3.5 overflow-x-auto pb-3 pt-1 px-1 scrollbar-none snap-x snap-mandatory scroll-smooth -mx-2 px-2 sm:mx-0 sm:px-0"
-                : "w-full"
-            }
-          >
-            {activeOrders.map((ord) => (
-              <div
-                key={ord.id}
-                className={
-                  activeOrders.length > 1
-                    ? "w-[88vw] sm:w-[420px] shrink-0 snap-center"
-                    : "w-full"
-                }
-              >
-                {renderOrderTrackerCard(ord)}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* 1.5 Smart Usual Order 1-Tap Card ("اطلب وجبتك المعتادة بضغطة واحدة") */}
       {usualOrder && onQuickReorder && (() => {
         const usualBranch = branches.find((b) => b.id === usualOrder.branchId) || usualOrder.branch;
@@ -1044,211 +1271,6 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         );
       })()}
 
-      {/* 1.8 Flash Deals Countdown Section ("عروض الفلاش والبريك الموقوتة 🔥") */}
-      {hasFlashSection && (
-        <div className="bg-gradient-to-r from-rose-950 via-slate-900 to-indigo-950 rounded-3xl p-4 sm:p-5 text-white border border-rose-500/40 shadow-xl space-y-4 relative overflow-hidden">
-          {/* Top Decorative Glow */}
-          <div className="absolute top-0 right-1/4 w-48 h-20 bg-rose-500/15 blur-2xl pointer-events-none rounded-full" />
-
-          {/* Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 relative z-10 pb-1 border-b border-white/10">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white shadow-md shadow-rose-600/30 shrink-0">
-                <Flame className="w-5 h-5 animate-pulse text-amber-200 fill-amber-200" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-1.5">
-                    <span>عروض الفلاش والبريك الموقوتة</span>
-                    <span className="text-amber-400">🔥</span>
-                  </h3>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/25 text-rose-300 border border-rose-400/30">
-                    لفترة محدودة
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-300 font-medium mt-0.5">
-                  خصومات فورية وكومبوهات توفيرية خاصة بطلاب الجامعة تنتهي قريباً
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-              <span className="px-3 py-1 rounded-full bg-black/40 border border-white/10 text-[11px] font-bold text-amber-300 backdrop-blur-md flex items-center gap-1.5 shadow-sm">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>{allFlashDeals.length} عروض حصرية متاحة</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Horizontal Scrollable Deals Carousel */}
-          <div className="flex items-stretch gap-3.5 overflow-x-auto pb-2 pt-1 scrollbar-none snap-x snap-mandatory scroll-smooth -mx-2 px-2 sm:mx-0 sm:px-0">
-            {allFlashDeals.map((deal) => {
-              const isPromo = deal.type === 'PROMO_CODE' || deal.type === 'PROMO';
-              const isCopied = copiedCode === (deal.promoCode || deal.code);
-              const remainingCount = deal.remainingUses ?? 15;
-              const totalQuota = deal.maxUses ?? 50;
-              const remainingPercent = Math.min(100, Math.max(10, Math.round((remainingCount / totalQuota) * 100)));
-              const targetBranchName = deal.targetBranch?.name || branches.find(b => b.id === deal.branchId)?.name || 'مطعم الجامعة';
-
-              return (
-                <div
-                  key={deal.id}
-                  className="w-[84vw] max-w-[310px] sm:w-[290px] bg-white rounded-3xl p-3 sm:p-3.5 border border-rose-100 shadow-md hover:shadow-xl transition-all flex flex-col justify-between shrink-0 snap-center group relative overflow-hidden select-none text-slate-900"
-                >
-                  {/* Top Image & Floating Badges */}
-                  <div className="relative h-32 sm:h-36 w-full rounded-2xl overflow-hidden bg-slate-100 mb-3 border border-slate-100 shrink-0">
-                    {deal.imageUrl ? (
-                      <img
-                        src={getFullImageUrl(deal.imageUrl)}
-                        alt={deal.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className={`w-full h-full bg-gradient-to-br ${isPromo ? 'from-purple-950 via-indigo-900 to-rose-950' : 'from-rose-600 via-orange-600 to-amber-500'} flex flex-col items-center justify-center text-white p-3 text-center`}>
-                        <span className="text-3xl mb-1">{isPromo ? '🎟️' : '🍔'}</span>
-                        <span className="text-xs font-black">{deal.title}</span>
-                      </div>
-                    )}
-
-                    {/* Right Badge: Deal Label */}
-                    <div className="absolute top-2 right-2 z-10">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-600 text-white shadow-md flex items-center gap-1 backdrop-blur-md">
-                        <Flame className="w-3 h-3 text-amber-300 fill-amber-300" />
-                        <span>{deal.badgeText || (isPromo ? 'كوبون فلاش ⚡' : 'عرض البريك 🔥')}</span>
-                      </span>
-                    </div>
-
-                    {/* Left Badge: Live Countdown Timer */}
-                    <div className="absolute top-2 left-2 z-10">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-black bg-black/75 text-amber-300 shadow-md backdrop-blur-md flex items-center gap-1 border border-white/15">
-                        <Clock className="w-3 h-3 text-amber-400" />
-                        <span>{formatFlashCountdown(deal.expiresAt)}</span>
-                      </span>
-                    </div>
-
-                    {/* Discount Percentage Badge */}
-                    {deal.discountPercent && deal.discountPercent > 0 && (
-                      <div className="absolute bottom-2 right-2 z-10">
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-400 text-slate-950 shadow-sm">
-                          خصم {deal.discountPercent}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Middle Content */}
-                  <div>
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 mb-1">
-                      <Store className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{targetBranchName}</span>
-                    </div>
-
-                    <h4 className="font-black text-xs sm:text-sm text-slate-900 leading-snug group-hover:text-rose-600 transition-colors line-clamp-1">
-                      {deal.title}
-                    </h4>
-
-                    {deal.subtitle && (
-                      <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 font-medium">
-                        {deal.subtitle}
-                      </p>
-                    )}
-
-                    {/* Price & Savings or Promo Code Box */}
-                    {deal.price !== undefined && Number(deal.price) > 0 ? (
-                      <div className="flex items-baseline justify-between mt-2 pt-2 border-t border-slate-100">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-base font-black text-rose-600 font-mono">
-                            {deal.discountPrice || deal.price} ج.م
-                          </span>
-                          {deal.originalPrice && Number(deal.originalPrice) > Number(deal.discountPrice || deal.price) && (
-                            <span className="text-xs text-slate-400 line-through font-mono">
-                              {deal.originalPrice} ج.م
-                            </span>
-                          )}
-                        </div>
-
-                        {deal.originalPrice && Number(deal.originalPrice) > Number(deal.discountPrice || deal.price) && (
-                          <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md">
-                            توفير {Math.round(Number(deal.originalPrice) - Number(deal.discountPrice || deal.price))} ج.م
-                          </span>
-                        )}
-                      </div>
-                    ) : (deal.promoCode || deal.code) ? (
-                      <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2 mt-2 flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-amber-900">الكود:</span>
-                        <span className="font-mono font-black text-xs text-amber-950 tracking-wider bg-amber-200/70 px-2 py-0.5 rounded-md">
-                          {deal.promoCode || deal.code}
-                        </span>
-                      </div>
-                    ) : null}
-
-                    {/* Remaining Stock / Quota Indicator */}
-                    <div className="my-2.5">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-                        <span className="flex items-center gap-1 text-rose-600 font-black">
-                          <Flame className="w-3 h-3 text-rose-500 fill-rose-500" />
-                          <span>متبقي {remainingCount} فقط</span>
-                        </span>
-                        <span className="text-slate-400">{totalQuota} متاح</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400 rounded-full transition-all duration-500"
-                          style={{ width: `${remainingPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Button */}
-                  <div className="pt-1">
-                    {isPromo ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const code = deal.promoCode || deal.code;
-                          navigator.clipboard?.writeText(code);
-                          try {
-                            localStorage.setItem('unifood_auto_promo', code);
-                          } catch {}
-                          setCopiedCode(code);
-                          setTimeout(() => setCopiedCode(null), 2500);
-                          if (deal.targetBranch) {
-                            const found = branches.find((b) => b.id === deal.targetBranch.id);
-                            if (found) onSelectBranch(found);
-                          }
-                        }}
-                        className="w-full py-2 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
-                      >
-                        {isCopied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-                        <span>{isCopied ? `تم نسخ الكود (${deal.promoCode || deal.code}) ✓` : `نسخ الكود وتطبيق الخصم`}</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const bId = deal.targetBranch?.id || deal.branchId;
-                          const found = bId ? branches.find((b) => b.id === bId) : branches[0];
-                          if (found) {
-                            onSelectBranch(found, deal.menuItemId || deal.itemId);
-                          }
-                        }}
-                        className="w-full py-2 px-3 bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-700 hover:to-orange-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-md shadow-rose-600/20"
-                      >
-                        <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
-                        <span>اطلب العرض الآن</span>
-                        <ArrowLeft className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* 2. Search & Quick Filters */}
       <div className="space-y-2.5">
         <div className="relative">
@@ -1283,6 +1305,17 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             <UtensilsCrossed className="w-3.5 h-3.5" />
             <span>الكل ({branches.length})</span>
           </button>
+
+          {hasFlashSection && (
+            <button
+              type="button"
+              onClick={() => setMainTab('FLASH_DEALS')}
+              className="px-3.5 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold"
+            >
+              <Flame className="w-3.5 h-3.5 text-rose-500 fill-rose-500 animate-pulse" />
+              <span>عروض الفلاش ({allFlashDeals.length})</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveFilter('FAVORITES')}
@@ -1579,6 +1612,183 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           </div>
         )}
       </div>
+      </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 2: FLASH DEALS (عروض الفلاش والبريك الموقوتة)              */}
+      {/* ============================================================ */}
+      {mainTab === 'FLASH_DEALS' && (
+        <div className="space-y-4 animate-fadeIn">
+          {/* Deals Hero Header */}
+          <div className="bg-gradient-to-r from-rose-950 via-slate-900 to-indigo-950 rounded-3xl p-4 sm:p-5 text-white border border-rose-500/40 shadow-xl space-y-4 relative overflow-hidden">
+            <div className="absolute top-0 right-1/4 w-48 h-20 bg-rose-500/15 blur-2xl pointer-events-none rounded-full" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white shadow-lg shadow-rose-600/30 shrink-0">
+                  <Flame className="w-6 h-6 animate-pulse text-amber-200 fill-amber-200" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-1.5">
+                      <span>عروض الفلاش والبريك الموقوتة</span>
+                      <span className="text-amber-400">🔥</span>
+                    </h3>
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-rose-500/25 text-rose-300 border border-rose-400/30">
+                      لفترة محدودة
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 font-medium mt-0.5">
+                    خصومات حصرية وكومبوهات توفيرية خاصة بطلاب الجامعة تنتهي قريباً
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1.5 rounded-full bg-black/40 border border-white/10 text-xs font-bold text-amber-300 backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{allFlashDeals.length} عروض حصرية متاحة</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Sub-Filters for Deals */}
+            <div className="flex items-center gap-2 pt-2 border-t border-white/10 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setDealsFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 ${
+                  dealsFilter === 'ALL'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                }`}
+              >
+                الكل ({allFlashDeals.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDealsFilter('COMBOS')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 flex items-center gap-1 ${
+                  dealsFilter === 'COMBOS'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                }`}
+              >
+                <span>🍔 وجبات وكومبوهات</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDealsFilter('PROMOS')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 flex items-center gap-1 ${
+                  dealsFilter === 'PROMOS'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                }`}
+              >
+                <span>🎟️ كوبونات خصم</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Deals Grid or Empty State */}
+          {(() => {
+            const filteredDeals = allFlashDeals.filter(deal => {
+              const isPromo = deal.type === 'PROMO_CODE' || deal.type === 'PROMO';
+              if (dealsFilter === 'COMBOS') return !isPromo;
+              if (dealsFilter === 'PROMOS') return isPromo;
+              return true;
+            });
+
+            if (filteredDeals.length === 0) {
+              return (
+                <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 shadow-sm space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center text-3xl mx-auto">
+                    🔥
+                  </div>
+                  <h4 className="text-base font-black text-slate-900">لا توجد عروض في هذا التصنيف حالياً</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    تابع هذا القسم وقت البريك والفسحة بين المحاضرات لاقتناص خصومات وتخفيضات خاصة لطلاب الحرم الجامعي!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setMainTab('RESTAURANTS')}
+                    className="px-5 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-md hover:bg-indigo-700 transition-all inline-flex items-center gap-1.5"
+                  >
+                    <span>تصفح مطاعم الجامعة</span>
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredDeals.map(deal => renderDealCard(deal))}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 3: ACTIVE ORDERS (متابعة طلباتي الجارية)                   */}
+      {/* ============================================================ */}
+      {mainTab === 'ACTIVE_ORDERS' && (
+        <div className="space-y-4 animate-fadeIn">
+          {/* Active Orders Header */}
+          <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 rounded-3xl p-4 sm:p-5 text-white border border-emerald-500/30 shadow-xl flex items-center justify-between gap-3 relative overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-600/30 shrink-0 text-xl">
+                🛵
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-1.5">
+                    <span>متابعة طلباتك الجارية</span>
+                  </h3>
+                  {activeOrders.length > 0 && (
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>{activeOrders.length} {activeOrders.length === 1 ? 'طلب نشط' : 'طلبات نشطة'}</span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-300 font-medium mt-0.5">
+                  تتبع حي لمراحل تجهيز الوجبة وخط سير كابتن التوصيل للمدرجات
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {activeOrders.length === 0 ? (
+            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 shadow-sm space-y-3">
+              <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-3xl mx-auto">
+                🛵
+              </div>
+              <h4 className="text-base font-black text-slate-900">لا توجد طلبات جارية حالياً</h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                عند إتمام أي طلب من مطاعم الحرم الجامعي، ستتمكن من متابعة مراحله وموقع الكابتن هنا فوراً حتى وصول وجبتك.
+              </p>
+              <button
+                type="button"
+                onClick={() => setMainTab('RESTAURANTS')}
+                className="px-5 py-2.5 bg-emerald-600 text-white text-xs font-black rounded-2xl shadow-md hover:bg-emerald-700 transition-all inline-flex items-center gap-1.5"
+              >
+                <span>اطلب وجبتك الآن من المطاعم 🍔</span>
+                <ArrowLeft className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeOrders.map(ord => (
+                <div key={ord.id} className="w-full">
+                  {renderOrderTrackerCard(ord)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
