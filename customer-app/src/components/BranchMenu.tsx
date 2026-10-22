@@ -739,192 +739,203 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
   return (
     <div className="space-y-5 pb-36 w-full max-w-full overflow-x-clip">
-      {/* Top Navigation & Branch Info */}
-      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3.5">
-        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+      {/* Top Navigation & Branch Info Card */}
+      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-3.5">
+        {/* Row 1: Quick Back Button & Operational Status */}
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <button
+            type="button"
             onClick={onBack}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200/90 text-slate-700 text-xs font-bold transition-all active:scale-95 group shadow-2xs"
+            title="العودة لقائمة المطاعم"
           >
-            <ArrowRight className="w-4 h-4 shrink-0" />
-            <span>العودة لقائمة المطاعم</span>
+            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform shrink-0" />
+            <span>المطاعم</span>
           </button>
 
-          <div className="flex items-center gap-1.5">
-            {/* Verified Student Reviews Button ⭐ */}
-            <button
-              type="button"
-              onClick={() => setShowReviewsModal(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-[11px] font-black transition-all active:scale-95"
-            >
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
-              <span>{avgRating > 0 ? avgRating : 'جديد'}</span>
-              <span className="text-[10px] text-amber-700 font-bold">
-                ({ratingsCount} تقييم)
-              </span>
-            </button>
-
+          <div>
             {branch?.isActive === false ? (
-              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300 shrink-0">
-                موقوف مؤقتاً
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span>موقوف مؤقتاً</span>
               </span>
             ) : branch.operationalStatus === 'CLOSED' ? (
-              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-                مغلق حالياً
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <span>مغلق حالياً</span>
               </span>
             ) : branch.operationalStatus === 'BUSY' && secondsLeft > 0 ? (
-              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 shrink-0 animate-pulse">
-                مغلق مؤقتاً
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span>استراحة مؤقتة ({formatCountdown(secondsLeft)})</span>
               </span>
             ) : !isWithinWorkingHours ? (
-              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-                مغلق (خارج مواعيد العمل)
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <span>مغلق (خارج المواعيد)</span>
               </span>
             ) : (
-              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
-                مفتوح للطلب
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>مفتوح للطلب</span>
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-start gap-3.5">
+        {/* Row 2: Restaurant Identity & Meta */}
+        <div className="flex items-center gap-3.5 sm:gap-4">
           {branch.logoUrl ? (
             <img
               src={getFullImageUrl(branch.logoUrl)}
               alt={branch.name}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-200 shadow-sm shrink-0 bg-slate-50"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-slate-200 shadow-xs shrink-0 bg-white p-0.5"
             />
           ) : (
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-              <Store className="w-7 h-7" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+              <Store className="w-8 h-8" />
             </div>
           )}
 
-          <div className="flex-1 min-w-0 space-y-2">
-            <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug truncate">
               {branch.name}
             </h2>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-xl font-bold text-[11px] text-slate-700">
-                <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span>{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
-              </span>
+            {/* Campus Location */}
+            <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
+              <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              <span className="truncate">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
+            </div>
+
+            {/* Quick Meta Chips: Rating, Working Hours, Phone */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setShowReviewsModal(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200/80 font-black transition-all active:scale-95 cursor-pointer shadow-2xs"
+                title="عرض تقييمات ومراجعات الطلاب"
+              >
+                <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0" />
+                <span>{avgRating > 0 ? avgRating : 'جديد'}</span>
+                <span className="text-[10px] text-amber-700 font-bold">({ratingsCount})</span>
+              </button>
+
+              {(branch.openingTime || branch.closingTime) && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-bold">
+                  <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>{branch.openingTime || '08:00'} - {branch.closingTime || '22:00'}</span>
+                </span>
+              )}
 
               {branch.phone && (
                 <a
                   href={`tel:${branch.phone}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 text-[11px] font-mono font-bold transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 border border-indigo-100/80 font-mono font-bold transition-colors"
                 >
                   <Phone className="w-3 h-3 shrink-0" />
                   <span>{branch.phone}</span>
                 </a>
               )}
-
-              {(branch.openingTime || branch.closingTime) && (
-                <span className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-xl font-bold text-[11px] text-slate-600">
-                  <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
-                  <span>{branch.openingTime || '08:00'} - {branch.closingTime || '22:00'}</span>
-                </span>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Live Kitchen Crowd Radar 🚦 + Verified Student Reviews Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-          {isBranchOpen && (
-            <div
-              className={`px-3 py-2 rounded-2xl border text-xs font-bold flex items-center justify-between gap-2 ${
+        {/* Row 3: Unified Kitchen Status & Reviews Strip */}
+        <div className="flex items-center justify-between gap-2 p-2 sm:p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                 crowdLevel === 'HIGH'
-                  ? 'bg-rose-50 border-rose-200 text-rose-900'
+                  ? 'bg-rose-500 animate-ping'
                   : crowdLevel === 'MEDIUM'
-                  ? 'bg-amber-50 border-amber-200 text-amber-900'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  ? 'bg-amber-500 animate-pulse'
+                  : 'bg-emerald-500'
               }`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                    crowdLevel === 'HIGH'
-                      ? 'bg-rose-500 animate-ping'
-                      : crowdLevel === 'MEDIUM'
-                      ? 'bg-amber-500 animate-pulse'
-                      : 'bg-emerald-500'
-                  }`}
-                />
-                <span className="truncate">
-                  {crowdLevel === 'HIGH'
-                    ? '🔴 ضغط عالي وقت البريك'
-                    : crowdLevel === 'MEDIUM'
-                    ? '🟡 المطبخ متوسط الازدحام'
-                    : '🟢 المطبخ هادئ الآن • تجهيز سريع'}
-                </span>
-              </div>
-              <span className="text-[11px] font-mono font-black shrink-0">
-                ~{estimatedPrepMins}
-              </span>
-            </div>
-          )}
+            />
+            <span className="font-bold text-slate-700 truncate text-[11px] sm:text-xs">
+              {crowdLevel === 'HIGH'
+                ? 'ضغط عالي وقت البريك'
+                : crowdLevel === 'MEDIUM'
+                ? 'المطبخ متوسط الازدحام'
+                : 'المطبخ هادئ الآن • تجهيز سريع'}
+            </span>
+            <span className="text-[10px] font-mono font-black text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
+              ~{estimatedPrepMins}
+            </span>
+          </div>
 
           <button
             type="button"
             onClick={() => setShowReviewsModal(true)}
-            className="px-3 py-2 rounded-2xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100/80 text-amber-950 text-xs font-bold flex items-center justify-between gap-2 transition-colors"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-900 border border-slate-200/80 hover:border-amber-200 text-[11px] font-bold transition-all shrink-0 shadow-2xs"
           >
-            <div className="flex items-center gap-1.5">
-              <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>مراجعات وتقييمات الطلاب الموثقة</span>
-            </div>
-            <span className="text-[11px] font-black text-amber-700 underline">
-              عرض الكل ({ratingsCount})
+            <MessageSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span className="hidden xs:inline">آراء الطلاب</span>
+            <span className="xs:hidden">التقييمات</span>
+            <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded font-mono">
+              {ratingsCount}
             </span>
           </button>
         </div>
 
-        {/* Categories selector pills (Only non-empty categories) */}
+        {/* Row 4: Category Tabs with Modern Smooth Pills */}
         {nonEmptyCategories.length > 0 && (
-          <div ref={categoryPillsRef} className="flex items-center gap-2 overflow-x-auto pt-2.5 border-t border-slate-100 no-scrollbar">
+          <div ref={categoryPillsRef} className="flex items-center gap-1.5 overflow-x-auto pt-3 border-t border-slate-100 no-scrollbar select-none">
             <button
               id="pill-ALL"
               onClick={() => handleCategoryClick('ALL')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+              className={`px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 ${
                 activeCategoryId === 'ALL'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
               }`}
             >
-              كافة الأقسام
+              <span>كافة الأقسام</span>
             </button>
+
             {favoriteItemsInBranch.length > 0 && (
               <button
                 id="pill-FAV"
                 onClick={() => handleCategoryClick('FAV')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 flex items-center gap-1 ${
+                className={`px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 ${
                   activeCategoryId === 'FAV'
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20 scale-[1.02]'
+                    : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
                 }`}
               >
-                <Heart className={`w-3 h-3 ${activeCategoryId === 'FAV' ? 'fill-white' : 'fill-rose-500 text-rose-500'}`} />
-                <span>مفضلتي ({favoriteItemsInBranch.length})</span>
+                <Heart className={`w-3.5 h-3.5 ${activeCategoryId === 'FAV' ? 'fill-white' : 'fill-rose-500 text-rose-500'}`} />
+                <span>مفضلتي</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  activeCategoryId === 'FAV' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-800'
+                }`}>
+                  {favoriteItemsInBranch.length}
+                </span>
               </button>
             )}
-            {nonEmptyCategories.map((cat) => (
-              <button
-                key={cat.id}
-                id={`pill-${cat.id}`}
-                onClick={() => handleCategoryClick(cat.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
-                  activeCategoryId === cat.id
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {cat.name} ({cat.items.length})
-              </button>
-            ))}
+
+            {nonEmptyCategories.map((cat) => {
+              const isActive = activeCategoryId === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  id={`pill-${cat.id}`}
+                  onClick={() => handleCategoryClick(cat.id)}
+                  className={`px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 ${
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
+                  }`}
+                >
+                  <span>{cat.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {cat.items.length}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
