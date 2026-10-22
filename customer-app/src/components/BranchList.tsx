@@ -991,33 +991,33 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   return (
     <div className="space-y-4">
       {/* 0. Top Segmented Navigation Tabs */}
-      <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-1.5 select-none sticky top-2 z-20">
+      <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-1 sm:gap-2 select-none sticky top-2 z-20">
         <button
           type="button"
           onClick={() => setMainTab('RESTAURANTS')}
-          className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 whitespace-nowrap min-w-0 ${
             mainTab === 'RESTAURANTS'
               ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span>🍔</span>
-          <span>المطاعم</span>
+          <span className="truncate">المطاعم</span>
         </button>
 
         <button
           type="button"
           onClick={() => setMainTab('FLASH_DEALS')}
-          className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 whitespace-nowrap min-w-0 ${
             mainTab === 'FLASH_DEALS'
               ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md shadow-rose-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span className="text-amber-400">🔥</span>
-          <span>عروض الفلاش</span>
+          <span className="truncate">عروض الفلاش</span>
           {hasFlashSection && (
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black shrink-0 ${
               mainTab === 'FLASH_DEALS' ? 'bg-black/30 text-amber-200' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
             }`}>
               {allFlashDeals.length}
@@ -1028,21 +1028,21 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         <button
           type="button"
           onClick={() => setMainTab('ACTIVE_ORDERS')}
-          className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 relative ${
+          className={`flex-1 py-2 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 whitespace-nowrap min-w-0 relative ${
             mainTab === 'ACTIVE_ORDERS'
               ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md shadow-emerald-600/30'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
           <span>🛵</span>
-          <span>طلباتي النشطة</span>
+          <span className="truncate">طلباتي</span>
           {activeOrders.length > 0 && (
-            <span className="relative flex items-center gap-1">
+            <span className="relative flex items-center gap-1 shrink-0">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
               </span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black ${
                 mainTab === 'ACTIVE_ORDERS' ? 'bg-black/30 text-white' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
               }`}>
                 {activeOrders.length}
@@ -1057,29 +1057,6 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
       {/* ============================================================ */}
       {mainTab === 'RESTAURANTS' && (
         <div className="space-y-4 animate-fadeIn">
-          {/* Quick Active Order Alert Pill (if student has an active order) */}
-          {activeOrders.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setMainTab('ACTIVE_ORDERS')}
-              className="w-full bg-gradient-to-r from-emerald-500/10 via-indigo-500/10 to-emerald-500/10 hover:from-emerald-500/15 hover:to-indigo-500/15 border border-emerald-500/30 rounded-2xl px-3 py-2 flex items-center justify-between transition-all group shadow-2xs"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="relative flex h-2.5 w-2.5 shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                <span className="text-xs font-black text-slate-800 truncate">
-                  🛵 لديك {activeOrders.length} {activeOrders.length === 1 ? 'طلب جاري' : 'طلبات جارية'}: تابع حالة التوصيل الآن
-                </span>
-              </div>
-              <div className="flex items-center gap-1 text-[11px] font-black text-indigo-600 shrink-0 group-hover:text-indigo-700">
-                <span>عرض الطلب</span>
-                <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              </div>
-            </button>
-          )}
-
           {/* 1. Dynamic or Default UniFood Campus Banner Carousel (يدعم السكرول والسحب يمين وشمال) */}
       {banners.length > 0 ? (
         <div className="relative group select-none">
@@ -1226,51 +1203,6 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         </div>
       )}
 
-      {/* 1.5 Smart Usual Order 1-Tap Card ("اطلب وجبتك المعتادة بضغطة واحدة") */}
-      {usualOrder && onQuickReorder && (() => {
-        const usualBranch = branches.find((b) => b.id === usualOrder.branchId) || usualOrder.branch;
-        if (!usualBranch) return null;
-        const itemsSummary = (usualOrder.items || [])
-          .map((it: any) => `${it.quantity}× ${it.itemName || it.name}`)
-          .join(' ، ');
-        const itemsSubtotal = (usualOrder.items || []).reduce((acc: number, it: any) => acc + (it.totalPrice || 0), 0);
-
-        return (
-          <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-700 rounded-3xl p-4 text-white shadow-lg border border-indigo-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 relative overflow-hidden">
-            <div className="flex items-start sm:items-center gap-3 min-w-0 relative z-10">
-              <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center shrink-0 text-2xl shadow-sm">
-                ⚡
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full">
-                    وجبتك المعتادة ❤️
-                  </span>
-                  <span className="text-xs sm:text-sm font-black text-white truncate">
-                    اطلب وجبتك المعتادة من {usualBranch.name} بضغطة واحدة
-                  </span>
-                </div>
-                <p className="text-xs font-bold text-indigo-100 truncate mt-1">
-                  🍱 {itemsSummary}
-                </p>
-                <span className="text-[11px] font-mono text-amber-200 font-bold block mt-0.5">
-                  قيمة الوجبة: {itemsSubtotal || usualOrder.subtotal || usualOrder.total} ج.م
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => onQuickReorder(usualOrder)}
-              className="relative z-10 px-4 py-2.5 bg-white hover:bg-amber-50 text-indigo-950 rounded-2xl text-xs font-black shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
-              <span>اطلبها الآن بضغطة واحدة 🚀</span>
-            </button>
-          </div>
-        );
-      })()}
-
       {/* 2. Search & Quick Filters */}
       <div className="space-y-2.5">
         <div className="relative">
@@ -1305,17 +1237,6 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             <UtensilsCrossed className="w-3.5 h-3.5" />
             <span>الكل ({branches.length})</span>
           </button>
-
-          {hasFlashSection && (
-            <button
-              type="button"
-              onClick={() => setMainTab('FLASH_DEALS')}
-              className="px-3.5 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold"
-            >
-              <Flame className="w-3.5 h-3.5 text-rose-500 fill-rose-500 animate-pulse" />
-              <span>عروض الفلاش ({allFlashDeals.length})</span>
-            </button>
-          )}
 
           <button
             onClick={() => setActiveFilter('FAVORITES')}
@@ -1368,14 +1289,19 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
       </div>
 
       {/* 3. Restaurant Cards Section */}
-      <div>
+      <div className="pt-1">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-            <span>مطاعم وكافيهات الحرم الجامعي</span>
-            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
-              {filteredBranches.length}
-            </span>
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
+              <span>مطاعم وكافيهات الحرم الجامعي</span>
+              <span className="text-xs font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                {filteredBranches.length}
+              </span>
+            </h3>
+          </div>
+          <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">
+            ⚡ توصيل مباشر للمدرجات والمباني
+          </span>
         </div>
 
         {filteredBranches.length === 0 ? (
