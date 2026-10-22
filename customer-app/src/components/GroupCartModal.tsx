@@ -478,7 +478,16 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
                     >
                       <div>
                         <div className="font-black text-xs text-slate-800 line-clamp-1">{item.name}</div>
-                        <div className="text-[11px] font-mono font-bold text-indigo-600 mt-0.5">{item.basePrice} ج.م</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`text-[11px] font-mono font-bold ${item.originalBasePrice && item.originalBasePrice > item.basePrice ? 'text-rose-600' : 'text-indigo-600'}`}>
+                            {item.basePrice} ج.م
+                          </span>
+                          {item.originalBasePrice && item.originalBasePrice > item.basePrice && (
+                            <span className="text-[10px] text-slate-400 line-through font-mono">
+                              {item.originalBasePrice} ج.م
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <button
                         type="button"

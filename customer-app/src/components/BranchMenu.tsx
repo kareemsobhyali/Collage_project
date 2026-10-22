@@ -381,23 +381,42 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                   </button>
 
                   {/* Unavailable / Sold Out Badge */}
-                  {!isItemAvailable && (
+                  {!isItemAvailable ? (
                     <div className="absolute top-2 right-2 bg-rose-600/95 backdrop-blur-md text-white px-2.5 py-0.5 rounded-xl text-[10px] font-black shadow-md border border-white/20">
                       غير متوفر الآن
                     </div>
-                  )}
+                  ) : item.flashDeal ? (
+                    <div className="absolute top-2 right-2 bg-gradient-to-r from-rose-600 to-amber-500 text-white px-2 py-0.5 rounded-xl text-[10px] font-black shadow-md border border-white/30 flex items-center gap-1 animate-pulse">
+                      <span>🔥</span>
+                      <span>{item.flashDeal.badgeText || 'عرض فلاش'}</span>
+                    </div>
+                  ) : null}
 
                   {/* Price Badge Floating on Image */}
-                  <div className="absolute bottom-2 right-2 bg-slate-900/85 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-xs font-black shadow-md border border-white/15">
-                    {item.basePrice} ج.م
+                  <div className="absolute bottom-2 right-2 bg-slate-900/85 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-xs font-black shadow-md border border-white/15 flex items-center gap-1.5">
+                    {item.originalBasePrice && item.originalBasePrice > item.basePrice ? (
+                      <>
+                        <span className="text-rose-400 font-black">{item.basePrice} ج.م</span>
+                        <span className="line-through text-slate-400 text-[10px] font-normal">{item.originalBasePrice} ج.م</span>
+                      </>
+                    ) : (
+                      <span>{item.basePrice} ج.م</span>
+                    )}
                   </div>
                 </div>
 
                 {/* Item Title & Description */}
                 <div className="px-0.5">
-                  <h4 className="font-black text-sm text-slate-900 line-clamp-1">
-                    {item.name}
-                  </h4>
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="font-black text-sm text-slate-900 line-clamp-1">
+                      {item.name}
+                    </h4>
+                    {item.originalBasePrice && item.originalBasePrice > item.basePrice && (
+                      <span className="shrink-0 text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-200/80 px-1.5 py-0.5 rounded-md">
+                        وفر {Math.round(item.originalBasePrice - item.basePrice)} ج.م
+                      </span>
+                    )}
+                  </div>
                   {item.description ? (
                     <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-relaxed min-h-[2.25rem]">
                       {item.description}

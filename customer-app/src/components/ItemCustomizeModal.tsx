@@ -226,8 +226,26 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
                 {item.description}
               </p>
             )}
-            <div className="text-base font-black text-indigo-700 mt-2">
-              يبدأ من {item.basePrice} ج.م
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <div className={`text-base font-black ${item.flashDeal || (item.originalBasePrice && item.originalBasePrice > item.basePrice) ? 'text-rose-600' : 'text-indigo-700'}`}>
+                {item.sizes && item.sizes.length > 0 ? 'يبدأ من ' : 'السعر: '}{item.basePrice} ج.م
+              </div>
+              {item.originalBasePrice && item.originalBasePrice > item.basePrice && (
+                <span className="text-xs text-slate-400 line-through font-bold">
+                  {item.originalBasePrice} ج.م
+                </span>
+              )}
+              {item.flashDeal && (
+                <span className="text-[10px] font-black text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span>🔥</span>
+                  <span>{item.flashDeal.badgeText || 'عرض فلاش مؤقت'}</span>
+                </span>
+              )}
+              {item.originalBasePrice && item.originalBasePrice > item.basePrice && (
+                <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
+                  وفر {Math.round(item.originalBasePrice - item.basePrice)} ج.م
+                </span>
+              )}
             </div>
           </div>
 
@@ -254,7 +272,16 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
                     >
                       <div>
                         <div className="text-xs font-black">{size.name}</div>
-                        <div className="text-[11px] text-slate-500">{size.price} ج.م</div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                          <span className={size.originalPrice && size.originalPrice > size.price ? 'text-rose-600 font-bold' : ''}>
+                            {size.price} ج.م
+                          </span>
+                          {size.originalPrice && size.originalPrice > size.price && (
+                            <span className="text-[10px] text-slate-400 line-through">
+                              {size.originalPrice} ج.م
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {isSelected && <Check className="w-4 h-4 text-indigo-600" />}
                     </button>

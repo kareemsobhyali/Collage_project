@@ -417,7 +417,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       },
     });
 
-    const [categories, activeOrdersCount, ratingStats, recentReviews] = await Promise.all([
+    const [categories, activeOrdersCount, ratingStats, recentReviews, activeFlashDeals] = await Promise.all([
       prisma.menuCategory.findMany({
         where: { branchId: actualBranchId },
         include: {
@@ -476,6 +476,18 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         orderBy: { updatedAt: "desc" },
         take: 25,
       }),
+      prisma.flashDeal.findMany({
+        where: {
+          isActive: true,
+          expiresAt: { gt: now },
+          startsAt: { lte: now },
+          OR: [
+            { branchId: actualBranchId },
+            { branchId: null },
+          ],
+          menuItemId: { not: null },
+        },
+      }),
     ]);
 
     let currentStatus = branch.operationalStatus;
@@ -493,6 +505,37 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
     const avgRating = ratingStats._avg.rating ? Number(ratingStats._avg.rating.toFixed(1)) : 0;
     const ratingsCount = ratingStats._count.rating || 0;
 
+    // ربط وتطبيق عروض الفلاش النشطة حالياً على أسعار الأصناف في قائمة الطعام
+    const formattedCategories = categories.map((cat) => ({
+      ...cat,
+      items: (cat.items || []).map((item) => {
+        const matchingDeal = (activeFlashDeals || []).find((d) => d.menuItemId === item.id);
+        if (matchingDeal && matchingDeal.discountPrice != null && matchingDeal.discountPrice > 0) {
+          const originalPrice = matchingDeal.originalPrice || item.basePrice;
+          const discountDiff = Math.max(0, originalPrice - matchingDeal.discountPrice);
+          return {
+            ...item,
+            originalBasePrice: originalPrice,
+            basePrice: matchingDeal.discountPrice,
+            flashDeal: {
+              id: matchingDeal.id,
+              title: matchingDeal.title,
+              badgeText: matchingDeal.badgeText || "عرض البريك 🔥",
+              discountPrice: matchingDeal.discountPrice,
+              originalPrice,
+              expiresAt: matchingDeal.expiresAt,
+            },
+            sizes: (item.sizes || []).map((s) => ({
+              ...s,
+              originalPrice: s.price,
+              price: Math.max(1, s.price - discountDiff),
+            })),
+          };
+        }
+        return item;
+      }),
+    }));
+
     res.json({
       branch: {
         ...branch,
@@ -504,7 +547,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         avgRating,
         ratingsCount,
       },
-      categories,
+      categories: formattedCategories,
       reviews: recentReviews.map((r) => ({
         id: r.id,
         customerName: r.customerName || "طالب جامعي",
@@ -635,14 +678,32 @@ router.post("/group-cart/:code/items", async (req: Request, res: Response) => {
       return;
     }
 
-    let realBasePrice = dbItem.basePrice;
+    // التحقق مما إذا كان الصنف مشمولاً في عرض فلاش مؤقت نشط حالياً
+    const activeItemDeal = await prisma.flashDeal.findFirst({
+      where: {
+        menuItemId: dbItem.id,
+        isActive: true,
+        expiresAt: { gt: new Date() },
+        startsAt: { lte: new Date() },
+      },
+    });
+
+    let effectiveItemBasePrice = dbItem.basePrice;
+    let dealDiscountDiff = 0;
+    if (activeItemDeal && activeItemDeal.discountPrice != null && activeItemDeal.discountPrice > 0) {
+      const orig = activeItemDeal.originalPrice || dbItem.basePrice;
+      effectiveItemBasePrice = activeItemDeal.discountPrice;
+      dealDiscountDiff = Math.max(0, orig - activeItemDeal.discountPrice);
+    }
+
+    let realBasePrice = effectiveItemBasePrice;
     if (dbItem.sizes && dbItem.sizes.length > 0) {
       const matchedSize = sizeName ? dbItem.sizes.find(s => s.name === sizeName) : dbItem.sizes[0];
       if (!matchedSize) {
         res.status(400).json({ error: "حجم الصنف المختار غير صالح" });
         return;
       }
-      realBasePrice = matchedSize.price;
+      realBasePrice = Math.max(1, matchedSize.price - dealDiscountDiff);
     }
 
     let modifiersExtra = 0;
@@ -908,7 +969,25 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         }
       }
 
-      let unitPrice = dbItem.basePrice;
+      // التحقق مما إذا كان الصنف مشمولاً في عرض فلاش مؤقت نشط حالياً
+      const activeItemDeal = await prisma.flashDeal.findFirst({
+        where: {
+          menuItemId: dbItem.id,
+          isActive: true,
+          expiresAt: { gt: currentTime },
+          startsAt: { lte: currentTime },
+        },
+      });
+
+      let effectiveItemBasePrice = dbItem.basePrice;
+      let dealDiscountDiff = 0;
+      if (activeItemDeal && activeItemDeal.discountPrice != null && activeItemDeal.discountPrice > 0) {
+        const orig = activeItemDeal.originalPrice || dbItem.basePrice;
+        effectiveItemBasePrice = activeItemDeal.discountPrice;
+        dealDiscountDiff = Math.max(0, orig - activeItemDeal.discountPrice);
+      }
+
+      let unitPrice = effectiveItemBasePrice;
       let resolvedSizeName: string | null = itemInput.sizeName || null;
       if (dbItem.sizes && dbItem.sizes.length > 0) {
         if (itemInput.sizeName) {
@@ -917,9 +996,9 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
             res.status(400).json({ error: `الحجم المختار للصنف "${dbItem.name}" غير صالح` });
             return;
           }
-          unitPrice = matchedSize.price;
+          unitPrice = Math.max(1, matchedSize.price - dealDiscountDiff);
         } else {
-          unitPrice = dbItem.sizes[0].price;
+          unitPrice = Math.max(1, dbItem.sizes[0].price - dealDiscountDiff);
           resolvedSizeName = dbItem.sizes[0].name;
         }
       }

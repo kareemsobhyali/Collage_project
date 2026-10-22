@@ -2000,7 +2000,12 @@ export const AdminPage: React.FC = () => {
       if (Array.isArray(data?.categories)) {
         for (const cat of data.categories) {
           for (const item of (cat.items || [])) {
-            items.push(item);
+            const rawPrice = item.originalBasePrice ?? item.basePrice ?? item.price ?? item.sizes?.[0]?.price ?? 0;
+            items.push({
+              ...item,
+              price: rawPrice,
+              basePrice: rawPrice,
+            });
           }
         }
       }
@@ -9777,11 +9782,12 @@ export const AdminPage: React.FC = () => {
                         setDealMenuItemId(mId);
                         const selectedItem = dealBranchItems.find(it => it.id === mId);
                         if (selectedItem) {
+                          const itemPrice = selectedItem.originalBasePrice ?? selectedItem.basePrice ?? selectedItem.price ?? selectedItem.sizes?.[0]?.price;
                           if (!dealTitle || dealTitle === '') {
                             setDealTitle(selectedItem.name);
                           }
-                          if (selectedItem.price) {
-                            setDealOriginalPrice(String(selectedItem.price));
+                          if (itemPrice !== undefined && itemPrice !== null) {
+                            setDealOriginalPrice(String(itemPrice));
                           }
                           if (selectedItem.imageUrl && !dealImageUrl) {
                             setDealImageUrl(selectedItem.imageUrl);
@@ -9792,11 +9798,14 @@ export const AdminPage: React.FC = () => {
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 disabled:opacity-50"
                     >
                       <option value="">{dealBranchId ? '-- اختر صنفاً لربطه --' : 'اختر الفرع أولاً'}</option>
-                      {dealBranchItems.map(item => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} ({item.price} ج.م)
-                        </option>
-                      ))}
+                      {dealBranchItems.map(item => {
+                        const itemPrice = item.originalBasePrice ?? item.basePrice ?? item.price ?? item.sizes?.[0]?.price ?? 0;
+                        return (
+                          <option key={item.id} value={item.id}>
+                            {item.name} ({itemPrice} ج.م)
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </div>

@@ -19,6 +19,7 @@ import {
 import { 
   notifyBranchStatusChanged,
   notifyBranchesListChanged,
+  notifyBranchMenuChanged,
   notifyBannersUpdated,
   notifyPromosUpdated,
   notifyFlashDealsUpdated,
@@ -1248,6 +1249,9 @@ router.post("/flash-deals", async (req: AuthRequest, res: Response) => {
     });
 
     notifyFlashDealsUpdated();
+    if (deal.branchId) {
+      notifyBranchMenuChanged(deal.branchId);
+    }
 
     res.status(201).json({ success: true, deal });
   } catch (error) {
@@ -1315,6 +1319,9 @@ router.put("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
     });
 
     notifyFlashDealsUpdated();
+    if (updated.branchId) {
+      notifyBranchMenuChanged(updated.branchId);
+    }
 
     res.json({ success: true, deal: updated });
   } catch (error) {
@@ -1327,9 +1334,13 @@ router.put("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
 router.delete("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    const existing = await prisma.flashDeal.findUnique({ where: { id } });
     await prisma.flashDeal.delete({ where: { id } });
 
     notifyFlashDealsUpdated();
+    if (existing?.branchId) {
+      notifyBranchMenuChanged(existing.branchId);
+    }
 
     res.json({ success: true });
   } catch (error) {
@@ -1354,6 +1365,9 @@ router.patch("/flash-deals/:id/toggle", async (req: AuthRequest, res: Response) 
     });
 
     notifyFlashDealsUpdated();
+    if (updated.branchId) {
+      notifyBranchMenuChanged(updated.branchId);
+    }
 
     res.json({ success: true, isActive: updated.isActive });
   } catch (error) {
