@@ -1372,7 +1372,95 @@ router.get("/whatsapp/status", async (_req: AuthRequest, res: Response) => {
   }
 });
 
-// 6. فصل جلسة الواتساب لإعادة الربط برقم آخر
+// 5.1 استرجاع كافة حسابات الواتساب المرتبطة وحالتها وتخصيصاتها
+router.get("/whatsapp/accounts", async (_req: AuthRequest, res: Response) => {
+  try {
+    const { whatsappService } = await import("../services/whatsapp.service.js");
+    const accounts = await whatsappService.getAllAccountsStatus();
+    res.json(accounts);
+  } catch (error) {
+    console.error("Get whatsapp accounts error:", error);
+    res.status(500).json({ error: "فشل جلب قائمة حسابات الواتساب" });
+  }
+});
+
+// 5.2 إضافة حساب واتساب جديد لتوليد رمز QR خاص به
+router.post("/whatsapp/accounts", async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, sendOtp, sendAdminAlerts, sendCustomerOrders, branchId, isDefault } = req.body;
+    if (!name || !String(name).trim()) {
+      res.status(400).json({ error: "يرجى كتابة اسم تعريفي لحساب الواتساب" });
+      return;
+    }
+    const { whatsappService } = await import("../services/whatsapp.service.js");
+    const newAcc = await whatsappService.createAccount({
+      name,
+      sendOtp,
+      sendAdminAlerts,
+      sendCustomerOrders,
+      branchId,
+      isDefault
+    });
+    res.json({ success: true, account: newAcc });
+  } catch (error: any) {
+    console.error("Create whatsapp account error:", error);
+    res.status(500).json({ error: error?.message || "فشل إضافة حساب الواتساب" });
+  }
+});
+
+// 5.3 تعديل إعدادات وأدوار حساب واتساب
+router.put("/whatsapp/accounts/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { whatsappService } = await import("../services/whatsapp.service.js");
+    const updated = await whatsappService.updateAccount(id, req.body);
+    res.json({ success: true, account: updated });
+  } catch (error: any) {
+    console.error("Update whatsapp account error:", error);
+    res.status(500).json({ error: error?.message || "فشل تعديل حساب الواتساب" });
+  }
+});
+
+// 5.4 فصل جلسة حساب معين لإعادة مسح الـ QR
+router.post("/whatsapp/accounts/:id/disconnect", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { whatsappService } = await import("../services/whatsapp.service.js");
+    await whatsappService.disconnect(id);
+    res.json({ success: true, message: "تم فصل الجلسة، جاري تجهيز رمز QR جديد" });
+  } catch (error: any) {
+    console.error("Disconnect whatsapp account error:", error);
+    res.status(500).json({ error: error?.message || "فشل فصل جلسة الواتساب" });
+  }
+});
+
+// 5.5 إعادة توليد رمز QR لحساب معين
+router.post("/whatsapp/accounts/:id/refresh-qr", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { whatsappService } = await import("../services/whatsapp.service.js");
+    await whatsappService.refreshQr(id);
+    res.json({ success: true, message: "تم تحديث رمز الـ QR بنجاح" });
+  } catch (error: any) {
+    console.error("Refresh whatsapp account QR error:", error);
+    res.status(500).json({ error: error?.message || "فشل تحديث رمز QR" });
+  }
+});
+
+// 5.6 حذف حساب واتساب نهائياً
+router.delete("/whatsapp/accounts/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { whatsappService } = await import("../services/whatsapp.service.js");
+    await whatsappService.deleteAccount(id);
+    res.json({ success: true, message: "تم حذف حساب الواتساب بنجاح" });
+  } catch (error: any) {
+    console.error("Delete whatsapp account error:", error);
+    res.status(500).json({ error: error?.message || "فشل حذف حساب الواتساب" });
+  }
+});
+
+// 6. فصل جلسة الواتساب الافتراضية لإعادة الربط برقم آخر
 router.post("/whatsapp/disconnect", async (_req: AuthRequest, res: Response) => {
   try {
     const { whatsappService } = await import("../services/whatsapp.service.js");

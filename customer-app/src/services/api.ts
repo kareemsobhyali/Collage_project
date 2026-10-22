@@ -770,6 +770,94 @@ export const api = {
     return data;
   },
 
+  async getWhatsAppAccounts() {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/whatsapp/accounts`, {
+      headers: { Authorization: `Bearer ${token || ''}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب حسابات الواتساب');
+    return data;
+  },
+
+  async createWhatsAppAccount(payload: {
+    name: string;
+    sendOtp?: boolean;
+    sendAdminAlerts?: boolean;
+    sendCustomerOrders?: boolean;
+    branchId?: string | null;
+    isDefault?: boolean;
+  }) {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/whatsapp/accounts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token || ''}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إضافة حساب الواتساب');
+    return data;
+  },
+
+  async updateWhatsAppAccount(id: string, payload: {
+    name?: string;
+    sendOtp?: boolean;
+    sendAdminAlerts?: boolean;
+    sendCustomerOrders?: boolean;
+    branchId?: string | null;
+    isDefault?: boolean;
+    isActive?: boolean;
+  }) {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/whatsapp/accounts/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token || ''}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعديل حساب الواتساب');
+    return data;
+  },
+
+  async disconnectWhatsAppAccount(id: string) {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/whatsapp/accounts/${id}/disconnect`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token || ''}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل فصل حساب الواتساب');
+    return data;
+  },
+
+  async refreshWhatsAppAccountQr(id: string) {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/whatsapp/accounts/${id}/refresh-qr`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token || ''}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث رمز QR للواتساب');
+    return data;
+  },
+
+  async deleteWhatsAppAccount(id: string) {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`${API_BASE_URL}/admin/whatsapp/accounts/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token || ''}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف حساب الواتساب');
+    return data;
+  },
+
   async adminResetUserPassword(userId: string, newPassword: string) {
     const token = localStorage.getItem('admin_token');
     const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/reset-password`, {

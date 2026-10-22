@@ -11,98 +11,151 @@ import pino from 'pino';
 import QRCode from 'qrcode';
 import prisma from '../prisma.js';
 
+export interface WhatsAppAccountSession {
+  account: any;
+  sock: WASocket | null;
+  isConnected: boolean;
+  botPhoneNumber: string | null;
+  currentQrDataUrl: string | null;
+  currentRawQr: string | null;
+  isInitializing: boolean;
+  isSyncingFiles: boolean;
+  sessionDir: string;
+  sessionSyncTimer: NodeJS.Timeout | null;
+}
+
+export interface SendMessageOptions {
+  branchId?: string;
+  type?: 'OTP' | 'ADMIN_ALERT' | 'ORDER';
+  accountId?: string;
+}
+
 class WhatsAppService {
-  private sock: WASocket | null = null;
-  private isConnected: boolean = false;
-  private botPhoneNumber: string | null = null;
-  private currentQrDataUrl: string | null = null;
-  private currentRawQr: string | null = null;
-  private isInitializing: boolean = false;
-  private isSyncingFiles: boolean = false;
-  private sessionSyncTimer: NodeJS.Timeout | null = null;
-  private sessionDir: string = process.env.WHATSAPP_SESSION_PATH || (
+  private sessions: Map<string, WhatsAppAccountSession> = new Map();
+  private baseSessionDir: string = process.env.WHATSAPP_SESSION_PATH || (
     fs.existsSync('/var/data') ? '/var/data/auth_info_baileys' : path.resolve(process.cwd(), 'auth_info_baileys')
   );
+  private isBooting: boolean = false;
 
   constructor() {
-    this.ensureSessionDir();
+    this.ensureDir(this.baseSessionDir);
   }
 
-  private ensureSessionDir() {
-    if (!fs.existsSync(this.sessionDir)) {
+  private ensureDir(dir: string) {
+    if (!fs.existsSync(dir)) {
       try {
-        fs.mkdirSync(this.sessionDir, { recursive: true });
+        fs.mkdirSync(dir, { recursive: true });
       } catch (err) {
-        console.error('[WhatsApp] Error creating session dir:', err);
+        console.error('[WhatsApp] Error creating dir:', err);
       }
     }
   }
 
-  // استرجاع ملفات الجلسة الأساسية فقط من PostgreSQL مع تجنب تحميل آلاف المفاتيح القديمة لتوفير الرام
-  private async restoreSessionFromDb() {
+  // التأكد من وجود حساب افتراضي ونقل أي ملفات جلسة قديمة لضمان عدم انقطاع الخدمة السابقة
+  public async ensureDefaultAccount() {
     try {
-      this.ensureSessionDir();
-      const credsPath = path.join(this.sessionDir, 'creds.json');
+      const count = await prisma.whatsAppAccount.count();
+      if (count === 0) {
+        console.log('[WhatsApp] Creating initial default WhatsApp account...');
+        const defaultAcc = await prisma.whatsAppAccount.create({
+          data: {
+            id: 'default',
+            name: 'الحساب الرئيسي للواتساب',
+            isDefault: true,
+            isActive: true,
+            sendOtp: true,
+            sendAdminAlerts: true,
+            sendCustomerOrders: true,
+          }
+        });
+
+        // ترحيل أي ملفات جلسة سابقة كانت مخزنة في SystemSetting
+        try {
+          const oldFiles = await prisma.systemSetting.findMany({
+            where: { key: { startsWith: 'baileys_file_' } }
+          });
+          if (oldFiles.length > 0) {
+            console.log(`[WhatsApp] Migrating ${oldFiles.length} legacy session files to default account...`);
+            for (const rec of oldFiles) {
+              const filename = rec.key.replace('baileys_file_', '');
+              await prisma.whatsAppSessionFile.upsert({
+                where: { accountId_filename: { accountId: 'default', filename } },
+                update: { content: rec.value },
+                create: { accountId: 'default', filename, content: rec.value }
+              }).catch(() => {});
+            }
+          }
+        } catch (_migErr) {}
+
+        return defaultAcc;
+      }
+    } catch (err) {
+      console.warn('[WhatsApp] ensureDefaultAccount warning:', err);
+    }
+    return null;
+  }
+
+  // استرجاع ملفات الجلسة لحساب محدد من PostgreSQL مع استبعاد المفاتيح القديمة
+  private async restoreAccountSessionFromDb(accountId: string, sessionDir: string) {
+    try {
+      this.ensureDir(sessionDir);
+      const credsPath = path.join(sessionDir, 'creds.json');
       if (!fs.existsSync(credsPath)) {
         // 1. استرجاع creds.json أولاً
-        const credsRec = await prisma.systemSetting.findUnique({
-          where: { key: 'baileys_file_creds.json' }
+        const credsRec = await prisma.whatsAppSessionFile.findUnique({
+          where: { accountId_filename: { accountId, filename: 'creds.json' } }
         });
-        if (credsRec?.value) {
-          fs.writeFileSync(credsPath, credsRec.value, 'utf-8');
+        if (credsRec?.content) {
+          fs.writeFileSync(credsPath, credsRec.content, 'utf-8');
         }
 
-        // 2. استرجاع باقي الملفات مع استبعاد الـ pre-keys التالفة والقديمة
-        const records = await prisma.systemSetting.findMany({
+        // 2. استرجاع باقي المفاتيح مع تصفية أحدث 40 مفتاح فقط
+        const records = await prisma.whatsAppSessionFile.findMany({
           where: { 
-            key: { startsWith: 'baileys_file_' },
-            NOT: { key: 'baileys_file_creds.json' }
+            accountId,
+            NOT: { filename: 'creds.json' }
           },
-          select: { key: true, value: true }
+          select: { id: true, filename: true, content: true }
         });
 
         if (records.length > 0) {
           const preKeys = records
-            .filter(r => r.key.startsWith('baileys_file_pre-key-'))
+            .filter(r => r.filename.startsWith('pre-key-'))
             .map(r => {
-              const m = r.key.match(/pre-key-(\d+)\.json/);
+              const m = r.filename.match(/pre-key-(\d+)\.json/);
               return { ...r, num: m ? parseInt(m[1], 10) : 0 };
             })
             .sort((a, b) => b.num - a.num);
 
-          const nonPreKeys = records.filter(r => !r.key.startsWith('baileys_file_pre-key-'));
-          const keepPreKeys = preKeys.slice(0, 40); // الاحتفاظ بأحدث 40 مفتاح مؤقت فقط
-          const obsoleteKeys = preKeys.slice(40).map(k => k.key);
+          const nonPreKeys = records.filter(r => !r.filename.startsWith('pre-key-'));
+          const keepPreKeys = preKeys.slice(0, 40);
+          const obsoleteIds = preKeys.slice(40).map(k => k.id);
 
           const toWrite = [...nonPreKeys, ...keepPreKeys];
           for (const rec of toWrite) {
-            const rawFilename = rec.key.replace('baileys_file_', '');
-            const filename = path.basename(rawFilename);
-            fs.writeFileSync(path.join(this.sessionDir, filename), rec.value, 'utf-8');
+            const filename = path.basename(rec.filename);
+            fs.writeFileSync(path.join(sessionDir, filename), rec.content, 'utf-8');
           }
-          console.log(`[WhatsApp] Successfully restored ${toWrite.length} vital session auth files from PostgreSQL (optimized for 512MB RAM).`);
+          console.log(`[WhatsApp:${accountId}] Restored ${toWrite.length} session files from DB.`);
 
-          // تنظيف المفاتيح المنتهية من PostgreSQL لتخفيف استهلاك قاعدة البيانات والذاكرة
-          if (obsoleteKeys.length > 0) {
-            prisma.systemSetting.deleteMany({
-              where: { key: { in: obsoleteKeys } }
-            }).then(del => {
-              console.log(`[WhatsApp] Cleaned up ${del.count} obsolete pre-keys from PostgreSQL.`);
+          if (obsoleteIds.length > 0) {
+            prisma.whatsAppSessionFile.deleteMany({
+              where: { id: { in: obsoleteIds } }
             }).catch(() => {});
           }
         }
       }
     } catch (err) {
-      console.warn('[WhatsApp] Could not restore session from DB:', err);
+      console.warn(`[WhatsApp:${accountId}] Error restoring session files from DB:`, err);
     }
   }
 
-  // تنظيف الـ pre-keys القديمة دورياً من القرص وقاعدة البيانات لمنع تراكم آلاف الملفات
-  private async pruneObsoletePreKeys() {
+  // تنظيف الـ pre-keys الزائدة لحساب محدد
+  private async pruneAccountPreKeys(accountId: string, sessionDir: string) {
     try {
-      if (!fs.existsSync(this.sessionDir)) return;
-      const allFiles = fs.readdirSync(this.sessionDir);
-      const preKeyFiles = allFiles
+      if (!fs.existsSync(sessionDir)) return;
+      const files = fs.readdirSync(sessionDir);
+      const preKeyFiles = files
         .filter(f => f.startsWith('pre-key-') && f.endsWith('.json'))
         .map(f => {
           const m = f.match(/pre-key-(\d+)\.json/);
@@ -114,26 +167,27 @@ class WhatsAppService {
         const toDelete = preKeyFiles.slice(40);
         for (const item of toDelete) {
           try {
-            fs.unlinkSync(path.join(this.sessionDir, item.file));
+            fs.unlinkSync(path.join(sessionDir, item.file));
           } catch (_e) {}
         }
-        const dbKeys = toDelete.map(d => `baileys_file_${d.file}`);
-        await prisma.systemSetting.deleteMany({
-          where: { key: { in: dbKeys } }
+        const fileNames = toDelete.map(d => d.file);
+        await prisma.whatsAppSessionFile.deleteMany({
+          where: { accountId, filename: { in: fileNames } }
         }).catch(() => {});
       }
     } catch (_err) {}
   }
 
-  // مزامنة خفيفة ومجدولة لملفات الجلسة الحيوية فقط بدون إجهاد الذاكرة
-  private async syncSessionFilesToDb() {
-    if (this.isSyncingFiles || !this.isConnected) return;
-    this.isSyncingFiles = true;
+  // مزامنة ملفات جلسة حساب محدد دورياً مع قاعدة البيانات
+  private async syncAccountSessionFiles(session: WhatsAppAccountSession) {
+    if (session.isSyncingFiles || !session.isConnected) return;
+    session.isSyncingFiles = true;
     try {
-      if (!fs.existsSync(this.sessionDir)) return;
-      await this.pruneObsoletePreKeys();
+      const { account, sessionDir } = session;
+      if (!fs.existsSync(sessionDir)) return;
+      await this.pruneAccountPreKeys(account.id, sessionDir);
 
-      const files = fs.readdirSync(this.sessionDir);
+      const files = fs.readdirSync(sessionDir);
       const nonPreKeys = files.filter(f => f.endsWith('.json') && !f.startsWith('pre-key-'));
       const preKeys = files
         .filter(f => f.startsWith('pre-key-') && f.endsWith('.json'))
@@ -147,171 +201,465 @@ class WhatsAppService {
 
       const toSync = [...nonPreKeys, ...preKeys];
       for (const file of toSync) {
-        const filePath = path.join(this.sessionDir, file);
+        const filePath = path.join(sessionDir, file);
         if (fs.existsSync(filePath)) {
           const content = fs.readFileSync(filePath, 'utf-8');
-          await prisma.systemSetting.upsert({
-            where: { key: `baileys_file_${file}` },
-            update: { value: content },
-            create: { key: `baileys_file_${file}`, value: content },
+          await prisma.whatsAppSessionFile.upsert({
+            where: { accountId_filename: { accountId: account.id, filename: file } },
+            update: { content },
+            create: { accountId: account.id, filename: file, content }
           }).catch(() => {});
         }
       }
     } catch (_err) {
     } finally {
-      this.isSyncingFiles = false;
+      session.isSyncingFiles = false;
     }
   }
 
-  public async initWhatsApp() {
-    if (this.isInitializing) return;
-    this.isInitializing = true;
+  // تهيئة جلسة واتساب لحساب معين
+  public async initAccount(account: any) {
+    const accountId = account.id;
+    let session = this.sessions.get(accountId);
+
+    const sessionDir = path.join(this.baseSessionDir, accountId);
+    this.ensureDir(sessionDir);
+
+    if (!session) {
+      session = {
+        account,
+        sock: null,
+        isConnected: false,
+        botPhoneNumber: account.phoneNumber || null,
+        currentQrDataUrl: null,
+        currentRawQr: null,
+        isInitializing: false,
+        isSyncingFiles: false,
+        sessionDir,
+        sessionSyncTimer: null
+      };
+      this.sessions.set(accountId, session);
+    } else {
+      session.account = account;
+      session.sessionDir = sessionDir;
+    }
+
+    if (session.isInitializing) return;
+    session.isInitializing = true;
 
     try {
-      await this.restoreSessionFromDb();
-      this.ensureSessionDir();
-      const { state, saveCreds } = await useMultiFileAuthState(this.sessionDir);
+      await this.restoreAccountSessionFromDb(accountId, sessionDir);
+      const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
 
       const socket = makeWASocket({
         auth: state,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: ['UniFood Campus', 'Chrome', '1.0.0'],
+        browser: [`UniFood - ${account.name || 'Bot'}`, 'Chrome', '1.0.0'],
         connectTimeoutMs: 60000,
         keepAliveIntervalMs: 25000,
-        syncFullHistory: false, // يمنع سحب أرشيف المحادثات الضخم إلى الرام
+        syncFullHistory: false, // توفير الرام بعدم تنزيل المحادثات القديمة
         shouldIgnoreJid: (jid) => isJidBroadcast(jid) || jid.endsWith('@newsletter'),
-        getMessage: async () => undefined, // يمنع الاحتفاظ بنصوص الرسائل في ذاكرة الخادم
+        getMessage: async () => undefined,
       });
 
-      this.sock = socket;
+      session.sock = socket;
 
-      // عند تحديث بيانات الاعتماد، نحفظ فقط creds.json (تجنباً لقراءة آلاف الملفات وإغراق الرام)
+      // عند تحديث الاعتماد، نحفظ فقط creds.json الخاص بهذا الحساب
       socket.ev.on('creds.update', async () => {
         await saveCreds();
         try {
-          const credsPath = path.join(this.sessionDir, 'creds.json');
+          const credsPath = path.join(sessionDir, 'creds.json');
           if (fs.existsSync(credsPath)) {
             const content = fs.readFileSync(credsPath, 'utf-8');
-            await prisma.systemSetting.upsert({
-              where: { key: 'baileys_file_creds.json' },
-              update: { value: content },
-              create: { key: 'baileys_file_creds.json', value: content },
+            await prisma.whatsAppSessionFile.upsert({
+              where: { accountId_filename: { accountId, filename: 'creds.json' } },
+              update: { content },
+              create: { accountId, filename: 'creds.json', content }
             }).catch(() => {});
           }
         } catch (_syncErr) {}
       });
 
-      // إيقاف أي مؤقت مزامنة سابق وتشغيل مؤقت خفيف كل 4 دقائق
-      if (this.sessionSyncTimer) {
-        clearInterval(this.sessionSyncTimer);
-        this.sessionSyncTimer = null;
+      // مؤقت مزامنة دورية خفيف كل 4 دقائق
+      if (session.sessionSyncTimer) {
+        clearInterval(session.sessionSyncTimer);
       }
-      this.sessionSyncTimer = setInterval(() => {
-        this.syncSessionFilesToDb().catch(() => {});
+      session.sessionSyncTimer = setInterval(() => {
+        if (session) this.syncAccountSessionFiles(session).catch(() => {});
       }, 4 * 60 * 1000);
 
       socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-          this.currentRawQr = qr;
+          session.currentRawQr = qr;
           try {
-            this.currentQrDataUrl = await QRCode.toDataURL(qr, { margin: 2, scale: 6 });
-            console.log('[WhatsApp] New QR code generated. Ready to scan from Admin Panel.');
+            session.currentQrDataUrl = await QRCode.toDataURL(qr, { margin: 2, scale: 6 });
+            console.log(`[WhatsApp:${accountId}] QR generated for account: ${account.name}`);
           } catch (qrErr) {
-            console.error('[WhatsApp] Failed to generate QR data URL:', qrErr);
+            console.error(`[WhatsApp:${accountId}] QR generation error:`, qrErr);
           }
         }
 
         if (connection === 'open') {
-          this.isConnected = true;
-          this.currentQrDataUrl = null;
-          this.currentRawQr = null;
-          this.isInitializing = false;
+          session.isConnected = true;
+          session.currentQrDataUrl = null;
+          session.currentRawQr = null;
+          session.isInitializing = false;
 
           const rawId = socket.user?.id || '';
-          this.botPhoneNumber = rawId.split(':')[0] || rawId.split('@')[0] || 'متصل';
-          console.log(`[WhatsApp] Connected successfully! Active Phone: ${this.botPhoneNumber}`);
-          
-          // مزامنة أولية خفيفة بعد الاتصال بنصف دقيقة
+          const phone = rawId.split(':')[0] || rawId.split('@')[0] || 'متصل';
+          session.botPhoneNumber = phone;
+          console.log(`[WhatsApp:${accountId}] Connected! Phone: ${phone} (${account.name})`);
+
+          // حفظ رقم الهاتف في قاعدة البيانات
+          prisma.whatsAppAccount.update({
+            where: { id: accountId },
+            data: { phoneNumber: phone }
+          }).catch(() => {});
+
           setTimeout(() => {
-            this.syncSessionFilesToDb().catch(() => {});
+            if (session) this.syncAccountSessionFiles(session).catch(() => {});
           }, 30000);
         } else if (connection === 'close') {
-          this.isConnected = false;
-          this.isInitializing = false;
+          session.isConnected = false;
+          session.isInitializing = false;
 
           const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
           const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-          console.log(`[WhatsApp] Connection closed. Reason code: ${statusCode}. Should reconnect: ${shouldReconnect}`);
+          console.log(`[WhatsApp:${accountId}] Closed. Status: ${statusCode}. Reconnect: ${shouldReconnect}`);
 
           if (shouldReconnect) {
-            console.log('[WhatsApp] Reconnecting in 5 seconds...');
             setTimeout(() => {
-              this.initWhatsApp();
+              this.initAccount(account);
             }, 5000);
           } else {
-            console.log('[WhatsApp] Logged out by user. Cleaning session files...');
-            this.cleanupSession();
+            console.log(`[WhatsApp:${accountId}] Logged out. Resetting session files...`);
+            this.cleanupAccountSession(accountId);
             setTimeout(() => {
-              this.initWhatsApp();
+              this.initAccount(account);
             }, 3000);
           }
         }
       });
     } catch (err) {
-      this.isInitializing = false;
-      console.error('[WhatsApp] Error during initialization:', err);
+      session.isInitializing = false;
+      console.error(`[WhatsApp:${accountId}] Init error:`, err);
     }
   }
 
-  private cleanupSession() {
+  // تنظيف جلسة حساب معين محلياً وقاعدة البيانات
+  private cleanupAccountSession(accountId: string) {
+    const session = this.sessions.get(accountId);
+    if (session?.sessionSyncTimer) {
+      clearInterval(session.sessionSyncTimer);
+      session.sessionSyncTimer = null;
+    }
+    const sessionDir = path.join(this.baseSessionDir, accountId);
+    if (fs.existsSync(sessionDir)) {
+      try {
+        fs.rmSync(sessionDir, { recursive: true, force: true });
+        this.ensureDir(sessionDir);
+      } catch (_e) {}
+    }
+    prisma.whatsAppSessionFile.deleteMany({
+      where: { accountId }
+    }).catch(() => {});
+
+    prisma.whatsAppAccount.update({
+      where: { id: accountId },
+      data: { phoneNumber: null }
+    }).catch(() => {});
+
+    if (session) {
+      session.isConnected = false;
+      session.currentQrDataUrl = null;
+      session.currentRawQr = null;
+      session.botPhoneNumber = null;
+    }
+  }
+
+  // بدء تشغيل جميع الحسابات المفعلة
+  public async initWhatsApp() {
+    return this.initAll();
+  }
+
+  public async initAll() {
+    if (this.isBooting) return;
+    this.isBooting = true;
     try {
-      if (this.sessionSyncTimer) {
-        clearInterval(this.sessionSyncTimer);
-        this.sessionSyncTimer = null;
+      await this.ensureDefaultAccount();
+      const accounts = await prisma.whatsAppAccount.findMany({
+        where: { isActive: true },
+        include: { branch: { select: { id: true, name: true } } },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }]
+      });
+
+      console.log(`[WhatsApp] Booting ${accounts.length} WhatsApp account session(s)...`);
+      for (const acc of accounts) {
+        await this.initAccount(acc);
       }
-      if (fs.existsSync(this.sessionDir)) {
-        fs.rmSync(this.sessionDir, { recursive: true, force: true });
-        this.ensureSessionDir();
-      }
-      prisma.systemSetting.deleteMany({
-        where: { key: { startsWith: 'baileys_file_' } }
-      }).catch(() => {});
-    } catch (e) {
-      console.error('[WhatsApp] Cleanup error:', e);
+    } catch (err) {
+      console.error('[WhatsApp] Booting error:', err);
+    } finally {
+      this.isBooting = false;
     }
-    this.currentQrDataUrl = null;
-    this.currentRawQr = null;
-    this.botPhoneNumber = null;
-    this.isConnected = false;
   }
 
+  // جلب قائمة الحسابات وحالتها اللحظية
+  public async getAllAccountsStatus() {
+    const accounts = await prisma.whatsAppAccount.findMany({
+      include: { branch: { select: { id: true, name: true, slug: true } } },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }]
+    });
+
+    return accounts.map(acc => {
+      const session = this.sessions.get(acc.id);
+      return {
+        id: acc.id,
+        name: acc.name,
+        phoneNumber: session?.botPhoneNumber || acc.phoneNumber || null,
+        isConnected: Boolean(session?.isConnected),
+        isInitializing: Boolean(session?.isInitializing),
+        qrCode: session?.currentQrDataUrl || null,
+        isActive: acc.isActive,
+        isDefault: acc.isDefault,
+        sendOtp: acc.sendOtp,
+        sendAdminAlerts: acc.sendAdminAlerts,
+        sendCustomerOrders: acc.sendCustomerOrders,
+        branchId: acc.branchId,
+        branch: acc.branch,
+        createdAt: acc.createdAt,
+      };
+    });
+  }
+
+  // إنشاء حساب واتساب جديد وتهيئته لتوليد كود الـ QR
+  public async createAccount(data: {
+    name: string;
+    sendOtp?: boolean;
+    sendAdminAlerts?: boolean;
+    sendCustomerOrders?: boolean;
+    branchId?: string | null;
+    isDefault?: boolean;
+  }) {
+    if (data.isDefault) {
+      // إزالة الافتراضي عن باقي الحسابات
+      await prisma.whatsAppAccount.updateMany({
+        data: { isDefault: false }
+      }).catch(() => {});
+    }
+
+    const newAcc = await prisma.whatsAppAccount.create({
+      data: {
+        name: data.name.trim(),
+        sendOtp: Boolean(data.sendOtp),
+        sendAdminAlerts: Boolean(data.sendAdminAlerts),
+        sendCustomerOrders: Boolean(data.sendCustomerOrders),
+        branchId: data.branchId || null,
+        isDefault: Boolean(data.isDefault),
+        isActive: true,
+      },
+      include: { branch: { select: { id: true, name: true } } }
+    });
+
+    await this.initAccount(newAcc);
+    return newAcc;
+  }
+
+  // تعديل إعدادات وأدوار حساب واتساب
+  public async updateAccount(id: string, data: {
+    name?: string;
+    sendOtp?: boolean;
+    sendAdminAlerts?: boolean;
+    sendCustomerOrders?: boolean;
+    branchId?: string | null;
+    isDefault?: boolean;
+    isActive?: boolean;
+  }) {
+    if (data.isDefault) {
+      await prisma.whatsAppAccount.updateMany({
+        where: { id: { not: id } },
+        data: { isDefault: false }
+      }).catch(() => {});
+    }
+
+    const updated = await prisma.whatsAppAccount.update({
+      where: { id },
+      data: {
+        ...(data.name ? { name: data.name.trim() } : {}),
+        ...(data.sendOtp !== undefined ? { sendOtp: Boolean(data.sendOtp) } : {}),
+        ...(data.sendAdminAlerts !== undefined ? { sendAdminAlerts: Boolean(data.sendAdminAlerts) } : {}),
+        ...(data.sendCustomerOrders !== undefined ? { sendCustomerOrders: Boolean(data.sendCustomerOrders) } : {}),
+        ...(data.branchId !== undefined ? { branchId: data.branchId || null } : {}),
+        ...(data.isDefault !== undefined ? { isDefault: Boolean(data.isDefault) } : {}),
+        ...(data.isActive !== undefined ? { isActive: Boolean(data.isActive) } : {}),
+      },
+      include: { branch: { select: { id: true, name: true } } }
+    });
+
+    const session = this.sessions.get(id);
+    if (session) {
+      session.account = updated;
+      if (!updated.isActive && session.sock) {
+        try { await session.sock.logout(); } catch (_e) {}
+        this.cleanupAccountSession(id);
+      } else if (updated.isActive && !session.isConnected && !session.isInitializing) {
+        this.initAccount(updated);
+      }
+    } else if (updated.isActive) {
+      this.initAccount(updated);
+    }
+
+    return updated;
+  }
+
+  // فصل جلسة حساب لإعادة مسح الـ QR
+  public async disconnect(accountId?: string): Promise<boolean> {
+    const targetId = accountId || 'default';
+    const session = this.sessions.get(targetId);
+    if (session?.sock) {
+      try {
+        await session.sock.logout();
+      } catch (_e) {}
+    }
+    this.cleanupAccountSession(targetId);
+    const account = await prisma.whatsAppAccount.findUnique({ where: { id: targetId } });
+    if (account && account.isActive) {
+      setTimeout(() => {
+        this.initAccount(account);
+      }, 2000);
+    }
+    return true;
+  }
+
+  // إعادة توليد رمز QR لحساب معين
+  public async refreshQr(accountId: string) {
+    const session = this.sessions.get(accountId);
+    if (session?.sock) {
+      try { await session.sock.end(undefined); } catch (_e) {}
+    }
+    const account = await prisma.whatsAppAccount.findUnique({ where: { id: accountId } });
+    if (account) {
+      await this.initAccount(account);
+    }
+    return true;
+  }
+
+  // حذف حساب نهائياً
+  public async deleteAccount(accountId: string) {
+    const session = this.sessions.get(accountId);
+    if (session?.sock) {
+      try { await session.sock.logout(); } catch (_e) {}
+    }
+    this.cleanupAccountSession(accountId);
+    this.sessions.delete(accountId);
+
+    await prisma.whatsAppAccount.delete({
+      where: { id: accountId }
+    });
+    return true;
+  }
+
+  // الحالة العامة للتوافق مع الواجهات القديمة
   public getStatus() {
+    let connectedSession: WhatsAppAccountSession | null = null;
+    let qrSession: WhatsAppAccountSession | null = null;
+
+    for (const session of this.sessions.values()) {
+      if (session.isConnected && !connectedSession) {
+        connectedSession = session;
+      }
+      if (session.currentQrDataUrl && !qrSession) {
+        qrSession = session;
+      }
+    }
+
     return {
-      isConnected: this.isConnected,
-      botPhoneNumber: this.botPhoneNumber,
-      qrCode: this.currentQrDataUrl,
+      isConnected: Boolean(connectedSession),
+      botPhoneNumber: connectedSession?.botPhoneNumber || null,
+      qrCode: qrSession?.currentQrDataUrl || null,
+      totalAccounts: this.sessions.size,
     };
   }
 
-  public getIsConnected(): boolean {
-    return this.isConnected;
+  public getIsConnected(options?: SendMessageOptions): boolean {
+    const session = this.selectSessionForMessage(options);
+    return Boolean(session && session.isConnected);
   }
 
-  public async disconnect(): Promise<boolean> {
-    try {
-      if (this.sock) {
-        await this.sock.logout();
+  // الموجه الذكي لاختيار حساب الواتساب المناسب بناءً على الدور أو المطعم المخصص
+  public selectSessionForMessage(options?: SendMessageOptions): WhatsAppAccountSession | null {
+    if (!options) {
+      // Return default or any connected
+      for (const session of this.sessions.values()) {
+        if (session.isConnected && session.account.isDefault) return session;
       }
-    } catch (_e) {}
-    this.cleanupSession();
-    setTimeout(() => {
-      this.initWhatsApp();
-    }, 2000);
-    return true;
+      for (const session of this.sessions.values()) {
+        if (session.isConnected) return session;
+      }
+      return null;
+    }
+
+    // 1. إذا تم تحديد accountId بعينه
+    if (options.accountId) {
+      const s = this.sessions.get(options.accountId);
+      if (s && s.isConnected) return s;
+    }
+
+    // 2. إذا كانت الرسالة متعلقة بمطعم محدد (branchId)، نبحث أولاً عن حساب مخصص لهذا المطعم
+    if (options.branchId) {
+      for (const session of this.sessions.values()) {
+        if (session.isConnected && session.account.branchId === options.branchId) {
+          return session;
+        }
+      }
+    }
+
+    // 3. مطابقة نوع الرسالة (OTP)
+    if (options.type === 'OTP') {
+      for (const session of this.sessions.values()) {
+        if (session.isConnected && session.account.sendOtp) {
+          return session;
+        }
+      }
+    }
+
+    // 4. مطابقة تنبيهات الإدارة وتقارير الشيفت (ADMIN_ALERT)
+    if (options.type === 'ADMIN_ALERT') {
+      for (const session of this.sessions.values()) {
+        if (session.isConnected && session.account.sendAdminAlerts) {
+          return session;
+        }
+      }
+    }
+
+    // 5. مطابقة إشعارات طلبات العملاء (ORDER)
+    if (options.type === 'ORDER') {
+      for (const session of this.sessions.values()) {
+        if (session.isConnected && session.account.sendCustomerOrders) {
+          return session;
+        }
+      }
+    }
+
+    // 6. الاحتياطي: الحساب الافتراضي
+    for (const session of this.sessions.values()) {
+      if (session.isConnected && session.account.isDefault) {
+        return session;
+      }
+    }
+
+    // 7. الاحتياطي النهائي: أي حساب متصل ونشط
+    for (const session of this.sessions.values()) {
+      if (session.isConnected) {
+        return session;
+      }
+    }
+
+    return null;
   }
 
   public formatEgyptianJid(phone: string): string {
@@ -342,19 +690,20 @@ class WhatsAppService {
 ⏱️ هذا الكود صالح للاستخدام لمدة 5 دقائق.
 ⚠️ يرجى عدم مشاركة الكود مع أي شخص للحفاظ على أمان حسابك.`;
 
-    if (this.isConnected && this.sock) {
+    const session = this.selectSessionForMessage({ type: 'OTP' });
+
+    if (session && session.isConnected && session.sock) {
       try {
         const jid = this.formatEgyptianJid(phone);
-        await this.sock.sendMessage(jid, { text });
-        console.log(`[WhatsApp] Sent OTP to ${jid} successfully.`);
+        await session.sock.sendMessage(jid, { text });
+        console.log(`[WhatsApp:${session.account.name}] Sent OTP to ${jid} successfully.`);
         return { success: true, simulated: false };
       } catch (err) {
-        console.error(`[WhatsApp] Failed to send message to ${phone}:`, err);
+        console.error(`[WhatsApp] Failed to send OTP to ${phone}:`, err);
         return { success: true, simulated: true };
       }
     }
 
-    // In development or if bot is not paired yet, log to console
     if (process.env.NODE_ENV !== "production") {
       console.warn(`[WhatsApp - Dev Mode] Simulated OTP for ${phone} is: [${otp}]`);
     } else {
@@ -383,14 +732,16 @@ class WhatsAppService {
 ⏱️ الكود والرابط صالحان لمدة 15 دقيقة.
 بالهنا والشفا، ونتمنى لك تجربة ممتعة مع UniFood! 🍔`;
 
-    if (this.isConnected && this.sock) {
+    const session = this.selectSessionForMessage({ type: 'OTP' });
+
+    if (session && session.isConnected && session.sock) {
       try {
         const jid = this.formatEgyptianJid(phone);
-        await this.sock.sendMessage(jid, { text });
-        console.log(`[WhatsApp] Sent verification OTP & magic link to ${jid} successfully.`);
+        await session.sock.sendMessage(jid, { text });
+        console.log(`[WhatsApp:${session.account.name}] Sent verification OTP to ${jid} successfully.`);
         return { success: true, simulated: false };
       } catch (err) {
-        console.error(`[WhatsApp] Failed to send verification message to ${phone}:`, err);
+        console.error(`[WhatsApp] Failed to send verification to ${phone}:`, err);
         return { success: true, simulated: true };
       }
     }
@@ -403,12 +754,18 @@ class WhatsAppService {
     return { success: true, simulated: true };
   }
 
+  public async sendOrderStatusNotification(
+    phone: string, 
+    message: string, 
+    options?: SendMessageOptions
+  ): Promise<boolean> {
+    const session = this.selectSessionForMessage(options);
+    if (!session || !session.isConnected || !session.sock) return false;
 
-  public async sendOrderStatusNotification(phone: string, message: string): Promise<boolean> {
-    if (!this.isConnected || !this.sock) return false;
     try {
       const jid = this.formatEgyptianJid(phone);
-      await this.sock.sendMessage(jid, { text: message });
+      await session.sock.sendMessage(jid, { text: message });
+      console.log(`[WhatsApp:${session.account.name}] Sent status notification to ${jid}.`);
       return true;
     } catch (err) {
       console.error(`[WhatsApp] Failed to send notification to ${phone}:`, err);

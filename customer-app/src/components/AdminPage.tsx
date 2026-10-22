@@ -124,6 +124,18 @@ export const AdminPage: React.FC = () => {
   const [supportWhatsappSaveSuccess, setSupportWhatsappSaveSuccess] = useState<boolean>(false);
   const [whatsAppStatus, setWhatsAppStatus] = useState<any | null>(null);
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
+  const [whatsAppAccounts, setWhatsAppAccounts] = useState<any[]>([]);
+  const [showAddWhatsAppModal, setShowAddWhatsAppModal] = useState(false);
+  const [editingWhatsAppAccount, setEditingWhatsAppAccount] = useState<any | null>(null);
+  const [activeQrAccount, setActiveQrAccount] = useState<any | null>(null);
+
+  // Form states for WhatsApp Account:
+  const [waAccName, setWaAccName] = useState('');
+  const [waAccSendOtp, setWaAccSendOtp] = useState(false);
+  const [waAccSendAdminAlerts, setWaAccSendAdminAlerts] = useState(false);
+  const [waAccSendCustomerOrders, setWaAccSendCustomerOrders] = useState(false);
+  const [waAccBranchId, setWaAccBranchId] = useState('');
+  const [waAccIsDefault, setWaAccIsDefault] = useState(false);
   const [showMobileMoreMenu, setShowMobileMoreMenu] = useState(false);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -467,6 +479,8 @@ export const AdminPage: React.FC = () => {
     Boolean(showAddPromoModal),
     Boolean(editingPromo),
     Boolean(showAddFlashDealModal),
+    Boolean(showAddWhatsAppModal),
+    Boolean(activeQrAccount),
     Boolean(showAddDriverModal),
     Boolean(editingDriver)
   ].filter(Boolean).length;
@@ -512,6 +526,8 @@ export const AdminPage: React.FC = () => {
       else if (editingPromo) setEditingPromo(null);
       else if (showAddPromoModal) setShowAddPromoModal(false);
       else if (showAddFlashDealModal) setShowAddFlashDealModal(false);
+      else if (showAddWhatsAppModal) setShowAddWhatsAppModal(false);
+      else if (activeQrAccount) setActiveQrAccount(null);
       else if (editingDriver) setEditingDriver(null);
       else if (showAddDriverModal) setShowAddDriverModal(false);
       // ثالثاً: إذا كان في تبويب غير الفروع -> الرجوع لتبويب الفروع الرئيسي
@@ -549,6 +565,9 @@ export const AdminPage: React.FC = () => {
           Boolean(editingBanner),
           Boolean(showAddPromoModal),
           Boolean(editingPromo),
+          Boolean(showAddFlashDealModal),
+          Boolean(showAddWhatsAppModal),
+          Boolean(activeQrAccount),
           Boolean(showAddDriverModal),
           Boolean(editingDriver)
         ].filter(Boolean).length;
@@ -577,6 +596,8 @@ export const AdminPage: React.FC = () => {
     editingPromo,
     showAddPromoModal,
     showAddFlashDealModal,
+    showAddWhatsAppModal,
+    activeQrAccount,
     editingDriver,
     showAddDriverModal,
     activeTab
@@ -922,6 +943,131 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const fetchWhatsAppAccounts = async () => {
+    try {
+      const data = await api.getWhatsAppAccounts();
+      if (Array.isArray(data)) {
+        setWhatsAppAccounts(data);
+        if (activeQrAccount) {
+          const updated = data.find((a: any) => a.id === activeQrAccount.id);
+          if (updated) setActiveQrAccount(updated);
+        }
+      }
+    } catch (err: any) {
+      console.warn('WhatsApp accounts fetch error:', err);
+    }
+  };
+
+  const handleOpenAddWhatsAppAccount = () => {
+    setEditingWhatsAppAccount(null);
+    setWaAccName('');
+    setWaAccSendOtp(false);
+    setWaAccSendAdminAlerts(false);
+    setWaAccSendCustomerOrders(true);
+    setWaAccBranchId('');
+    setWaAccIsDefault(whatsAppAccounts.length === 0);
+    setShowAddWhatsAppModal(true);
+  };
+
+  const handleOpenEditWhatsAppAccount = (acc: any) => {
+    setEditingWhatsAppAccount(acc);
+    setWaAccName(acc.name || '');
+    setWaAccSendOtp(Boolean(acc.sendOtp));
+    setWaAccSendAdminAlerts(Boolean(acc.sendAdminAlerts));
+    setWaAccSendCustomerOrders(Boolean(acc.sendCustomerOrders));
+    setWaAccBranchId(acc.branchId || '');
+    setWaAccIsDefault(Boolean(acc.isDefault));
+    setShowAddWhatsAppModal(true);
+  };
+
+  const handleSaveWhatsAppAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!waAccName.trim()) {
+      alert('يرجى كتابة اسم تعريفي لحساب الواتساب');
+      return;
+    }
+    try {
+      setLoadingWhatsApp(true);
+      const payload = {
+        name: waAccName.trim(),
+        sendOtp: waAccSendOtp,
+        sendAdminAlerts: waAccSendAdminAlerts,
+        sendCustomerOrders: waAccSendCustomerOrders,
+        branchId: waAccBranchId || null,
+        isDefault: waAccIsDefault,
+      };
+
+      if (editingWhatsAppAccount) {
+        await api.updateWhatsAppAccount(editingWhatsAppAccount.id, payload);
+      } else {
+        const res = await api.createWhatsAppAccount(payload);
+        if (res.account) {
+          setActiveQrAccount(res.account);
+        }
+      }
+      setShowAddWhatsAppModal(false);
+      await fetchWhatsAppAccounts();
+    } catch (err: any) {
+      alert(err.message || 'فشل حفظ حساب الواتساب');
+    } finally {
+      setLoadingWhatsApp(false);
+    }
+  };
+
+  const handleDisconnectWhatsAppAccount = (acc: any) => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'فصل جلسة الواتساب',
+      message: `هل أنت متأكد من رغبتك في فصل حساب الواتساب (${acc.name})؟ سيتوقف الرقم عن إرسال الرسائل حتى يتم مسح رمز QR جديد.`,
+      confirmText: 'نعم، افصل الجلسة',
+      cancelText: 'إلغاء',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          setLoadingWhatsApp(true);
+          await api.disconnectWhatsAppAccount(acc.id);
+          setTimeout(fetchWhatsAppAccounts, 1500);
+        } catch (err: any) {
+          alert(err.message || 'فشل فصل الحساب');
+        } finally {
+          setLoadingWhatsApp(false);
+        }
+      }
+    });
+  };
+
+  const handleDeleteWhatsAppAccount = (acc: any) => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'حذف حساب الواتساب',
+      message: `هل أنت متأكد من رغبتك في حذف حساب (${acc.name}) نهائياً؟ ستتوقف أي رسائل كانت مخصصة له.`,
+      confirmText: 'نعم، احذف الحساب',
+      cancelText: 'إلغاء',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          setLoadingWhatsApp(true);
+          await api.deleteWhatsAppAccount(acc.id);
+          if (activeQrAccount?.id === acc.id) setActiveQrAccount(null);
+          await fetchWhatsAppAccounts();
+        } catch (err: any) {
+          alert(err.message || 'فشل حذف الحساب');
+        } finally {
+          setLoadingWhatsApp(false);
+        }
+      }
+    });
+  };
+
+  const handleRefreshWhatsAppQr = async (accId: string) => {
+    try {
+      await api.refreshWhatsAppAccountQr(accId);
+      setTimeout(fetchWhatsAppAccounts, 1000);
+    } catch (err: any) {
+      alert(err.message || 'فشل تحديث رمز QR');
+    }
+  };
+
   const handleDisconnectWhatsApp = () => {
     setAdminConfirmDialog({
       isOpen: true,
@@ -1038,8 +1184,11 @@ export const AdminPage: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'WHATSAPP') {
       fetchWhatsAppStatus();
+      fetchWhatsAppAccounts();
       fetchWhatsAppAlertSettings();
-      const interval = setInterval(fetchWhatsAppStatus, 8000);
+      const interval = setInterval(() => {
+        fetchWhatsAppAccounts();
+      }, 5000);
       return () => clearInterval(interval);
     }
   }, [activeTab]);
@@ -5783,117 +5932,228 @@ export const AdminPage: React.FC = () => {
         {/* 7. Tab 6: WhatsApp Bot & Self-Hosted OTP */}
         {activeTab === 'WHATSAPP' && (
           <div className="space-y-6">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5 mb-6">
+            {/* Multi-Account WhatsApp Gateway Management */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
                 <div>
-                  <h3 className="text-lg font-black text-white flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-emerald-400" />
-                    <span>بوابة واتساب الذاتية (Self-Hosted WhatsApp Gateway)</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    إرسال أكواد التحقق (OTP) لاستعادة كلمات المرور وإشعارات الطلبات تلقائياً ومجاناً 100% عبر رقمك الخاص
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black mb-2">
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>بوابة واتساب متعددة الحسابات (Multi-Account WhatsApp Gateway)</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white">إدارة وتخصيص أرقام الواتساب 📱</h3>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
+                    يمكنك ربط أكثر من شريحة/رقم واتساب في نفس الوقت، وتخصيص كل رقم لمهمة معينة: إرسال أكواد تفعيل الطلاب (OTP)، تنبيهات وتقارير الإدارة، أو تخصيص رقم واتساب مستقل لمطعم معين يرسل طلباته وتقاريره تلقائياً!
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={fetchWhatsAppStatus}
-                  disabled={loadingWhatsApp}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-2 self-start sm:self-auto"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loadingWhatsApp ? 'animate-spin' : ''}`} />
-                  <span>تحديث الحالة</span>
-                </button>
+                <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={fetchWhatsAppAccounts}
+                    disabled={loadingWhatsApp}
+                    className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl transition-all"
+                    title="تحديث قائمة الحسابات"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loadingWhatsApp ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddWhatsAppAccount}
+                    className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>ربط رقم واتساب جديد</span>
+                  </button>
+                </div>
               </div>
 
-              {whatsAppStatus?.isConnected ? (
-                <div className="space-y-5">
-                  <div className="p-5 bg-emerald-950/40 border border-emerald-800/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl shrink-0">
-                        ✅
-                      </div>
-                      <div>
-                        <span className="text-sm font-black text-emerald-300 block">
-                          الواتساب متصل ويعمل بنجاح!
-                        </span>
-                        <span className="text-xs text-slate-300 font-mono block mt-0.5">
-                          الرقم النشط: {whatsAppStatus.botPhoneNumber || 'متصل'}
-                        </span>
-                        <span className="text-[11px] text-slate-400 block mt-0.5">
-                          الخادم جاهز لإرسال أكواد استعادة كلمة المرور وإشعارات الطلبات للطلاب تلقائياً.
-                        </span>
-                      </div>
-                    </div>
+              {/* Stats Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-950/60 rounded-2xl p-3.5 border border-slate-800">
+                  <span className="text-[11px] text-slate-400 font-bold block">إجمالي الأرقام المسجلة</span>
+                  <span className="text-xl font-black text-white font-mono mt-0.5 block">{whatsAppAccounts.length}</span>
+                </div>
+                <div className="bg-emerald-950/30 rounded-2xl p-3.5 border border-emerald-800/40">
+                  <span className="text-[11px] text-emerald-400 font-bold block">الأرقام المتصلة والجاهزة</span>
+                  <span className="text-xl font-black text-emerald-300 font-mono mt-0.5 block">
+                    {whatsAppAccounts.filter(a => a.isConnected).length}
+                  </span>
+                </div>
+                <div className="bg-amber-950/30 rounded-2xl p-3.5 border border-amber-800/40">
+                  <span className="text-[11px] text-amber-400 font-bold block">بانتظار مسح الـ QR</span>
+                  <span className="text-xl font-black text-amber-300 font-mono mt-0.5 block">
+                    {whatsAppAccounts.filter(a => !a.isConnected && a.qrCode).length}
+                  </span>
+                </div>
+                <div className="bg-purple-950/30 rounded-2xl p-3.5 border border-purple-800/40">
+                  <span className="text-[11px] text-purple-300 font-bold block">أرقام مخصصة لمطاعم</span>
+                  <span className="text-xl font-black text-purple-200 font-mono mt-0.5 block">
+                    {whatsAppAccounts.filter(a => Boolean(a.branchId)).length}
+                  </span>
+                </div>
+              </div>
 
-                    <button
-                      type="button"
-                      onClick={handleDisconnectWhatsApp}
-                      className="px-4 py-2.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/80 rounded-xl text-xs font-black transition-all shrink-0"
-                    >
-                      فصل الجلسة / تغيير الرقم 🔌
-                    </button>
+              {/* Accounts Cards Grid */}
+              {whatsAppAccounts.length === 0 ? (
+                <div className="bg-slate-950/60 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto text-2xl border border-emerald-500/20">
+                    📱
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl">
-                      <span className="text-xs font-black text-slate-300 block mb-1">🔐 أكواد التحقق (OTP)</span>
-                      <p className="text-[11px] text-slate-400">
-                        ترسل أكواد استعادة كلمة المرور المكونة من 6 أرقام فوراً لأي طالب يطلبها.
-                      </p>
-                    </div>
-                    <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl">
-                      <span className="text-xs font-black text-slate-300 block mb-1">⚡ تكلفة تشغيل 0 جنيه</span>
-                      <p className="text-[11px] text-slate-400">
-                        لا توجد أي رسوم أو اشتراكات لشركات وسيطة؛ الرسائل تخرج مباشرة عبر شريحتك الخاصة.
-                      </p>
-                    </div>
-                    <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl">
-                      <span className="text-xs font-black text-slate-300 block mb-1">🛡️ حماية الحسابات</span>
-                      <p className="text-[11px] text-slate-400">
-                        تأكيد هوية الطالب بأنه صاحب الرقم الفعلي المسجل في المنظومة.
-                      </p>
-                    </div>
+                  <div>
+                    <h4 className="text-base font-black text-white">لا توجد أرقام واتساب مضافة حالياً</h4>
+                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                      ابدأ بربط أول شريحة واتساب لتفعيل إرسال أكواد الـ OTP للطلاب وتنبيهات المطاعم مجاناً!
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddWhatsAppAccount}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-600/30 transition-all inline-flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>إضافة أول رقم واتساب</span>
+                  </button>
                 </div>
               ) : (
-                <div className="space-y-6 text-center max-w-lg mx-auto py-4">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/60 text-xs font-black mb-2">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                    <span>بانتظار مسح رمز QR من هاتفك لربط الخدمة</span>
-                  </div>
-
-                  {whatsAppStatus?.qrCode ? (
-                    <div className="space-y-4">
-                      <div className="bg-white p-4 rounded-3xl inline-block shadow-2xl border-4 border-emerald-500/30">
-                        <img
-                          src={whatsAppStatus.qrCode}
-                          alt="WhatsApp QR Code"
-                          className="w-56 h-56 mx-auto object-contain"
-                        />
-                      </div>
-
-                      <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl text-right text-xs text-slate-300 space-y-2">
-                        <span className="font-black text-emerald-400 block text-sm">خطوات الربط في 10 ثوانٍ:</span>
-                        <p>1. افتح تطبيق واتساب على الهاتف الذي يحمل الشريحة المخصصة للإشعارات.</p>
-                        <p>2. اضغط على القائمة (الثلاث نقاط أو الإعدادات) ➔ <strong>الأجهزة المرتبطة (Linked Devices)</strong>.</p>
-                        <p>3. اضغط على <strong>ربط جهاز (Link a Device)</strong> ووجه الكاميرا لمسح الرمز أعلاه.</p>
-                        <p className="text-[10px] text-slate-400">بمجرد المسح، سيتصل السيرفر فوراً ويبقى نشطاً دون الحاجة لتكرار هذه الخطوة.</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-8 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
-                      <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                      <p className="text-xs text-slate-400">جاري إنشاء رمز الاستجابة السريعة (QR Code)...</p>
-                      <button
-                        type="button"
-                        onClick={fetchWhatsAppStatus}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {whatsAppAccounts.map(acc => {
+                    return (
+                      <div
+                        key={acc.id}
+                        className={`bg-slate-950/70 border rounded-3xl p-5 flex flex-col justify-between transition-all ${
+                          acc.isConnected
+                            ? 'border-emerald-800/60 hover:border-emerald-500/60 shadow-lg shadow-emerald-950/20'
+                            : acc.qrCode
+                            ? 'border-amber-800/60 hover:border-amber-500/60'
+                            : 'border-slate-800 opacity-80'
+                        }`}
                       >
-                        تحديث الرمز
-                      </button>
-                    </div>
-                  )}
+                        <div className="space-y-4">
+                          {/* Top Row: Name, Status & Default Badge */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-base font-black text-white">{acc.name}</h4>
+                                {acc.isDefault && (
+                                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                    <span>⭐</span>
+                                    <span>افتراضي عام</span>
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-xs font-mono text-slate-400 block mt-1">
+                                {acc.phoneNumber ? `📱 ${acc.phoneNumber}` : '⏳ لم يتم ربط الرقم بعد'}
+                              </span>
+                            </div>
+
+                            {/* Status Pill */}
+                            <span
+                              className={`px-3 py-1 rounded-full text-[11px] font-black border flex items-center gap-1.5 shrink-0 ${
+                                acc.isConnected
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                  : acc.qrCode
+                                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 animate-pulse'
+                                  : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                              }`}
+                            >
+                              <span
+                                className={`w-2 h-2 rounded-full ${
+                                  acc.isConnected ? 'bg-emerald-400' : acc.qrCode ? 'bg-amber-400' : 'bg-rose-400'
+                                }`}
+                              />
+                              <span>{acc.isConnected ? 'متصل وجاهز ✅' : acc.qrCode ? 'بانتظار مسح QR ⏳' : 'غير متصل ❌'}</span>
+                            </span>
+                          </div>
+
+                          {/* Roles & Allocation Badges */}
+                          <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-2">
+                            <span className="text-[11px] font-bold text-slate-400 block">الأدوار والتخصيصات المحددة لهذا الرقم:</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {acc.sendOtp && (
+                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                                  <span>🔐</span>
+                                  <span>أكواد التحقق (OTP)</span>
+                                </span>
+                              )}
+                              {acc.sendAdminAlerts && (
+                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                                  <span>🚨</span>
+                                  <span>تنبيهات الإدارة والشيفت</span>
+                                </span>
+                              )}
+                              {acc.sendCustomerOrders && (
+                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1">
+                                  <span>🍔</span>
+                                  <span>مراحل وإشعارات الطلب</span>
+                                </span>
+                              )}
+                              {acc.branch ? (
+                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                  <Store className="w-3 h-3 text-amber-400" />
+                                  <span>مخصص لمطعم: {acc.branch.name}</span>
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                                  🌐 عام لكافة المطاعم
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick QR button if not connected */}
+                          {!acc.isConnected && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveQrAccount(acc)}
+                              className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+                            >
+                              <span>📱</span>
+                              <span>مسح رمز QR لربط هذا الرقم (10 ثوانٍ)</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Card Action Footer */}
+                        <div className="flex items-center justify-between gap-2 pt-4 mt-4 border-t border-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => setActiveQrAccount(acc)}
+                            className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                          >
+                            <span>📷</span>
+                            <span>{acc.isConnected ? 'معاينة حالة الربط' : 'عرض كود QR'}</span>
+                          </button>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditWhatsAppAccount(acc)}
+                              className="p-2 text-slate-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition-colors"
+                              title="تعديل الأدوار والتخصيص"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDisconnectWhatsAppAccount(acc)}
+                              className="p-2 text-slate-400 hover:text-amber-400 hover:bg-amber-950/40 rounded-xl transition-colors"
+                              title="فصل الجلسة / تغيير الشريحة"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteWhatsAppAccount(acc)}
+                              className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-950/40 rounded-xl transition-colors"
+                              title="حذف الحساب"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -9719,6 +9979,256 @@ export const AdminPage: React.FC = () => {
                 >
                   <Flame className="w-4 h-4" />
                   <span>{editingFlashDeal ? 'حفظ التعديلات' : 'نشر عرض الفلاش الآن 🔥'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Multi-Account QR Code Modal */}
+      {activeQrAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                  📱
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-white">ربط حساب الواتساب: {activeQrAccount.name}</h3>
+                  <span className="text-[11px] text-slate-400">مسح رمز الاستجابة السريعة (QR) عبر هاتفك</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveQrAccount(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق النافذة"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 text-center space-y-5">
+              {activeQrAccount.isConnected ? (
+                <div className="p-6 bg-emerald-950/40 border border-emerald-800/60 rounded-2xl space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto">
+                    ✅
+                  </div>
+                  <div>
+                    <h4 className="text-base font-black text-emerald-300">الرقم متصل ويعمل بنجاح!</h4>
+                    <span className="text-xs text-slate-300 font-mono block mt-1">
+                      الرقم النشط: {activeQrAccount.phoneNumber || 'متصل'}
+                    </span>
+                    <p className="text-[11px] text-slate-400 mt-2">
+                      تم حفظ الجلسة وتأكيد الاتصال. الحساب جاهز لإرسال الرسائل المخصصة له.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveQrAccount(null)}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs transition-colors"
+                  >
+                    تم، إغلاق النافذة
+                  </button>
+                </div>
+              ) : activeQrAccount.qrCode ? (
+                <div className="space-y-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/60 text-[11px] font-bold">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span>وجّه كاميرا الهاتف لمسح الرمز أدناه</span>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-3xl inline-block shadow-2xl border-4 border-emerald-500/30">
+                    <img
+                      src={activeQrAccount.qrCode}
+                      alt="WhatsApp QR Code"
+                      className="w-56 h-56 mx-auto object-contain"
+                    />
+                  </div>
+
+                  <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl text-right text-xs text-slate-300 space-y-1.5">
+                    <span className="font-black text-emerald-400 block text-xs">خطوات الربط في 10 ثوانٍ:</span>
+                    <p>1. افتح تطبيق واتساب على الهاتف الذي يحمل الشريحة المخصصة لهذا الحساب.</p>
+                    <p>2. اضغط على القائمة ➔ <strong>الأجهزة المرتبطة (Linked Devices)</strong>.</p>
+                    <p>3. اضغط على <strong>ربط جهاز (Link a Device)</strong> وامسح الرمز أعلاه.</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRefreshWhatsAppQr(activeQrAccount.id)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>تحديث رمز الـ QR</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="p-8 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                  <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-xs text-slate-400">جاري إنشاء وتجهيز رمز الاستجابة السريعة (QR Code)...</p>
+                  <button
+                    type="button"
+                    onClick={() => handleRefreshWhatsAppQr(activeQrAccount.id)}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold"
+                  >
+                    تحديث الرمز
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit WhatsApp Account Modal */}
+      {showAddWhatsAppModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
+                  📱
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-white">
+                    {editingWhatsAppAccount ? 'تعديل تخصيص حساب الواتساب' : 'إضافة وتخصيص حساب واتساب جديد'}
+                  </h3>
+                  <span className="text-[11px] text-slate-400">تحديد نوع الرسائل والمطعم المخصص لهذا الرقم</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddWhatsAppModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="إغلاق النافذة"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveWhatsAppAccount} className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+              {/* Account Name */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  اسم أو وصف الحساب *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="مثال: رقم التحقق والـ OTP، رقم فرع ديفادو، واتساب تنبيهات الإدارة"
+                  value={waAccName}
+                  onChange={e => setWaAccName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500 placeholder-slate-500 font-bold"
+                />
+              </div>
+
+              {/* Roles Section */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-bold text-slate-200">
+                  تحديد أنواع الرسائل التي سيرسلها هذا الرقم:
+                </label>
+
+                {/* Role 1: OTP */}
+                <label className="flex items-start gap-3 p-3 bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-2xl cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={waAccSendOtp}
+                    onChange={e => setWaAccSendOtp(e.target.checked)}
+                    className="rounded text-emerald-600 focus:ring-0 w-4 h-4 accent-emerald-600 cursor-pointer mt-0.5"
+                  />
+                  <div>
+                    <span className="text-xs font-black text-white block">🔐 إرسال أكواد التحقق (OTP) وتفعيل الحسابات</span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      إرسال كود الـ OTP واستعادة كلمة المرور وروابط التفعيل السريع للطلاب عند التسجيل.
+                    </span>
+                  </div>
+                </label>
+
+                {/* Role 2: Admin Alerts */}
+                <label className="flex items-start gap-3 p-3 bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-2xl cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={waAccSendAdminAlerts}
+                    onChange={e => setWaAccSendAdminAlerts(e.target.checked)}
+                    className="rounded text-emerald-600 focus:ring-0 w-4 h-4 accent-emerald-600 cursor-pointer mt-0.5"
+                  />
+                  <div>
+                    <span className="text-xs font-black text-white block">🚨 تنبيهات الإدارة ومسؤولي المطاعم وتقارير الشيفت</span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      إشعار المشرفين فور إلغاء أي مطعم للطلب، وإنذار تأخر قبول الطلبات، وتقارير الإغلاق اليومية للشيفت.
+                    </span>
+                  </div>
+                </label>
+
+                {/* Role 3: Customer Orders */}
+                <label className="flex items-start gap-3 p-3 bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-2xl cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={waAccSendCustomerOrders}
+                    onChange={e => setWaAccSendCustomerOrders(e.target.checked)}
+                    className="rounded text-emerald-600 focus:ring-0 w-4 h-4 accent-emerald-600 cursor-pointer mt-0.5"
+                  />
+                  <div>
+                    <span className="text-xs font-black text-white block">🍔 إشعارات مراحل وحالة الطلب للعملاء</span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      إرسال رسائل التحديث للعميل عند تأكيد الطلب، وبدء التجهيز، وخروج الكابتن للتوصيل.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Specific Branch Assignment */}
+              <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-2xl space-y-2">
+                <label className="block text-xs font-bold text-amber-300">
+                  🏪 تخصيص الرقم لمطعم معين (اختياري):
+                </label>
+                <select
+                  value={waAccBranchId}
+                  onChange={e => setWaAccBranchId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">بدون تخصيص (حساب عام يعمل لكافة المطاعم)</option>
+                  {branches.map(b => (
+                    <option key={b.id} value={b.id}>
+                      مخصص لمطعم: {b.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  💡 عند تخصيص هذا الرقم لمطعم معين، فإن كافة رسائل وتنبيهات وتقارير إغلاق الشيفت الخاصة بهذا المطعم ستخرج حصرياً من رقم الواتساب هذا.
+                </p>
+              </div>
+
+              {/* Default Account Switch */}
+              <label className="flex items-center gap-2.5 p-3 bg-slate-800/80 rounded-xl cursor-pointer border border-slate-700/60 hover:bg-slate-800 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={waAccIsDefault}
+                  onChange={e => setWaAccIsDefault(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-0 w-4 h-4 accent-emerald-600 cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-bold text-slate-200 block">تعيين كحساب افتراضي عام (Fallback Account) ⭐</span>
+                  <span className="text-[10px] text-slate-400 block">يُستخدم هذا الرقم كبديل تلقائي عند عدم وجود رقم مخصص لمطعم أو مهمة بعينها.</span>
+                </div>
+              </label>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddWhatsAppModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-600/30 transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                  <span>{editingWhatsAppAccount ? 'حفظ التعديلات' : 'إنشاء وتوليد رمز QR 🚀'}</span>
                 </button>
               </div>
             </form>

@@ -54,6 +54,7 @@ model Branch {
   modifierGroups    ModifierGroup[]
   orders            Order[]
   flashDeals        FlashDeal[]
+  whatsAppAccounts  WhatsAppAccount[]
 
   @@index([isActive])
   @@index([operationalStatus])
@@ -416,6 +417,35 @@ model FlashDeal {
   @@index([isActive])
   @@index([expiresAt])
   @@index([branchId])
+}
+
+model WhatsAppAccount {
+  id                 String   @id @default(uuid())
+  name               String   // اسم وصفي للحساب (مثل: رقم تفعيل الحسابات، رقم تنبيهات الإدارة، رقم مطعم ديفادو)
+  phoneNumber        String?  // رقم الهاتف المكتشف بعد مسح الـ QR
+  isActive           Boolean  @default(true)
+  isDefault          Boolean  @default(false)
+  sendOtp            Boolean  @default(false) // هل يرسل أكواد التفعيل والتحقق للطلاب؟
+  sendAdminAlerts    Boolean  @default(false) // هل يرسل تنبيهات الإدارة وتقارير إغلاق الشيفت للمسؤولين؟
+  sendCustomerOrders Boolean  @default(false) // هل يرسل إشعارات مراحل الطلب للطلاب؟
+  branchId           String?  // تخصيص لمطعم معين (يرسل إشعارات وتقارير هذا الفرع فقط)
+  branch             Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([branchId])
+}
+
+model WhatsAppSessionFile {
+  id        String   @id @default(uuid())
+  accountId String
+  filename  String
+  content   String   @db.Text
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([accountId, filename])
+  @@index([accountId])
 }
 
 

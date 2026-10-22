@@ -201,7 +201,7 @@ ${reason ? `📝 سبب الإلغاء: ${reason}\n` : ""}\
 
     const { whatsappService } = await import("./whatsapp.service.js");
     for (const phone of phones) {
-      whatsappService.sendOrderStatusNotification(phone, message).catch((err) => {
+      whatsappService.sendOrderStatusNotification(phone, message, { branchId: order.branchId, type: 'ADMIN_ALERT' }).catch((err) => {
         console.warn(`[WhatsApp Alert] Failed to send cancellation alert to ${phone}:`, err);
       });
     }
@@ -255,7 +255,7 @@ export async function checkAndSendUnacceptedOrdersWhatsAppAlerts(): Promise<void
 يرجى التواصل مع إدارة الفرع فوراً لقبول الطلب وبدء التجهيز!`;
 
       for (const phone of phones) {
-        whatsappService.sendOrderStatusNotification(phone, message).catch((err) => {
+        whatsappService.sendOrderStatusNotification(phone, message, { branchId: order.branchId, type: 'ADMIN_ALERT' }).catch((err) => {
           console.warn(`[WhatsApp Alert] Failed to send unaccepted order alert to ${phone}:`, err);
         });
       }
@@ -337,7 +337,7 @@ export async function checkAndSendDriverUnacceptedOrdersAlerts(): Promise<void> 
 ⏱️ *مرت ${waitMinutes} دقائق* منذ إسناد الأوردر لك.
 يرجى فتح تطبيق كابتن التوصيل وقبول الطلب للتوجه للمطعم فوراً! 🚀`;
 
-      whatsappService.sendOrderStatusNotification(order.driver.phone, message).catch((err) => {
+      whatsappService.sendOrderStatusNotification(order.driver.phone, message, { branchId: order.branchId, type: 'ADMIN_ALERT' }).catch((err) => {
         console.warn(`[WhatsApp Alert] Failed to send driver unaccepted alert to ${order.driver!.phone}:`, err);
       });
 
@@ -657,11 +657,11 @@ ${topItemsText}
 export async function sendAllBranchesShiftReport(customPhone?: string): Promise<{ success: boolean; sentCount: number; message?: string }> {
   try {
     const { whatsappService } = await import("./whatsapp.service.js");
-    if (!whatsappService.getIsConnected()) {
+    if (!whatsappService.getIsConnected({ type: 'ADMIN_ALERT' })) {
       return {
         success: false,
         sentCount: 0,
-        message: "⚠️ بوت الواتساب غير متصل حالياً! يرجى فتح تبويب (بوت الواتساب و OTP) ومسح رمز QR لربط رقمك أولاً لتفعيل إرسال التقارير.",
+        message: "⚠️ لا يوجد حساب واتساب متصل حالياً لإرسال تنبيهات الإدارة! يرجى فتح تبويب (ربط الواتساب) ومسح رمز QR لربط رقمك أولاً لتفعيل إرسال التقارير.",
       };
     }
 
@@ -681,7 +681,7 @@ export async function sendAllBranchesShiftReport(customPhone?: string): Promise<
     let sentCount = 0;
     for (const phone of phones) {
       try {
-        const sent = await whatsappService.sendOrderStatusNotification(phone, report.message);
+        const sent = await whatsappService.sendOrderStatusNotification(phone, report.message, { type: 'ADMIN_ALERT' });
         if (sent) sentCount++;
       } catch (err) {
         console.warn(`[Shift Report] Failed to send to ${phone}:`, err);
@@ -717,11 +717,11 @@ export async function sendBranchShiftWhatsAppReport(branchId: string, customPhon
     }
 
     const { whatsappService } = await import("./whatsapp.service.js");
-    if (!whatsappService.getIsConnected()) {
+    if (!whatsappService.getIsConnected({ branchId, type: 'ADMIN_ALERT' })) {
       return {
         success: false,
         sentCount: 0,
-        message: "⚠️ بوت الواتساب غير متصل حالياً! يرجى فتح تبويب (بوت الواتساب و OTP) ومسح رمز QR لربط رقمك أولاً لتفعيل إرسال التقارير.",
+        message: "⚠️ لا يوجد حساب واتساب متصل حالياً للفرع أو للإدارة! يرجى فتح تبويب (ربط الواتساب) ومسح رمز QR لربط رقمك أولاً لتفعيل إرسال التقارير.",
       };
     }
 
@@ -744,7 +744,7 @@ export async function sendBranchShiftWhatsAppReport(branchId: string, customPhon
     let sentCount = 0;
     for (const phone of phones) {
       try {
-        const sent = await whatsappService.sendOrderStatusNotification(phone, report.message);
+        const sent = await whatsappService.sendOrderStatusNotification(phone, report.message, { branchId, type: 'ADMIN_ALERT' });
         if (sent) sentCount++;
       } catch (err) {
         console.warn(`[Shift Report] Failed to send to ${phone}:`, err);

@@ -271,7 +271,31 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "deliveryType" TEXT DEFAULT 'FIXED';`,
       `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "unavailableUntil" TIMESTAMP(3);`,
       `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "comboItems" TEXT;`,
-      `ALTER TABLE "ModifierOption" ADD COLUMN IF NOT EXISTS "unavailableUntil" TIMESTAMP(3);`
+      `ALTER TABLE "ModifierOption" ADD COLUMN IF NOT EXISTS "unavailableUntil" TIMESTAMP(3);`,
+      `CREATE TABLE IF NOT EXISTS "WhatsAppAccount" (
+        "id" TEXT PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "phoneNumber" TEXT,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "isDefault" BOOLEAN NOT NULL DEFAULT false,
+        "sendOtp" BOOLEAN NOT NULL DEFAULT false,
+        "sendAdminAlerts" BOOLEAN NOT NULL DEFAULT false,
+        "sendCustomerOrders" BOOLEAN NOT NULL DEFAULT false,
+        "branchId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+      `CREATE INDEX IF NOT EXISTS "WhatsAppAccount_isActive_idx" ON "WhatsAppAccount"("isActive");`,
+      `CREATE INDEX IF NOT EXISTS "WhatsAppAccount_branchId_idx" ON "WhatsAppAccount"("branchId");`,
+      `CREATE TABLE IF NOT EXISTS "WhatsAppSessionFile" (
+        "id" TEXT PRIMARY KEY,
+        "accountId" TEXT NOT NULL,
+        "filename" TEXT NOT NULL,
+        "content" TEXT NOT NULL,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "WhatsAppSessionFile_account_file_key" ON "WhatsAppSessionFile"("accountId", "filename");`,
+      `CREATE INDEX IF NOT EXISTS "WhatsAppSessionFile_accountId_idx" ON "WhatsAppSessionFile"("accountId");`
     ];
 
     for (const sql of patches) {
