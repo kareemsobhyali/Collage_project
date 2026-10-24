@@ -155,7 +155,12 @@ const getApkMetaHandler = async (req: Request, res: Response) => {
   try {
     const rawParam = req.params.slug;
     const rawSlug = (Array.isArray(rawParam) ? rawParam[0] : rawParam) || (req.query.slug as string) || (req.query.branch as string) || (req.query.r as string);
-    const slug = typeof rawSlug === 'string' ? rawSlug.trim() : '';
+    let slug = typeof rawSlug === 'string' ? rawSlug.trim() : '';
+    if (slug) {
+      try {
+        slug = decodeURIComponent(slug).trim();
+      } catch {}
+    }
     if (!slug) {
       const totalBranches = await prisma.branch.count({ where: { isActive: true } });
       return res.json({
@@ -177,8 +182,9 @@ const getApkMetaHandler = async (req: Request, res: Response) => {
     const branch = await prisma.branch.findFirst({
       where: {
         OR: [
-          { slug: slug.trim().toLowerCase() },
-          { id: slug.trim() }
+          { slug: slug.toLowerCase() },
+          { slug: slug },
+          { id: slug }
         ],
         isActive: true
       },

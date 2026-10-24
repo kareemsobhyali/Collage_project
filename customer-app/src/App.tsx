@@ -77,6 +77,23 @@ export function App() {
   const [isApkRoute, setIsApkRoute] = useState(apkRouteInfo.isApkPage);
   const [apkSlug, setApkSlug] = useState<string | null>(apkRouteInfo.branchSlug);
 
+  // مزامنة حالة مسار تثبيت الـ APK مع تغيرات الـ URL والـ Hash والـ History
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleUrlChange = () => {
+      const info = parseApkRoute();
+      setIsApkRoute(info.isApkPage);
+      setApkSlug(info.branchSlug);
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
+
   const [showDriverPortal, setShowDriverPortal] = useState(isDriverRoute);
   const [groupCartCode, setGroupCartCode] = useState<string | null>(() => {
     if (groupParam) {
@@ -385,14 +402,29 @@ export function App() {
         localStorage.setItem('unifood_cached_branches', JSON.stringify(loadedBranches));
       } catch (_e) {}
 
+      // التحقق أولاً إذا كان الرابط مخصصاً لصفحة تثبيت التطبيق APK
+      const currentApkInfo = parseApkRoute();
+      if (currentApkInfo.isApkPage) {
+        if (!isApkRoute) {
+          setIsApkRoute(true);
+          setApkSlug(currentApkInfo.branchSlug);
+        }
+        return; // منع فتح منيو الفرع لأن المستخدم متواجد في صفحة تثبيت التطبيق APK
+      }
+
       // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
       if (typeof window !== 'undefined' && !isApkRoute) {
+        const pathSegments = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+        const isApkPath = pathSegments.some((seg) => ['apk', 'download', 'install'].includes(seg.toLowerCase()));
+        if (isApkPath) {
+          return; // حماية إضافية تمنع قراءة أول جزء كفرع إذا كان الرابط مخصصاً للـ APK
+        }
+
         const params = new URLSearchParams(window.location.search);
         let branchParam = params.get('branch') || params.get('r');
         if (!branchParam && window.location.pathname.length > 1) {
-          const pathSegments = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
           const firstSeg = pathSegments[0]?.toLowerCase();
-          if (firstSeg && firstSeg !== 'admin' && firstSeg !== 'driver' && firstSeg !== 'delivery' && firstSeg !== 'apk' && firstSeg !== 'download') {
+          if (firstSeg && firstSeg !== 'admin' && firstSeg !== 'driver' && firstSeg !== 'delivery' && firstSeg !== 'apk' && firstSeg !== 'download' && firstSeg !== 'install') {
             branchParam = (firstSeg === 'r' && pathSegments[1]) ? pathSegments[1] : firstSeg;
           }
         }
@@ -672,6 +704,13 @@ export function App() {
     };
   }, [isAdminRoute]);
 
+  useEffect(() => {
+    const token = localStorage.getItem('customer_token');
+    if (user?.id && token) {
+      registerNativeBackgroundSession(token, 'STUDENT', user.id);
+    }
+  }, [user?.id]);
+
   if (isAdminRoute) {
     return <AdminPage />;
   }
@@ -705,13 +744,6 @@ export function App() {
       />
     );
   }
-
-  useEffect(() => {
-    const token = localStorage.getItem('customer_token');
-    if (user?.id && token) {
-      registerNativeBackgroundSession(token, 'STUDENT', user.id);
-    }
-  }, [user?.id]);
 
   const handleLogout = () => {
     clearNativeBackgroundSession();

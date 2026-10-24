@@ -52,28 +52,94 @@ interface ApkMeta {
 export function parseApkRoute(): { isApkPage: boolean; branchSlug: string | null } {
   if (typeof window === 'undefined') return { isApkPage: false, branchSlug: null };
 
-  const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
-  const searchParams = new URLSearchParams(window.location.search);
-
-  // 1. مسار المنصة العام: /apk أو /download أو /install
-  if (path === '/apk' || path === '/download' || path === '/install') {
-    const branchFromQuery = searchParams.get('branch') || searchParams.get('r') || searchParams.get('slug');
-    return { isApkPage: true, branchSlug: branchFromQuery ? branchFromQuery.trim().toLowerCase() : null };
-  }
-
-  // 2. مسار مخصص لمطعم محدد: /:slug/apk أو /r/:slug/apk أو /:slug/download
-  const slugApkMatch = path.match(/^\/(?:r\/)?([a-z0-9_-]+)\/(apk|download|install)$/i);
-  if (slugApkMatch) {
-    const slug = slugApkMatch[1].trim().toLowerCase();
-    if (slug !== 'admin' && slug !== 'driver' && slug !== 'api') {
-      return { isApkPage: true, branchSlug: slug };
+  // 1. فحص مسار الـ Hash أولاً (مثل #/burger-campus/apk أو #/apk)
+  let hashPath = '';
+  if (window.location.hash && window.location.hash.length > 1) {
+    const rawHash = window.location.hash.replace(/^#+/, '').replace(/\?.*$/, '');
+    try {
+      hashPath = decodeURIComponent(rawHash).trim().toLowerCase();
+    } catch {
+      hashPath = rawHash.trim().toLowerCase();
     }
   }
 
-  // 3. مسار عبر الباراميتر: ?apk=1 أو ?download=1
-  if (searchParams.get('apk') === '1' || searchParams.get('download') === '1' || searchParams.get('install') === '1') {
-    const branchFromQuery = searchParams.get('branch') || searchParams.get('r') || searchParams.get('slug');
-    return { isApkPage: true, branchSlug: branchFromQuery ? branchFromQuery.trim().toLowerCase() : null };
+  // 2. معالجة الـ Pathname مع فك الترميز لدعم الأحرف العربية والمشفرة (URL Decoded)
+  let pathname = '';
+  try {
+    pathname = decodeURIComponent(window.location.pathname).trim().toLowerCase();
+  } catch {
+    pathname = window.location.pathname.trim().toLowerCase();
+  }
+
+  // 3. البحث في الباراميترات (Query params)
+  const searchParams = new URLSearchParams(window.location.search);
+  const paramSlug = (searchParams.get('branch') || searchParams.get('r') || searchParams.get('slug') || '')
+    .trim()
+    .toLowerCase();
+
+  // فحص إذا كان الرابط يطلب صفحة التثبيت عبر الباراميتر
+  const isQueryApk =
+    searchParams.get('apk') === '1' ||
+    searchParams.get('download') === '1' ||
+    searchParams.get('install') === '1' ||
+    paramSlug.endsWith('/apk') ||
+    paramSlug.endsWith('/download') ||
+    paramSlug.endsWith('/install');
+
+  const cleanParamSlug = paramSlug.replace(/\/(?:apk|download|install)$/i, '').trim();
+
+  // قائمة المسارات المطلوب فحصها (الرئيسي ومسار الهاش)
+  const pathsToCheck = [pathname, hashPath].filter(Boolean);
+
+  for (const p of pathsToCheck) {
+    const cleanPath = p.replace(/^\/+|\/+$/g, '');
+    if (!cleanPath) continue;
+
+    const segments = cleanPath.split('/').filter(Boolean);
+
+    // أ) مسار عام للمنصة: /apk أو /download أو /install
+    if (segments.length === 1 && ['apk', 'download', 'install'].includes(segments[0])) {
+      return {
+        isApkPage: true,
+        branchSlug: cleanParamSlug && !['admin', 'driver', 'delivery', 'api'].includes(cleanParamSlug)
+          ? cleanParamSlug
+          : null
+      };
+    }
+
+    // ب) مسار مسبوق بـ r: مثل /r/:slug/apk أو /r/:slug/download
+    if (segments.length === 3 && segments[0] === 'r' && ['apk', 'download', 'install'].includes(segments[2])) {
+      const slug = segments[1];
+      if (slug && !['admin', 'driver', 'delivery', 'api'].includes(slug)) {
+        return { isApkPage: true, branchSlug: slug };
+      }
+    }
+
+    // ج) مسار مباشر مخصص لمطعم: مثل /:slug/apk أو /:slug/download
+    if (segments.length === 2 && ['apk', 'download', 'install'].includes(segments[1])) {
+      const slug = segments[0];
+      if (slug && !['admin', 'driver', 'delivery', 'api', 'r'].includes(slug)) {
+        return { isApkPage: true, branchSlug: slug };
+      }
+    }
+
+    // د) مسار معكوس: مثل /apk/:slug أو /download/:slug
+    if (segments.length === 2 && ['apk', 'download', 'install'].includes(segments[0])) {
+      const slug = segments[1];
+      if (slug && !['admin', 'driver', 'delivery', 'api', 'r'].includes(slug)) {
+        return { isApkPage: true, branchSlug: slug };
+      }
+    }
+  }
+
+  // 4. إذا تم طلب الـ APK عبر الباراميترات فقط
+  if (isQueryApk) {
+    return {
+      isApkPage: true,
+      branchSlug: cleanParamSlug && !['admin', 'driver', 'delivery', 'api'].includes(cleanParamSlug)
+        ? cleanParamSlug
+        : null
+    };
   }
 
   return { isApkPage: false, branchSlug: null };
@@ -87,6 +153,14 @@ export const InstallApkPage: React.FC<{
     if (initialSlug !== undefined) return initialSlug;
     return parseApkRoute().branchSlug;
   });
+
+  useEffect(() => {
+    if (initialSlug !== undefined) {
+      setSlug(initialSlug);
+    } else {
+      setSlug(parseApkRoute().branchSlug);
+    }
+  }, [initialSlug]);
 
   const [meta, setMeta] = useState<ApkMeta | null>(null);
   const [loading, setLoading] = useState(true);
