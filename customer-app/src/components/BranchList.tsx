@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Store, 
   Search, 
@@ -22,7 +22,8 @@ import {
   RotateCcw,
   ChefHat,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import {
@@ -30,7 +31,8 @@ import {
   CAMPUS_LANDMARKS,
   calculateDistanceMeters,
   extractCoordinatesFromAddress,
-  DEFAULT_CAMPUS_RESTAURANT_COORDS
+  DEFAULT_CAMPUS_RESTAURANT_COORDS,
+  getNearestLocationName
 } from '../services/campusLocations';
 
 interface BranchListProps {
@@ -226,25 +228,75 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     };
   }, [user?.id, branches.length]);
 
-  // Student Selected Campus Landmark / Geofence Zone Filter
-  const [selectedLandmarkId, setSelectedLandmarkId] = useState<string>(() => {
+  // Client Live GPS Location & Automatic Delivery Radius Filter (طلب 10)
+  const [clientCoords, setClientCoords] = useState<{ lat: number; lng: number } | null>(() => {
     try {
-      return localStorage.getItem('unifood_student_landmark_id') || '';
+      const saved = localStorage.getItem('unifood_client_gps_coords');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number') {
+          return { lat: parsed.lat, lng: parsed.lng };
+        }
+      }
+    } catch {}
+    return null;
+  });
+
+  const [clientPlaceName, setClientPlaceName] = useState<string>(() => {
+    try {
+      return localStorage.getItem('unifood_client_gps_name') || '';
     } catch {
       return '';
     }
   });
 
-  const handleSelectLandmark = (landmarkId: string) => {
-    setSelectedLandmarkId(landmarkId);
-    try {
-      if (landmarkId) {
-        localStorage.setItem('unifood_student_landmark_id', landmarkId);
-      } else {
-        localStorage.removeItem('unifood_student_landmark_id');
-      }
-    } catch {}
-  };
+  const [isDetectingGps, setIsDetectingGps] = useState<boolean>(false);
+
+  const detectClientGps = useCallback(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      setIsDetectingGps(false);
+      return;
+    }
+
+    setIsDetectingGps(true);
+
+    const handleSuccess = async (pos: GeolocationPosition) => {
+      const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setClientCoords(coords);
+      setIsDetectingGps(false);
+      try {
+        localStorage.setItem('unifood_client_gps_coords', JSON.stringify(coords));
+      } catch {}
+      try {
+        const place = await getNearestLocationName(coords.lat, coords.lng);
+        if (place?.title) {
+          setClientPlaceName(place.title);
+          localStorage.setItem('unifood_client_gps_name', place.title);
+        }
+      } catch {}
+    };
+
+    const handleError = () => {
+      // Fallback with lower accuracy if high accuracy timed out or failed
+      navigator.geolocation.getCurrentPosition(
+        handleSuccess,
+        () => {
+          setIsDetectingGps(false);
+        },
+        { enableHighAccuracy: false, timeout: 7000, maximumAge: 60000 }
+      );
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      handleSuccess,
+      handleError,
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
+    );
+  }, []);
+
+  useEffect(() => {
+    detectClientGps();
+  }, [detectClientGps]);
 
   // Flash Deals Countdown State
   const [flashDeals, setFlashDeals] = useState<{ deals?: any[]; promoDeals: any[]; comboDeals: any[] }>({ deals: [], promoDeals: [], comboDeals: [] });
@@ -782,58 +834,30 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   };
 
   const filteredBranches = branches.filter(b => {
-    // فحص نطاق التوصيل الجغرافي للمطعم بناءً على مبنى/معلم الطالب المحدد (طلب 9)
-    if (selectedLandmarkId) {
-      const landmark = CAMPUS_LANDMARKS.find(lm => lm.id === selectedLandmarkId);
-      if (landmark) {
-        // استخراج إحداثيات الفرع
-        let bLat = typeof b.latitude === 'number' && !isNaN(b.latitude) ? b.latitude : null;
-        let bLng = typeof b.longitude === 'number' && !isNaN(b.longitude) ? b.longitude : null;
-        if (bLat === null || bLng === null) {
-          const coords = extractCoordinatesFromAddress(b.address);
-          if (coords) {
-            bLat = coords.lat;
-            bLng = coords.lng;
-          } else {
-            bLat = DEFAULT_CAMPUS_RESTAURANT_COORDS.lat;
-            bLng = DEFAULT_CAMPUS_RESTAURANT_COORDS.lng;
-          }
+    // فحص نطاق التوصيل الجغرافي للمطعم بناءً على لوكيشن العميل الحالي عبر GPS (طلب 10)
+    if (clientCoords) {
+      // استخراج إحداثيات الفرع
+      let bLat = typeof b.latitude === 'number' && !isNaN(b.latitude) ? b.latitude : null;
+      let bLng = typeof b.longitude === 'number' && !isNaN(b.longitude) ? b.longitude : null;
+      if (bLat === null || bLng === null) {
+        const coords = extractCoordinatesFromAddress(b.address);
+        if (coords) {
+          bLat = coords.lat;
+          bLng = coords.lng;
+        } else {
+          bLat = DEFAULT_CAMPUS_RESTAURANT_COORDS.lat;
+          bLng = DEFAULT_CAMPUS_RESTAURANT_COORDS.lng;
         }
+      }
 
-        // 1. فحص نطاق الكيلومترات (deliveryRadiusKm)
-        const radiusKm = typeof b.deliveryRadiusKm === 'number' && b.deliveryRadiusKm > 0 ? b.deliveryRadiusKm : 10;
-        const distMeters = calculateDistanceMeters(bLat, bLng, landmark.lat, landmark.lng);
-        const distKm = distMeters / 1000;
-        if (distKm > radiusKm) {
-          return false;
-        }
+      // 1. حساب المسافة المباشرة بين لوكيشن العميل الحالي وموقع الفرع
+      const radiusKm = typeof b.deliveryRadiusKm === 'number' && b.deliveryRadiusKm > 0 ? b.deliveryRadiusKm : 10;
+      const distMeters = calculateDistanceMeters(bLat, bLng, clientCoords.lat, clientCoords.lng);
+      const distKm = distMeters / 1000;
 
-        // 2. فحص مناطق التوصيل المحددة إذا كان نظام المطعم ZONES
-        if (b.deliveryType === 'ZONES') {
-          let zones: any[] = [];
-          if (Array.isArray(b.deliveryZones)) {
-            zones = b.deliveryZones;
-          } else if (typeof b.deliveryZones === 'string') {
-            try {
-              zones = JSON.parse(b.deliveryZones);
-            } catch {}
-          }
-          if (zones.length > 0) {
-            const coversZone = zones.some((z: any) => {
-              const zName = (typeof z === 'string' ? z : z?.name || '').toLowerCase();
-              return (
-                zName &&
-                (landmark.name.toLowerCase().includes(zName) ||
-                  landmark.code.toLowerCase().includes(zName) ||
-                  zName.includes(landmark.name.toLowerCase()) ||
-                  zName.includes(landmark.code.toLowerCase()))
-              );
-            });
-            if (!coversZone) {
-              return false;
-            }
-          }
-        }
+      // إذا كان العميل خارج نطاق التوصيل المحدد للمطعم، يختفي المطعم تماماً ولا يظهر
+      if (distKm > radiusKm) {
+        return false;
       }
     }
 
@@ -1350,53 +1374,48 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         </div>
       )}
 
-      {/* 2. Campus Landmark / Delivery Geofence Location Selector (طلب 9) */}
-      <div className="bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-blue-50/90 border border-indigo-100 rounded-2xl p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-indigo-600/30">
+      {/* 2. Client Live GPS Location Bar (Auto Delivery Radius Geofence) */}
+      <div className="bg-gradient-to-r from-emerald-50/90 via-teal-50/80 to-indigo-50/90 border border-emerald-200/70 rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5 shadow-xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-600/30">
             <MapPin className="w-4 h-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-black text-slate-900">موقع استلام طلبك داخل الحرم:</span>
-              {selectedLandmarkId && (
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200/60 px-1.5 py-0.2 rounded-md">
-                  نطاق مخصص
-                </span>
-              )}
+              <span className="text-xs font-black text-slate-900">موقعك الحالي:</span>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-2 py-0.5 rounded-md truncate max-w-[180px] sm:max-w-xs">
+                {isDetectingGps ? (
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                    جارٍ تحديد موقعك...
+                  </span>
+                ) : clientPlaceName ? (
+                  clientPlaceName
+                ) : clientCoords ? (
+                  `GPS: ${clientCoords.lat.toFixed(4)}, ${clientCoords.lng.toFixed(4)}`
+                ) : (
+                  'لم يتم تفعيل الـ GPS'
+                )}
+              </span>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium">
-              {selectedLandmarkId
-                ? `عرض المطاعم المتاحة بنطاق توصيل: ${CAMPUS_LANDMARKS.find(l => l.id === selectedLandmarkId)?.name || ''}`
-                : 'حدد كليتك أو مبناك لإظهار المطاعم التي تغطي نطاق تواجدك'}
+            <p className="text-[11px] text-slate-500 font-medium truncate">
+              {clientCoords
+                ? 'يتم عرض المطاعم المتاحة بنطاق توصيل يغطي موقعك الحالي فقط'
+                : 'اضغط تحديث لتحديد موقعك تلقائياً وعرض المطاعم التي تغطي نطاقك'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 w-full sm:w-auto">
-          <select
-            value={selectedLandmarkId}
-            onChange={(e) => handleSelectLandmark(e.target.value)}
-            className="w-full sm:w-auto px-3 py-1.5 bg-white border border-indigo-200 hover:border-indigo-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 shadow-xs cursor-pointer"
-          >
-            <option value="">🏢 كل مباني الجامعة (الكل)</option>
-            {CAMPUS_LANDMARKS.map((lm) => (
-              <option key={lm.id} value={lm.id}>
-                {lm.name} ({lm.code})
-              </option>
-            ))}
-          </select>
-          {selectedLandmarkId && (
-            <button
-              type="button"
-              onClick={() => handleSelectLandmark('')}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition-colors shrink-0"
-              title="إلغاء تحديد المبنى وعرض الكل"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={detectClientGps}
+          disabled={isDetectingGps}
+          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-emerald-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 text-xs font-bold transition-all shadow-xs flex items-center gap-1 shrink-0 active:scale-95 disabled:opacity-50"
+          title="تحديث موقعك الحالي عبر GPS"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isDetectingGps ? 'animate-spin text-emerald-600' : 'text-emerald-700'}`} />
+          <span className="hidden sm:inline">تحديث الموقع</span>
+        </button>
       </div>
 
       {/* 3. Search & Quick Filters */}
@@ -1504,11 +1523,17 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           <div className="bg-white rounded-3xl p-10 text-center text-slate-400 border border-slate-200 shadow-sm">
             <Store className="w-14 h-14 mx-auto mb-2 opacity-30 text-indigo-600" />
             <h4 className="text-sm font-bold text-slate-700">
-              {activeFilter === 'FAVORITES' ? 'لم تقم بإضافة أي مطعم للمفضلة بعد ❤️' : 'لا توجد مطاعم مطابقة للبحث'}
+              {activeFilter === 'FAVORITES'
+                ? 'لم تقم بإضافة أي مطعم للمفضلة بعد ❤️'
+                : clientCoords && branches.length > 0 && !search
+                ? 'لا توجد مطاعم تغطي نطاق موقعك الحالي حالياً 📍'
+                : 'لا توجد مطاعم مطابقة للبحث'}
             </h4>
             <p className="text-xs text-slate-500 mt-1">
               {activeFilter === 'FAVORITES'
                 ? 'اضغط على علامة القلب ❤️ أعلى أي مطعم لحفظه في مفضلتك للوصول السريع'
+                : clientCoords && branches.length > 0 && !search
+                ? 'أنت خارج نطاق التوصيل المحدد للمطاعم المتاحة، أو يمكنك تحديث موقعك إذا كنت متواجداً بالحرم'
                 : 'جرب البحث بكلمة أخرى أو تغيير الفلتر'}
             </p>
           </div>
@@ -1527,6 +1552,22 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               const isFav = favBranchIds.includes(branch.id);
               const crowdLevel = branch.crowdLevel || 'LOW';
               const estimatedPrep = branch.estimatedPrepMins || '15-25 د';
+
+              // حساب مسافة الفرع بالنسبة لموقع العميل الحالي
+              let bLat = typeof branch.latitude === 'number' && !isNaN(branch.latitude) ? branch.latitude : null;
+              let bLng = typeof branch.longitude === 'number' && !isNaN(branch.longitude) ? branch.longitude : null;
+              if (bLat === null || bLng === null) {
+                const coords = extractCoordinatesFromAddress(branch.address);
+                if (coords) {
+                  bLat = coords.lat;
+                  bLng = coords.lng;
+                } else {
+                  bLat = DEFAULT_CAMPUS_RESTAURANT_COORDS.lat;
+                  bLng = DEFAULT_CAMPUS_RESTAURANT_COORDS.lng;
+                }
+              }
+              const branchDistMeters = clientCoords ? calculateDistanceMeters(bLat, bLng, clientCoords.lat, clientCoords.lng) : null;
+              const branchDistKm = branchDistMeters !== null ? branchDistMeters / 1000 : null;
 
               return (
                 <div
@@ -1624,9 +1665,16 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                         </div>
 
                         {/* Location */}
-                        <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
-                          <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                          <span className="line-clamp-1">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
+                        <div className="flex items-center justify-between gap-1 text-xs text-slate-500 mt-0.5">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <span className="line-clamp-1">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
+                          </div>
+                          {branchDistKm !== null && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded-md shrink-0">
+                              يبعد {branchDistKm < 1 ? `${branchDistMeters} م` : `${branchDistKm.toFixed(1)} كم`}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -1726,18 +1774,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                   {/* D. Bottom Action Button Strip */}
                   <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-indigo-600 font-bold text-xs group-hover:bg-indigo-50/60 transition-colors">
                     <span className="group-hover:text-indigo-700 font-black">تصفح المنيو واطلب</span>
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`/${branch.slug || branch.id}/apk`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="px-2 py-0.5 rounded-lg bg-indigo-100/80 hover:bg-indigo-200 text-indigo-800 text-[10px] font-black border border-indigo-200 transition-colors flex items-center gap-1 shadow-2xs"
-                        title="تثبيت تطبيق هذا المطعم على الشاشة الرئيسية"
-                      >
-                        <span>تثبيت</span>
-                        <span>📲</span>
-                      </a>
-                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-indigo-600" />
-                    </div>
+                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-indigo-600" />
                   </div>
                 </div>
               );
