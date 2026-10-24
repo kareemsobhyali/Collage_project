@@ -130,7 +130,22 @@ app.use("/uploads", express.static(uploadsPath));
 
 // خدمة ملف manifest.json الديناميكي لدعم تثبيت تطبيق مخصص للفرع أو المنصة العامة
 app.get("/manifest.json", async (req, res) => {
-  const branchParam = (req.query.branch || req.query.r || req.query.slug) as string | undefined;
+  let branchParam = (req.query.branch || req.query.r || req.query.slug) as string | undefined;
+
+  // إذا لم يتم تمرير باراميتر صريح، نفحص مرجع الطلب (Referer) لمعرفة ما إذا كان الطلب قادماً من صفحة مطعم مخصص
+  if (!branchParam && req.headers.referer) {
+    try {
+      const refererUrl = new URL(req.headers.referer);
+      const refPath = decodeURIComponent(refererUrl.pathname).replace(/^\/+|\/+$/g, '');
+      const segments = refPath.split('/').filter(Boolean);
+      if (segments.length >= 2 && ['apk', 'download', 'install'].includes(segments[segments.length - 1].toLowerCase())) {
+        branchParam = segments[0] === 'r' ? segments[1] : segments[0];
+      } else {
+        branchParam = refererUrl.searchParams.get('branch') || refererUrl.searchParams.get('r') || refererUrl.searchParams.get('slug') || undefined;
+      }
+    } catch (_err) {}
+  }
+
   if (branchParam) {
     try {
       const branch = await prisma.branch.findFirst({
