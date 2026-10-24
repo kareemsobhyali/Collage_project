@@ -429,90 +429,116 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-fadeIn">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden relative">
+    <div 
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div 
+        className="bg-white rounded-t-[28px] sm:rounded-3xl w-full max-w-lg max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden relative"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Mobile drag handle */}
-        <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto my-2 sm:hidden shrink-0 z-20" />
+        <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto my-2.5 sm:hidden shrink-0 z-20" />
 
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-slate-50">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
-              <User className="w-4 h-4" />
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-20">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold shadow-2xs border border-indigo-100/70">
+              <User className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h3 className="font-black text-slate-800 text-sm">حسابي والمحفظة الجامعية</h3>
-              <p className="text-[11px] text-slate-500">نقاط الولاء، رصيد المحفظة، وعناوين التوصيل</p>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">حسابي والمحفظة الجامعية</h3>
+              <p className="text-[11px] text-slate-400 font-medium">نقاط الولاء، رصيد المحفظة، وعناوين التوصيل</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600">
-            <X className="w-5 h-5" />
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+            title="إغلاق"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className={`p-5 modal-scroll flex-1 space-y-5 ${showSupportModal || showDeleteConfirm ? 'overflow-hidden pointer-events-none' : 'overflow-y-auto'}`}>
+        <div className={`p-4 sm:p-5 modal-scroll flex-1 space-y-4 sm:space-y-5 pb-8 sm:pb-6 overscroll-contain ${showSupportModal || showDeleteConfirm ? 'overflow-hidden pointer-events-none' : 'overflow-y-auto'}`}>
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {walletMessage && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
               <Sparkles className="w-4 h-4 shrink-0 text-emerald-600" />
               <span>{walletMessage}</span>
             </div>
           )}
 
           {/* Student Wallet & Loyalty Points Card */}
-          <div className="rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 text-white p-4 shadow-lg space-y-4 relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-white/15 rounded-xl backdrop-blur-sm">
+          <div className="rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-950 to-purple-950 text-white p-4 sm:p-5 shadow-xl space-y-4 relative overflow-hidden border border-indigo-500/30">
+            {/* Ambient Glow */}
+            <div className="absolute top-0 right-1/4 w-32 h-20 bg-indigo-500/20 blur-2xl pointer-events-none rounded-full" />
+            
+            <div className="flex items-center justify-between gap-2 relative z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md border border-white/15">
                   <Wallet className="w-5 h-5 text-amber-300" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-white">محفظة ومكافآت UniFood</h4>
-                  <p className="text-[10px] text-indigo-200">1 نقطة ولاء لكل 10 ج.م • كل نقطة = 1 ج.م رصيد</p>
+                  <h4 className="text-xs sm:text-sm font-black text-white">محفظة ومكافآت UniFood</h4>
+                  <p className="text-[10px] text-indigo-200 font-medium">1 نقطة ولاء لكل 10 ج.م • كل نقطة = 1 ج.م رصيد</p>
                 </div>
               </div>
-              <span className="text-[10px] bg-amber-400/20 text-amber-200 border border-amber-300/30 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                <Gift className="w-3 h-3" />
+              <span className="text-[10px] bg-amber-400/20 text-amber-300 border border-amber-300/40 px-2.5 py-1 rounded-full font-black flex items-center gap-1 shrink-0 shadow-2xs">
+                <Gift className="w-3 h-3 text-amber-300" />
                 <span>كاش باك 10%</span>
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15">
-                <span className="text-[10px] text-indigo-200 block">رصيد المحفظة النقدي</span>
-                <div className="text-xl font-black text-white mt-0.5">
-                  {walletBalance.toFixed(0)} <span className="text-xs font-normal">ج.م</span>
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 relative z-10">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-white/15 flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-indigo-200 block">رصيد المحفظة النقدي</span>
+                  <div className="text-xl sm:text-2xl font-black text-white mt-0.5 font-mono">
+                    {walletBalance.toFixed(0)} <span className="text-xs font-normal text-indigo-200">ج.م</span>
+                  </div>
                 </div>
-                <span className="text-[10px] text-emerald-300 font-bold">متاح للخصم الفوري</span>
+                <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-300 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                  <span>متاح للخصم الفوري</span>
+                </div>
               </div>
 
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15">
-                <span className="text-[10px] text-indigo-200 block">نقاط الولاء الحالية</span>
-                <div className="text-xl font-black text-amber-300 mt-0.5 flex items-center gap-1">
-                  <span>{loyaltyPoints}</span>
-                  <span className="text-xs font-normal text-white">نقطة</span>
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-white/15 flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-indigo-200 block">نقاط الولاء الحالية</span>
+                  <div className="text-xl sm:text-2xl font-black text-amber-300 mt-0.5 flex items-center gap-1 font-mono">
+                    <span>{loyaltyPoints}</span>
+                    <span className="text-xs font-normal text-white">نقطة</span>
+                  </div>
                 </div>
-                <span className="text-[10px] text-amber-200 font-bold">تساوي {loyaltyPoints} ج.م</span>
+                <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-200 font-bold">
+                  <span>⭐ تساوي {loyaltyPoints} ج.م رصيد</span>
+                </div>
               </div>
             </div>
 
             <button
+              type="button"
               onClick={handleConvertPoints}
               disabled={convertingPoints || loyaltyPoints <= 0}
-              className={`w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-sm ${
+              className={`w-full py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all relative z-10 ${
                 loyaltyPoints > 0
-                  ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer active:scale-98'
-                  : 'bg-white/10 text-indigo-200 cursor-not-allowed'
+                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-98 cursor-pointer'
+                  : 'bg-white/10 text-indigo-200 cursor-not-allowed opacity-80'
               }`}
             >
-              <ArrowLeftRight className="w-4 h-4" />
+              <ArrowLeftRight className={`w-4 h-4 ${convertingPoints ? 'animate-spin' : ''}`} />
               <span>
                 {convertingPoints
                   ? 'جاري التحويل...'
@@ -523,64 +549,78 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </button>
 
             {rewardHistory.length > 0 && (
-              <div className="pt-2 border-t border-white/15 space-y-1.5 max-h-28 overflow-y-auto no-scrollbar">
-                <div className="text-[10px] font-bold text-indigo-200">آخر حركات المكافآت:</div>
-                {rewardHistory.slice(0, 4).map((item: any) => (
-                  <div key={item.id} className="flex items-center justify-between text-[11px] bg-white/5 px-2.5 py-1.5 rounded-xl">
-                    <span className="text-indigo-100 truncate">
-                      طلب #{item.orderNumber} ({item.branch?.name || 'مطعم'})
-                    </span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {item.pointsEarned > 0 && (
-                        <span className="text-amber-300 font-bold">+{item.pointsEarned} نقطة</span>
-                      )}
-                      {item.walletDiscount > 0 && (
-                        <span className="text-rose-300 font-bold">-{item.walletDiscount} ج.م محفظة</span>
-                      )}
+              <div className="pt-2.5 border-t border-white/15 space-y-2 relative z-10">
+                <div className="flex items-center justify-between text-[11px] font-bold text-indigo-200">
+                  <span>آخر حركات المكافآت:</span>
+                  <span className="text-[10px] text-indigo-300 font-mono">({rewardHistory.length})</span>
+                </div>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto overscroll-contain pr-0.5">
+                  {rewardHistory.slice(0, 4).map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between text-xs bg-white/10 hover:bg-white/15 transition-colors px-3 py-2 rounded-xl border border-white/10">
+                      <span className="text-white font-medium truncate max-w-[180px] sm:max-w-xs">
+                        طلب #{item.orderNumber} ({item.branch?.name || 'مطعم'})
+                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.pointsEarned > 0 && (
+                          <span className="text-[10px] bg-amber-400/20 text-amber-300 font-black px-1.5 py-0.5 rounded-md border border-amber-400/30">
+                            +{item.pointsEarned} نقطة
+                          </span>
+                        )}
+                        {item.walletDiscount > 0 && (
+                          <span className="text-[10px] bg-rose-400/20 text-rose-300 font-black px-1.5 py-0.5 rounded-md border border-rose-400/30">
+                            -{item.walletDiscount} ج.م
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          {/* User Info & Web Push Notification Toggle */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500">الاسم:</span>
+          {/* User Info & Web Push Notification Card */}
+          <div className="p-3.5 sm:p-4 rounded-3xl bg-white border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold text-slate-400 shrink-0">الاسم:</span>
                 {isEditingName ? (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <input
                       type="text"
                       value={name}
                       onChange={e => setName(e.target.value)}
-                      className="px-2.5 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="px-2.5 py-1 bg-slate-50 border border-indigo-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 w-32 sm:w-44"
+                      autoFocus
                     />
                     <button
+                      type="button"
                       onClick={handleSaveName}
                       disabled={savingName}
-                      className="p-1 bg-indigo-600 text-white rounded-lg text-xs"
-                      title="حفظ"
+                      className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
+                      title="حفظ الاسم"
                     >
                       <Check className="w-3.5 h-3.5" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         setName(user.name);
                         setIsEditingName(false);
                       }}
-                      className="p-1 text-slate-400 hover:text-slate-600"
+                      className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-black text-slate-900 text-xs">{user.name}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-black text-slate-900 text-sm truncate">{user.name}</span>
                     <button
+                      type="button"
                       onClick={() => setIsEditingName(true)}
-                      className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                      className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                      title="تعديل الاسم"
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
@@ -588,27 +628,28 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 )}
               </div>
 
-              <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold border border-indigo-100 flex items-center gap-1">
-                <GraduationCap className="w-3 h-3" />
+              <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-bold border border-indigo-100/80 flex items-center gap-1 shrink-0">
+                <GraduationCap className="w-3.5 h-3.5" />
                 <span>طالب جامعي</span>
               </span>
             </div>
 
-            <div className="flex items-center justify-between pt-1 border-t border-slate-200/70">
-              <div className="flex items-center gap-2 text-xs text-slate-600 font-mono">
-                <Phone className="w-3.5 h-3.5 text-slate-400" />
+            <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 gap-2 flex-wrap">
+              <div className="flex items-center gap-2 text-xs text-slate-700 font-mono font-bold bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200/60">
+                <Phone className="w-3.5 h-3.5 text-indigo-600" />
                 <span>{user.phone}</span>
               </div>
 
               {notifPermission === 'granted' ? (
-                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-xl font-bold flex items-center gap-1">
-                  <BellRing className="w-3 h-3" />
-                  <span>إشعارات الخلفية مفعلة</span>
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-2xs">
+                  <BellRing className="w-3 h-3 text-emerald-600" />
+                  <span>إشعارات الهاتف مفعلة</span>
                 </span>
               ) : notifPermission !== 'unsupported' ? (
                 <button
+                  type="button"
                   onClick={handleEnableNotifications}
-                  className="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-xl font-bold flex items-center gap-1 shadow-sm transition-all"
+                  className="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
                 >
                   <Bell className="w-3 h-3" />
                   <span>تفعيل إشعارات الهاتف</span>
@@ -620,25 +661,33 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           {/* Saved Addresses Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-indigo-600" />
-                <h4 className="text-xs font-black text-slate-800">
-                  عناويني الجامعية المحفوظة ({addresses.length})
-                </h4>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold shadow-2xs border border-indigo-100/70">
+                  <MapPin className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900">
+                    عناويني الجامعية المحفوظة ({addresses.length})
+                  </h4>
+                  <p className="text-[10px] text-slate-400">حدد أماكن تواجدك المتكررة للطلب السريع</p>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowAddAddress(!showAddAddress)}
-                className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-black transition-all active:scale-95 border border-indigo-200/60 shadow-2xs cursor-pointer"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className={`w-3.5 h-3.5 transition-transform ${showAddAddress ? 'rotate-45' : ''}`} />
                 <span>{showAddAddress ? 'إلغاء' : 'إضافة عنوان'}</span>
               </button>
             </div>
 
             {/* Add Address Form */}
             {showAddAddress && (
-              <form onSubmit={handleAddAddress} className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-200 space-y-3 animate-fadeIn">
-                <div className="text-xs font-bold text-indigo-900">إضافة عنوان جديد:</div>
+              <form onSubmit={handleAddAddress} className="p-4 rounded-3xl bg-indigo-50/50 border border-indigo-200/80 space-y-3 animate-fadeIn shadow-2xs">
+                <div className="text-xs font-bold text-indigo-950 flex items-center gap-1">
+                  <span>إضافة عنوان استلام جديد:</span>
+                </div>
 
                 {/* زر سحب الموقع المباشر وتسميته تلقائياً */}
                 <div className="space-y-1.5">
@@ -646,10 +695,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     type="button"
                     onClick={() => handleDetectGpsLocation({ silent: false })}
                     disabled={detectingGps}
-                    className="w-full py-2.5 px-3 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.99] disabled:opacity-50 bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border-emerald-500/40 text-emerald-800 hover:bg-emerald-100"
+                    className="w-full py-2.5 px-3 rounded-2xl text-xs font-black border transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.99] disabled:opacity-50 bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border-emerald-500/40 text-emerald-800 hover:bg-emerald-100 cursor-pointer"
                   >
                     <Navigation className={`w-3.5 h-3.5 text-emerald-600 shrink-0 ${detectingGps ? 'animate-spin' : 'animate-pulse'}`} />
-                    <span>{detectingGps ? 'جاري سحب موقعك وتحديد أقرب مكان...' : '📍 سحب موقعي الحالي (GPS)'}</span>
+                    <span>{detectingGps ? 'جاري سحب موقعك وتحديد أقرب مكان...' : '📍 سحب موقعي الحالي بدقة (GPS)'}</span>
                   </button>
 
                   {gpsSuccessMsg && (
@@ -661,12 +710,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     تسمية العنوان (اسم أقرب مكان أو كليتك)
                   </label>
                   <input
                     type="text"
-                    placeholder="مثال: سكن الطلبة، هايبر وان، كلية الهندسة..."
+                    placeholder="مثال: سكن المغتربين، كلية الهندسة، مبنى ب..."
                     value={newTitle}
                     onChange={e => {
                       setNewTitle(e.target.value);
@@ -681,7 +730,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-600">
+                    <label className="block text-[11px] font-bold text-slate-700">
                       تفاصيل وموقع المكان بالتحديد
                     </label>
                     <span className="text-[10px] text-emerald-700 font-bold">
@@ -713,12 +762,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   />
                 </div>
 
-                <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={isDefault}
                     onChange={e => setIsDefault(e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500"
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
                   />
                   <span>تعيين كعنوان رئيسي مفضل</span>
                 </label>
@@ -730,14 +779,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       setShowAddAddress(false);
                       setGpsSuccessMsg(null);
                     }}
-                    className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                    className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                   >
                     إلغاء
                   </button>
                   <button
                     type="submit"
                     disabled={savingAddress}
-                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50"
                   >
                     {savingAddress ? 'جاري الحفظ...' : 'حفظ العنوان'}
                   </button>
@@ -749,9 +798,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             {loadingAddresses ? (
               <div className="text-center py-6 text-xs text-slate-400">جاري تحميل العناوين...</div>
             ) : addresses.length === 0 ? (
-              <div className="p-6 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl space-y-2">
+              <div className="p-6 text-center bg-slate-50/70 border border-dashed border-slate-200 rounded-3xl space-y-2">
                 <MapPin className="w-8 h-8 text-slate-300 mx-auto" />
-                <p className="text-xs text-slate-500 font-bold">لا توجد عناوين محفوظة حتى الآن</p>
+                <p className="text-xs text-slate-600 font-bold">لا توجد عناوين محفوظة حتى الآن</p>
                 <p className="text-[11px] text-slate-400">أضف مكان وجودك في الكلية أو السكن لتحديده بنقرة واحدة عند الطلب</p>
               </div>
             ) : (
@@ -759,31 +808,32 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 {addresses.map(addr => (
                   <div
                     key={addr.id}
-                    className="p-3.5 bg-slate-50 hover:bg-indigo-50/30 rounded-2xl border border-slate-200 transition-colors flex items-start justify-between gap-3 text-xs"
+                    className="p-3.5 bg-white hover:bg-indigo-50/20 rounded-2xl border border-slate-200/90 hover:border-indigo-200 transition-all flex items-start justify-between gap-3 text-xs shadow-2xs group"
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-black text-slate-900">{addr.title}</span>
+                        <span className="font-black text-slate-900 text-xs sm:text-sm">{addr.title}</span>
                         {addr.details?.includes('[GPS:') && (
-                          <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded font-black flex items-center gap-1">
+                          <span className="text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-md font-black flex items-center gap-1">
                             <MapPin className="w-2.5 h-2.5 text-emerald-600" />
                             <span>GPS</span>
                           </span>
                         )}
                         {addr.isDefault && (
-                          <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.2 rounded font-bold">
-                            افتراضي
+                          <span className="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md font-bold">
+                            افتراضي ★
                           </span>
                         )}
                       </div>
-                      <p className="text-slate-600 text-[11px] leading-relaxed">
+                      <p className="text-slate-500 text-[11px] leading-relaxed">
                         {getDisplayAddress(addr.details, addr.title || 'العنوان المسجل')}
                       </p>
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => handleDeleteAddress(addr.id)}
-                      className="text-slate-400 hover:text-rose-600 p-1 rounded-lg transition-colors shrink-0"
+                      className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-xl transition-all shrink-0 cursor-pointer active:scale-95"
                       title="حذف العنوان"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -855,10 +905,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
-              className="w-full py-2 px-3 border border-rose-300 hover:bg-rose-600 hover:text-white text-rose-700 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all active:scale-98"
+              className="w-full py-2.5 px-3 border border-rose-300 hover:bg-rose-600 hover:text-white text-rose-700 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>حذف حسابي نهائياً</span>
+            </button>
+          </div>
+
+          {/* Bottom Close Button inside scroll container (No sticky overlap!) */}
+          <div className="pt-2 pb-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-98 text-white rounded-2xl text-xs sm:text-sm font-black transition-all shadow-md shadow-slate-900/10 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>إغلاق النافذة</span>
             </button>
           </div>
         </div>
@@ -1316,18 +1377,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        {!showSupportModal && !showDeleteConfirm && (
-          <div className="p-4 border-t bg-slate-50 flex items-center justify-end pb-safe">
-            <button
-              onClick={onClose}
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
-            >
-              إغلاق
-            </button>
           </div>
         )}
       </div>
