@@ -753,9 +753,19 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             <span>المطاعم</span>
           </button>
 
-          <span className="text-xs font-bold text-slate-400">
-            قائمة المنيو
-          </span>
+          <div className="flex items-center gap-2">
+            <a
+              href={`/${branch.slug || branch.id}/apk`}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 text-indigo-700 text-[11px] font-black border border-indigo-200/80 transition-all active:scale-95 shadow-2xs"
+              title="تثبيت تطبيق هذا المطعم على الشاشة الرئيسية"
+            >
+              <span>تثبيت التطبيق</span>
+              <span>📲</span>
+            </a>
+            <span className="text-xs font-bold text-slate-400 hidden sm:inline">
+              قائمة المنيو
+            </span>
+          </div>
         </div>
 
         {/* Row 2: Restaurant Identity */}

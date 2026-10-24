@@ -128,6 +128,84 @@ app.get("/uploads/:filename", async (req, res, next) => {
 
 app.use("/uploads", express.static(uploadsPath));
 
+// خدمة ملف manifest.json الديناميكي لدعم تثبيت تطبيق مخصص للفرع أو المنصة العامة
+app.get("/manifest.json", async (req, res) => {
+  const branchParam = (req.query.branch || req.query.r || req.query.slug) as string | undefined;
+  if (branchParam) {
+    try {
+      const branch = await prisma.branch.findFirst({
+        where: {
+          OR: [
+            { slug: branchParam.trim().toLowerCase() },
+            { id: branchParam.trim() },
+          ],
+        },
+      });
+
+      if (branch) {
+        const logoUrl = branch.logoUrl
+          ? (branch.logoUrl.startsWith("http") ? branch.logoUrl : `/uploads/${branch.logoUrl}`)
+          : "/logo.png";
+
+        const branchManifest = {
+          name: `${branch.name} | UniFood`,
+          short_name: branch.name,
+          description: `اطلب وجبتك المفضلة من ${branch.name} مباشرة وسريعاً بدون انتظار`,
+          start_url: `/?r=${encodeURIComponent(branch.slug || branch.id)}&installed=1`,
+          scope: "/",
+          id: `/?r=${encodeURIComponent(branch.slug || branch.id)}`,
+          display: "standalone",
+          display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+          handle_links: "preferred",
+          launch_handler: {
+            client_mode: ["navigate-existing", "auto"],
+          },
+          background_color: "#ffffff",
+          theme_color: "#4f46e5",
+          orientation: "portrait",
+          dir: "rtl",
+          lang: "ar",
+          icons: [
+            {
+              src: logoUrl,
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "any maskable",
+            },
+            {
+              src: logoUrl,
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any maskable",
+            },
+          ],
+        };
+
+        res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+        return res.json(branchManifest);
+      }
+    } catch (_e) {}
+  }
+
+  const staticManifestPath = resolvePath(
+    "customer-app/public/manifest.json",
+    "public/manifest.json",
+    "../customer-app/public/manifest.json"
+  );
+  if (fs.existsSync(staticManifestPath)) {
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    return res.sendFile(staticManifestPath);
+  }
+
+  return res.json({
+    name: "UniFood | يونيفود - مطاعم الحرم الجامعي",
+    short_name: "UniFood",
+    start_url: "/",
+    scope: "/",
+    display: "standalone",
+  });
+});
+
 
 // مسارات واجهات البرمجة API
 app.use("/api/auth", authRoutes);

@@ -51,6 +51,195 @@ router.get("/public/support-contact", async (_req: Request, res: Response) => {
   }
 });
 
+// جلب ملف الـ PWA Manifest المخصص للمطعم أو المنصة
+router.get("/manifest", async (req: Request, res: Response) => {
+  try {
+    const branchParam = (req.query.branch || req.query.r || req.query.slug) as string | undefined;
+    if (branchParam) {
+      const branch = await prisma.branch.findFirst({
+        where: {
+          OR: [
+            { slug: branchParam.trim().toLowerCase() },
+            { id: branchParam.trim() }
+          ],
+          isActive: true
+        }
+      });
+
+      if (branch) {
+        const logoUrl = branch.logoUrl
+          ? (branch.logoUrl.startsWith("http") ? branch.logoUrl : `/uploads/${branch.logoUrl}`)
+          : "/logo.png";
+
+        const manifest = {
+          name: `${branch.name} | UniFood`,
+          short_name: branch.name,
+          description: `اطلب وجبتك المفضلة من ${branch.name} مباشرة من تطبيق الموبايل`,
+          start_url: `/?r=${encodeURIComponent(branch.slug || branch.id)}&installed=1`,
+          scope: "/",
+          id: `/?r=${encodeURIComponent(branch.slug || branch.id)}`,
+          display: "standalone",
+          display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+          handle_links: "preferred",
+          launch_handler: {
+            client_mode: ["navigate-existing", "auto"]
+          },
+          background_color: "#ffffff",
+          theme_color: "#4f46e5",
+          orientation: "portrait",
+          dir: "rtl",
+          lang: "ar",
+          icons: [
+            {
+              src: logoUrl,
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "any maskable"
+            },
+            {
+              src: logoUrl,
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any maskable"
+            }
+          ]
+        };
+        res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+        return res.json(manifest);
+      }
+    }
+
+    const defaultManifest = {
+      name: "UniFood | يونيفود - مطاعم الحرم الجامعي",
+      short_name: "UniFood",
+      description: "منصة طلب وتوصيل الوجبات داخل الحرم الجامعي وسلة الشلة التشاركية",
+      start_url: "/?installed=1",
+      scope: "/",
+      id: "/",
+      display: "standalone",
+      display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+      handle_links: "preferred",
+      launch_handler: {
+        client_mode: ["navigate-existing", "auto"]
+      },
+      background_color: "#f8fafc",
+      theme_color: "#4f46e5",
+      orientation: "portrait",
+      dir: "rtl",
+      lang: "ar",
+      icons: [
+        {
+          src: "/logo.png",
+          sizes: "192x192",
+          type: "image/png",
+          purpose: "any maskable"
+        },
+        {
+          src: "/logo.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "any maskable"
+        }
+      ]
+    };
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    return res.json(defaultManifest);
+  } catch (error) {
+    console.error("Get manifest error:", error);
+    res.status(500).json({ error: "فشل استخراج ملف التطبيق" });
+  }
+});
+
+// جلب بيانات صفحة تثبيت التطبيق APK المخصصة لمطعم أو للمنصة العامة
+router.get("/apk-meta/:slug?", async (req: Request, res: Response) => {
+  try {
+    const rawParam = req.params.slug;
+    const rawSlug = (Array.isArray(rawParam) ? rawParam[0] : rawParam) || (req.query.slug as string) || (req.query.branch as string) || (req.query.r as string);
+    const slug = typeof rawSlug === 'string' ? rawSlug.trim() : '';
+    if (!slug) {
+      const totalBranches = await prisma.branch.count({ where: { isActive: true } });
+      return res.json({
+        isBranch: false,
+        name: "UniFood",
+        title: "تطبيق UniFood لطلاب الجامعة",
+        subtitle: "جميع مطاعم وكافيهات الجامعة في جيبك - اطلب واستلم فوراً بدون طوابير",
+        logoUrl: "/logo.png",
+        totalBranches,
+        appFeatures: [
+          { title: "سلة الشلة التشاركية", desc: "اطلب أكلك أنت وزملائك في سلة واحدة بدون حيرة الفلوس والحسابات" },
+          { title: "توصيل للمدرجات والكليات", desc: "استلم وجبتك عند مبنى كليتك أو مدرجك مع تتبع مباشر للطيار" },
+          { title: "عروض البريك وفلاش ديلز", desc: "خصومات حصرية يومية بين المحاضرات تبدأ من 20% وحتى 50%" },
+          { title: "تنبيهات صوتية فورية", desc: "إشعار عند قبول الطلب، بدء التجهيز، ووصول الطيار لكليتك" }
+        ]
+      });
+    }
+
+    const branch = await prisma.branch.findFirst({
+      where: {
+        OR: [
+          { slug: slug.trim().toLowerCase() },
+          { id: slug.trim() }
+        ],
+        isActive: true
+      },
+      include: {
+        categories: {
+          take: 3,
+          include: {
+            items: {
+              where: { isAvailable: true },
+              take: 4
+            }
+          }
+        }
+      }
+    });
+
+    if (!branch) {
+      return res.status(404).json({ error: "المطعم غير موجود أو تم إيقافه مؤقتاً" });
+    }
+
+    const featuredItems: any[] = [];
+    branch.categories.forEach(cat => {
+      cat.items.forEach(it => {
+        if (featuredItems.length < 6) {
+          featuredItems.push({
+            id: it.id,
+            name: it.name,
+            basePrice: it.basePrice,
+            imageUrl: it.imageUrl
+          });
+        }
+      });
+    });
+
+    res.json({
+      isBranch: true,
+      branchId: branch.id,
+      slug: branch.slug || branch.id,
+      name: branch.name,
+      title: `تطبيق ${branch.name}`,
+      subtitle: `التطبيق الرسمي المباشر لمطعم ${branch.name} بالحرم الجامعي`,
+      logoUrl: branch.logoUrl,
+      address: branch.address,
+      deliveryFee: branch.deliveryFee,
+      operationalStatus: branch.operationalStatus,
+      openingTime: branch.openingTime,
+      closingTime: branch.closingTime,
+      featuredItems,
+      appFeatures: [
+        { title: "منيو المطعم كاملاً", desc: `تصفح كل أصناف ${branch.name} وأحجامها وإضافاتها في ثواني` },
+        { title: "طلب مسبق واستلام فوري", desc: "اطلب قبل ما تطلع من المحاضرة واستلم طلبك جاهز وسخن بدون وقفة في الطابور" },
+        { title: "عروض وتخفيضات خاصة", desc: `عروض فلاش ديلز وكوبونات حصرية لعملاء تطبيق ${branch.name}` },
+        { title: "تثبيت سريع وخفيف", desc: "تطبيق سريع جداً على شاشة هاتفك لا يستهلك باقة ولا مساحة تخزين" }
+      ]
+    });
+  } catch (error) {
+    console.error("Get APK meta error:", error);
+    res.status(500).json({ error: "فشل استرجاع بيانات التطبيق" });
+  }
+});
+
 // 0. استعراض البانرات الإعلانية الترويجية
 router.get("/banners", async (_req: Request, res: Response) => {
   try {

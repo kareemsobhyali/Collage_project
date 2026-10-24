@@ -1726,7 +1726,18 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                   {/* D. Bottom Action Button Strip */}
                   <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-indigo-600 font-bold text-xs group-hover:bg-indigo-50/60 transition-colors">
                     <span className="group-hover:text-indigo-700 font-black">تصفح المنيو واطلب</span>
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-indigo-600" />
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`/${branch.slug || branch.id}/apk`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2 py-0.5 rounded-lg bg-indigo-100/80 hover:bg-indigo-200 text-indigo-800 text-[10px] font-black border border-indigo-200 transition-colors flex items-center gap-1 shadow-2xs"
+                        title="تثبيت تطبيق هذا المطعم على الشاشة الرئيسية"
+                      >
+                        <span>تثبيت</span>
+                        <span>📲</span>
+                      </a>
+                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-indigo-600" />
+                    </div>
                   </div>
                 </div>
               );

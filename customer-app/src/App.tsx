@@ -32,6 +32,7 @@ import { DriverPortal } from './components/DriverPortal';
 import { GroupCartModal } from './components/GroupCartModal';
 import { Logo } from './components/Logo';
 import { SplashScreen } from './components/SplashScreen';
+import { InstallApkPage, parseApkRoute } from './components/InstallApkPage';
 
 export function App() {
   const isMobileAppExperience = typeof window !== 'undefined' && (
@@ -72,6 +73,9 @@ export function App() {
   );
 
   const groupParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('group') : null;
+  const apkRouteInfo = parseApkRoute();
+  const [isApkRoute, setIsApkRoute] = useState(apkRouteInfo.isApkPage);
+  const [apkSlug, setApkSlug] = useState<string | null>(apkRouteInfo.branchSlug);
 
   const [showDriverPortal, setShowDriverPortal] = useState(isDriverRoute);
   const [groupCartCode, setGroupCartCode] = useState<string | null>(() => {
@@ -162,13 +166,13 @@ export function App() {
 
   // تهيئة حارس الرجوع الأولي لمنع الخروج المفاجئ
   useEffect(() => {
-    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal) return;
+    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal || isApkRoute) return;
     try {
       window.history.replaceState({ uniFoodRoot: true, depth: 0 }, '');
       window.history.pushState({ uniFoodStep: 1, depth: 1 }, '');
       historyDepthRef.current = 1;
     } catch (_e) {}
-  }, [isAdminRoute, showDriverPortal]);
+  }, [isAdminRoute, showDriverPortal, isApkRoute]);
 
   // تتبع فتح الشاشات الفرعية والنوافذ لدفع خطوة في الـ History
   const currentNavStateKey = [
@@ -198,7 +202,7 @@ export function App() {
 
   // الاستماع لحدث الرجوع (popstate)
   useEffect(() => {
-    if (isAdminRoute || showDriverPortal) return;
+    if (isAdminRoute || showDriverPortal || isApkRoute) return;
     const handlePopState = () => {
       isHandlingPopstateRef.current = true;
       historyDepthRef.current = Math.max(0, historyDepthRef.current - 1);
@@ -382,9 +386,16 @@ export function App() {
       } catch (_e) {}
 
       // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && !isApkRoute) {
         const params = new URLSearchParams(window.location.search);
-        const branchParam = params.get('branch') || params.get('r');
+        let branchParam = params.get('branch') || params.get('r');
+        if (!branchParam && window.location.pathname.length > 1) {
+          const pathSegments = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+          const firstSeg = pathSegments[0]?.toLowerCase();
+          if (firstSeg && firstSeg !== 'admin' && firstSeg !== 'driver' && firstSeg !== 'delivery' && firstSeg !== 'apk' && firstSeg !== 'download') {
+            branchParam = (firstSeg === 'r' && pathSegments[1]) ? pathSegments[1] : firstSeg;
+          }
+        }
         const itemParam = params.get('item') || params.get('offer');
 
         if (branchParam) {
@@ -677,6 +688,21 @@ export function App() {
           />
         )}
       </>
+    );
+  }
+
+  if (isApkRoute) {
+    return (
+      <InstallApkPage
+        initialSlug={apkSlug}
+        onNavigateHome={() => {
+          setIsApkRoute(false);
+          const url = new URL(window.location.href);
+          url.pathname = '/';
+          url.search = '';
+          window.history.pushState({}, '', url.toString());
+        }}
+      />
     );
   }
 

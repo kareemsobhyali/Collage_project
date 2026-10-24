@@ -3226,6 +3226,20 @@ export const AdminPage: React.FC = () => {
                           <Share2 className="w-3.5 h-3.5 shrink-0" />
                           <span>رابط مباشر</span>
                         </button>
+
+                        <button
+                          onClick={() => {
+                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                            const apkLink = `${origin}/${branch.slug || branch.id}/apk`;
+                            navigator.clipboard.writeText(apkLink);
+                            alert(`تم نسخ رابط صفحة تثبيت تطبيق (${branch.name}) بنجاح:\n${apkLink}`);
+                          }}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/80 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+                          title="نسخ رابط صفحة تثبيت التطبيق المخصصة للمطعم (لوجو وبيانات التطبيق)"
+                        >
+                          <Smartphone className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+                          <span>صفحة التثبيت (APK)</span>
+                        </button>
                       </div>
                     </div>
                   </div>
