@@ -12,6 +12,33 @@
     <title>UniFood | يونيفود - مطاعم الحرم الجامعي</title>
     <script>
       (function() {
+        // 1. تحديد المطعم المستهدف من مسار الصفحة الحالية لتهيئة المانيفست المخصص
+        try {
+          var path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+          var segs = path.split('/').filter(Boolean);
+          var branch = '';
+          if (segs.length >= 2 && ['apk', 'download', 'install'].indexOf(segs[segs.length - 1].toLowerCase()) !== -1) {
+            branch = segs[0] === 'r' ? segs[1] : segs[0];
+          } else {
+            var params = new URLSearchParams(window.location.search);
+            branch = params.get('branch') || params.get('r') || params.get('slug') || '';
+          }
+          if (branch && branch !== 'admin' && branch !== 'driver' && branch !== 'api') {
+            try { localStorage.setItem('pwa_installed_branch', decodeURIComponent(branch).toLowerCase()); } catch(e) {}
+            var manifestUrl = '/manifest.json?branch=' + encodeURIComponent(branch);
+            var mLink = document.querySelector('link[rel="manifest"]');
+            if (mLink) {
+              mLink.href = manifestUrl;
+            } else {
+              var newLink = document.createElement('link');
+              newLink.rel = 'manifest';
+              newLink.href = manifestUrl;
+              document.head.appendChild(newLink);
+            }
+          }
+        } catch(_e) {}
+
+        // 2. التقاط حدث التثبيت المبكر
         window.addEventListener('beforeinstallprompt', function(e) {
           e.preventDefault();
           window.deferredInstallPrompt = e;

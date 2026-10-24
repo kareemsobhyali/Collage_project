@@ -123,7 +123,33 @@ export function App() {
     }
   });
 
-  const [selectedBranch, setSelectedBranch] = useState<any | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<any | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      let bParam = params.get('branch') || params.get('r');
+      if (!bParam) {
+        const isStandalone = isRunningInNativeApk() || params.get('installed') === '1';
+        if (isStandalone) {
+          bParam = localStorage.getItem('pwa_installed_branch');
+        }
+      }
+      if (bParam) {
+        const cached = localStorage.getItem('unifood_cached_branches');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            const normalized = bParam.trim().toLowerCase();
+            const found = parsed.find(
+              (b: any) => b.id === bParam || (b.slug && b.slug.toLowerCase() === normalized)
+            );
+            if (found) return found;
+          }
+        }
+      }
+    } catch (_e) {}
+    return null;
+  });
   const [branchCategories, setBranchCategories] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
 
@@ -428,10 +454,25 @@ export function App() {
             branchParam = (firstSeg === 'r' && pathSegments[1]) ? pathSegments[1] : firstSeg;
           }
         }
+
+        // إذا كان التطبيق يعمل في وضع التثبيت (PWA Standalone) أو تم حفظ المطعم المثبت مسبقاً
+        if (!branchParam) {
+          try {
+            const isStandaloneMode = isRunningInNativeApk() || params.get('installed') === '1' || window.location.search.includes('installed');
+            const savedInstalledBranch = localStorage.getItem('pwa_installed_branch');
+            if (isStandaloneMode && savedInstalledBranch) {
+              branchParam = savedInstalledBranch;
+            }
+          } catch (_e) {}
+        }
+
         const itemParam = params.get('item') || params.get('offer');
 
         if (branchParam) {
           const normalized = branchParam.trim().toLowerCase();
+          try {
+            localStorage.setItem('pwa_installed_branch', normalized);
+          } catch (_e) {}
           const target = loadedBranches.find(
             (b: any) =>
               b.id === branchParam ||

@@ -237,6 +237,12 @@ export const InstallApkPage: React.FC<{
       .then((data: ApkMeta) => {
         setMeta(data);
 
+        if (data.isBranch && (data.slug || data.branchId)) {
+          try {
+            localStorage.setItem('pwa_installed_branch', (data.slug || data.branchId || '').toLowerCase());
+          } catch (_e) {}
+        }
+
         // 3. تحديث العنوان والأيقونة ديناميكياً ليناسب المطعم بدون كسر جلسة تثبيت المتصفح
         const appTitle = data.isBranch ? `تثبيت تطبيق ${data.name} | UniFood` : 'تثبيت تطبيق UniFood | الحرم الجامعي';
         document.title = appTitle;

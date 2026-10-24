@@ -295,6 +295,28 @@ if (fs.existsSync(customerDistPath)) {
     ) {
       return next();
     }
+
+    // إذا كان الرابط مخصصاً لتثبيت تطبيق مطعم معين، نُعدل رابط المانيفست في الـ HTML ليحمل هوية المطعم مباشرة
+    const cleanPath = decodeURIComponent(req.path).replace(/^\/+|\/+$/g, '');
+    const segments = cleanPath.split('/').filter(Boolean);
+    let targetBranchSlug: string | null = null;
+    if (segments.length >= 2 && ['apk', 'download', 'install'].includes(segments[segments.length - 1].toLowerCase())) {
+      targetBranchSlug = segments[0] === 'r' ? segments[1] : segments[0];
+    } else if (req.query.branch || req.query.r) {
+      targetBranchSlug = (req.query.branch || req.query.r) as string;
+    }
+
+    if (targetBranchSlug && !['admin', 'driver', 'delivery', 'api'].includes(targetBranchSlug.toLowerCase())) {
+      try {
+        const indexPath = path.join(customerDistPath, "index.html");
+        let html = fs.readFileSync(indexPath, "utf8");
+        const customManifestTag = `<link rel="manifest" href="/manifest.json?branch=${encodeURIComponent(targetBranchSlug)}" />`;
+        html = html.replace(/<link\s+rel="manifest"[^>]*>/i, customManifestTag);
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.send(html);
+      } catch (_e) {}
+    }
+
     res.sendFile(path.join(customerDistPath, "index.html"));
   });
 }
