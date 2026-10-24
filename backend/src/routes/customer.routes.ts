@@ -151,7 +151,7 @@ router.get("/manifest", async (req: Request, res: Response) => {
 });
 
 // جلب بيانات صفحة تثبيت التطبيق APK المخصصة لمطعم أو للمنصة العامة
-router.get("/apk-meta/:slug?", async (req: Request, res: Response) => {
+const getApkMetaHandler = async (req: Request, res: Response) => {
   try {
     const rawParam = req.params.slug;
     const rawSlug = (Array.isArray(rawParam) ? rawParam[0] : rawParam) || (req.query.slug as string) || (req.query.branch as string) || (req.query.r as string);
@@ -238,7 +238,10 @@ router.get("/apk-meta/:slug?", async (req: Request, res: Response) => {
     console.error("Get APK meta error:", error);
     res.status(500).json({ error: "فشل استرجاع بيانات التطبيق" });
   }
-});
+};
+
+router.get("/apk-meta", getApkMetaHandler);
+router.get("/apk-meta/:slug", getApkMetaHandler);
 
 // 0. استعراض البانرات الإعلانية الترويجية
 router.get("/banners", async (_req: Request, res: Response) => {
