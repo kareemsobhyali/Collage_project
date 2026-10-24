@@ -68,7 +68,9 @@ import {
   LifeBuoy,
   MessageCircle,
   Flame,
-  Zap
+  Zap,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 
 
@@ -8897,193 +8899,480 @@ export const AdminPage: React.FC = () => {
       )}
 
       {/* E. Order Details Modal */}
-      {selectedOrderDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <h3 className="font-black text-lg text-slate-900">تفاصيل الطلب #{selectedOrderDetails.orderNumber}</h3>
-                <span className="text-xs text-purple-400 bg-purple-50 px-2 py-0.5 rounded-md">
-                  {selectedOrderDetails.branch?.name}
-                </span>
-              </div>
-              <button onClick={() => setSelectedOrderDetails(null)} className="text-slate-500 hover:text-slate-900">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {selectedOrderDetails && (() => {
+        const getStatusBadge = (st: string) => {
+          switch (st) {
+            case 'PENDING':
+              return { label: 'طلب جديد', color: 'bg-amber-50 text-amber-700 border-amber-200' };
+            case 'ACCEPTED':
+              return { label: 'تم القبول', color: 'bg-blue-50 text-blue-700 border-blue-200' };
+            case 'PREPARING':
+              return { label: 'جاري التحضير', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+            case 'READY':
+              return { label: 'جاهز للتسليم', color: 'bg-purple-50 text-purple-700 border-purple-200' };
+            case 'COMPLETED':
+              return { label: 'مكتمل ومسلّم', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+            case 'REJECTED':
+              return { label: 'مرفوض / ملغي', color: 'bg-rose-50 text-rose-700 border-rose-200' };
+            default:
+              return { label: st, color: 'bg-slate-100 text-slate-700 border-slate-200' };
+          }
+        };
 
-            {/* Student & Location */}
-            <div className="p-3 bg-slate-50 rounded-xl space-y-1 text-xs border border-slate-200">
-              <div className="flex justify-between">
-                <span className="text-slate-500">الطالب:</span>
-                <span className="font-bold text-slate-900">{selectedOrderDetails.customerName}</span>
-              </div>
-              <div className="flex justify-between font-mono">
-                <span className="text-slate-500">الهاتف:</span>
-                <span className="text-slate-800">{selectedOrderDetails.customerPhone}</span>
-              </div>
-              {selectedOrderDetails.addressText && (
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">المكان بالجامعة:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-amber-800 font-bold">{cleanAddressText(selectedOrderDetails.addressText)}</span>
-                    {(() => {
-                      const coords = extractCoordinatesFromAddress(selectedOrderDetails.addressText);
-                      if (coords) {
-                        return (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              openExternalLink(`https://www.google.com/maps?q=${coords.lat},${coords.lng}`);
-                            }}
-                            className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded text-[11px] font-bold border border-cyan-500/30 inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>🗺️ الخريطة</span>
-                          </button>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">طريقة الدفع:</span>
-                <span className="font-bold text-amber-800">
-                  {selectedOrderDetails.paymentMethod === 'VODAFONE_CASH'
-                    ? '📱 فودافون كاش / محفظة'
-                    : selectedOrderDetails.paymentMethod === 'INSTAPAY'
-                    ? '⚡ إنستاباي'
-                    : selectedOrderDetails.paymentMethod === 'CARD'
-                    ? '💳 بطاقة بنكية'
-                    : '💵 كاش'}
-                </span>
-              </div>
-              {selectedOrderDetails.paymentSenderPhone && (
-                <div className="flex justify-between items-center pt-1 border-t border-slate-200">
-                  <span className="text-slate-500">رقم / حساب المحوّل منه:</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-black text-amber-400 dir-ltr">{selectedOrderDetails.paymentSenderPhone}</span>
-                    <a
-                      href={`https://wa.me/20${selectedOrderDetails.paymentSenderPhone.replace(/\D/g, '').replace(/^20/, '')}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-[10px] font-bold"
-                      title="مراسلة عبر واتساب"
-                    >
-                      واتساب
-                    </a>
-                  </div>
-                </div>
-              )}
-              {selectedOrderDetails.paymentProofUrl && (
-                <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">إيصال التحويل:</span>
-                    <a
-                      href={getFullImageUrl(selectedOrderDetails.paymentProofUrl)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-indigo-400 hover:text-indigo-700 text-[11px] underline font-bold"
-                    >
-                      فتح بحجم كامل ↗
-                    </a>
-                  </div>
-                  <div className="rounded-lg overflow-hidden border border-slate-200 bg-white max-h-56 flex items-center justify-center p-1">
-                    <img
-                      src={getFullImageUrl(selectedOrderDetails.paymentProofUrl)}
-                      alt="إيصال التحويل"
-                      className="max-h-52 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity rounded"
-                      onClick={() => window.open(getFullImageUrl(selectedOrderDetails.paymentProofUrl), '_blank')}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+        const statusBadge = getStatusBadge(selectedOrderDetails.status);
+        const subtotalAmount = selectedOrderDetails.subtotal ?? (selectedOrderDetails.items?.reduce((sum: number, it: any) => sum + (it.totalPrice || 0), 0) || 0);
+        const hasPromoDiscount = (selectedOrderDetails.discount && selectedOrderDetails.discount > 0) || Boolean(selectedOrderDetails.promoCode);
+        const hasWalletDiscount = selectedOrderDetails.walletDiscount && selectedOrderDetails.walletDiscount > 0;
+        const hasPointsEarned = selectedOrderDetails.pointsEarned && selectedOrderDetails.pointsEarned > 0;
 
-            {/* Stage Timings Breakdown in Admin Details Modal */}
-            <div className="p-3 bg-slate-50 rounded-xl space-y-2 text-xs border border-slate-200">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 border-b border-slate-200 pb-1.5">
-                <span className="flex items-center gap-1 text-purple-700">
-                  <Timer className="w-3.5 h-3.5" />
-                  <span>سجل توقيت مراحل الطلب</span>
-                </span>
-                {selectedOrderDetails.completedAt && (
-                  <span className="text-[10px] text-emerald-400 font-mono">
-                    إجمالي: {Math.max(0, Math.round((new Date(selectedOrderDetails.completedAt).getTime() - new Date(selectedOrderDetails.createdAt).getTime()) / 60000))} دقيقة
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 sm:p-4 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+            <div className="bg-white border border-slate-200/90 rounded-3xl w-full max-w-lg my-auto shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-5 pb-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+                <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                  <span className="font-mono font-black text-sm sm:text-base text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-xl shrink-0">
+                    #{selectedOrderDetails.orderNumber}
                   </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-[10px]">
-                <div className="p-2 bg-white rounded-lg space-y-0.5">
-                  <span className="text-slate-500 block">وقت إنشاء الطلب:</span>
-                  <span className="font-mono text-slate-900 font-bold">
-                    {new Date(selectedOrderDetails.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-
-                <div className="p-2 bg-white rounded-lg space-y-0.5">
-                  <span className="text-slate-500 block">وقت قبول المطعم:</span>
-                  <span className="font-mono text-slate-900 font-bold">
-                    {selectedOrderDetails.acceptedAt
-                      ? new Date(selectedOrderDetails.acceptedAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
-                      : 'بانتظار القبول'}
-                  </span>
-                </div>
-
-                <div className="p-2 bg-white rounded-lg space-y-0.5">
-                  <span className="text-slate-500 block">وقت الجاهزية / خروج:</span>
-                  <span className="font-mono text-slate-900 font-bold">
-                    {selectedOrderDetails.readyAt
-                      ? new Date(selectedOrderDetails.readyAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
-                      : 'قيد التحضير'}
-                  </span>
-                </div>
-
-                <div className="p-2 bg-white rounded-lg space-y-0.5">
-                  <span className="text-slate-500 block">وقت التسليم النهائي:</span>
-                  <span className="font-mono text-emerald-400 font-bold">
-                    {selectedOrderDetails.completedAt
-                      ? new Date(selectedOrderDetails.completedAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
-                      : 'لم يكتمل بعد'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Items */}
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-500 block">الأصناف المطلوبة:</span>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {selectedOrderDetails.items?.map((it: any) => (
-                  <div key={it.id} className="p-2.5 bg-slate-100 rounded-xl text-xs flex justify-between items-center">
-                    <div>
-                      <span className="font-black text-slate-900">{it.quantity}x {it.itemName}</span>
-                      {it.sizeName && <span className="text-purple-700 mr-1 font-mono">({it.sizeName})</span>}
+                  <div>
+                    <h3 className="font-black text-base sm:text-lg text-slate-900 leading-tight">
+                      تفاصيل الطلب
+                    </h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs font-bold text-slate-600 truncate">
+                        {selectedOrderDetails.branch?.name}
+                      </span>
+                      {selectedOrderDetails.orderType === 'PICKUP' ? (
+                        <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md">
+                          🥡 استلام من المطعم
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md">
+                          🛵 توصيل للحرم
+                        </span>
+                      )}
                     </div>
-                    <span className="font-mono font-bold text-slate-800">{it.totalPrice} ج.م</span>
                   </div>
-                ))}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${statusBadge.color}`}>
+                    {statusBadge.label}
+                  </span>
+                  <button 
+                    onClick={() => setSelectedOrderDetails(null)} 
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                    title="إغلاق"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Scrollable Body */}
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1 min-h-0 text-xs">
+                
+                {/* 1. Student & Delivery Card */}
+                <div className="p-3.5 sm:p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200/70">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm shrink-0">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-slate-500 text-[10px] block">اسم العميل:</span>
+                        <span className="font-black text-slate-900 text-sm block">{selectedOrderDetails.customerName}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <a 
+                        href={`tel:${selectedOrderDetails.customerPhone}`}
+                        className="px-2.5 py-1 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold font-mono transition-colors flex items-center gap-1 shadow-2xs"
+                        title="اتصال هاتفي"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-purple-600" />
+                        <span>{selectedOrderDetails.customerPhone}</span>
+                      </a>
+                      <a 
+                        href={`https://wa.me/20${selectedOrderDetails.customerPhone?.replace(/\D/g, '').replace(/^20/, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-7 h-7 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors shadow-2xs"
+                        title="مراسلة عبر واتساب"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Delivery Location */}
+                  {selectedOrderDetails.addressText && (
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-start gap-1.5 min-w-0">
+                        <MapPin className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-slate-500 text-[10px] block">المكان بالجامعة:</span>
+                          <span className="font-bold text-slate-800 leading-snug">
+                            {cleanAddressText(selectedOrderDetails.addressText)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const coords = extractCoordinatesFromAddress(selectedOrderDetails.addressText);
+                        if (coords) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                openExternalLink(`https://www.google.com/maps?q=${coords.lat},${coords.lng}`);
+                              }}
+                              className="px-2.5 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded-xl text-[11px] font-bold border border-sky-200 inline-flex items-center gap-1 transition-colors shrink-0 shadow-2xs cursor-pointer"
+                            >
+                              <span>🗺️ فتح الخريطة</span>
+                            </button>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Payment Method Details */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/70 text-xs">
+                    <span className="text-slate-500">طريقة الدفع:</span>
+                    <span className="font-bold inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs bg-white border border-slate-200 shadow-2xs text-slate-800">
+                      {selectedOrderDetails.paymentMethod === 'VODAFONE_CASH'
+                        ? '📱 فودافون كاش / محفظة'
+                        : selectedOrderDetails.paymentMethod === 'INSTAPAY'
+                        ? '⚡ إنستاباي'
+                        : selectedOrderDetails.paymentMethod === 'CARD'
+                        ? '💳 بطاقة بنكية'
+                        : '💵 كاش عند الاستلام'}
+                    </span>
+                  </div>
+
+                  {/* Payment Sender Phone */}
+                  {selectedOrderDetails.paymentSenderPhone && (
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-200/70">
+                      <span className="text-slate-500">رقم المحوّل منه:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-black text-amber-800 dir-ltr bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 text-xs">
+                          {selectedOrderDetails.paymentSenderPhone}
+                        </span>
+                        <a
+                          href={`https://wa.me/20${selectedOrderDetails.paymentSenderPhone.replace(/\D/g, '').replace(/^20/, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-bold"
+                          title="مراسلة عبر واتساب"
+                        >
+                          واتساب
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Payment Proof Receipt Image */}
+                  {selectedOrderDetails.paymentProofUrl && (
+                    <div className="pt-2 border-t border-slate-200/70 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-bold">إيصال التحويل الإلكتروني:</span>
+                        <a
+                          href={getFullImageUrl(selectedOrderDetails.paymentProofUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-purple-700 hover:text-purple-800 text-[11px] font-bold inline-flex items-center gap-1"
+                        >
+                          <span>فتح بحجم كامل</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                      <div className="rounded-xl overflow-hidden border border-slate-200 bg-white max-h-56 flex items-center justify-center p-1 shadow-2xs">
+                        <img
+                          src={getFullImageUrl(selectedOrderDetails.paymentProofUrl)}
+                          alt="إيصال التحويل"
+                          className="max-h-52 w-auto object-contain cursor-pointer hover:opacity-95 transition-opacity rounded-lg"
+                          onClick={() => window.open(getFullImageUrl(selectedOrderDetails.paymentProofUrl), '_blank')}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Assigned Driver (if any) */}
+                  {selectedOrderDetails.driver && (
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/70">
+                      <span className="text-slate-500 flex items-center gap-1">
+                        <Truck className="w-3.5 h-3.5 text-purple-600" />
+                        <span>كابتن التوصيل:</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800">{selectedOrderDetails.driver.name}</span>
+                        {selectedOrderDetails.driver.phone && (
+                          <a 
+                            href={`tel:${selectedOrderDetails.driver.phone}`} 
+                            className="text-purple-700 hover:text-purple-800 font-mono text-[11px] font-bold underline"
+                          >
+                            {selectedOrderDetails.driver.phone}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Customer Notes */}
+                  {selectedOrderDetails.notes && (
+                    <div className="p-2.5 bg-amber-50/90 border border-amber-200/90 rounded-xl text-amber-900 text-xs flex items-start gap-2">
+                      <span className="font-bold shrink-0">📝 ملاحظات:</span>
+                      <span className="leading-snug">{selectedOrderDetails.notes}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Order Timings Breakdown Card */}
+                <div className="p-3.5 sm:p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 border-b border-slate-200/70 pb-2">
+                    <span className="flex items-center gap-1.5 text-purple-700 font-black">
+                      <Timer className="w-4 h-4" />
+                      <span>سجل توقيت مراحل الطلب</span>
+                    </span>
+                    {selectedOrderDetails.completedAt && (
+                      <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-mono font-bold">
+                        المدة الإجمالية: {Math.max(0, Math.round((new Date(selectedOrderDetails.completedAt).getTime() - new Date(selectedOrderDetails.createdAt).getTime()) / 60000))} دقيقة
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl space-y-0.5 shadow-2xs">
+                      <span className="text-slate-500 text-[10px] block">وقت إنشاء الطلب</span>
+                      <span className="font-mono text-slate-900 font-black text-xs block">
+                        {new Date(selectedOrderDetails.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl space-y-0.5 shadow-2xs">
+                      <span className="text-slate-500 text-[10px] block">وقت قبول المطعم</span>
+                      <span className="font-mono text-slate-900 font-black text-xs block">
+                        {selectedOrderDetails.acceptedAt
+                          ? new Date(selectedOrderDetails.acceptedAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+                          : <span className="text-slate-400 font-sans font-normal">بانتظار القبول</span>}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl space-y-0.5 shadow-2xs">
+                      <span className="text-slate-500 text-[10px] block">وقت الجاهزية / خروج</span>
+                      <span className="font-mono text-slate-900 font-black text-xs block">
+                        {selectedOrderDetails.readyAt
+                          ? new Date(selectedOrderDetails.readyAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+                          : <span className="text-slate-400 font-sans font-normal">قيد التحضير</span>}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl space-y-0.5 shadow-2xs">
+                      <span className="text-slate-500 text-[10px] block">وقت التسليم النهائي</span>
+                      <span className="font-mono font-black text-xs block">
+                        {selectedOrderDetails.completedAt
+                          ? <span className="text-emerald-700">{new Date(selectedOrderDetails.completedAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</span>
+                          : <span className="text-slate-400 font-sans font-normal">لم يكتمل بعد</span>}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Items List */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span className="flex items-center gap-1.5">
+                      <ShoppingBag className="w-3.5 h-3.5 text-purple-600" />
+                      <span>الأصناف المطلوبة:</span>
+                    </span>
+                    <span className="text-slate-500 text-[11px] font-mono font-normal">
+                      ({selectedOrderDetails.items?.length || 0} صنف)
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar pr-0.5">
+                    {selectedOrderDetails.items?.map((it: any) => {
+                      let parsedModifiers = [];
+                      if (it.selectedModifiers) {
+                        try {
+                          parsedModifiers = typeof it.selectedModifiers === 'string' ? JSON.parse(it.selectedModifiers) : it.selectedModifiers;
+                        } catch (e) {}
+                      }
+
+                      return (
+                        <div key={it.id} className="p-3 bg-white border border-slate-200/80 rounded-xl text-xs flex justify-between items-start gap-3 shadow-2xs hover:border-slate-300 transition-colors">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="w-5 h-5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 font-black text-xs flex items-center justify-center shrink-0">
+                                {it.quantity}x
+                              </span>
+                              <span className="font-black text-slate-900">{it.itemName}</span>
+                              {it.sizeName && (
+                                <span className="text-purple-700 bg-purple-50/70 border border-purple-200/60 px-1.5 py-0.2 rounded text-[11px] font-mono">
+                                  {it.sizeName}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Modifiers / Addons */}
+                            {Array.isArray(parsedModifiers) && parsedModifiers.length > 0 && (
+                              <div className="text-[11px] text-slate-500 pr-7 space-y-0.5">
+                                {parsedModifiers.map((mod: any, mIdx: number) => (
+                                  <div key={mIdx} className="flex items-center gap-1">
+                                    <span className="text-slate-400">•</span>
+                                    <span>{mod.name || mod.title || mod}</span>
+                                    {mod.price ? <span className="text-slate-600 font-mono">(+{mod.price} ج.م)</span> : null}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Item Notes */}
+                            {it.notes && (
+                              <div className="text-[11px] text-amber-700 pr-7 font-sans">
+                                💬 {it.notes}
+                              </div>
+                            )}
+                          </div>
+
+                          <span className="font-mono font-black text-slate-900 text-xs shrink-0 whitespace-nowrap">
+                            {it.totalPrice} ج.م
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Financial Breakdown, Promo Coupons & Loyalty Points (طلب المستخدم الرئيسي) */}
+                <div className="p-3.5 sm:p-4 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 border-b border-slate-200/70 pb-2">
+                    <span className="flex items-center gap-1.5 text-purple-700 font-black">
+                      <Coins className="w-4 h-4" />
+                      <span>الحسابات والخصومات</span>
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-sans">
+                      تفصيل الفاتورة
+                    </span>
+                  </div>
+
+                  {/* Subtotal */}
+                  <div className="flex justify-between items-center text-xs text-slate-600">
+                    <span>قيمة الأصناف (المجموع الفرعي):</span>
+                    <span className="font-mono font-bold text-slate-800">{subtotalAmount} ج.م</span>
+                  </div>
+
+                  {/* Delivery Fee */}
+                  <div className="flex justify-between items-center text-xs text-slate-600">
+                    <span>رسوم التوصيل:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {(selectedOrderDetails.deliveryFee && selectedOrderDetails.deliveryFee > 0)
+                        ? `${selectedOrderDetails.deliveryFee} ج.م`
+                        : <span className="text-emerald-700 font-sans">مجاناً</span>}
+                    </span>
+                  </div>
+
+                  {/* Promo Code Discount */}
+                  {hasPromoDiscount && (
+                    <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 animate-fadeIn">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <span className="font-bold block">كوبون خصم مطبق:</span>
+                          {selectedOrderDetails.promoCode && (
+                            <span className="font-mono font-black bg-emerald-200/70 text-emerald-900 px-2 py-0.5 rounded-md border border-emerald-300 text-[11px] inline-block mt-0.5">
+                              {selectedOrderDetails.promoCode}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="font-mono font-black text-emerald-700 text-sm">
+                        - {selectedOrderDetails.discount || 0} ج.م
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Wallet / Points Discount */}
+                  {hasWalletDiscount && (
+                    <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 animate-fadeIn">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                        <div>
+                          <span className="font-bold block">خصم استبدال النقاط والمحفظة:</span>
+                          <span className="text-[10px] text-amber-700 block">تم خصم الرصيد من محفظة الطالب</span>
+                        </div>
+                      </div>
+                      <span className="font-mono font-black text-amber-700 text-sm">
+                        - {selectedOrderDetails.walletDiscount} ج.م
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Points Earned from Order */}
+                  {hasPointsEarned && (
+                    <div className="flex items-center justify-between text-[11px] p-2.5 rounded-xl bg-purple-50/80 border border-purple-200/70 text-purple-800">
+                      <div className="flex items-center gap-1.5">
+                        <Gift className="w-4 h-4 text-purple-600 shrink-0" />
+                        <span>نقاط ولاء مكتسبة من هذا الطلب:</span>
+                      </div>
+                      <span className="font-mono font-black text-purple-700 text-xs">
+                        +{selectedOrderDetails.pointsEarned} نقطة 🎁
+                      </span>
+                    </div>
+                  )}
+
+                  {/* If no promo or points discount */}
+                  {!hasPromoDiscount && !hasWalletDiscount && (
+                    <div className="text-[11px] text-slate-400 italic pt-0.5">
+                      لم يتم تطبيق أي كوبونات خصم أو نقاط ولاء على هذا الطلب.
+                    </div>
+                  )}
+
+                  {/* Final Total Banner */}
+                  <div className="mt-2 pt-2.5 border-t border-slate-200 flex justify-between items-center bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3.5 rounded-2xl shadow-md shadow-purple-600/20">
+                    <div>
+                      <span className="text-[11px] text-purple-200 block font-medium">المبلغ الإجمالي المستحق:</span>
+                      <span className="text-xs text-white font-black">صافي الحساب المطلوب تحصيله</span>
+                    </div>
+                    <span className="text-xl sm:text-2xl font-black font-mono text-white">
+                      {selectedOrderDetails.total} ج.م
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `📋 تفاصيل الطلب #${selectedOrderDetails.orderNumber}\nالفرع: ${selectedOrderDetails.branch?.name}\nالعميل: ${selectedOrderDetails.customerName} (${selectedOrderDetails.customerPhone})\nالمكان: ${cleanAddressText(selectedOrderDetails.addressText)}\nالمطلوب: ${selectedOrderDetails.total} ج.م`;
+                    navigator.clipboard.writeText(text);
+                    alert('تم نسخ ملخص الطلب بنجاح إلى الحافظة!');
+                  }}
+                  className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200 flex items-center gap-1.5 shadow-2xs active:scale-95"
+                >
+                  <Copy className="w-3.5 h-3.5 text-purple-600" />
+                  <span>نسخ الملخص</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrderDetails(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-black transition-all active:scale-95"
+                >
+                  إغلاق النافذة
+                </button>
               </div>
             </div>
-
-            {/* Total */}
-            <div className="p-3 bg-purple-50 border border-purple-200/50 rounded-xl flex justify-between items-center font-mono">
-              <span className="text-xs font-sans text-purple-700">الإجمالي الكلي:</span>
-              <span className="text-lg font-black text-slate-900">{selectedOrderDetails.total} ج.م</span>
-            </div>
-
-            <button
-              onClick={() => setSelectedOrderDetails(null)}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold"
-            >
-              إغلاق
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* D. Add Banner Modal */}
       {showAddBannerModal && (

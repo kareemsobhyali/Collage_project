@@ -627,6 +627,7 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
       where: whereClause,
       include: {
         branch: { select: { id: true, name: true, phone: true } },
+        driver: { select: { id: true, name: true, phone: true } },
         items: true,
       },
       orderBy: { createdAt: "desc" },
