@@ -2598,23 +2598,23 @@ export const AdminPage: React.FC = () => {
   // If not logged in, show Full-Screen Admin Login
   if (!adminUser) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-purple-600 selection:text-white">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 selection:bg-purple-600 selection:text-white">
+        <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-2xl">
           <div className="text-center mb-6">
             <div className="flex justify-center mb-3">
-              <Logo size="lg" lightText />
+              <Logo size="lg" />
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-950/80 border border-purple-800/60 rounded-full text-purple-300 text-xs font-bold mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 border border-purple-200 rounded-full text-purple-700 text-xs font-bold mb-2">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>لوحة الإدارة المركزية (Super Admin)</span>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               تسجيل دخول مدير المنظومة لإدارة الفروع، الطلبات، وطرق الدفع
             </p>
           </div>
 
           {loginError && (
-            <div className="mb-4 p-3 bg-rose-950/50 border border-rose-800 text-rose-300 rounded-xl text-xs flex items-center gap-2">
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
               <span>{loginError}</span>
             </div>
@@ -2622,7 +2622,7 @@ export const AdminPage: React.FC = () => {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">اسم المستخدم</label>
+              <label className="block text-xs font-bold text-slate-600 mb-1">اسم المستخدم</label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-500 absolute right-3.5 top-3" />
                 <input
@@ -2630,14 +2630,14 @@ export const AdminPage: React.FC = () => {
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="admin"
-                  className="w-full pr-10 pl-3 py-2.5 bg-slate-800/70 border border-slate-700 text-white rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full pr-10 pl-3 py-2.5 bg-slate-100 border border-slate-200 text-slate-900 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">كلمة المرور</label>
+              <label className="block text-xs font-bold text-slate-600 mb-1">كلمة المرور</label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute right-3.5 top-3" />
                 <input
@@ -2645,7 +2645,7 @@ export const AdminPage: React.FC = () => {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••"
-                  className="w-full pr-10 pl-3 py-2.5 bg-slate-800/70 border border-slate-700 text-white rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full pr-10 pl-3 py-2.5 bg-slate-100 border border-slate-200 text-slate-900 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
                   required
                 />
               </div>
@@ -2661,10 +2661,10 @@ export const AdminPage: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-6 pt-5 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+          <div className="mt-6 pt-5 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
             <button
               onClick={handleReturnToStudentStore}
-              className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors"
             >
               <ArrowRight className="w-4 h-4" />
               <span>العودة لشاشة متجر الطلاب</span>
@@ -2678,20 +2678,20 @@ export const AdminPage: React.FC = () => {
 
   // Logged-in Full-Screen Admin Dashboard
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
       {/* 1. Top Enterprise Header Bar */}
-      <header className="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-3 sm:px-8 py-2 sm:py-2.5 shadow-lg">
+      <header className="bg-white backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 px-3 sm:px-8 py-2 sm:py-2.5 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
           {/* Identity */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Logo size="sm" lightText />
-            <div className="hidden md:block h-6 w-px bg-slate-800 shrink-0"></div>
+            <Logo size="sm" />
+            <div className="hidden md:block h-6 w-px bg-slate-100 shrink-0"></div>
             <div className="hidden md:flex items-center gap-2 min-w-0">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-950 text-purple-300 border border-purple-800/60 whitespace-nowrap shrink-0">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap shrink-0">
                 لوحة الإدارة المركزية
               </span>
-              <span className="text-xs text-slate-400 truncate">
-                مرحباً، <span className="font-bold text-white">{adminUser.name}</span>
+              <span className="text-xs text-slate-500 truncate">
+                مرحباً، <span className="font-bold text-slate-900">{adminUser.name}</span>
               </span>
             </div>
           </div>
@@ -2701,7 +2701,7 @@ export const AdminPage: React.FC = () => {
             <button
               onClick={fetchDashboardData}
               disabled={loading}
-              className="h-8 sm:h-9 flex items-center gap-1.5 px-2.5 sm:px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-700 whitespace-nowrap shrink-0"
+              className="h-8 sm:h-9 flex items-center gap-1.5 px-2.5 sm:px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all border border-slate-200 whitespace-nowrap shrink-0"
               title="تحديث البيانات"
             >
               <RotateCw className={`w-3.5 h-3.5 shrink-0 ${loading ? 'animate-spin text-purple-400' : ''}`} />
@@ -2720,7 +2720,7 @@ export const AdminPage: React.FC = () => {
 
             <button
               onClick={handleLogout}
-              className="w-8 sm:w-9 h-8 sm:h-9 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors border border-slate-800 hover:border-rose-900/50 shrink-0"
+              className="w-8 sm:w-9 h-8 sm:h-9 flex items-center justify-center text-slate-500 hover:text-rose-400 hover:bg-rose-50 rounded-xl transition-colors border border-slate-200 hover:border-rose-200 shrink-0"
               title="تسجيل الخروج"
             >
               <Power className="w-4 h-4" />
@@ -2735,8 +2735,8 @@ export const AdminPage: React.FC = () => {
         {/* 2. Top Analytics Metric Cards (Only shown on Branches tab) */}
         {activeTab === 'BRANCHES' && stats && (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
-            <div className="p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+            <div className="p-3 sm:p-4 bg-white border border-slate-200 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-500 mb-1">
                 <span className="text-[11px] font-bold">الفروع النشطة</span>
                 <Building className="w-3.5 h-3.5 text-emerald-400/80 shrink-0" />
               </div>
@@ -2746,32 +2746,32 @@ export const AdminPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+            <div className="p-3 sm:p-4 bg-white border border-slate-200 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-500 mb-1">
                 <span className="text-[11px] font-bold">إجمالي الطلبات</span>
                 <ShoppingBag className="w-3.5 h-3.5 text-indigo-400/80 shrink-0" />
               </div>
               <span className="text-xl sm:text-2xl font-black text-indigo-400">{stats.totalOrders}</span>
             </div>
 
-            <div className="p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+            <div className="p-3 sm:p-4 bg-white border border-slate-200 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-500 mb-1">
                 <span className="text-[11px] font-bold">قيد التنفيذ</span>
                 <Clock className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
               </div>
               <span className="text-xl sm:text-2xl font-black text-amber-400 animate-pulse">{stats.pendingOrders ?? 0}</span>
             </div>
 
-            <div className="p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+            <div className="p-3 sm:p-4 bg-white border border-slate-200 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-500 mb-1">
                 <span className="text-[11px] font-bold">المبيعات</span>
                 <TrendingUp className="w-3.5 h-3.5 text-purple-400/80 shrink-0" />
               </div>
               <span className="text-xl sm:text-2xl font-black text-purple-400">{stats.totalSales} <span className="text-xs font-normal">ج.م</span></span>
             </div>
 
-            <div className="col-span-2 sm:col-span-1 p-3 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-xl sm:rounded-2xl flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-1 text-slate-400 mb-1">
+            <div className="col-span-2 sm:col-span-1 p-3 sm:p-4 bg-white border border-slate-200 rounded-xl sm:rounded-2xl flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-slate-500 mb-1">
                 <span className="text-[11px] font-bold">الطلاب المسجلين</span>
                 <Users className="w-3.5 h-3.5 text-sky-400/80 shrink-0" />
               </div>
@@ -2781,13 +2781,13 @@ export const AdminPage: React.FC = () => {
         )}
 
         {/* 3. Navigation Tabs Bar */}
-        <div className="hidden sm:block border-b border-slate-800 pb-2">
+        <div className="hidden sm:block border-b border-slate-200 pb-2">
           {/* Scroll Navigation Buttons for Desktop / Tablet */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => scrollTabs('right')}
-              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 shrink-0 shadow-sm transition-all active:scale-95"
+              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 shrink-0 shadow-sm transition-all active:scale-95"
               title="تمرير لليمين"
             >
               <ChevronRight className="w-4 h-4" />
@@ -2802,12 +2802,12 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'BRANCHES'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <Building className="w-4 h-4 shrink-0" />
                 <span>الفروع والمطاعم</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'BRANCHES' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'BRANCHES' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {branches.length}
                 </span>
               </button>
@@ -2817,12 +2817,12 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'ORDERS'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <ShoppingBag className="w-4 h-4 shrink-0" />
                 <span>مراقبة طلبات الحرم</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'ORDERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'ORDERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {orders.length}
                 </span>
               </button>
@@ -2832,12 +2832,12 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'FINANCE'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-1 ring-emerald-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <Coins className="w-4 h-4 shrink-0 text-emerald-400" />
                 <span>المالية والشيفتات</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'FINANCE' ? 'bg-emerald-800/80 text-white' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'FINANCE' ? 'bg-emerald-800/80 text-white' : 'bg-emerald-500/20 text-emerald-700'}`}>
                   جديد
                 </span>
               </button>
@@ -2847,12 +2847,12 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'DRIVERS'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <Truck className="w-4 h-4 shrink-0 text-indigo-400" />
                 <span>كباتن التوصيل (الطيارين)</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'DRIVERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'DRIVERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {drivers.length}
                 </span>
               </button>
@@ -2862,12 +2862,12 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'REVIEWS'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <Star className="w-4 h-4 shrink-0 text-amber-400 fill-amber-400" />
                 <span>تقييمات وآراء العملاء</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'REVIEWS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'REVIEWS' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {reviews.length}
                 </span>
               </button>
@@ -2877,12 +2877,12 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'STUDENTS'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <Users className="w-4 h-4 shrink-0" />
                 <span>دليل الطلاب</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'STUDENTS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'STUDENTS' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {students.length}
                 </span>
               </button>
@@ -2892,7 +2892,7 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'ANALYTICS'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <TrendingUp className="w-4 h-4 shrink-0" />
@@ -2904,12 +2904,12 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'BANNERS'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <ImageIcon className="w-4 h-4 shrink-0" />
                 <span>الإعلانات والبانرات</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'BANNERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'BANNERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {banners.length}
                 </span>
               </button>
@@ -2919,12 +2919,12 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'PROMOS'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <Tag className="w-4 h-4 shrink-0" />
                 <span>كوبونات الخصم</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'PROMOS' ? 'bg-purple-800/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'PROMOS' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {promos.length}
                 </span>
               </button>
@@ -2934,12 +2934,12 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'FLASH_DEALS'
                     ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md shadow-rose-600/25 ring-1 ring-rose-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <Flame className="w-4 h-4 shrink-0 text-amber-400 fill-amber-400 animate-pulse" />
                 <span>عروض الفلاش والبريك 🔥</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'FLASH_DEALS' ? 'bg-rose-900/80 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'FLASH_DEALS' ? 'bg-rose-900/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {flashDealsList.length}
                 </span>
               </button>
@@ -2949,7 +2949,7 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'WHATSAPP'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-1 ring-emerald-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <MessageSquare className="w-4 h-4 shrink-0 text-emerald-400" />
@@ -2964,7 +2964,7 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'SETTINGS'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <Settings className="w-4 h-4 shrink-0 text-purple-400" />
@@ -2976,7 +2976,7 @@ export const AdminPage: React.FC = () => {
                 className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
                   activeTab === 'SUPPORT'
                     ? 'bg-rose-600 text-white shadow-md shadow-rose-600/25 ring-1 ring-rose-400/40'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
                 }`}
               >
                 <Headphones className="w-4 h-4 shrink-0 text-rose-400" />
@@ -2992,7 +2992,7 @@ export const AdminPage: React.FC = () => {
             <button
               type="button"
               onClick={() => scrollTabs('left')}
-              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 shrink-0 shadow-sm transition-all active:scale-95"
+              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 shrink-0 shadow-sm transition-all active:scale-95"
               title="تمرير لليسار"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -3012,22 +3012,11 @@ export const AdminPage: React.FC = () => {
                   placeholder="ابحث باسم المطعم أو موقعه بالجامعة..."
                   value={branchSearch}
                   onChange={e => setBranchSearch(e.target.value)}
-                  className="w-full pr-10 pl-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full pr-10 pl-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Restaurant.apk')}
-                  className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all active:scale-95"
-                  title="تحميل تطبيق أندرويد APK مخصص لكاشير ومطبخ المطعم لاستقبال الطلبات الفورية"
-                >
-                  <Smartphone className="w-4 h-4 text-emerald-400" />
-                  <span className="hidden sm:inline">تحميل</span>
-                  <span>تطبيق كاشير المطاعم (APK)</span>
-                </button>
-
                 <button
                   onClick={() => setShowAddBranchModal(true)}
                   className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
@@ -3047,172 +3036,178 @@ export const AdminPage: React.FC = () => {
                 return (
                   <div
                     key={branch.id}
-                    className={`p-4 sm:p-5 rounded-2xl border transition-all bg-slate-900/70 shadow-sm ${
+                    className={`p-4 sm:p-5 rounded-2xl border transition-all bg-white shadow-xs hover:shadow-md hover:border-purple-300 flex flex-col justify-between ${
                       branch.isActive 
-                        ? 'border-slate-800 hover:border-slate-700' 
-                        : 'border-rose-950/40 bg-slate-950/40 opacity-80'
+                        ? 'border-slate-200/90' 
+                        : 'border-rose-200 bg-rose-50/20 opacity-80'
                     }`}
                   >
-                    {/* Header: Logo + Info + Actions */}
-                    <div className="flex items-start justify-between gap-3 mb-3.5">
-                      {/* Right Side: Logo & Info */}
-                      <div className="flex items-start gap-3 min-w-0 flex-1">
-                        {branch.logoUrl ? (
-                          <img
-                            src={getFullImageUrl(branch.logoUrl)}
-                            alt={branch.name}
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-700 shrink-0 bg-slate-800 shadow-sm"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-xl bg-purple-950/60 border border-purple-800/80 flex items-center justify-center text-purple-400 shrink-0">
-                            <Store className="w-6 h-6" />
-                          </div>
-                        )}
-
-                        <div className="min-w-0 flex-1">
-                          {/* Branch Title & Status Badge */}
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="font-black text-base text-white leading-tight">
-                              {branch.name}
-                            </h3>
-                            {branch.isActive ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 shrink-0">
-                                نشط
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800 shrink-0">
-                                معطل
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Slug pill - on its own clean line */}
-                          {branch.slug && (
-                            <div className="mb-1.5">
-                              <span 
-                                className="inline-block px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-purple-950/70 text-purple-300 border border-purple-800/80 whitespace-nowrap"
-                                dir="ltr"
-                              >
-                                ?branch={branch.slug}
-                              </span>
+                    <div>
+                      {/* Header: Logo + Info + Actions */}
+                      <div className="flex items-start justify-between gap-3 mb-3.5">
+                        {/* Right Side: Logo & Info */}
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          {branch.logoUrl ? (
+                            <img
+                              src={getFullImageUrl(branch.logoUrl)}
+                              alt={branch.name}
+                              className="w-13 h-13 rounded-2xl object-cover border border-slate-100 shrink-0 bg-slate-50 shadow-xs"
+                            />
+                          ) : (
+                            <div className="w-13 h-13 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0 shadow-xs">
+                              <Store className="w-6 h-6" />
                             </div>
                           )}
 
-                          {/* Address and Phone */}
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
-                            {branch.address && (
-                              <span className="flex items-center gap-1 min-w-0">
-                                <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                <span className="truncate max-w-[200px]">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
-                              </span>
+                          <div className="min-w-0 flex-1">
+                            {/* Branch Title & Status Badge */}
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <h3 className="font-black text-base text-slate-900 leading-tight">
+                                {branch.name}
+                              </h3>
+                              {branch.isActive ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  نشط
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                  معطل
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Slug pill */}
+                            {branch.slug && (
+                              <div className="mb-1.5">
+                                <span 
+                                  className="inline-block px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200/80 whitespace-nowrap shadow-2xs"
+                                  dir="ltr"
+                                >
+                                  ?branch={branch.slug}
+                                </span>
+                              </div>
                             )}
-                            {branch.phone && (
-                              <a 
-                                href={`tel:${branch.phone}`} 
-                                className="flex items-center gap-1 font-mono hover:text-purple-300 transition-colors shrink-0"
-                              >
-                                <Phone className="w-3.5 h-3.5 text-slate-500" />
-                                <span>{branch.phone}</span>
-                              </a>
-                            )}
+
+                            {/* Address and Phone */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                              {branch.address && (
+                                <span className="flex items-center gap-1 min-w-0">
+                                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                  <span className="truncate max-w-[200px]">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
+                                </span>
+                              )}
+                              {branch.phone && (
+                                <a 
+                                  href={`tel:${branch.phone}`} 
+                                  className="flex items-center gap-1 font-mono font-semibold text-slate-600 hover:text-purple-600 transition-colors shrink-0"
+                                >
+                                  <Phone className="w-3.5 h-3.5 text-slate-500" />
+                                  <span>{branch.phone}</span>
+                                </a>
+                              )}
+                            </div>
                           </div>
+                        </div>
+
+                        {/* Left Side: Header Controls (Toggle Active + Delete) */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleToggleStatus(branch.id, branch.isActive)}
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                              branch.isActive
+                                ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200'
+                                : 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200'
+                            }`}
+                            title={branch.isActive ? 'إيقاف الفرع مؤقتاً' : 'تفعيل الفرع'}
+                          >
+                            <Power className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteBranch(branch)}
+                            className="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-200 transition-colors"
+                            title="حذف الفرع"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
 
-                      {/* Left Side: Header Controls (Toggle Active + Delete) */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          onClick={() => handleToggleStatus(branch.id, branch.isActive)}
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                            branch.isActive
-                              ? 'bg-emerald-950/60 text-emerald-400 hover:bg-emerald-900 border border-emerald-800'
-                              : 'bg-rose-950/60 text-rose-400 hover:bg-rose-900 border border-rose-800'
-                          }`}
-                          title={branch.isActive ? 'إيقاف الفرع مؤقتاً' : 'تفعيل الفرع'}
-                        >
-                          <Power className="w-4 h-4" />
-                        </button>
+                      {/* Meta info grid */}
+                      <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50 rounded-xl text-xs mb-3 font-mono border border-slate-100">
+                        <div className="bg-white p-2 rounded-lg border border-slate-200/70 shadow-2xs">
+                          <span className="text-slate-500 block text-[11px] font-sans mb-0.5">رسوم التوصيل:</span>
+                          <span className="font-bold text-slate-900">{branch.deliveryFee} ج.م</span>
+                        </div>
+                        <div className="bg-white p-2 rounded-lg border border-slate-200/70 shadow-2xs">
+                          <span className="text-slate-500 block text-[11px] font-sans mb-0.5">يوزر الديسكتوب:</span>
+                          <span className="font-bold text-purple-700 truncate block">{user?.username || 'غير معين'}</span>
+                        </div>
+                      </div>
 
-                        <button
-                          onClick={() => handleDeleteBranch(branch)}
-                          className="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl border border-transparent hover:border-rose-900 transition-colors"
-                          title="حذف الفرع"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      {/* Payment methods badges */}
+                      <div className="flex flex-wrap items-center gap-1.5 mb-3.5 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                        <span className="text-[11px] text-slate-500 font-bold ml-1 shrink-0">طرق الدفع:</span>
+                        {payment?.cashEnabled && (
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] bg-white text-slate-700 font-bold border border-slate-200 shadow-2xs">
+                            كاش
+                          </span>
+                        )}
+                        {payment?.vodafoneCashEnabled && (
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] bg-rose-50 text-rose-700 font-bold border border-rose-200">
+                            فودافون كاش
+                          </span>
+                        )}
+                        {payment?.instapayEnabled && (
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
+                            إنستاباي
+                          </span>
+                        )}
+                        {payment?.cardEnabled && (
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                            فيزا/بطاقة
+                          </span>
+                        )}
+                        {!payment?.cashEnabled && !payment?.vodafoneCashEnabled && !payment?.instapayEnabled && !payment?.cardEnabled && (
+                          <span className="text-[10px] text-slate-500 italic">لم تحدد بعد</span>
+                        )}
                       </div>
                     </div>
 
-                    {/* Meta info grid */}
-                    <div className="grid grid-cols-2 gap-2 p-2.5 sm:p-3 bg-slate-950/60 rounded-xl text-xs mb-3 font-mono border border-slate-900">
-                      <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
-                        <span className="text-slate-500 block text-[10px] font-sans mb-0.5">رسوم التوصيل:</span>
-                        <span className="font-bold text-slate-200">{branch.deliveryFee} ج.م</span>
-                      </div>
-                      <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
-                        <span className="text-slate-500 block text-[10px] font-sans mb-0.5">يوزر الديسكتوب:</span>
-                        <span className="font-bold text-purple-400 truncate block">{user?.username || 'غير معين'}</span>
-                      </div>
-                    </div>
-
-                    {/* Payment methods badges */}
-                    <div className="flex flex-wrap items-center gap-1.5 mb-3.5 bg-slate-950/40 p-2 rounded-xl border border-slate-900/60">
-                      <span className="text-[10px] text-slate-500 font-bold ml-1 shrink-0">طرق الدفع:</span>
-                      {payment?.cashEnabled && (
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] bg-slate-800 text-slate-300 font-bold">
-                          كاش
-                        </span>
-                      )}
-                      {payment?.vodafoneCashEnabled && (
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] bg-rose-950 text-rose-300 font-bold border border-rose-900">
-                          فودافون كاش
-                        </span>
-                      )}
-                      {payment?.instapayEnabled && (
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] bg-indigo-950 text-indigo-300 font-bold border border-indigo-900">
-                          إنستاباي
-                        </span>
-                      )}
-                      {payment?.cardEnabled && (
-                        <span className="px-2 py-0.5 rounded-lg text-[10px] bg-emerald-950 text-emerald-300 font-bold border border-emerald-900">
-                          فيزا/بطاقة
-                        </span>
-                      )}
-                      {!payment?.cashEnabled && !payment?.vodafoneCashEnabled && !payment?.instapayEnabled && !payment?.cardEnabled && (
-                        <span className="text-[10px] text-slate-600 italic">لم تحدد بعد</span>
-                      )}
-                    </div>
-
-                    {/* Action buttons (Clean responsive grid) */}
-                    <div className="pt-3 border-t border-slate-800">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {/* Action buttons (Clean responsive layout) */}
+                    <div className="pt-3 border-t border-slate-100 space-y-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => handleOpenEditBranch(branch)}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+                          className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95 border border-slate-200/80 shadow-2xs"
                           title="تعديل بيانات الفرع"
                         >
-                          <Edit2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                          <Edit2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                           <span>تعديل</span>
                         </button>
 
                         <button
                           onClick={() => handleOpenPaymentSettings(branch)}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+                          className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-bold transition-all active:scale-95 border border-amber-200/80 shadow-2xs"
                           title="تخصيص طرق الدفع"
                         >
-                          <CreditCard className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <CreditCard className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                           <span>طرق الدفع</span>
                         </button>
 
                         <button
                           onClick={() => handleOpenCredentials(branch)}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+                          className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-xl text-xs font-bold transition-all active:scale-95 border border-purple-200/80 shadow-2xs"
                           title="تغيير يوزر وباسورد الديسكتوب"
                         >
-                          <Key className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                          <span>دخول الديسكتوب</span>
+                          <Key className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                          <span>الديسكتوب</span>
                         </button>
+                      </div>
 
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => {
                             const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -3220,11 +3215,11 @@ export const AdminPage: React.FC = () => {
                             navigator.clipboard.writeText(link);
                             alert(`تم نسخ رابط الطلب المباشر لمطعم (${branch.name}) بنجاح:\n${link}`);
                           }}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-950/70 hover:bg-purple-900/80 text-purple-300 border border-purple-800/80 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-2xs"
                           title="نسخ الرابط المباشر للمطعم لمشاركته على السوشيال ميديا أو وضعه في بانر"
                         >
-                          <Share2 className="w-3.5 h-3.5 shrink-0" />
-                          <span>رابط مباشر</span>
+                          <Share2 className="w-3.5 h-3.5 shrink-0 text-purple-600" />
+                          <span>رابط مباشر للمطعم</span>
                         </button>
 
                         <button
@@ -3234,10 +3229,10 @@ export const AdminPage: React.FC = () => {
                             navigator.clipboard.writeText(apkLink);
                             alert(`تم نسخ رابط صفحة تثبيت تطبيق (${branch.name}) بنجاح:\n${apkLink}`);
                           }}
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/80 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-2xs"
                           title="نسخ رابط صفحة تثبيت التطبيق المخصصة للمطعم (لوجو وبيانات التطبيق)"
                         >
-                          <Smartphone className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+                          <Smartphone className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
                           <span>صفحة التثبيت (APK)</span>
                         </button>
                       </div>
@@ -3253,9 +3248,9 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'ORDERS' && (
           <div className="space-y-4">
             {/* Filter Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/60 p-3 sm:p-4 rounded-2xl border border-slate-800">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200">
               <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1 w-full sm:w-auto">
-                <span className="text-xs text-slate-400 font-bold ml-1 shrink-0">الحالة:</span>
+                <span className="text-xs text-slate-500 font-bold ml-1 shrink-0">الحالة:</span>
                 {['ALL', 'PENDING', 'PREPARING', 'READY', 'COMPLETED', 'REJECTED'].map(st => (
                   <button
                     key={st}
@@ -3278,11 +3273,11 @@ export const AdminPage: React.FC = () => {
 
               {/* Branch Filter Button */}
               <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-                <span className="text-xs text-slate-400 font-bold shrink-0">الفرع:</span>
+                <span className="text-xs text-slate-500 font-bold shrink-0">الفرع:</span>
                 <button
                   type="button"
                   onClick={() => setShowOrderBranchSelectModal(true)}
-                  className="flex items-center justify-between gap-2 bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-purple-500 text-white text-xs font-bold rounded-xl px-3 py-2 transition-all shadow-sm max-w-[210px]"
+                  className="flex items-center justify-between gap-2 bg-slate-100 hover:bg-slate-100 border border-slate-200 hover:border-purple-500 text-slate-900 text-xs font-bold rounded-xl px-3 py-2 transition-all shadow-sm max-w-[210px]"
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
@@ -3292,27 +3287,27 @@ export const AdminPage: React.FC = () => {
                         : branches.find(b => b.id === orderBranchFilter)?.name || 'الفرع المحدد'}
                     </span>
                   </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 </button>
               </div>
             </div>
 
             {/* Orders Feed */}
             {filteredOrders.length === 0 ? (
-              <div className="p-12 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
+              <div className="p-12 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
                 <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <h4 className="text-sm font-bold text-slate-400">لا توجد طلبات تطابق الفلترة المحددة</h4>
+                <h4 className="text-sm font-bold text-slate-500">لا توجد طلبات تطابق الفلترة المحددة</h4>
               </div>
             ) : (
               <div className="space-y-3">
                 {filteredOrders.map(order => {
                   const statusColors: any = {
-                    PENDING: 'bg-amber-950 text-amber-300 border-amber-800',
-                    ACCEPTED: 'bg-blue-950 text-blue-300 border-blue-800',
-                    PREPARING: 'bg-indigo-950 text-indigo-300 border-indigo-800',
-                    READY: 'bg-purple-950 text-purple-300 border-purple-800',
-                    COMPLETED: 'bg-emerald-950 text-emerald-300 border-emerald-800',
-                    REJECTED: 'bg-rose-950 text-rose-300 border-rose-800',
+                    PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
+                    ACCEPTED: 'bg-blue-50 text-blue-700 border-blue-200',
+                    PREPARING: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                    READY: 'bg-purple-50 text-purple-700 border-purple-200',
+                    COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                    REJECTED: 'bg-rose-50 text-rose-700 border-rose-200',
                   };
 
                   const statusLabels: any = {
@@ -3327,12 +3322,12 @@ export const AdminPage: React.FC = () => {
                   return (
                     <div
                       key={order.id}
-                      className="p-3.5 sm:p-4 bg-slate-900/70 border border-slate-800 rounded-2xl hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
+                      className="p-3.5 sm:p-4 bg-white border border-slate-200 rounded-2xl hover:border-slate-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-black text-white text-base">#{order.orderNumber}</span>
-                          <span className="text-xs font-bold text-purple-400 bg-purple-950/60 px-2 py-0.5 rounded-lg border border-purple-900">
+                          <span className="font-mono font-black text-slate-900 text-base">#{order.orderNumber}</span>
+                          <span className="text-xs font-bold text-purple-400 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200">
                             {order.branch?.name}
                           </span>
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusColors[order.status] || 'bg-slate-800 text-slate-300'}`}>
@@ -3340,16 +3335,16 @@ export const AdminPage: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-400">
-                          <span className="font-bold text-slate-200">{order.customerName}</span>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-500">
+                          <span className="font-bold text-slate-800">{order.customerName}</span>
                           <a 
                             href={`tel:${order.customerPhone}`}
-                            className="font-mono text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1"
+                            className="font-mono text-purple-400 hover:text-purple-700 hover:underline flex items-center gap-1"
                           >
                             📞 {order.customerPhone}
                           </a>
                           {order.addressText && (
-                            <span className="text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md inline-flex items-center gap-1.5">
+                            <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1.5">
                               <span>📍 {cleanAddressText(order.addressText)}</span>
                               {(() => {
                                 const coords = extractCoordinatesFromAddress(order.addressText);
@@ -3375,7 +3370,7 @@ export const AdminPage: React.FC = () => {
                           <span className="text-slate-500 font-mono">
                             {new Date(order.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          <span className="text-slate-300 bg-slate-800/90 px-2 py-0.5 rounded-md font-mono flex items-center gap-1">
+                          <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md font-mono flex items-center gap-1">
                             <Timer className="w-3 h-3 text-amber-400" />
                             <span>
                               {order.completedAt
@@ -3386,7 +3381,7 @@ export const AdminPage: React.FC = () => {
                         </div>
 
                         {/* Items preview */}
-                        <div className="text-xs text-slate-400 font-mono">
+                        <div className="text-xs text-slate-500 font-mono">
                           {order.items?.map((it: any) => `${it.quantity}x ${it.itemName}${it.sizeName ? ` (${it.sizeName})` : ''}`).join(' • ')}
                         </div>
                       </div>
@@ -3394,8 +3389,8 @@ export const AdminPage: React.FC = () => {
                       {/* Right actions */}
                       <div className="flex sm:flex-col items-end justify-between sm:justify-center gap-2 shrink-0">
                         <div className="text-left">
-                          <span className="text-base font-black text-white font-mono">{order.total} ج.م</span>
-                          <span className="block text-[10px] text-slate-400">
+                          <span className="text-base font-black text-slate-900 font-mono">{order.total} ج.م</span>
+                          <span className="block text-[10px] text-slate-500">
                             {order.paymentMethod === 'CASH' && '💵 كاش'}
                             {order.paymentMethod === 'VODAFONE_CASH' && '📱 فودافون كاش'}
                             {order.paymentMethod === 'INSTAPAY' && '⚡ إنستاباي'}
@@ -3412,7 +3407,7 @@ export const AdminPage: React.FC = () => {
                                 setAdminCancellingOrder(order);
                                 setAdminCancelReason('المطعم مغلق حالياً');
                               }}
-                              className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 text-rose-300 text-xs font-bold rounded-lg border border-rose-800 transition-colors"
+                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-lg border border-rose-200 transition-colors"
                             >
                               إلغاء الطلب
                             </button>
@@ -3420,14 +3415,14 @@ export const AdminPage: React.FC = () => {
                           {order.status === 'READY' && (
                             <button
                               onClick={() => handleAdminUpdateOrderStatus(order.id, 'COMPLETED')}
-                              className="px-2.5 py-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 text-xs font-bold rounded-lg border border-emerald-800"
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200"
                             >
                               تسليم الطلب
                             </button>
                           )}
                           <button
                             onClick={() => setSelectedOrderDetails(order)}
-                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg"
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg"
                             title="تفاصيل الطلب الكاملة"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -3446,21 +3441,21 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'FINANCE' && (
           <div className="space-y-6">
             {/* 1. Header Bar with Title and Quick Excel Exports */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
                   <Coins className="w-6 h-6" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-black text-white">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900">
                       قسم الإدارة المالية وحسابات الشيفتات
                     </h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-400 border border-emerald-200">
                       محاسبة وإكسل
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     حساب مبيعات الفروع من موعد الفتح للإغلاق، ومتابعة عهدة كباتن التوصيل وأجرة التوصيل وصافي التوريد للإدارة
                   </p>
                 </div>
@@ -3472,7 +3467,7 @@ export const AdminPage: React.FC = () => {
                   type="button"
                   onClick={fetchFinanceReport}
                   disabled={financeLoading}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                  className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
                   title="تحديث البيانات المحاسبية"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${financeLoading ? 'animate-spin text-emerald-400' : ''}`} />
@@ -3480,12 +3475,12 @@ export const AdminPage: React.FC = () => {
                 </button>
 
                 {/* Export Dropdown / Buttons */}
-                <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+                <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
                   <button
                     type="button"
                     onClick={exportShiftsToExcel}
                     disabled={financeLoading || !financeReportData?.branchBreakdown?.length}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-300 border border-emerald-700/60 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
                     title="تصدير مبيعات وشيفتات الفروع لملف إكسل"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
@@ -3496,7 +3491,7 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={exportDriversToExcel}
                     disabled={financeLoading || !financeReportData?.driversBreakdown?.length}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-900/60 hover:bg-indigo-800/80 text-indigo-300 border border-indigo-700/60 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-900/60 hover:bg-indigo-800/80 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
                     title="تصدير كشف حساب وتصفية كباتن التوصيل لملف إكسل"
                   >
                     <Truck className="w-3.5 h-3.5 text-indigo-400" />
@@ -3507,7 +3502,7 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={exportAllOrdersToExcel}
                     disabled={financeLoading || !financeReportData?.orders?.length}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-900/60 hover:bg-purple-800/80 text-purple-300 border border-purple-700/60 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-900/60 hover:bg-purple-800/80 text-purple-700 border border-purple-200/60 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
                     title="تصدير كافة طلبات الفترة لملف إكسل"
                   >
                     <Download className="w-3.5 h-3.5 text-purple-400" />
@@ -3518,16 +3513,16 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {/* 2. Filter & Shift Control Box */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
               {/* Row 1: Branch Selection & Quick Presets */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                 {/* Branch Selection Custom Button */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400 whitespace-nowrap">المطعم / الفرع:</span>
+                  <span className="text-xs font-bold text-slate-500 whitespace-nowrap">المطعم / الفرع:</span>
                   <button
                     type="button"
                     onClick={() => setShowFinanceBranchSelectModal(true)}
-                    className="flex items-center justify-between gap-2 bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500 text-white text-xs font-bold rounded-xl px-3 py-2 transition-all shadow-sm"
+                    className="flex items-center justify-between gap-2 bg-slate-50 hover:bg-white border border-slate-200 hover:border-emerald-500 text-slate-900 text-xs font-bold rounded-xl px-3 py-2 transition-all shadow-sm"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Store className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -3537,12 +3532,12 @@ export const AdminPage: React.FC = () => {
                           : branches.find((b) => b.id === financeBranchFilter)?.name || 'الفرع المحدد'}
                       </span>
                     </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   </button>
                 </div>
 
                 {/* Quick Presets */}
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start md:self-auto overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 self-start md:self-auto overflow-x-auto no-scrollbar">
                   <button
                     type="button"
                     onClick={() => {
@@ -3550,7 +3545,7 @@ export const AdminPage: React.FC = () => {
                       setFinanceStartDate(`${today}T00:00`);
                       setFinanceEndDate(`${today}T23:59`);
                     }}
-                    className="px-2.5 py-1 text-xs font-bold text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap"
+                    className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap"
                   >
                     اليوم
                   </button>
@@ -3563,7 +3558,7 @@ export const AdminPage: React.FC = () => {
                       setFinanceStartDate(`${yest}T00:00`);
                       setFinanceEndDate(`${yest}T23:59`);
                     }}
-                    className="px-2.5 py-1 text-xs font-bold text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap"
+                    className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap"
                   >
                     أمس
                   </button>
@@ -3577,7 +3572,7 @@ export const AdminPage: React.FC = () => {
                       setFinanceStartDate(`${past7}T00:00`);
                       setFinanceEndDate(`${today}T23:59`);
                     }}
-                    className="px-2.5 py-1 text-xs font-bold text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap"
+                    className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap"
                   >
                     آخر 7 أيام
                   </button>
@@ -3590,7 +3585,7 @@ export const AdminPage: React.FC = () => {
                       setFinanceStartDate(`${firstDay}T00:00`);
                       setFinanceEndDate(`${today}T23:59`);
                     }}
-                    className="px-2.5 py-1 text-xs font-bold text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap"
+                    className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap"
                   >
                     هذا الشهر
                   </button>
@@ -3602,13 +3597,13 @@ export const AdminPage: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-3">
                   {/* From Date */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400 whitespace-nowrap">من تاريخ:</span>
+                    <span className="text-xs font-bold text-slate-500 whitespace-nowrap">من تاريخ:</span>
                     <div 
                       onClick={(e) => {
                         const inp = e.currentTarget.querySelector('input');
                         try { (inp as any)?.showPicker?.(); } catch(_) { inp?.focus(); }
                       }}
-                      className="relative flex items-center bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-2.5 py-1.5 focus-within:border-emerald-500 cursor-pointer"
+                      className="relative flex items-center bg-slate-50 border border-slate-200 hover:border-slate-200 rounded-xl px-2.5 py-1.5 focus-within:border-emerald-500 cursor-pointer"
                     >
                       <Calendar className="w-4 h-4 text-emerald-400 shrink-0 ml-1.5" />
                       <input
@@ -3623,20 +3618,20 @@ export const AdminPage: React.FC = () => {
                           try { (e.currentTarget as any).showPicker?.(); } catch (_) {}
                         }}
                         style={{ colorScheme: 'dark' }}
-                        className="bg-transparent text-white text-xs font-bold focus:outline-none font-mono cursor-pointer"
+                        className="bg-transparent text-slate-900 text-xs font-bold focus:outline-none font-mono cursor-pointer"
                       />
                     </div>
                   </div>
 
                   {/* To Date */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400 whitespace-nowrap">إلى تاريخ:</span>
+                    <span className="text-xs font-bold text-slate-500 whitespace-nowrap">إلى تاريخ:</span>
                     <div 
                       onClick={(e) => {
                         const inp = e.currentTarget.querySelector('input');
                         try { (inp as any)?.showPicker?.(); } catch(_) { inp?.focus(); }
                       }}
-                      className="relative flex items-center bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-2.5 py-1.5 focus-within:border-emerald-500 cursor-pointer"
+                      className="relative flex items-center bg-slate-50 border border-slate-200 hover:border-slate-200 rounded-xl px-2.5 py-1.5 focus-within:border-emerald-500 cursor-pointer"
                     >
                       <Calendar className="w-4 h-4 text-emerald-400 shrink-0 ml-1.5" />
                       <input
@@ -3651,18 +3646,18 @@ export const AdminPage: React.FC = () => {
                           try { (e.currentTarget as any).showPicker?.(); } catch (_) {}
                         }}
                         style={{ colorScheme: 'dark' }}
-                        className="bg-transparent text-white text-xs font-bold focus:outline-none font-mono cursor-pointer"
+                        className="bg-transparent text-slate-900 text-xs font-bold focus:outline-none font-mono cursor-pointer"
                       />
                     </div>
                   </div>
 
                   {/* Exact Hours Toggle */}
-                  <label className="flex items-center gap-2 cursor-pointer select-none bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-xs text-slate-300 font-bold hover:border-slate-700">
+                  <label className="flex items-center gap-2 cursor-pointer select-none bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-600 font-bold hover:border-slate-200">
                     <input
                       type="checkbox"
                       checked={financeShowExactHours}
                       onChange={(e) => setFinanceShowExactHours(e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700 cursor-pointer"
+                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-white border-slate-200 cursor-pointer"
                     />
                     <span>تحديد الساعات بدقة (بالوقت والدقائق) ⏱️</span>
                   </label>
@@ -3682,16 +3677,16 @@ export const AdminPage: React.FC = () => {
 
               {/* Timeframe Confirmation Notice */}
               {financeReportData?.timeframe && (
-                <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/80 gap-2">
+                <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-200 gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-emerald-400 font-bold">● الفترة النشطة المعتمدة:</span>
                     <span>
                       من{' '}
-                      <strong className="text-white">
+                      <strong className="text-slate-900">
                         {new Date(financeReportData.timeframe.start).toLocaleString('ar-EG')}
                       </strong>{' '}
                       إلى{' '}
-                      <strong className="text-white">
+                      <strong className="text-slate-900">
                         {new Date(financeReportData.timeframe.end).toLocaleString('ar-EG')}
                       </strong>
                     </span>
@@ -3705,21 +3700,21 @@ export const AdminPage: React.FC = () => {
 
             {/* Error Message if any */}
             {financeError && (
-              <div className="p-4 bg-rose-950/50 border border-rose-800 text-rose-300 rounded-2xl text-xs flex items-center gap-2">
+              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
                 <span>{financeError}</span>
               </div>
             )}
 
             {/* 3. Subtabs Bar */}
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto custom-scrollbar">
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
               <button
                 type="button"
                 onClick={() => setFinanceSubTab('OVERVIEW')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                   financeSubTab === 'OVERVIEW'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <TrendingUp className="w-4 h-4" />
@@ -3732,12 +3727,12 @@ export const AdminPage: React.FC = () => {
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                   financeSubTab === 'SHIFTS'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <Clock className="w-4 h-4" />
                 <span>مبيعات وشيفتات الفروع</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 font-mono">
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-600 font-mono">
                   {financeReportData?.branchBreakdown?.length || 0}
                 </span>
               </button>
@@ -3748,12 +3743,12 @@ export const AdminPage: React.FC = () => {
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                   financeSubTab === 'DRIVERS'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <Truck className="w-4 h-4" />
                 <span>حساب وتصفية الطيارين (الكباتن)</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-indigo-950 text-indigo-300 font-mono">
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-indigo-50 text-indigo-700 font-mono">
                   {financeReportData?.driversBreakdown?.length || 0}
                 </span>
               </button>
@@ -3764,12 +3759,12 @@ export const AdminPage: React.FC = () => {
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                   financeSubTab === 'ORDERS'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <ShoppingBag className="w-4 h-4" />
                 <span>سجل الطلبات المفصل</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-purple-950 text-purple-300 font-mono">
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-purple-50 text-purple-700 font-mono">
                   {financeReportData?.orders?.length || 0}
                 </span>
               </button>
@@ -3779,12 +3774,12 @@ export const AdminPage: React.FC = () => {
             {financeLoading ? (
               <div className="py-20 text-center">
                 <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-xs text-slate-400 font-bold">جاري تحميل وتجميع الحسابات المالية والشيفتات...</p>
+                <p className="text-xs text-slate-500 font-bold">جاري تحميل وتجميع الحسابات المالية والشيفتات...</p>
               </div>
             ) : !financeReportData ? (
-              <div className="py-16 text-center bg-slate-900/50 rounded-2xl border border-slate-800">
+              <div className="py-16 text-center bg-white rounded-2xl border border-slate-200">
                 <Coins className="w-12 h-12 text-slate-600 mx-auto mb-2" />
-                <p className="text-sm font-bold text-slate-300">لم يتم جلب أي بيانات حتى الآن</p>
+                <p className="text-sm font-bold text-slate-600">لم يتم جلب أي بيانات حتى الآن</p>
                 <p className="text-xs text-slate-500 mt-1">اضغط على زر "تطبيق الفلتر وعرض الحسابات" بالأعلى</p>
               </div>
             ) : (
@@ -3795,74 +3790,74 @@ export const AdminPage: React.FC = () => {
                     {/* Hero KPI Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {/* 1. Total Gross Sales */}
-                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-900 border border-emerald-800/60 shadow-lg">
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-white border border-emerald-200 shadow-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-bold text-emerald-400">إجمالي المبيعات الكلية</span>
                           <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                             <Coins className="w-4 h-4" />
                           </div>
                         </div>
-                        <div className="text-2xl font-black text-white font-mono">
+                        <div className="text-2xl font-black text-slate-900 font-mono">
                           {Number(financeReportData.summary?.totalGrossSales || 0).toFixed(2)}
                           <span className="text-xs font-bold text-emerald-400 mr-1.5">ج.م</span>
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between">
+                        <div className="text-[11px] text-slate-500 mt-2 flex items-center justify-between">
                           <span>الطلبات المكتملة:</span>
-                          <strong className="text-emerald-300 font-mono font-bold">
+                          <strong className="text-emerald-700 font-mono font-bold">
                             {financeReportData.summary?.completedOrdersCount || 0} طلب
                           </strong>
                         </div>
                       </div>
 
                       {/* 2. Total Food Net */}
-                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-950/60 via-slate-900 to-slate-900 border border-purple-800/60 shadow-lg">
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-50 via-white to-white border border-purple-200 shadow-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-bold text-purple-400">صافي مبيعات الوجبات (للمطاعم)</span>
                           <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
                             <Store className="w-4 h-4" />
                           </div>
                         </div>
-                        <div className="text-2xl font-black text-white font-mono">
+                        <div className="text-2xl font-black text-slate-900 font-mono">
                           {Number(financeReportData.summary?.totalFoodNet || 0).toFixed(2)}
                           <span className="text-xs font-bold text-purple-400 mr-1.5">ج.م</span>
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between">
+                        <div className="text-[11px] text-slate-500 mt-2 flex items-center justify-between">
                           <span>إيراد المطاعم باستثناء التوصيل</span>
                         </div>
                       </div>
 
                       {/* 3. Total Delivery Fees */}
-                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-indigo-950/60 via-slate-900 to-slate-900 border border-indigo-800/60 shadow-lg">
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-indigo-50 via-white to-white border border-indigo-200/60 shadow-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-bold text-indigo-400">إجمالي رسوم التوصيل</span>
                           <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                             <Truck className="w-4 h-4" />
                           </div>
                         </div>
-                        <div className="text-2xl font-black text-white font-mono">
+                        <div className="text-2xl font-black text-slate-900 font-mono">
                           {Number(financeReportData.summary?.totalDeliveryFees || 0).toFixed(2)}
                           <span className="text-xs font-bold text-indigo-400 mr-1.5">ج.م</span>
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between">
+                        <div className="text-[11px] text-slate-500 mt-2 flex items-center justify-between">
                           <span>مستحقات خدمة دليفري الحرم</span>
                         </div>
                       </div>
 
                       {/* 4. Cash Collected in Hand */}
-                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-950/60 via-slate-900 to-slate-900 border border-amber-800/60 shadow-lg">
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-50 via-white to-white border border-amber-200/60 shadow-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-bold text-amber-400">الكاش المحصل يدوياً</span>
                           <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
                             <Wallet className="w-4 h-4" />
                           </div>
                         </div>
-                        <div className="text-2xl font-black text-white font-mono">
+                        <div className="text-2xl font-black text-slate-900 font-mono">
                           {Number(financeReportData.paymentBreakdown?.CASH?.total || 0).toFixed(2)}
                           <span className="text-xs font-bold text-amber-400 mr-1.5">ج.م</span>
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between">
+                        <div className="text-[11px] text-slate-500 mt-2 flex items-center justify-between">
                           <span>مقابل إلكتروني:</span>
-                          <strong className="text-sky-300 font-mono font-bold">
+                          <strong className="text-sky-700 font-mono font-bold">
                             {(
                               Number(financeReportData.summary?.totalGrossSales || 0) -
                               Number(financeReportData.paymentBreakdown?.CASH?.total || 0)
@@ -3874,7 +3869,7 @@ export const AdminPage: React.FC = () => {
                     </div>
 
                     {/* Secondary Metrics Bar */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-slate-200">
                       <div>
                         <span className="text-[11px] text-slate-500 block">إجمالي الخصومات والكوبونات:</span>
                         <span className="text-sm font-bold text-rose-400 font-mono">
@@ -3890,7 +3885,7 @@ export const AdminPage: React.FC = () => {
                       </div>
                       <div>
                         <span className="text-[11px] text-slate-500 block">إجمالي طلبات الفترة:</span>
-                        <span className="text-sm font-bold text-white font-mono">
+                        <span className="text-sm font-bold text-slate-900 font-mono">
                           {financeReportData.summary?.totalOrdersCount || 0} طلب
                         </span>
                       </div>
@@ -3911,86 +3906,86 @@ export const AdminPage: React.FC = () => {
 
                     {/* Payment Methods Breakdown */}
                     <div className="space-y-3">
-                      <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                         <CreditCard className="w-4 h-4 text-emerald-400" />
                         <span>تفصيل التحصيل حسب طريقة الدفع</span>
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         {/* Cash */}
-                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                        <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-emerald-400">نقداً (كاش مع الطيار)</span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                               {financeReportData.paymentBreakdown?.CASH?.count || 0} طلب
                             </span>
                           </div>
-                          <div className="text-xl font-black text-white font-mono">
+                          <div className="text-xl font-black text-slate-900 font-mono">
                             {Number(financeReportData.paymentBreakdown?.CASH?.total || 0).toFixed(2)}{' '}
-                            <span className="text-xs text-slate-400 font-sans">ج.م</span>
+                            <span className="text-xs text-slate-500 font-sans">ج.م</span>
                           </div>
                           <div className="text-[10px] text-slate-500 flex justify-between">
                             <span>رسوم التوصيل المضمنة:</span>
-                            <span className="font-mono text-slate-300">
+                            <span className="font-mono text-slate-600">
                               {Number(financeReportData.paymentBreakdown?.CASH?.deliveryFees || 0).toFixed(2)} ج.م
                             </span>
                           </div>
                         </div>
 
                         {/* Vodafone Cash */}
-                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                        <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-rose-400">فودافون كاش</span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                               {financeReportData.paymentBreakdown?.VODAFONE_CASH?.count || 0} طلب
                             </span>
                           </div>
-                          <div className="text-xl font-black text-white font-mono">
+                          <div className="text-xl font-black text-slate-900 font-mono">
                             {Number(financeReportData.paymentBreakdown?.VODAFONE_CASH?.total || 0).toFixed(2)}{' '}
-                            <span className="text-xs text-slate-400 font-sans">ج.م</span>
+                            <span className="text-xs text-slate-500 font-sans">ج.م</span>
                           </div>
                           <div className="text-[10px] text-slate-500 flex justify-between">
                             <span>رسوم التوصيل المضمنة:</span>
-                            <span className="font-mono text-slate-300">
+                            <span className="font-mono text-slate-600">
                               {Number(financeReportData.paymentBreakdown?.VODAFONE_CASH?.deliveryFees || 0).toFixed(2)} ج.م
                             </span>
                           </div>
                         </div>
 
                         {/* InstaPay */}
-                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                        <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-indigo-400">إنستاباي (InstaPay)</span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                               {financeReportData.paymentBreakdown?.INSTAPAY?.count || 0} طلب
                             </span>
                           </div>
-                          <div className="text-xl font-black text-white font-mono">
+                          <div className="text-xl font-black text-slate-900 font-mono">
                             {Number(financeReportData.paymentBreakdown?.INSTAPAY?.total || 0).toFixed(2)}{' '}
-                            <span className="text-xs text-slate-400 font-sans">ج.م</span>
+                            <span className="text-xs text-slate-500 font-sans">ج.م</span>
                           </div>
                           <div className="text-[10px] text-slate-500 flex justify-between">
                             <span>رسوم التوصيل المضمنة:</span>
-                            <span className="font-mono text-slate-300">
+                            <span className="font-mono text-slate-600">
                               {Number(financeReportData.paymentBreakdown?.INSTAPAY?.deliveryFees || 0).toFixed(2)} ج.م
                             </span>
                           </div>
                         </div>
 
                         {/* Card */}
-                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                        <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-sky-400">فيزا / بطاقة إلكترونية</span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                               {financeReportData.paymentBreakdown?.CARD?.count || 0} طلب
                             </span>
                           </div>
-                          <div className="text-xl font-black text-white font-mono">
+                          <div className="text-xl font-black text-slate-900 font-mono">
                             {Number(financeReportData.paymentBreakdown?.CARD?.total || 0).toFixed(2)}{' '}
-                            <span className="text-xs text-slate-400 font-sans">ج.م</span>
+                            <span className="text-xs text-slate-500 font-sans">ج.م</span>
                           </div>
                           <div className="text-[10px] text-slate-500 flex justify-between">
                             <span>رسوم التوصيل المضمنة:</span>
-                            <span className="font-mono text-slate-300">
+                            <span className="font-mono text-slate-600">
                               {Number(financeReportData.paymentBreakdown?.CARD?.deliveryFees || 0).toFixed(2)} ج.م
                             </span>
                           </div>
@@ -4000,8 +3995,8 @@ export const AdminPage: React.FC = () => {
 
                     {/* Top Selling Meals in this Period */}
                     {financeReportData.topItems && financeReportData.topItems.length > 0 && (
-                      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
-                        <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-3">
+                        <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                           <ChefHat className="w-4 h-4 text-purple-400" />
                           <span>أعلى الوجبات طلباً ومبيعاً خلال هذه الفترة</span>
                         </h4>
@@ -4009,20 +4004,20 @@ export const AdminPage: React.FC = () => {
                           {financeReportData.topItems.map((item: any, idx: number) => (
                             <div
                               key={item.name}
-                              className="flex items-center justify-between p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs"
+                              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs"
                             >
                               <div className="flex items-center gap-2.5">
-                                <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold text-[11px] shrink-0 font-mono">
+                                <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-700 flex items-center justify-center font-bold text-[11px] shrink-0 font-mono">
                                   #{idx + 1}
                                 </span>
                                 <div>
-                                  <span className="font-black text-white block">{item.name}</span>
-                                  <span className="text-[10px] text-slate-400">
+                                  <span className="font-black text-slate-900 block">{item.name}</span>
+                                  <span className="text-[10px] text-slate-500">
                                     تم بيع <strong className="text-emerald-400 font-mono">{item.qty}</strong> وجبة
                                   </span>
                                 </div>
                               </div>
-                              <span className="font-mono font-bold text-white text-xs">
+                              <span className="font-mono font-bold text-slate-900 text-xs">
                                 {Number(item.revenue || 0).toFixed(2)} ج.م
                               </span>
                             </div>
@@ -4036,10 +4031,10 @@ export const AdminPage: React.FC = () => {
                 {/* SUBTAB 2: SHIFTS */}
                 {financeSubTab === 'SHIFTS' && (
                   <div className="space-y-4 animate-fadeIn">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl p-4">
                       <div>
-                        <h4 className="text-sm font-black text-white">تقرير شيفتات ومبيعات الفروع</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <h4 className="text-sm font-black text-slate-900">تقرير شيفتات ومبيعات الفروع</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
                           تجميع مبيعات كل فرع منفصلاً مع مواعيد الفتح والإغلاق، الكاش المحصل، والمبالغ الإلكترونية
                         </p>
                       </div>
@@ -4058,7 +4053,7 @@ export const AdminPage: React.FC = () => {
                       {financeReportData.branchBreakdown?.map((b: any) => (
                         <div
                           key={b.branchId}
-                          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4 shadow-md"
+                          className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4 shadow-md"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
@@ -4066,8 +4061,8 @@ export const AdminPage: React.FC = () => {
                                 <Store className="w-5 h-5" />
                               </div>
                               <div>
-                                <h3 className="font-black text-base text-white">{b.branchName}</h3>
-                                <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                                <h3 className="font-black text-base text-slate-900">{b.branchName}</h3>
+                                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                                   <Clock className="w-3.5 h-3.5 text-emerald-400" />
                                   <span>
                                     الشيفت الرسمي: {b.openingTime || '08:00'} ص إلى {b.closingTime || '22:00'} م
@@ -4082,7 +4077,7 @@ export const AdminPage: React.FC = () => {
                                 setFinanceBranchFilter(b.branchId);
                                 setFinanceShiftMode('SHIFT');
                               }}
-                              className="px-2.5 py-1 text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-colors"
+                              className="px-2.5 py-1 text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg border border-slate-200 transition-colors"
                               title="تخصيص الفلتر لهذا الفرع فقط"
                             >
                               عزل الفرع
@@ -4090,7 +4085,7 @@ export const AdminPage: React.FC = () => {
                           </div>
 
                           {/* Stats Grid */}
-                          <div className="grid grid-cols-2 gap-2 p-3 bg-slate-950/70 rounded-xl text-xs font-mono border border-slate-800/80">
+                          <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl text-xs font-mono border border-slate-200">
                             <div>
                               <span className="text-[10px] text-slate-500 font-sans block">إجمالي المبيعات:</span>
                               <span className="font-bold text-emerald-400 text-sm">
@@ -4111,14 +4106,14 @@ export const AdminPage: React.FC = () => {
                             </div>
                             <div>
                               <span className="text-[10px] text-slate-500 font-sans block">كاش / إلكتروني:</span>
-                              <span className="text-slate-300 font-bold">
+                              <span className="text-slate-600 font-bold">
                                 {Number(b.cashSales || 0).toFixed(0)} / {Number(b.electronicSales || 0).toFixed(0)} ج.م
                               </span>
                             </div>
                           </div>
 
                           {/* Footer Order Counts */}
-                          <div className="flex items-center justify-between text-[11px] pt-1 text-slate-400">
+                          <div className="flex items-center justify-between text-[11px] pt-1 text-slate-500">
                             <span>
                               الطلبات المكتملة:{' '}
                               <strong className="text-emerald-400 font-mono">{b.completedCount || 0}</strong>
@@ -4128,7 +4123,7 @@ export const AdminPage: React.FC = () => {
                               <strong className="text-rose-400 font-mono">{b.rejectedCount || 0}</strong>
                             </span>
                             <span>
-                              الإجمالي: <strong className="text-white font-mono">{b.totalOrders || 0}</strong>
+                              الإجمالي: <strong className="text-slate-900 font-mono">{b.totalOrders || 0}</strong>
                             </span>
                           </div>
                         </div>
@@ -4141,16 +4136,16 @@ export const AdminPage: React.FC = () => {
                 {financeSubTab === 'DRIVERS' && (
                   <div className="space-y-4 animate-fadeIn">
                     {/* Hero Settlement Ledger */}
-                    <div className="bg-gradient-to-r from-indigo-950/70 via-slate-900 to-purple-950/70 border border-indigo-700/50 rounded-2xl p-5 shadow-xl">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                    <div className="bg-gradient-to-r from-indigo-50 via-white to-purple-50 border border-indigo-700/50 rounded-2xl p-5 shadow-xl">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
                         <div>
                           <div className="flex items-center gap-2">
                             <Truck className="w-5 h-5 text-indigo-400" />
-                            <h4 className="text-base font-black text-white">
+                            <h4 className="text-base font-black text-slate-900">
                               كشف حسابات وتصفية عهدة كباتن التوصيل (الطيارين)
                             </h4>
                           </div>
-                          <p className="text-xs text-slate-400 mt-1">
+                          <p className="text-xs text-slate-500 mt-1">
                             حساب كل طيار: عدد الطلبات المسلمة، الكاش المحصل بيده من الزبائن، أجرة التوصيل المستحقة، وصافي النقد المطلوب توريده للإدارة
                           </p>
                         </div>
@@ -4168,13 +4163,13 @@ export const AdminPage: React.FC = () => {
                       {/* Cumulative Driver Metrics */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
                         <div>
-                          <span className="text-[11px] text-slate-400 block font-bold">إجمالي الكباتن النشطين:</span>
-                          <span className="text-xl font-black text-white font-mono">
+                          <span className="text-[11px] text-slate-500 block font-bold">إجمالي الكباتن النشطين:</span>
+                          <span className="text-xl font-black text-slate-900 font-mono">
                             {financeReportData.driversBreakdown?.length || 0} طيار
                           </span>
                         </div>
                         <div>
-                          <span className="text-[11px] text-slate-400 block font-bold">الكاش في يد الطيارين:</span>
+                          <span className="text-[11px] text-slate-500 block font-bold">الكاش في يد الطيارين:</span>
                           <span className="text-xl font-black text-amber-400 font-mono">
                             {financeReportData.driversBreakdown
                               ?.reduce((sum: number, d: any) => sum + (d.cashCollectedInHand || 0), 0)
@@ -4183,7 +4178,7 @@ export const AdminPage: React.FC = () => {
                           </span>
                         </div>
                         <div>
-                          <span className="text-[11px] text-slate-400 block font-bold">إجمالي أجرة التوصيل المستحقة:</span>
+                          <span className="text-[11px] text-slate-500 block font-bold">إجمالي أجرة التوصيل المستحقة:</span>
                           <span className="text-xl font-black text-indigo-400 font-mono">
                             {financeReportData.driversBreakdown
                               ?.reduce((sum: number, d: any) => sum + (d.totalDeliveryFeesEarned || 0), 0)
@@ -4192,7 +4187,7 @@ export const AdminPage: React.FC = () => {
                           </span>
                         </div>
                         <div>
-                          <span className="text-[11px] text-slate-400 block font-bold">صافي التوريد المطلوب للخزينة:</span>
+                          <span className="text-[11px] text-slate-500 block font-bold">صافي التوريد المطلوب للخزينة:</span>
                           <span className="text-xl font-black text-emerald-400 font-mono">
                             {financeReportData.driversBreakdown
                               ?.reduce((sum: number, d: any) => sum + (d.netCashToDeliver || 0), 0)
@@ -4208,7 +4203,7 @@ export const AdminPage: React.FC = () => {
                       {financeReportData.driversBreakdown?.map((d: any) => (
                         <div
                           key={d.driverId}
-                          className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5 shadow-md hover:border-slate-700/80 transition-all"
+                          className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 space-y-3.5 shadow-md hover:border-slate-200/80 transition-all"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -4217,24 +4212,24 @@ export const AdminPage: React.FC = () => {
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                                  <h3 className="font-black text-sm sm:text-base text-white leading-tight truncate">
+                                  <h3 className="font-black text-sm sm:text-base text-slate-900 leading-tight truncate">
                                     {d.driverName}
                                   </h3>
                                   {d.isActive ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 shrink-0">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-400 border border-emerald-200 shrink-0">
                                       نشط
                                     </span>
                                   ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 shrink-0">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 shrink-0">
                                       معطل
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400 font-mono">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 font-mono">
                                   {d.driverPhone && (
                                     <a
                                       href={`tel:${d.driverPhone}`}
-                                      className="flex items-center gap-1 hover:text-indigo-300 transition-colors shrink-0"
+                                      className="flex items-center gap-1 hover:text-indigo-700 transition-colors shrink-0"
                                     >
                                       <Phone className="w-3.5 h-3.5 text-slate-500" />
                                       <span>{d.driverPhone}</span>
@@ -4242,7 +4237,7 @@ export const AdminPage: React.FC = () => {
                                   )}
                                   {d.driverUsername && (
                                     <span
-                                      className="px-1.5 py-0.2 rounded-md bg-slate-800/80 text-slate-300 text-[10px] border border-slate-700/60 shrink-0"
+                                      className="px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-600 text-[10px] border border-slate-200 shrink-0"
                                       dir="ltr"
                                     >
                                       @{d.driverUsername}
@@ -4255,7 +4250,7 @@ export const AdminPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setSelectedDriverOrdersModal(d)}
-                              className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shrink-0 shadow-sm"
+                              className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-indigo-50 hover:bg-indigo-900 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shrink-0 shadow-sm"
                               title="عرض تفاصيل طلبات هذا الكابتن"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -4264,26 +4259,26 @@ export const AdminPage: React.FC = () => {
                           </div>
 
                           {/* Driver Financial Breakdown */}
-                          <div className="grid grid-cols-2 gap-2 p-2.5 sm:p-3 bg-slate-950/80 rounded-xl text-xs font-mono border border-slate-800/80">
-                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                          <div className="grid grid-cols-2 gap-2 p-2.5 sm:p-3 bg-slate-50 rounded-xl text-xs font-mono border border-slate-200">
+                            <div className="bg-white p-2 rounded-lg border border-slate-200">
                               <span className="text-[10px] text-slate-500 font-sans block mb-0.5">الطلبات المسلمة:</span>
-                              <span className="font-bold text-white text-sm">
+                              <span className="font-bold text-slate-900 text-sm">
                                 {d.deliveredOrdersCount || 0} طلب
                               </span>
                             </div>
-                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                            <div className="bg-white p-2 rounded-lg border border-slate-200">
                               <span className="text-[10px] text-slate-500 font-sans block mb-0.5">إجمالي قيمة الطلبات:</span>
-                              <span className="font-bold text-slate-200 text-sm">
+                              <span className="font-bold text-slate-800 text-sm">
                                 {Number(d.totalOrdersValue || 0).toFixed(2)} ج.م
                               </span>
                             </div>
-                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                            <div className="bg-white p-2 rounded-lg border border-slate-200">
                               <span className="text-[10px] text-slate-500 font-sans block mb-0.5">الكاش في يد الكابتن:</span>
                               <span className="font-bold text-amber-400 text-sm">
                                 {Number(d.cashCollectedInHand || 0).toFixed(2)} ج.م
                               </span>
                             </div>
-                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/40">
+                            <div className="bg-white p-2 rounded-lg border border-slate-200">
                               <span className="text-[10px] text-slate-500 font-sans block mb-0.5">أجرة التوصيل المستحقة:</span>
                               <span className="font-bold text-indigo-400 text-sm">
                                 {Number(d.totalDeliveryFeesEarned || 0).toFixed(2)} ج.م
@@ -4295,9 +4290,9 @@ export const AdminPage: React.FC = () => {
                           <div
                             className={`p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition-all ${
                               d.netCashToDeliver > 0
-                                ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300'
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                                 : d.netCashToDeliver < 0
-                                ? 'bg-sky-950/60 border-sky-800/80 text-sky-300'
+                                ? 'bg-sky-50 border-sky-200 text-sky-700'
                                 : 'bg-slate-950/80 border-slate-800 text-slate-400'
                             }`}
                           >
@@ -4324,10 +4319,10 @@ export const AdminPage: React.FC = () => {
                 {/* SUBTAB 4: ORDERS */}
                 {financeSubTab === 'ORDERS' && (
                   <div className="space-y-4 animate-fadeIn">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl p-4">
                       <div>
-                        <h4 className="text-sm font-black text-white">سجل كافة طلبات الفترة</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <h4 className="text-sm font-black text-slate-900">سجل كافة طلبات الفترة</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
                           عرض تفصيلي لـ {financeReportData.orders?.length || 0} طلب خلال الفترة المحددة مع إمكانية التصدير للإكسل
                         </p>
                       </div>
@@ -4343,10 +4338,10 @@ export const AdminPage: React.FC = () => {
                     </div>
 
                     {/* Orders Table */}
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-lg">
                       <div className="overflow-x-auto">
                         <table className="w-full text-right text-xs">
-                          <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 font-bold">
+                          <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 font-bold">
                             <tr>
                               <th className="py-3 px-4">رقم الطلب</th>
                               <th className="py-3 px-4">الفرع</th>
@@ -4360,16 +4355,16 @@ export const AdminPage: React.FC = () => {
                               <th className="py-3 px-4">التاريخ والوقت</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-800/60">
+                          <tbody className="divide-y divide-slate-200">
                             {financeReportData.orders?.map((ord: any) => (
-                              <tr key={ord.id} className="hover:bg-slate-800/30 transition-colors">
+                              <tr key={ord.id} className="hover:bg-slate-100/30 transition-colors">
                                 <td className="py-3 px-4 font-mono font-bold text-purple-400">
                                   #{ord.orderNumber}
                                 </td>
-                                <td className="py-3 px-4 font-bold text-white">{ord.branchName}</td>
+                                <td className="py-3 px-4 font-bold text-slate-900">{ord.branchName}</td>
                                 <td className="py-3 px-4">
-                                  <div className="font-bold text-white">{ord.customerName}</div>
-                                  <div className="text-[10px] text-slate-400">
+                                  <div className="font-bold text-slate-900">{ord.customerName}</div>
+                                  <div className="text-[10px] text-slate-500">
                                     {cleanAddressText(ord.addressText) || ord.deliveryZoneName || ord.customerPhone}
                                   </div>
                                 </td>
@@ -4377,12 +4372,12 @@ export const AdminPage: React.FC = () => {
                                   <span
                                     className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                                       ord.paymentMethod === 'CASH'
-                                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                        ? 'bg-emerald-50 text-emerald-400 border border-emerald-200'
                                         : ord.paymentMethod === 'VODAFONE_CASH'
-                                        ? 'bg-rose-950 text-rose-400 border border-rose-800'
+                                        ? 'bg-rose-50 text-rose-400 border border-rose-200'
                                         : ord.paymentMethod === 'INSTAPAY'
-                                        ? 'bg-indigo-950 text-indigo-400 border border-indigo-800'
-                                        : 'bg-sky-950 text-sky-400 border border-sky-800'
+                                        ? 'bg-indigo-50 text-indigo-400 border border-indigo-200'
+                                        : 'bg-sky-50 text-sky-400 border border-sky-200'
                                     }`}
                                   >
                                     {ord.paymentMethod === 'CASH' && 'كاش'}
@@ -4391,7 +4386,7 @@ export const AdminPage: React.FC = () => {
                                     {ord.paymentMethod === 'CARD' && 'فيزا'}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 font-mono text-slate-300">
+                                <td className="py-3 px-4 font-mono text-slate-600">
                                   {Number(ord.subtotal || 0).toFixed(2)}
                                 </td>
                                 <td className="py-3 px-4 font-mono text-indigo-400">
@@ -4404,10 +4399,10 @@ export const AdminPage: React.FC = () => {
                                   <span
                                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                       ord.status === 'COMPLETED'
-                                        ? 'bg-emerald-950 text-emerald-400'
+                                        ? 'bg-emerald-50 text-emerald-400'
                                         : ord.status === 'REJECTED'
-                                        ? 'bg-rose-950 text-rose-400'
-                                        : 'bg-amber-950 text-amber-400'
+                                        ? 'bg-rose-50 text-rose-400'
+                                        : 'bg-amber-50 text-amber-400'
                                     }`}
                                   >
                                     {ord.status === 'COMPLETED'
@@ -4417,10 +4412,10 @@ export const AdminPage: React.FC = () => {
                                       : 'قيد التنفيذ'}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-slate-300 font-bold">
+                                <td className="py-3 px-4 text-slate-600 font-bold">
                                   {ord.driverName || <span className="text-slate-500 font-normal">بدون طيار</span>}
                                 </td>
-                                <td className="py-3 px-4 text-[10px] text-slate-400 font-mono">
+                                <td className="py-3 px-4 text-[10px] text-slate-500 font-mono">
                                   {new Date(ord.createdAt).toLocaleTimeString('ar-EG', {
                                     hour: '2-digit',
                                     minute: '2-digit',
@@ -4444,19 +4439,19 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'REVIEWS' && (
           <div className="space-y-6">
             {/* Header with Title and Refresh */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 shadow-inner">
                   <Star className="w-5 h-5 fill-amber-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                     <span>تقييمات وآراء العملاء</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800/60 font-mono">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-mono">
                       {reviews.length} تقييم
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500">
                     متابعة آراء وملاحظات الطلاب على الطلبات والوجبات، والتعامل السريع مع ملاحظات الفروع
                   </p>
                 </div>
@@ -4467,7 +4462,7 @@ export const AdminPage: React.FC = () => {
                   type="button"
                   disabled={reviewsLoading}
                   onClick={fetchReviewsData}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                   title="تحديث قائمة التقييمات"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${reviewsLoading ? 'animate-spin text-purple-400' : ''}`} />
@@ -4479,16 +4474,16 @@ export const AdminPage: React.FC = () => {
             {/* Summary Metrics Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {/* Card 1: Average Rating */}
-              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-bold mb-2">
                   <span>متوسط التقييم العام</span>
                   <Award className="w-4 h-4 text-amber-400" />
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl sm:text-3xl font-black text-white font-mono">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
                     {reviewsStats.averageRating || (reviews.length > 0 ? (reviews.reduce((a: number, b: any) => a + (b.rating || 0), 0) / reviews.length).toFixed(1) : '5.0')}
                   </span>
-                  <span className="text-xs text-slate-400 font-mono">/ 5.0</span>
+                  <span className="text-xs text-slate-500 font-mono">/ 5.0</span>
                 </div>
                 <div className="mt-2 flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((s) => {
@@ -4507,36 +4502,36 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Card 2: Total Reviews */}
-              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-bold mb-2">
                   <span>إجمالي التقييمات</span>
                   <Star className="w-4 h-4 text-purple-400" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-white font-mono">
+                <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
                   {reviewsStats.totalReviews || reviews.length}
                 </div>
-                <span className="text-[11px] text-slate-400 mt-2 block">
+                <span className="text-[11px] text-slate-500 mt-2 block">
                   طلب تم تقييمه من قِبل الطلاب
                 </span>
               </div>
 
               {/* Card 3: Reviews with Written Feedback */}
-              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-bold mb-2">
                   <span>آراء وملاحظات مكتوبة</span>
                   <MessageSquare className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
                   {reviews.filter((r: any) => r.review && r.review.trim()).length}
                 </div>
-                <span className="text-[11px] text-slate-400 mt-2 block">
+                <span className="text-[11px] text-slate-500 mt-2 block">
                   تحتوي على تعليق نصي مفصل
                 </span>
               </div>
 
               {/* Card 4: Positive Satisfaction Rate */}
-              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-bold mb-2">
                   <span>نسبة الرضا العالي</span>
                   <ThumbsUp className="w-4 h-4 text-blue-400" />
                 </div>
@@ -4545,7 +4540,7 @@ export const AdminPage: React.FC = () => {
                     ? `${Math.round((reviews.filter((r: any) => (r.rating || 0) >= 4).length / reviews.length) * 100)}%`
                     : '100%'}
                 </div>
-                <div className="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
+                <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
                   <div
                     className="bg-blue-500 h-full rounded-full transition-all duration-500"
                     style={{
@@ -4557,8 +4552,8 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {/* Star Distribution Breakdown */}
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-300 pb-2 border-b border-slate-800/60">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-600 pb-2 border-b border-slate-200">
                 <span className="flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
                   <span>توزيع النجوم (اضغط على أي تقييم للفلترة السريعة):</span>
@@ -4566,7 +4561,7 @@ export const AdminPage: React.FC = () => {
                 {reviewRatingFilter !== 'ALL' && (
                   <button
                     onClick={() => setReviewRatingFilter('ALL')}
-                    className="text-[11px] text-purple-400 hover:text-purple-300 underline"
+                    className="text-[11px] text-purple-400 hover:text-purple-700 underline"
                   >
                     إلغاء فلترة النجوم
                   </button>
@@ -4586,18 +4581,18 @@ export const AdminPage: React.FC = () => {
                       onClick={() => setReviewRatingFilter(isSelected ? 'ALL' : String(stars))}
                       className={`p-2.5 rounded-xl border text-right transition-all flex flex-col justify-between gap-1.5 ${
                         isSelected
-                          ? 'bg-purple-950/80 border-purple-500 ring-1 ring-purple-400/30'
+                          ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-400/30'
                           : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
                       }`}
                     >
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-1">
-                          <span className="font-mono font-black text-xs text-white">{stars}</span>
+                          <span className="font-mono font-black text-xs text-slate-900">{stars}</span>
                           <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                         </div>
-                        <span className="text-[10px] font-mono text-slate-400">{count} ({pct}%)</span>
+                        <span className="text-[10px] font-mono text-slate-500">{count} ({pct}%)</span>
                       </div>
-                      <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+                      <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-300 ${
                             stars >= 4 ? 'bg-amber-400' : stars === 3 ? 'bg-amber-600' : 'bg-rose-500'
@@ -4621,7 +4616,7 @@ export const AdminPage: React.FC = () => {
                   placeholder="ابحث باسم العميل، الهاتف، رقم الطلب، أو كلمات في الرأي..."
                   value={reviewSearchQuery}
                   onChange={e => setReviewSearchQuery(e.target.value)}
-                  className="w-full pr-10 pl-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full pr-10 pl-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
@@ -4630,7 +4625,7 @@ export const AdminPage: React.FC = () => {
                 <select
                   value={reviewBranchFilter}
                   onChange={e => setReviewBranchFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="ALL">جميع المطاعم والفروع ({branches.length})</option>
                   {branches.map((b: any) => (
@@ -4644,7 +4639,7 @@ export const AdminPage: React.FC = () => {
                 <select
                   value={reviewRatingFilter}
                   onChange={e => setReviewRatingFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="ALL">جميع النجوم (الكل)</option>
                   <option value="5">⭐⭐⭐⭐⭐ 5 نجوم (ممتاز)</option>
@@ -4673,9 +4668,9 @@ export const AdminPage: React.FC = () => {
 
             {/* Results count & Active filters reset */}
             {(reviewBranchFilter !== 'ALL' || reviewRatingFilter !== 'ALL' || reviewOnlyWithText || reviewSearchQuery.trim()) && (
-              <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-900/40 px-3 py-2 rounded-xl border border-slate-800/40">
+              <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
                 <span>
-                  تم العثور على <strong className="text-white font-mono">{filteredReviews.length}</strong> تقييم مطابق للفلترة
+                  تم العثور على <strong className="text-slate-900 font-mono">{filteredReviews.length}</strong> تقييم مطابق للفلترة
                 </span>
                 <button
                   type="button"
@@ -4685,7 +4680,7 @@ export const AdminPage: React.FC = () => {
                     setReviewOnlyWithText(false);
                     setReviewSearchQuery('');
                   }}
-                  className="text-purple-400 hover:text-purple-300 font-bold"
+                  className="text-purple-400 hover:text-purple-700 font-bold"
                 >
                   إعادة ضبط الفلاتر ↺
                 </button>
@@ -4694,12 +4689,12 @@ export const AdminPage: React.FC = () => {
 
             {/* Reviews Grid */}
             {filteredReviews.length === 0 ? (
-              <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-amber-400/60">
+              <div className="text-center py-16 bg-white border border-slate-200 rounded-2xl p-8 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-amber-400/60">
                   <Star className="w-6 h-6" />
                 </div>
-                <h4 className="text-sm font-bold text-white">لا توجد تقييمات مطابقة</h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                <h4 className="text-sm font-bold text-slate-900">لا توجد تقييمات مطابقة</h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
                   لم يتم العثور على أي تقييمات تطابق معايير البحث والفلترة المحددة حالياً.
                 </p>
               </div>
@@ -4715,35 +4710,35 @@ export const AdminPage: React.FC = () => {
                   return (
                     <div
                       key={review.id}
-                      className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 hover:border-slate-700 transition-all shadow-sm space-y-3.5 flex flex-col justify-between"
+                      className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 hover:border-slate-200 transition-all shadow-sm space-y-3.5 flex flex-col justify-between"
                     >
                       {/* Section 1: Customer Profile & Rating Bar */}
-                      <div className="flex items-start justify-between gap-3 border-b border-slate-800/70 pb-3">
+                      <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-3">
                         {/* Customer Info */}
                         <div className="flex items-start gap-2.5">
-                          <div className="w-9 h-9 rounded-xl bg-purple-950/80 border border-purple-800/50 text-purple-300 flex items-center justify-center font-bold text-xs shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-200/50 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
                             {customerName.charAt(0)}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-black text-white">{customerName}</span>
+                              <span className="text-sm font-black text-slate-900">{customerName}</span>
                               {review.user?.isBlocked && (
-                                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-950 text-rose-300 border border-rose-800 font-bold">
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-50 text-rose-700 border border-rose-200 font-bold">
                                   محظور 🚫
                                 </span>
                               )}
                             </div>
-                            <span className="text-xs font-mono text-slate-400 block">{customerPhone}</span>
+                            <span className="text-xs font-mono text-slate-500 block">{customerPhone}</span>
                             
                             {/* Customer Badges */}
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
                               {review.user?.walletBalance !== undefined && (
-                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
                                   محفظة: {Number(review.user.walletBalance).toFixed(2)} ج.م
                                 </span>
                               )}
                               {(review.user?.loyaltyPoints !== undefined || review.pointsEarned > 0) && (
-                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-purple-950/60 text-purple-300 border border-purple-800/40">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/40">
                                   نقاط: {review.user?.loyaltyPoints ?? review.pointsEarned} 🪙
                                 </span>
                               )}
@@ -4762,7 +4757,7 @@ export const AdminPage: React.FC = () => {
                                 }`}
                               />
                             ))}
-                            <span className="font-mono font-black text-xs text-white mr-1">
+                            <span className="font-mono font-black text-xs text-slate-900 mr-1">
                               {ratingNum}/5
                             </span>
                           </div>
@@ -4770,14 +4765,14 @@ export const AdminPage: React.FC = () => {
                           <span
                             className={`mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                               ratingNum === 5
-                                ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60'
+                                ? 'bg-emerald-50 text-emerald-400 border-emerald-200'
                                 : ratingNum === 4
-                                ? 'bg-teal-950/80 text-teal-400 border-teal-800/60'
+                                ? 'bg-teal-50 text-teal-400 border-teal-200'
                                 : ratingNum === 3
-                                ? 'bg-amber-950/80 text-amber-400 border-amber-800/60'
+                                ? 'bg-amber-50 text-amber-400 border-amber-200/60'
                                 : ratingNum === 2
-                                ? 'bg-orange-950/80 text-orange-400 border-orange-800/60'
-                                : 'bg-rose-950/80 text-rose-400 border-rose-800/60'
+                                ? 'bg-orange-50 text-orange-400 border-orange-200'
+                                : 'bg-rose-50 text-rose-400 border-rose-200'
                             }`}
                           >
                             {ratingNum === 5
@@ -4804,35 +4799,35 @@ export const AdminPage: React.FC = () => {
 
                       {/* Section 2: Review Text (الي كتبوه) */}
                       {review.review && review.review.trim() ? (
-                        <div className="bg-purple-950/30 border border-purple-800/40 rounded-xl p-3.5 space-y-1 relative">
-                          <div className="flex items-center gap-1.5 text-purple-300 text-[11px] font-bold">
+                        <div className="bg-purple-50 border border-purple-200/40 rounded-xl p-3.5 space-y-1 relative">
+                          <div className="flex items-center gap-1.5 text-purple-700 text-[11px] font-bold">
                             <MessageSquare className="w-3.5 h-3.5 text-purple-400" />
                             <span>رأي وتعليق العميل:</span>
                           </div>
-                          <p className="text-slate-100 text-xs sm:text-sm font-bold leading-relaxed whitespace-pre-wrap pr-1">
+                          <p className="text-slate-900 text-xs sm:text-sm font-bold leading-relaxed whitespace-pre-wrap pr-1">
                             "{review.review.trim()}"
                           </p>
                         </div>
                       ) : (
-                        <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl px-3 py-2 text-slate-400 text-[11px] flex items-center gap-2">
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-500 text-[11px] flex items-center gap-2">
                           <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                           <span>قيّم العميل الطلب بالنجوم فقط بدون كتابة تعليق نصي إضافي.</span>
                         </div>
                       )}
 
                       {/* Section 3: Evaluated Order Details (الاوردر الي اتقييم) */}
-                      <div className="bg-slate-950/70 border border-slate-800/70 rounded-xl p-3 space-y-2.5">
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-xs text-purple-400 font-mono">
+                            <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-xs text-purple-400 font-mono">
                               #{review.orderNumber}
                             </div>
                             <div>
                               <div className="flex items-center gap-1.5">
-                                <Store className="w-3.5 h-3.5 text-slate-400" />
-                                <span className="text-xs font-black text-white">{branchName}</span>
+                                <Store className="w-3.5 h-3.5 text-slate-500" />
+                                <span className="text-xs font-black text-slate-900">{branchName}</span>
                               </div>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-[10px] text-slate-500">
                                 {review.orderType === 'DELIVERY' ? '🛵 توصيل للحرم' : '🛍️ استلام من الفرع'}
                                 {review.deliveryZoneName ? ` • ${review.deliveryZoneName}` : ''}
                               </span>
@@ -4854,7 +4849,7 @@ export const AdminPage: React.FC = () => {
 
                         {/* Campus Delivery Address */}
                         {review.addressText && (
-                          <div className="flex items-center gap-1.5 text-[11px] text-slate-300">
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
                             <MapPin className="w-3 h-3 text-purple-400 shrink-0" />
                             <span className="truncate">{cleanAddressText(review.addressText)}</span>
                           </div>
@@ -4866,7 +4861,7 @@ export const AdminPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setExpandedReviewOrderId(isExpanded ? null : review.id)}
-                              className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                              className="text-[11px] font-bold text-purple-400 hover:text-purple-700 flex items-center gap-1 transition-colors"
                             >
                               <span>أصناف الوجبة ({review.items?.length || 0} صنف)</span>
                               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -4875,7 +4870,7 @@ export const AdminPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setSelectedOrderDetails(review)}
-                              className="text-[11px] font-bold text-slate-400 hover:text-white flex items-center gap-1"
+                              className="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"
                               title="عرض تفاصيل الطلب الكاملة في نافذة منبثقة"
                             >
                               <Eye className="w-3 h-3" />
@@ -4884,22 +4879,22 @@ export const AdminPage: React.FC = () => {
                           </div>
 
                           {isExpanded && (
-                            <div className="mt-2 space-y-1.5 pt-2 border-t border-slate-800/60">
+                            <div className="mt-2 space-y-1.5 pt-2 border-t border-slate-200">
                               {review.items?.map((it: any) => (
                                 <div
                                   key={it.id}
-                                  className="flex items-center justify-between text-xs bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800/40"
+                                  className="flex items-center justify-between text-xs bg-white px-2.5 py-1.5 rounded-lg border border-slate-200"
                                 >
                                   <div className="flex items-center gap-2">
-                                    <span className="w-5 h-5 rounded-md bg-purple-950 text-purple-300 font-mono text-[10px] flex items-center justify-center font-bold">
+                                    <span className="w-5 h-5 rounded-md bg-purple-50 text-purple-700 font-mono text-[10px] flex items-center justify-center font-bold">
                                       {it.quantity}x
                                     </span>
-                                    <span className="font-bold text-slate-200">{it.itemName}</span>
+                                    <span className="font-bold text-slate-800">{it.itemName}</span>
                                     {it.sizeName && (
-                                      <span className="text-[10px] text-slate-400">({it.sizeName})</span>
+                                      <span className="text-[10px] text-slate-500">({it.sizeName})</span>
                                     )}
                                   </div>
-                                  <span className="font-mono text-slate-300 text-[11px]">
+                                  <span className="font-mono text-slate-600 text-[11px]">
                                     {Number(it.totalPrice).toFixed(2)} ج.م
                                   </span>
                                 </div>
@@ -4910,7 +4905,7 @@ export const AdminPage: React.FC = () => {
                       </div>
 
                       {/* Section 4: Actions Bar (تواصل واتساب، اتصال، فتح الملف، حذف التقييم) */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/70">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
                         <div className="flex flex-wrap items-center gap-2">
                           {/* WhatsApp Customer Button */}
                           <a
@@ -4928,9 +4923,9 @@ export const AdminPage: React.FC = () => {
                           {/* Call Button */}
                           <a
                             href={`tel:${customerPhone}`}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all"
                           >
-                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                            <Phone className="w-3.5 h-3.5 text-slate-500" />
                             <span>اتصال</span>
                           </a>
 
@@ -4949,7 +4944,7 @@ export const AdminPage: React.FC = () => {
                               };
                               handleOpenStudentWallet(st);
                             }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-950/60 hover:bg-purple-900/60 text-purple-300 border border-purple-800/40 rounded-xl text-xs font-bold transition-all"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-900/60 text-purple-700 border border-purple-200/40 rounded-xl text-xs font-bold transition-all"
                           >
                             <User className="w-3.5 h-3.5 text-purple-400" />
                             <span>ملف الطالب</span>
@@ -4980,46 +4975,46 @@ export const AdminPage: React.FC = () => {
           <div className="space-y-5 animate-fadeIn">
             {/* Quick Metrics Bar */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-              <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl flex items-center gap-3">
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
                   <Truck className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-400 block">إجمالي كباتن التوصيل</span>
-                  <span className="text-xl font-black text-white">{drivers.length}</span>
+                  <span className="text-[11px] font-bold text-slate-500 block">إجمالي كباتن التوصيل</span>
+                  <span className="text-xl font-black text-slate-900">{drivers.length}</span>
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl flex items-center gap-3">
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
                   <CheckCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-400 block">الكباتن النشطون</span>
+                  <span className="text-[11px] font-bold text-slate-500 block">الكباتن النشطون</span>
                   <span className="text-xl font-black text-emerald-400">
                     {drivers.filter(d => d.isActive).length}
                   </span>
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl flex items-center gap-3">
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-400 block">طيارون عامون لكل المطاعم</span>
+                  <span className="text-[11px] font-bold text-slate-500 block">طيارون عامون لكل المطاعم</span>
                   <span className="text-xl font-black text-purple-400">
                     {drivers.filter(d => d.isAllBranches).length}
                   </span>
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-2xl flex items-center gap-3">
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
                   <ShoppingBag className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-slate-400 block">إجمالي طلبات التوصيل</span>
+                  <span className="text-[11px] font-bold text-slate-500 block">إجمالي طلبات التوصيل</span>
                   <span className="text-xl font-black text-amber-400">
                     {drivers.reduce((acc, d) => acc + (d._count?.orders || 0), 0)}
                   </span>
@@ -5038,7 +5033,7 @@ export const AdminPage: React.FC = () => {
                     placeholder="ابحث باسم الطيار، رقم الهاتف، أو اسم الدخول..."
                     value={driverSearch}
                     onChange={e => setDriverSearch(e.target.value)}
-                    className="w-full pr-10 pl-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full pr-10 pl-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
 
@@ -5104,14 +5099,14 @@ export const AdminPage: React.FC = () => {
 
             {/* Drivers List / Cards */}
             {driversLoading ? (
-              <div className="py-20 text-center text-slate-400 space-y-3">
+              <div className="py-20 text-center text-slate-500 space-y-3">
                 <RotateCw className="w-8 h-8 mx-auto animate-spin text-purple-400" />
                 <p className="text-xs font-bold">جاري تحميل بيانات أسطول التوصيل...</p>
               </div>
             ) : filteredDrivers.length === 0 ? (
-              <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-3xl space-y-3">
+              <div className="p-12 text-center bg-slate-50 border border-slate-200 rounded-3xl space-y-3">
                 <Truck className="w-12 h-12 text-slate-600 mx-auto" />
-                <h4 className="text-sm font-black text-slate-300">لا يوجد كباتن توصيل مطابقين</h4>
+                <h4 className="text-sm font-black text-slate-600">لا يوجد كباتن توصيل مطابقين</h4>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
                   لم يتم العثور على أي كباتن توصيل تطابق معايير البحث أو التصفية الحالية.
                 </p>
@@ -5132,7 +5127,7 @@ export const AdminPage: React.FC = () => {
                     className={`bg-slate-900/70 border rounded-2xl p-4 sm:p-5 flex flex-col justify-between transition-all space-y-4 hover:shadow-xl ${
                       driver.isActive
                         ? 'border-slate-800 hover:border-slate-700'
-                        : 'border-rose-950/40 bg-slate-950/40 opacity-75'
+                        : 'border-rose-200 bg-slate-950/40 opacity-75'
                     }`}
                   >
                     {/* Top Identity */}
@@ -5141,28 +5136,28 @@ export const AdminPage: React.FC = () => {
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-base shrink-0 shadow-inner ${
                             driver.isAllBranches
-                              ? 'bg-purple-950/80 text-purple-300 border border-purple-800/80'
-                              : 'bg-indigo-950/80 text-indigo-300 border border-indigo-800/80'
+                              ? 'bg-purple-50 text-purple-300 border border-purple-200'
+                              : 'bg-indigo-50 text-indigo-300 border border-indigo-200'
                           }`}>
                             <Truck className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-black text-white truncate">{driver.name}</h4>
+                              <h4 className="text-sm font-black text-slate-900 truncate">{driver.name}</h4>
                               <button
                                 type="button"
                                 disabled={togglingDriverId === driver.id}
                                 onClick={() => handleToggleDriverActive(driver.id)}
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
                                   driver.isActive
-                                    ? 'bg-emerald-950 text-emerald-400 border-emerald-800 hover:bg-emerald-900'
-                                    : 'bg-rose-950 text-rose-400 border-rose-800 hover:bg-rose-900'
+                                    ? 'bg-emerald-50 text-emerald-400 border-emerald-200 hover:bg-emerald-100'
+                                    : 'bg-rose-50 text-rose-400 border-rose-200 hover:bg-rose-100'
                                 }`}
                               >
                                 {togglingDriverId === driver.id ? '...' : (driver.isActive ? 'نشط' : 'معطل')}
                               </button>
                             </div>
-                            <span className="text-[11px] font-mono text-slate-400 block truncate" dir="ltr">
+                            <span className="text-[11px] font-mono text-slate-500 block truncate" dir="ltr">
                               @{driver.username}
                             </span>
                           </div>
@@ -5173,17 +5168,17 @@ export const AdminPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <a
                           href={`tel:${driver.phone}`}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-mono transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-mono transition-colors"
                           title="اتصال هاتفي"
                         >
-                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <Phone className="w-3.5 h-3.5 text-slate-500" />
                           <span>{driver.phone}</span>
                         </a>
                         <a
                           href={`https://wa.me/20${driver.phone.replace(/^0+/, '')}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 bg-emerald-950/70 border border-emerald-800 text-emerald-400 hover:bg-emerald-900 rounded-lg text-xs transition-colors"
+                          className="p-1.5 bg-emerald-50 border border-emerald-200 text-emerald-400 hover:bg-emerald-100 rounded-lg text-xs transition-colors"
                           title="محادثة واتساب"
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
@@ -5191,18 +5186,18 @@ export const AdminPage: React.FC = () => {
                       </div>
 
                       {/* Scope Badge (نطاق العمل: عام لكل المطاعم أو مطاعم محددة) */}
-                      <div className="pt-2 border-t border-slate-800/70 space-y-2">
+                      <div className="pt-2 border-t border-slate-200 space-y-2">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                           نطاق استلام الطلبات:
                         </span>
                         {driver.isAllBranches ? (
-                          <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-800/50 text-purple-200 text-xs font-bold flex items-center gap-2">
+                          <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200/50 text-purple-700 text-xs font-bold flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse shrink-0" />
                             <span>🌐 طيار عام لجميع المطاعم والفروع</span>
                           </div>
                         ) : (
                           <div className="space-y-1.5">
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700">
                               <Store className="w-3.5 h-3.5 text-indigo-400" />
                               <span>مطاعم محددة ({driver.servedBranches?.length || 0}):</span>
                             </div>
@@ -5211,7 +5206,7 @@ export const AdminPage: React.FC = () => {
                                 driver.servedBranches.map((b: any) => (
                                   <span
                                     key={b.id}
-                                    className="px-2 py-0.5 rounded-md bg-slate-800/90 border border-slate-700 text-slate-300 text-[10px] font-bold flex items-center gap-1"
+                                    className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-bold flex items-center gap-1"
                                   >
                                     <span>🏪</span>
                                     <span>{b.name}</span>
@@ -5226,20 +5221,20 @@ export const AdminPage: React.FC = () => {
                       </div>
 
                       {/* Stats */}
-                      <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
                         <span>إجمالي الطلبات المنجزة:</span>
-                        <span className="font-mono font-black text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-900/50">
+                        <span className="font-mono font-black text-amber-400 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/50">
                           {driver._count?.orders ?? 0} طلب
                         </span>
                       </div>
                     </div>
 
                     {/* Actions Bar */}
-                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+                    <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
                       <button
                         type="button"
                         onClick={() => handleOpenEditDriver(driver)}
-                        className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-slate-700"
+                        className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-slate-200"
                       >
                         <Edit2 className="w-3.5 h-3.5 text-purple-400" />
                         <span>تعديل النطاق والبيانات</span>
@@ -5249,7 +5244,7 @@ export const AdminPage: React.FC = () => {
                         type="button"
                         disabled={deletingDriverId === driver.id}
                         onClick={() => handleDeleteDriver(driver.id, driver.name)}
-                        className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors border border-transparent hover:border-rose-900/50"
+                        className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors border border-transparent hover:border-rose-200"
                         title="حذف الكابتن نهائياً"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -5272,7 +5267,7 @@ export const AdminPage: React.FC = () => {
                 placeholder="ابحث باسم الطالب أو رقم الهاتف..."
                 value={studentSearch}
                 onChange={e => setStudentSearch(e.target.value)}
-                className="w-full pr-10 pl-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full pr-10 pl-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
 
@@ -5282,41 +5277,41 @@ export const AdminPage: React.FC = () => {
                   key={student.id}
                   className={`p-4 rounded-2xl border flex flex-col justify-between gap-3 ${
                     student.isBlocked
-                      ? 'bg-rose-950/20 border-rose-900/60'
+                      ? 'bg-rose-50/50 border-rose-200'
                       : 'bg-slate-900/60 border-slate-800'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-purple-950 text-purple-300 flex items-center justify-center font-black border border-purple-800 shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-black border border-purple-200 shrink-0">
                         {student.name.charAt(0)}
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="font-bold text-white text-sm">{student.name}</h4>
+                          <h4 className="font-bold text-slate-900 text-sm">{student.name}</h4>
                           {student.isVerified ? (
-                            <span className="text-[10px] font-black bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
                               ✓ مفعل
                             </span>
                           ) : (
-                            <span className="text-[10px] font-black bg-amber-950/80 text-amber-300 border border-amber-800/60 px-2 py-0.5 rounded-full animate-pulse">
+                            <span className="text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200/60 px-2 py-0.5 rounded-full animate-pulse">
                               ⏳ غير مفعل
                             </span>
                           )}
                           {student.isBlocked && (
-                            <span className="text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full">
                               🚫 موقوف
                             </span>
                           )}
                         </div>
-                        <a href={`tel:${student.phone}`} className="font-mono text-xs text-purple-400 hover:text-purple-300 hover:underline block">
+                        <a href={`tel:${student.phone}`} className="font-mono text-xs text-purple-400 hover:text-purple-700 hover:underline block">
                           📞 {student.phone}
                         </a>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded-full font-mono">
+                          <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-mono">
                             المحفظة: {(student.walletBalance ?? 0).toFixed(0)} ج.م
                           </span>
-                          <span className="text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800/60 px-2 py-0.5 rounded-full font-mono">
+                          <span className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/60 px-2 py-0.5 rounded-full font-mono">
                             ★ {student.loyaltyPoints ?? 0} نقطة
                           </span>
                         </div>
@@ -5326,13 +5321,13 @@ export const AdminPage: React.FC = () => {
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       <button
                         onClick={() => handleOpenStudentWallet(student)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-700/70 rounded-xl text-[10px] font-black transition-all active:scale-95"
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-purple-50 hover:bg-purple-900 text-purple-700 border border-purple-200/70 rounded-xl text-[10px] font-black transition-all active:scale-95"
                         title="إدارة المحفظة والملاحظات وحالة الحساب"
                       >
                         <CreditCard className="w-3 h-3" />
                         <span>إدارة الحساب</span>
                       </button>
-                      <div className="text-center px-2.5 py-1 bg-slate-950 rounded-lg border border-slate-900 font-mono w-full">
+                      <div className="text-center px-2.5 py-1 bg-slate-50 rounded-lg border border-slate-200 font-mono w-full">
                         <span className="text-[10px] text-purple-400 font-black">{student._count?.orders ?? 0} </span>
                         <span className="text-[9px] text-slate-500 font-sans">طلبات</span>
                       </div>
@@ -5340,7 +5335,7 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   {student.restaurantNotes && (
-                    <div className="p-2 bg-purple-950/40 border border-purple-800/50 rounded-xl text-[11px] text-purple-200">
+                    <div className="p-2 bg-purple-50 border border-purple-200/50 rounded-xl text-[11px] text-purple-700">
                       <span className="font-black text-purple-400">📌 ملاحظة: </span>
                       <span>{student.restaurantNotes}</span>
                     </div>
@@ -5355,13 +5350,13 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'ANALYTICS' && (
           <div className="space-y-6">
             {/* Top Toolbar for Financial Reports */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200">
               <div>
-                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
                   <span>التقارير المالية ومؤشرات الحرم الجامعي</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   إحصائيات تفصيلية لحجم المبيعات وطرق الدفع وسرعة توصيل المطاعم
                 </p>
               </div>
@@ -5390,79 +5385,79 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {shiftReportTestMsg && (
-              <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
                 <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>{shiftReportTestMsg}</span>
               </div>
             )}
 
             {/* Kitchen & Delivery Timings SLA Analytics */}
-            <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
+            <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <h4 className="font-black text-sm text-white flex items-center gap-2">
+                <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
                   <Timer className="w-4 h-4 text-amber-400" />
                   <span>مؤشرات سرعة إنجاز الطلبات والمطابخ (Kitchen & Delivery SLAs)</span>
                 </h4>
-                <span className="text-[10px] text-slate-400 font-mono">متوسطات الأداء في الحرم الجامعي</span>
+                <span className="text-[10px] text-slate-500 font-mono">متوسطات الأداء في الحرم الجامعي</span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* سرعة قبول المطعم */}
-                <div className="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1">
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
                   <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold">
                     <Clock className="w-3.5 h-3.5" />
                     <span>سرعة قبول الطلب</span>
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black font-mono text-white">
+                    <span className="text-xl font-black font-mono text-slate-900">
                       {stats?.timingStats?.avgAcceptanceMins ?? 0}
                     </span>
-                    <span className="text-[11px] text-slate-400">دقيقة</span>
+                    <span className="text-[11px] text-slate-500">دقيقة</span>
                   </div>
                   <p className="text-[10px] text-slate-500">متوسط استجابة المطعم لبدء التنفيذ</p>
                 </div>
 
                 {/* سرعة التجهيز والطهي */}
-                <div className="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1">
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
                   <div className="flex items-center gap-1.5 text-blue-400 text-xs font-bold">
                     <ChefHat className="w-3.5 h-3.5" />
                     <span>وقت تجهيز الوجبة</span>
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black font-mono text-white">
+                    <span className="text-xl font-black font-mono text-slate-900">
                       {stats?.timingStats?.avgPrepMins ?? 0}
                     </span>
-                    <span className="text-[11px] text-slate-400">دقيقة</span>
+                    <span className="text-[11px] text-slate-500">دقيقة</span>
                   </div>
                   <p className="text-[10px] text-slate-500">متوسط وقت الطهي والإعداد بالمطبخ</p>
                 </div>
 
                 {/* سرعة التوصيل */}
-                <div className="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1">
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
                   <div className="flex items-center gap-1.5 text-purple-400 text-xs font-bold">
                     <Truck className="w-3.5 h-3.5" />
                     <span>وقت التوصيل / التسليم</span>
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black font-mono text-white">
+                    <span className="text-xl font-black font-mono text-slate-900">
                       {stats?.timingStats?.avgDeliveryMins ?? 0}
                     </span>
-                    <span className="text-[11px] text-slate-400">دقيقة</span>
+                    <span className="text-[11px] text-slate-500">دقيقة</span>
                   </div>
                   <p className="text-[10px] text-slate-500">متوسط وقت التوصيل لمباني الجامعة</p>
                 </div>
 
                 {/* إجمالي دورة الطلب */}
-                <div className="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1">
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
                   <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
                     <CheckCircle className="w-3.5 h-3.5" />
                     <span>دورة الطلب الكاملة</span>
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black font-mono text-white">
+                    <span className="text-xl font-black font-mono text-slate-900">
                       {stats?.timingStats?.avgTotalMins ?? 0}
                     </span>
-                    <span className="text-[11px] text-slate-400">دقيقة</span>
+                    <span className="text-[11px] text-slate-500">دقيقة</span>
                   </div>
                   <p className="text-[10px] text-slate-500">من إرسال الطالب حتى الاستلام</p>
                 </div>
@@ -5471,8 +5466,8 @@ export const AdminPage: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Payment Methods Breakdown */}
-              <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl">
-                <h4 className="font-black text-sm text-white mb-4 flex items-center gap-2">
+              <div className="p-5 bg-white border border-slate-200 rounded-2xl">
+                <h4 className="font-black text-sm text-slate-900 mb-4 flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-purple-400" />
                   <span>توزيع المبيعات المكتملة حسب طرق الدفع</span>
                 </h4>
@@ -5486,12 +5481,12 @@ export const AdminPage: React.FC = () => {
                         CARD: 'بطاقات دفع',
                       };
                       return (
-                        <div key={pm.paymentMethod} className="flex items-center justify-between p-3 bg-slate-950/60 rounded-xl border border-slate-900">
-                          <span className="font-bold text-xs text-slate-300">
+                        <div key={pm.paymentMethod} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="font-bold text-xs text-slate-600">
                             {methodNames[pm.paymentMethod] || pm.paymentMethod}
                           </span>
                           <div className="text-left font-mono">
-                            <span className="font-black text-sm text-white">{pm._sum.total || 0} ج.م</span>
+                            <span className="font-black text-sm text-slate-900">{pm._sum.total || 0} ج.م</span>
                             <span className="block text-[10px] text-slate-500">({pm._count.id} طلب)</span>
                           </div>
                         </div>
@@ -5504,20 +5499,20 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Top Branches Performance */}
-              <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl">
-                <h4 className="font-black text-sm text-white mb-4 flex items-center gap-2">
+              <div className="p-5 bg-white border border-slate-200 rounded-2xl">
+                <h4 className="font-black text-sm text-slate-900 mb-4 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
                   <span>الفروع الأكثر طلباً في الحرم الجامعي</span>
                 </h4>
                 <div className="space-y-3">
                   {stats?.branchPerformance && stats.branchPerformance.length > 0 ? (
                     stats.branchPerformance.map((bp: any, idx: number) => (
-                      <div key={bp.id} className="flex items-center justify-between p-3 bg-slate-950/60 rounded-xl border border-slate-900">
+                      <div key={bp.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
                         <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-purple-950 text-purple-300 text-xs font-black flex items-center justify-center font-mono">
+                          <span className="w-5 h-5 rounded-full bg-purple-50 text-purple-700 text-xs font-black flex items-center justify-center font-mono">
                             {idx + 1}
                           </span>
-                          <span className="font-bold text-xs text-slate-200">{bp.name}</span>
+                          <span className="font-bold text-xs text-slate-800">{bp.name}</span>
                         </div>
                         <span className="text-xs font-mono font-bold text-purple-400">
                           {bp._count.orders} طلب
@@ -5538,8 +5533,8 @@ export const AdminPage: React.FC = () => {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-black text-white">الإعلانات والبانرات الترويجية</h3>
-                <p className="text-xs text-slate-400">تظهر في الصفحة الرئيسية لمتجر الطلاب للترويج للعروض والشراكات</p>
+                <h3 className="text-sm font-black text-slate-900">الإعلانات والبانرات الترويجية</h3>
+                <p className="text-xs text-slate-500">تظهر في الصفحة الرئيسية لمتجر الطلاب للترويج للعروض والشراكات</p>
               </div>
 
               <button
@@ -5552,18 +5547,18 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {banners.length === 0 ? (
-              <div className="p-12 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
+              <div className="p-12 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
                 <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-30 text-purple-400" />
-                <p className="text-xs font-bold text-slate-300">لا توجد إعلانات نشطة حالياً</p>
+                <p className="text-xs font-bold text-slate-600">لا توجد إعلانات نشطة حالياً</p>
                 <p className="text-[11px] text-slate-500 mt-1">اضغط على زر إضافة بانر لإنشاء أول إعلان يظهر للطلاب</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {banners.map((b) => (
-                  <div key={b.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg flex flex-col justify-between">
+                  <div key={b.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-lg flex flex-col justify-between">
                     <div>
                       {b.imageUrl ? (
-                        <div className="h-36 w-full overflow-hidden bg-slate-950 relative">
+                        <div className="h-36 w-full overflow-hidden bg-slate-50 relative">
                           <img
                             src={getFullImageUrl(b.imageUrl)}
                             alt={b.title}
@@ -5578,17 +5573,17 @@ export const AdminPage: React.FC = () => {
                       ) : (
                         <div className="h-28 w-full bg-gradient-to-r from-purple-900 to-indigo-900 flex items-center justify-center p-4 relative">
                           {b.badgeText && (
-                            <span className="absolute top-2 right-2 text-[10px] font-black bg-white/20 text-white px-2.5 py-0.5 rounded-full">
+                            <span className="absolute top-2 right-2 text-[10px] font-black bg-white/20 text-slate-900 px-2.5 py-0.5 rounded-full">
                               {b.badgeText}
                             </span>
                           )}
-                          <span className="text-2xl font-black text-white/50">UniFood Ads</span>
+                          <span className="text-2xl font-black text-slate-900/50">UniFood Ads</span>
                         </div>
                       )}
 
                       <div className="p-4 space-y-1">
-                        <h4 className="font-black text-sm text-white">{b.title}</h4>
-                        {b.subtitle && <p className="text-xs text-slate-400">{b.subtitle}</p>}
+                        <h4 className="font-black text-sm text-slate-900">{b.title}</h4>
+                        {b.subtitle && <p className="text-xs text-slate-500">{b.subtitle}</p>}
                         {b.linkUrl && (
                           <p className="text-[10px] text-purple-400 font-mono truncate pt-1" dir="ltr">
                             🔗 {b.linkUrl}
@@ -5597,12 +5592,12 @@ export const AdminPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="p-4 pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                    <div className="p-4 pt-2 border-t border-slate-200 flex items-center justify-between">
                       <button
                         onClick={() => handleToggleBanner(b.id, b.isActive)}
                         className={`text-[10px] font-black px-2.5 py-1 rounded-full border transition-all ${
                           b.isActive
-                            ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : 'bg-slate-800 text-slate-400 border-slate-700'
                         }`}
                       >
@@ -5612,14 +5607,14 @@ export const AdminPage: React.FC = () => {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleOpenEditBanner(b)}
-                          className="p-1.5 text-slate-400 hover:text-purple-300 hover:bg-purple-950/50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-purple-700 hover:bg-purple-50/50 rounded-lg transition-colors"
                           title="تعديل البانر"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteBanner(b.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-50 rounded-lg transition-colors"
                           title="حذف البانر"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -5638,8 +5633,8 @@ export const AdminPage: React.FC = () => {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-black text-white">كوبونات وأكواد الخصم</h3>
-                <p className="text-xs text-slate-400">إنشاء وتعديل أكواد الخصم مع تحديد الحد الأقصى لعدد مرات الاستخدام</p>
+                <h3 className="text-sm font-black text-slate-900">كوبونات وأكواد الخصم</h3>
+                <p className="text-xs text-slate-500">إنشاء وتعديل أكواد الخصم مع تحديد الحد الأقصى لعدد مرات الاستخدام</p>
               </div>
 
               <button
@@ -5652,9 +5647,9 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {promos.length === 0 ? (
-              <div className="p-12 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
+              <div className="p-12 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
                 <Tag className="w-12 h-12 mx-auto mb-2 opacity-30 text-purple-400" />
-                <p className="text-xs font-bold text-slate-300">لا توجد كوبونات خصم حالياً</p>
+                <p className="text-xs font-bold text-slate-600">لا توجد كوبونات خصم حالياً</p>
                 <p className="text-[11px] text-slate-500 mt-1">اضغط على زر إنشاء كوبون جديد لإنشاء كود خصم للطلاب</p>
               </div>
             ) : (
@@ -5662,34 +5657,34 @@ export const AdminPage: React.FC = () => {
                 {promos.map((p) => {
                   const isExhausted = p.maxUses && (p.usedCount || 0) >= p.maxUses;
                   return (
-                    <div key={p.id} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-start justify-between shadow-lg gap-3">
+                    <div key={p.id} className="p-4 bg-white border border-slate-200 rounded-2xl flex items-start justify-between shadow-lg gap-3">
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-black text-base text-purple-300 tracking-wider bg-purple-950/80 px-2.5 py-0.5 rounded-lg border border-purple-800/60">
+                          <span className="font-mono font-black text-base text-purple-700 tracking-wider bg-purple-50 px-2.5 py-0.5 rounded-lg border border-purple-200">
                             {p.code}
                           </span>
                           <button
                             onClick={() => handleTogglePromoStatus(p.id, p.isActive !== false)}
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
                               p.isActive !== false && !isExhausted
-                                ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800'
-                                : 'text-rose-300 bg-rose-950/60 border-rose-800'
+                                ? 'text-emerald-400 bg-emerald-50 border-emerald-200'
+                                : 'text-rose-300 bg-rose-50 border-rose-200'
                             }`}
                           >
                             {isExhausted ? 'مكتمل العدد' : p.isActive !== false ? 'نشط' : 'معطل'}
                           </button>
                           {p.oncePerUser && (
-                            <span className="text-[10px] text-amber-300 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded-full font-bold">
+                            <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full font-bold">
                               مرة واحدة للطالب
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-200 font-bold">
+                        <p className="text-xs text-slate-800 font-bold">
                           قيمة الخصم: {p.value} {p.discountType === 'PERCENT' || p.discountType === 'PERCENTAGE' ? '%' : 'ج.م'}
                         </p>
-                        <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono">
+                        <div className="flex items-center gap-3 text-[11px] text-slate-500 font-mono">
                           <span>
-                            الاستخدام: <strong className="text-white">{p.usedCount ?? 0}</strong> / {p.maxUses ? p.maxUses : '∞ غير محدود'}
+                            الاستخدام: <strong className="text-slate-900">{p.usedCount ?? 0}</strong> / {p.maxUses ? p.maxUses : '∞ غير محدود'}
                           </span>
                           {p.minOrder > 0 && (
                             <span>• حد أدنى: {p.minOrder} ج.م</span>
@@ -5710,14 +5705,14 @@ export const AdminPage: React.FC = () => {
                           }
                           if (branchNames.length > 0) {
                             return (
-                              <div className="flex items-center gap-1.5 text-[11px] text-purple-300 bg-purple-950/40 border border-purple-800/50 px-2 py-0.5 rounded-lg w-fit mt-1">
+                              <div className="flex items-center gap-1.5 text-[11px] text-purple-700 bg-purple-50 border border-purple-200/50 px-2 py-0.5 rounded-lg w-fit mt-1">
                                 <span>🏪</span>
                                 <span className="font-medium">مخصص لـ: {branchNames.join('، ')}</span>
                               </div>
                             );
                           }
                           return (
-                            <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 px-2 py-0.5 rounded-lg w-fit mt-1">
+                            <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 rounded-lg w-fit mt-1">
                               <span>🌐</span>
                               <span className="font-medium">متاح لكافة الفروع والمطاعم</span>
                             </div>
@@ -5728,14 +5723,14 @@ export const AdminPage: React.FC = () => {
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => handleOpenEditPromo(p)}
-                          className="p-2 text-slate-400 hover:text-purple-300 hover:bg-purple-950/50 rounded-xl transition-colors"
+                          className="p-2 text-slate-500 hover:text-purple-700 hover:bg-purple-50/50 rounded-xl transition-colors"
                           title="تعديل الكوبون"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeletePromo(p.id)}
-                          className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors"
+                          className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-50 rounded-xl transition-colors"
                           title="حذف الكوبون"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -5753,15 +5748,15 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'FLASH_DEALS' && (
           <div className="space-y-6">
             {/* Header Card */}
-            <div className="bg-gradient-to-r from-rose-950/40 via-slate-900 to-amber-950/30 border border-rose-900/40 rounded-3xl p-6 sm:p-8 shadow-xl">
+            <div className="bg-gradient-to-r from-rose-50 via-white to-amber-50 border border-rose-200/40 rounded-3xl p-6 sm:p-8 shadow-xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-black mb-2">
                     <Flame className="w-3.5 h-3.5 animate-pulse text-rose-500" />
                     <span>عروض البريك الموقوتة والصفقات السريعة</span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">إدارة عروض الفلاش (Flash Deals)</h3>
-                  <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900">إدارة عروض الفلاش (Flash Deals)</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
                     أنشئ عروضاً مؤقتة مع عداد تنازلي مباشر يظهر لجميع الطلاب أعلى واجهة التطبيق. يمكنك ربط العرض بفرع وصنف معين أو كود خصم، وتحديد عدد الوجبات ووقت الانتهاء.
                   </p>
                 </div>
@@ -5770,7 +5765,7 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={fetchFlashDeals}
-                    className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl border border-slate-700 transition-colors"
+                    className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl border border-slate-200 transition-colors"
                     title="تحديث القائمة"
                   >
                     <RefreshCw className="w-4 h-4" />
@@ -5787,26 +5782,26 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Quick stats pills */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-800/80">
-                <div className="bg-slate-800/60 rounded-2xl p-3.5 border border-slate-700/50">
-                  <span className="text-[11px] text-slate-400 font-bold block">إجمالي العروض</span>
-                  <span className="text-xl font-black text-white font-mono mt-0.5 block">{flashDealsList.length}</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-200">
+                <div className="bg-slate-100 rounded-2xl p-3.5 border border-slate-200">
+                  <span className="text-[11px] text-slate-500 font-bold block">إجمالي العروض</span>
+                  <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">{flashDealsList.length}</span>
                 </div>
-                <div className="bg-emerald-950/30 rounded-2xl p-3.5 border border-emerald-800/40">
+                <div className="bg-emerald-50 rounded-2xl p-3.5 border border-emerald-200/40">
                   <span className="text-[11px] text-emerald-400 font-bold block">العروض النشطة</span>
-                  <span className="text-xl font-black text-emerald-300 font-mono mt-0.5 block">
+                  <span className="text-xl font-black text-emerald-700 font-mono mt-0.5 block">
                     {flashDealsList.filter(d => d.isActive && (!d.expiresAt || new Date(d.expiresAt).getTime() > Date.now())).length}
                   </span>
                 </div>
-                <div className="bg-amber-950/30 rounded-2xl p-3.5 border border-amber-800/40">
+                <div className="bg-amber-50 rounded-2xl p-3.5 border border-amber-200/40">
                   <span className="text-[11px] text-amber-400 font-bold block">المنتهية أو المغلقة</span>
-                  <span className="text-xl font-black text-amber-300 font-mono mt-0.5 block">
+                  <span className="text-xl font-black text-amber-800 font-mono mt-0.5 block">
                     {flashDealsList.filter(d => !d.isActive || (d.expiresAt && new Date(d.expiresAt).getTime() <= Date.now())).length}
                   </span>
                 </div>
-                <div className="bg-purple-950/30 rounded-2xl p-3.5 border border-purple-800/40">
-                  <span className="text-[11px] text-purple-300 font-bold block">إجمالي الطلبات المباعة</span>
-                  <span className="text-xl font-black text-purple-200 font-mono mt-0.5 block">
+                <div className="bg-purple-50 rounded-2xl p-3.5 border border-purple-200/40">
+                  <span className="text-[11px] text-purple-700 font-bold block">إجمالي الطلبات المباعة</span>
+                  <span className="text-xl font-black text-purple-700 font-mono mt-0.5 block">
                     {flashDealsList.reduce((acc, d) => acc + (d.soldQuantity || 0), 0)}
                   </span>
                 </div>
@@ -5815,13 +5810,13 @@ export const AdminPage: React.FC = () => {
 
             {/* Deals Grid */}
             {flashDealsList.length === 0 ? (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-4">
                 <div className="w-16 h-16 rounded-3xl bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto text-2xl border border-rose-500/20">
                   🔥
                 </div>
                 <div>
-                  <h4 className="text-base font-black text-white">لا توجد عروض فلاش مضافة حتى الآن</h4>
-                  <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                  <h4 className="text-base font-black text-slate-900">لا توجد عروض فلاش مضافة حتى الآن</h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
                     أنشئ أول عرض فلاش موقوت مع عد تنازلي لجذب الطلاب وزيادة مبيعات وجبات البريك والعروض الخاصة!
                   </p>
                 </div>
@@ -5851,18 +5846,18 @@ export const AdminPage: React.FC = () => {
                       className={`relative bg-slate-900 border rounded-3xl p-5 flex flex-col justify-between transition-all group overflow-hidden ${
                         !deal.isActive || isExpired
                           ? 'border-slate-800 opacity-75'
-                          : 'border-slate-800 hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-950/20'
+                          : 'border-slate-800 hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-200/50'
                       }`}
                     >
                       {/* Top ribbon: Status and Badge */}
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-700 border border-rose-500/30 flex items-center gap-1">
                             <Flame className="w-3 h-3 text-rose-400" />
                             <span>{deal.badgeText || 'عرض البريك 🔥'}</span>
                           </span>
 
-                          <span className="px-2 py-0.5 rounded-lg text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                          <span className="px-2 py-0.5 rounded-lg text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
                             {deal.dealType === 'COMBO' ? 'وجبة / كومبو' : deal.dealType === 'PROMO' ? 'كود خصم' : 'عرض مخصص'}
                           </span>
                         </div>
@@ -5873,7 +5868,7 @@ export const AdminPage: React.FC = () => {
                           onClick={() => handleToggleFlashDeal(deal.id)}
                           className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-colors flex items-center gap-1 shrink-0 ${
                             deal.isActive && !isExpired
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              ? 'bg-emerald-500/20 text-emerald-700 border-emerald-500/30'
                               : 'bg-slate-800 text-slate-400 border-slate-700'
                           }`}
                           title={deal.isActive ? 'العرض مفعل - اضغط للتعطيل' : 'العرض معطل - اضغط للتفعيل'}
@@ -5889,21 +5884,21 @@ export const AdminPage: React.FC = () => {
                           <img
                             src={getFullImageUrl(deal.imageUrl)}
                             alt={deal.title}
-                            className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-800 bg-slate-800"
+                            className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-200 bg-slate-100"
                             onError={e => { (e.currentTarget as any).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120'; }}
                           />
                         ) : (
-                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-950/60 to-slate-800 border border-rose-900/30 flex items-center justify-center text-2xl shrink-0">
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-50 to-slate-100 border border-rose-200/30 flex items-center justify-center text-2xl shrink-0">
                             🍔
                           </div>
                         )}
 
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-sm font-black text-white truncate" title={deal.title}>{deal.title}</h4>
+                          <h4 className="text-sm font-black text-slate-900 truncate" title={deal.title}>{deal.title}</h4>
                           {deal.subtitle && (
-                            <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{deal.subtitle}</p>
+                            <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{deal.subtitle}</p>
                           )}
-                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-1">
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
                             <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                             <span className="truncate">{branch ? branch.name : 'كافة المطاعم'}</span>
                           </div>
@@ -5911,7 +5906,7 @@ export const AdminPage: React.FC = () => {
                       </div>
 
                       {/* Pricing or Code */}
-                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-3 mb-3 space-y-2">
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-3 space-y-2">
                         {deal.discountPrice ? (
                           <div className="flex items-baseline justify-between">
                             <div className="flex items-baseline gap-2">
@@ -5928,17 +5923,17 @@ export const AdminPage: React.FC = () => {
                           </div>
                         ) : deal.promoCode ? (
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-slate-400 font-bold">كود الخصم:</span>
-                            <span className="px-2 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono font-black text-xs tracking-wider">
+                            <span className="text-[10px] text-slate-500 font-bold">كود الخصم:</span>
+                            <span className="px-2 py-1 rounded-lg bg-purple-500/20 text-purple-700 border border-purple-500/30 font-mono font-black text-xs tracking-wider">
                               {deal.promoCode}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-amber-300 font-bold">عرض خاص وموقوت</span>
+                          <span className="text-xs text-amber-800 font-bold">عرض خاص وموقوت</span>
                         )}
 
                         {/* Expiry line */}
-                        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/80">
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-200">
                           <div className="flex items-center gap-1">
                             <Timer className="w-3 h-3 text-amber-400 shrink-0" />
                             <span>ينتهي:</span>
@@ -5950,12 +5945,12 @@ export const AdminPage: React.FC = () => {
 
                         {/* Sold / Limit Progress */}
                         {deal.maxQuantity && (
-                          <div className="space-y-1 pt-1 border-t border-slate-800/60">
+                          <div className="space-y-1 pt-1 border-t border-slate-200">
                             <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-slate-400 font-bold">الكمية المباعة:</span>
-                              <span className="text-slate-300 font-mono font-black">{deal.soldQuantity || 0} من {deal.maxQuantity}</span>
+                              <span className="text-slate-500 font-bold">الكمية المباعة:</span>
+                              <span className="text-slate-600 font-mono font-black">{deal.soldQuantity || 0} من {deal.maxQuantity}</span>
                             </div>
-                            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
                                 style={{ width: `${Math.min(100, Math.round(((deal.soldQuantity || 0) / deal.maxQuantity) * 100))}%` }}
@@ -5966,7 +5961,7 @@ export const AdminPage: React.FC = () => {
                       </div>
 
                       {/* Card Actions */}
-                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
                         <span className="text-[10px] text-slate-500 font-mono">
                           {deal.createdAt ? new Date(deal.createdAt).toLocaleDateString('ar-EG') : ''}
                         </span>
@@ -5975,7 +5970,7 @@ export const AdminPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenEditFlashDeal(deal)}
-                            className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors"
+                            className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-50 rounded-xl transition-colors"
                             title="تعديل العرض"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -5983,7 +5978,7 @@ export const AdminPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDeleteFlashDeal(deal.id)}
-                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-950/40 rounded-xl transition-colors"
+                            className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
                             title="حذف العرض"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -6002,15 +5997,15 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'WHATSAPP' && (
           <div className="space-y-6">
             {/* Multi-Account WhatsApp Gateway Management */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black mb-2">
                     <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                     <span>بوابة واتساب متعددة الحسابات (Multi-Account WhatsApp Gateway)</span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">إدارة وتخصيص أرقام الواتساب 📱</h3>
-                  <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900">إدارة وتخصيص أرقام الواتساب 📱</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-3xl leading-relaxed">
                     يمكنك ربط أكثر من شريحة/رقم واتساب في نفس الوقت، وتخصيص كل رقم لمهمة معينة: إرسال أكواد تفعيل الطلاب (OTP)، تنبيهات وتقارير الإدارة، أو تخصيص رقم واتساب مستقل لمطعم معين يرسل طلباته وتقاريره تلقائياً!
                   </p>
                 </div>
@@ -6020,7 +6015,7 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={fetchWhatsAppAccounts}
                     disabled={loadingWhatsApp}
-                    className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl transition-all"
+                    className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-2xl transition-all"
                     title="تحديث قائمة الحسابات"
                   >
                     <RefreshCw className={`w-4 h-4 ${loadingWhatsApp ? 'animate-spin' : ''}`} />
@@ -6038,25 +6033,25 @@ export const AdminPage: React.FC = () => {
 
               {/* Stats Bar */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-slate-950/60 rounded-2xl p-3.5 border border-slate-800">
-                  <span className="text-[11px] text-slate-400 font-bold block">إجمالي الأرقام المسجلة</span>
-                  <span className="text-xl font-black text-white font-mono mt-0.5 block">{whatsAppAccounts.length}</span>
+                <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200">
+                  <span className="text-[11px] text-slate-500 font-bold block">إجمالي الأرقام المسجلة</span>
+                  <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">{whatsAppAccounts.length}</span>
                 </div>
-                <div className="bg-emerald-950/30 rounded-2xl p-3.5 border border-emerald-800/40">
+                <div className="bg-emerald-50 rounded-2xl p-3.5 border border-emerald-200/40">
                   <span className="text-[11px] text-emerald-400 font-bold block">الأرقام المتصلة والجاهزة</span>
-                  <span className="text-xl font-black text-emerald-300 font-mono mt-0.5 block">
+                  <span className="text-xl font-black text-emerald-700 font-mono mt-0.5 block">
                     {whatsAppAccounts.filter(a => a.isConnected).length}
                   </span>
                 </div>
-                <div className="bg-amber-950/30 rounded-2xl p-3.5 border border-amber-800/40">
+                <div className="bg-amber-50 rounded-2xl p-3.5 border border-amber-200/40">
                   <span className="text-[11px] text-amber-400 font-bold block">بانتظار مسح الـ QR</span>
-                  <span className="text-xl font-black text-amber-300 font-mono mt-0.5 block">
+                  <span className="text-xl font-black text-amber-800 font-mono mt-0.5 block">
                     {whatsAppAccounts.filter(a => !a.isConnected && a.qrCode).length}
                   </span>
                 </div>
-                <div className="bg-purple-950/30 rounded-2xl p-3.5 border border-purple-800/40">
-                  <span className="text-[11px] text-purple-300 font-bold block">أرقام مخصصة لمطاعم</span>
-                  <span className="text-xl font-black text-purple-200 font-mono mt-0.5 block">
+                <div className="bg-purple-50 rounded-2xl p-3.5 border border-purple-200/40">
+                  <span className="text-[11px] text-purple-700 font-bold block">أرقام مخصصة لمطاعم</span>
+                  <span className="text-xl font-black text-purple-700 font-mono mt-0.5 block">
                     {whatsAppAccounts.filter(a => Boolean(a.branchId)).length}
                   </span>
                 </div>
@@ -6064,13 +6059,13 @@ export const AdminPage: React.FC = () => {
 
               {/* Accounts Cards Horizontal Scrollable Carousel */}
               {whatsAppAccounts.length === 0 ? (
-                <div className="bg-slate-950/60 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-12 text-center space-y-4">
                   <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto text-2xl border border-emerald-500/20">
                     📱
                   </div>
                   <div>
-                    <h4 className="text-base font-black text-white">لا توجد أرقام واتساب مضافة حالياً</h4>
-                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                    <h4 className="text-base font-black text-slate-900">لا توجد أرقام واتساب مضافة حالياً</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
                       ابدأ بربط أول شريحة واتساب لتفعيل إرسال أكواد الـ OTP للطلاب وتنبيهات المطاعم مجاناً!
                     </p>
                   </div>
@@ -6085,10 +6080,10 @@ export const AdminPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-                    <span className="font-bold flex items-center gap-1.5 text-slate-300">
+                  <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                    <span className="font-bold flex items-center gap-1.5 text-slate-600">
                       <span>الأرقام المسجلة والمربوطة</span>
-                      <span className="px-2 py-0.5 rounded-full bg-slate-800 text-emerald-400 font-mono text-[10px] font-black border border-slate-700">
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-emerald-400 font-mono text-[10px] font-black border border-slate-200">
                         {whatsAppAccounts.length}
                       </span>
                     </span>
@@ -6104,9 +6099,9 @@ export const AdminPage: React.FC = () => {
                           key={acc.id}
                           className={`w-[85vw] max-w-[340px] sm:w-[350px] shrink-0 snap-center bg-slate-950/70 border rounded-3xl p-5 flex flex-col justify-between transition-all select-none ${
                             acc.isConnected
-                              ? 'border-emerald-800/60 hover:border-emerald-500/60 shadow-lg shadow-emerald-950/20'
+                              ? 'border-emerald-200 hover:border-emerald-500/60 shadow-lg shadow-emerald-200/50'
                               : acc.qrCode
-                              ? 'border-amber-800/60 hover:border-amber-500/60 shadow-lg shadow-amber-950/20'
+                              ? 'border-amber-200/60 hover:border-amber-500/60 shadow-lg shadow-amber-200/50'
                               : 'border-slate-800 opacity-80'
                           }`}
                         >
@@ -6115,15 +6110,15 @@ export const AdminPage: React.FC = () => {
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="text-base font-black text-white">{acc.name}</h4>
+                                  <h4 className="text-base font-black text-slate-900">{acc.name}</h4>
                                   {acc.isDefault && (
-                                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-800 border border-amber-500/30 flex items-center gap-1">
                                       <span>⭐</span>
                                       <span>افتراضي عام</span>
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-xs font-mono text-slate-400 block mt-1">
+                                <span className="text-xs font-mono text-slate-500 block mt-1">
                                   {acc.phoneNumber ? `📱 ${acc.phoneNumber}` : '⏳ لم يتم ربط الرقم بعد'}
                                 </span>
                               </div>
@@ -6132,7 +6127,7 @@ export const AdminPage: React.FC = () => {
                               <span
                                 className={`px-3 py-1 rounded-full text-[11px] font-black border flex items-center gap-1.5 shrink-0 ${
                                   acc.isConnected
-                                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                    ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
                                     : acc.qrCode
                                     ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 animate-pulse'
                                     : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
@@ -6148,34 +6143,34 @@ export const AdminPage: React.FC = () => {
                             </div>
 
                             {/* Roles & Allocation Badges */}
-                            <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-2">
-                              <span className="text-[11px] font-bold text-slate-400 block">الأدوار والتخصيصات المحددة لهذا الرقم:</span>
+                            <div className="p-3 bg-white rounded-2xl border border-slate-200 space-y-2">
+                              <span className="text-[11px] font-bold text-slate-500 block">الأدوار والتخصيصات المحددة لهذا الرقم:</span>
                               <div className="flex flex-wrap gap-1.5">
                                 {acc.sendOtp && (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-purple-500/20 text-purple-700 border border-purple-500/30 flex items-center gap-1">
                                     <span>🔐</span>
                                     <span>أكواد التحقق (OTP)</span>
                                   </span>
                                 )}
                                 {acc.sendAdminAlerts && (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-700 border border-rose-500/30 flex items-center gap-1">
                                     <span>🚨</span>
                                     <span>تنبيهات الإدارة والشيفت</span>
                                   </span>
                                 )}
                                 {acc.sendCustomerOrders && (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1">
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-blue-500/20 text-blue-700 border border-blue-500/30 flex items-center gap-1">
                                     <span>🍔</span>
                                     <span>مراحل وإشعارات الطلب</span>
                                   </span>
                                 )}
                                 {acc.branch ? (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-amber-500/20 text-amber-800 border border-amber-500/30 flex items-center gap-1">
                                     <Store className="w-3 h-3 text-amber-400" />
                                     <span>مخصص لمطعم: {acc.branch.name}</span>
                                   </span>
                                 ) : (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                                     🌐 عام لكافة المطاعم
                                   </span>
                                 )}
@@ -6196,11 +6191,11 @@ export const AdminPage: React.FC = () => {
                           </div>
 
                           {/* Card Action Footer */}
-                          <div className="flex items-center justify-between gap-2 pt-4 mt-4 border-t border-slate-800">
+                          <div className="flex items-center justify-between gap-2 pt-4 mt-4 border-t border-slate-200">
                             <button
                               type="button"
                               onClick={() => setActiveQrAccount(acc)}
-                              className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                              className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                             >
                               <span>📷</span>
                               <span>{acc.isConnected ? 'معاينة حالة الربط' : 'عرض كود QR'}</span>
@@ -6210,7 +6205,7 @@ export const AdminPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditWhatsAppAccount(acc)}
-                                className="p-2 text-slate-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition-colors"
+                                className="p-2 text-slate-500 hover:text-purple-700 hover:bg-purple-50 rounded-xl transition-colors"
                                 title="تعديل الأدوار والتخصيص"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -6218,7 +6213,7 @@ export const AdminPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleDisconnectWhatsAppAccount(acc)}
-                                className="p-2 text-slate-400 hover:text-amber-400 hover:bg-amber-950/40 rounded-xl transition-colors"
+                                className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-50 rounded-xl transition-colors"
                                 title="فصل الجلسة / تغيير الشريحة"
                               >
                                 <RefreshCw className="w-4 h-4" />
@@ -6226,7 +6221,7 @@ export const AdminPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteWhatsAppAccount(acc)}
-                                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-950/40 rounded-xl transition-colors"
+                                className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
                                 title="حذف الحساب"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -6242,19 +6237,19 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {/* WhatsApp Alerts Configuration Card */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
                 <div>
-                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <AlertCircle className="w-5 h-5 text-amber-400" />
                     <span>تنبيهات وإشعارات الواتساب للمشرفين والإدارة</span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     إرسال رسائل واتساب تلقائية لأرقام الهواتف المحددة عند كنسلة أي مطعم لطلب، أو عند تأخر قبول أي طلب عن 5 دقائق
                   </p>
                 </div>
 
-                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30 shrink-0 self-start sm:self-auto">
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-700 border border-purple-500/30 shrink-0 self-start sm:self-auto">
                   تنبيهات لحظية ⚡
                 </span>
               </div>
@@ -6262,15 +6257,15 @@ export const AdminPage: React.FC = () => {
               <form onSubmit={handleSaveWhatsAppAlertSettings} className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Alert 1: Restaurant Order Cancellation */}
-                  <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-4">
+                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-sm">
                           🚨
                         </div>
                         <div>
-                          <h4 className="text-xs font-black text-slate-200">إشعار عند كنسلة/إلغاء الطلب من المطعم</h4>
-                          <span className="text-[10px] text-slate-400">تنبيه فوري عند رفض أي مطعم لطلب طالب</span>
+                          <h4 className="text-xs font-black text-slate-800">إشعار عند كنسلة/إلغاء الطلب من المطعم</h4>
+                          <span className="text-[10px] text-slate-500">تنبيه فوري عند رفض أي مطعم لطلب طالب</span>
                         </div>
                       </div>
 
@@ -6281,12 +6276,12 @@ export const AdminPage: React.FC = () => {
                           onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, cancellationAlertEnabled: e.target.checked })}
                           className="sr-only peer"
                         />
-                        <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                        <div className="w-10 h-5 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
                       </label>
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                      <label className="text-xs font-bold text-slate-600 block mb-1.5">
                         أرقام هواتف المشرفين لاستقبال تنبيه الإلغاء
                       </label>
                       <input
@@ -6294,24 +6289,24 @@ export const AdminPage: React.FC = () => {
                         value={whatsAppAlertSettings.cancellationAlertPhones}
                         onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, cancellationAlertPhones: e.target.value })}
                         placeholder="مثال: 01012345678, 01123456789"
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500 transition-colors font-mono"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-600 focus:outline-none focus:border-rose-500 transition-colors font-mono"
                       />
-                      <p className="text-[10px] text-slate-400 mt-1.5">
+                      <p className="text-[10px] text-slate-500 mt-1.5">
                         يمكنك كتابة رقم واحد أو عدة أرقام مفصولة بفاصلة (، أو ,). ستصلهم رسالة فورا تفيد بأن (المطعم كذا كنسل الطلب رقم كذا بقيمة كذا).
                       </p>
                     </div>
                   </div>
 
                   {/* Alert 2: Unaccepted / Delayed Orders (5+ minutes) */}
-                  <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-4">
+                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
                           ⏳
                         </div>
                         <div>
-                          <h4 className="text-xs font-black text-slate-200">إنذار عند تأخر قبول الطلب عن 5 دقائق</h4>
-                          <span className="text-[10px] text-slate-400">تنبيه المشرفين إذا تأخر المطعم في الرد</span>
+                          <h4 className="text-xs font-black text-slate-800">إنذار عند تأخر قبول الطلب عن 5 دقائق</h4>
+                          <span className="text-[10px] text-slate-500">تنبيه المشرفين إذا تأخر المطعم في الرد</span>
                         </div>
                       </div>
 
@@ -6322,13 +6317,13 @@ export const AdminPage: React.FC = () => {
                           onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, unacceptedAlertEnabled: e.target.checked })}
                           className="sr-only peer"
                         />
-                        <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                        <div className="w-10 h-5 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
                       </label>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="sm:col-span-2">
-                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                        <label className="text-xs font-bold text-slate-600 block mb-1.5">
                           أرقام هواتف المشرفين لمتابعة التأخر
                         </label>
                         <input
@@ -6336,12 +6331,12 @@ export const AdminPage: React.FC = () => {
                           value={whatsAppAlertSettings.unacceptedAlertPhones}
                           onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, unacceptedAlertPhones: e.target.value })}
                           placeholder="مثال: 01012345678, 01123456789"
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors font-mono"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors font-mono"
                         />
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                        <label className="text-xs font-bold text-slate-600 block mb-1.5">
                           الحد الزمني (دقائق)
                         </label>
                         <input
@@ -6350,28 +6345,28 @@ export const AdminPage: React.FC = () => {
                           max="60"
                           value={whatsAppAlertSettings.unacceptedDelayMinutes}
                           onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, unacceptedDelayMinutes: parseInt(e.target.value) || 5 })}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors text-center font-mono"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors text-center font-mono"
                         />
                       </div>
                     </div>
 
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-500">
                       يقوم السيرفر بفحص دوري تلقائي؛ في حال مرور المدة دون قبول الطلب من شاشة المطعم، يُرسل إنذار عاجل للأرقام أعلاه للتدخل السريع.
                     </p>
                   </div>
 
                   {/* 3. Driver Unaccepted Order Alert (تنبيه الطيار في حال تأخر قبول الطلب) */}
-                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
                           <Truck className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="text-xs font-black text-slate-200 block">
+                          <span className="text-xs font-black text-slate-800 block">
                             تنبيه كابتن التوصيل (الطيار) بالواتساب عند عدم قبول الأوردر
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-slate-500">
                             إرسال رسالة واتساب تلقائية للطيار بتفاصيل الأوردر والمطعم والعنوان في حال تأخر قبوله
                           </span>
                         </div>
@@ -6384,13 +6379,13 @@ export const AdminPage: React.FC = () => {
                           onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, driverUnacceptedAlertEnabled: e.target.checked })}
                           className="sr-only peer"
                         />
-                        <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                        <div className="w-10 h-5 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
                       </label>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       <div>
-                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                        <label className="text-xs font-bold text-slate-600 block mb-1.5">
                           مهلة انتظار قبول الطيار قبل إرسال الواتساب (بالدقائق)
                         </label>
                         <input
@@ -6399,11 +6394,11 @@ export const AdminPage: React.FC = () => {
                           max="60"
                           value={whatsAppAlertSettings.driverUnacceptedDelayMinutes}
                           onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, driverUnacceptedDelayMinutes: parseInt(e.target.value) || 3 })}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors text-center font-mono"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors text-center font-mono"
                         />
                       </div>
                       <div className="flex flex-col justify-end">
-                        <p className="text-[10px] text-slate-400 leading-relaxed">
+                        <p className="text-[10px] text-slate-500 leading-relaxed">
                           عند تعيين طيار للطلب، إذا لم يقم بالضغط على &quot;قبول الطلب&quot; في تطبيق الطيار خلال المهلة المحددة، يقوم السيرفر بإرسال رسالة واتساب إلى رقم هاتف الطيار تلقائياً مع تفاصيل الأوردر واسم المطعم وعنوان التوصيل.
                         </p>
                       </div>
@@ -6411,17 +6406,17 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   {/* 4. Shift Closing Daily Financial Report (التقرير المالي اليومي لإغلاق الشيفت) */}
-                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
                           <CreditCard className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="text-xs font-black text-slate-200 block">
+                          <span className="text-xs font-black text-slate-800 block">
                             إرسال التقرير المالي اليومي آلياً عند إغلاق الشيفت
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-slate-500">
                             يُرسل في موعد إغلاق كل مطعم المحدد في لوحة الفروع
                           </span>
                         </div>
@@ -6434,12 +6429,12 @@ export const AdminPage: React.FC = () => {
                           onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, dailyReportEnabled: e.target.checked })}
                           className="sr-only peer"
                         />
-                        <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                        <div className="w-10 h-5 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                       </label>
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                      <label className="text-xs font-bold text-slate-600 block mb-1.5">
                         أرقام هواتف استقبال التقرير المالي اليومي عبر الواتساب
                       </label>
                       <input
@@ -6447,12 +6442,12 @@ export const AdminPage: React.FC = () => {
                         value={whatsAppAlertSettings.dailyReportPhones}
                         onChange={(e) => setWhatsAppAlertSettings({ ...whatsAppAlertSettings, dailyReportPhones: e.target.value })}
                         placeholder="أدخل الأرقام مفصولة بفواصل (مثال: 01012345678, 01123456789)"
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
                       />
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
                         يتضمن التقرير: إجمالي المبيعات، رسوم التوصيل، المبالغ المحصلة كاش والمحافظ، عدد الطلبات المكتملة والملغاة، وقائمة بأعلى الوجبات مبيعاً.
                       </p>
 
@@ -6460,7 +6455,7 @@ export const AdminPage: React.FC = () => {
                         type="button"
                         onClick={() => handleTestSendShiftReport('ALL')}
                         disabled={testingShiftReport}
-                        className="px-4 py-2 bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 active:scale-95 shadow-md"
+                        className="px-4 py-2 bg-indigo-50 hover:bg-indigo-900 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 active:scale-95 shadow-md"
                       >
                         {testingShiftReport ? (
                           <>
@@ -6477,7 +6472,7 @@ export const AdminPage: React.FC = () => {
                     </div>
 
                     {shiftReportTestMsg && (
-                      <div className="p-2.5 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
                         <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                         <span>{shiftReportTestMsg}</span>
                       </div>
@@ -6487,7 +6482,7 @@ export const AdminPage: React.FC = () => {
 
 
                 {whatsAppAlertsSaveSuccess && (
-                  <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
                     <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>تم حفظ وتحديث إعدادات تنبيهات وأرقام الواتساب بنجاح!</span>
                   </div>
@@ -6522,16 +6517,16 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'SETTINGS' && (
           <div className="space-y-6">
             {/* Header info banner */}
-            <div className="bg-gradient-to-r from-purple-900/40 via-slate-900 to-indigo-900/40 border border-purple-500/30 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-gradient-to-r from-purple-900/40 via-white to-indigo-900/40 border border-purple-500/30 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
                   <Settings className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     إعدادات النظام وأمان المنظومة
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     التحكم في نظام نقاط الولاء والمكافآت، وتغيير كلمة مرور حساب الإدارة الرئيسية (SuperAdmin)
                   </p>
                 </div>
@@ -6540,15 +6535,15 @@ export const AdminPage: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
               {/* Card 1: Loyalty Points Settings */}
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
                       <Gift className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-black text-white">نظام نقاط الولاء والمكافآت</h4>
-                      <p className="text-[11px] text-slate-400">إدارة تفعيل النقاط ونسب التحويل والاستبدال</p>
+                      <h4 className="text-sm font-black text-slate-900">نظام نقاط الولاء والمكافآت</h4>
+                      <p className="text-[11px] text-slate-500">إدارة تفعيل النقاط ونسب التحويل والاستبدال</p>
                     </div>
                   </div>
 
@@ -6563,10 +6558,10 @@ export const AdminPage: React.FC = () => {
 
                 <form onSubmit={handleSaveLoyaltySettings} className="space-y-5">
                   {/* Master Toggle */}
-                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl flex items-center justify-between">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-black text-slate-200 block">تشغيل نظام النقاط للطلاب</span>
-                      <span className="text-[11px] text-slate-400 block mt-0.5">
+                      <span className="text-xs font-black text-slate-800 block">تشغيل نظام النقاط للطلاب</span>
+                      <span className="text-[11px] text-slate-500 block mt-0.5">
                         عند الإلغاء، لن يتمكن الطلاب من جمع أو استبدال أي نقاط في التطبيق
                       </span>
                     </div>
@@ -6577,7 +6572,7 @@ export const AdminPage: React.FC = () => {
                         onChange={(e) => setLoyaltySettings({ ...loyaltySettings, enabled: e.target.checked })}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      <div className="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                     </label>
                   </div>
 
@@ -6585,7 +6580,7 @@ export const AdminPage: React.FC = () => {
                   <div className="space-y-4">
                     {/* Points Redemption Rate */}
                     <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                      <label className="text-xs font-bold text-slate-600 block mb-1.5">
                         سعر استبدال النقطة بالجنيه (EGP لكل نقطة)
                       </label>
                       <div className="relative">
@@ -6595,12 +6590,12 @@ export const AdminPage: React.FC = () => {
                           min="0.001"
                           value={loyaltySettings.pointsRedemptionRate}
                           onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsRedemptionRate: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
                           required
                         />
-                        <span className="absolute left-3.5 top-2.5 text-xs text-slate-400 font-mono">ج.م / نقطة</span>
+                        <span className="absolute left-3.5 top-2.5 text-xs text-slate-500 font-mono">ج.م / نقطة</span>
                       </div>
-                      <div className="mt-2 p-2.5 bg-purple-950/40 border border-purple-800/40 rounded-xl text-[11px] text-purple-300 flex items-center gap-2">
+                      <div className="mt-2 p-2.5 bg-purple-50 border border-purple-200/40 rounded-xl text-[11px] text-purple-700 flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
                         <span>
                           مثال عملي: كل <strong>100 نقطة</strong> تعادل حالياً <strong>{(100 * loyaltySettings.pointsRedemptionRate).toFixed(1)} جنيه</strong> في محفظة الطالب.
@@ -6610,7 +6605,7 @@ export const AdminPage: React.FC = () => {
 
                     {/* Min Points to Redeem */}
                     <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                      <label className="text-xs font-bold text-slate-600 block mb-1.5">
                         الحد الأدنى للنقاط المطلوب للاستبدال
                       </label>
                       <input
@@ -6619,10 +6614,10 @@ export const AdminPage: React.FC = () => {
                         step="1"
                         value={loyaltySettings.minPointsToRedeem}
                         onChange={(e) => setLoyaltySettings({ ...loyaltySettings, minPointsToRedeem: parseInt(e.target.value) || 0 })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
                         required
                       />
-                      <span className="text-[10px] text-slate-400 block mt-1">
+                      <span className="text-[10px] text-slate-500 block mt-1">
                         أقل رصيد نقاط يجب أن يمتلكه الطالب حتى يتاح له زر تحويل النقاط لرصيد بالمحفظة (مثلاً 50 أو 100).
                       </span>
                     </div>
@@ -6630,7 +6625,7 @@ export const AdminPage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Points per pound spent */}
                       <div>
-                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                        <label className="text-xs font-bold text-slate-600 block mb-1.5">
                           النقاط المكتسبة لكل جنيه مصروف
                         </label>
                         <input
@@ -6639,17 +6634,17 @@ export const AdminPage: React.FC = () => {
                           step="1"
                           value={loyaltySettings.pointsPerPound}
                           onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsPerPound: parseInt(e.target.value) || 0 })}
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
                           required
                         />
-                        <span className="text-[10px] text-slate-400 block mt-1">
+                        <span className="text-[10px] text-slate-500 block mt-1">
                           كم نقطة يكسب الطالب عن كل 1 جنيه يدفعه بالطلب.
                         </span>
                       </div>
 
                       {/* Welcome Points */}
                       <div>
-                        <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                        <label className="text-xs font-bold text-slate-600 block mb-1.5">
                           نقاط ترحيبية عند التسجيل
                         </label>
                         <input
@@ -6658,10 +6653,10 @@ export const AdminPage: React.FC = () => {
                           step="1"
                           value={loyaltySettings.welcomePoints}
                           onChange={(e) => setLoyaltySettings({ ...loyaltySettings, welcomePoints: parseInt(e.target.value) || 0 })}
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
                           required
                         />
-                        <span className="text-[10px] text-slate-400 block mt-1">
+                        <span className="text-[10px] text-slate-500 block mt-1">
                           هدية ترحيبية فورية في حساب الطالب الجديد (0 لإلغائها).
                         </span>
                       </div>
@@ -6669,15 +6664,15 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   {/* Fraud prevention callout */}
-                  <div className="p-3 bg-emerald-950/30 border border-emerald-800/40 rounded-xl flex items-start gap-2.5">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200/40 rounded-xl flex items-start gap-2.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-emerald-300/90 leading-relaxed">
+                    <p className="text-[11px] text-emerald-700/90 leading-relaxed">
                       <strong>أمان النقاط مفعل برمجياً:</strong> يتم احتساب وإضافة النقاط إلى حساب الطالب فقط وفور تحويل حالة الطلب إلى <strong>(تم التسليم بنجاح / COMPLETED)</strong>، مما يمنع نهائياً أي تحايل عبر إنشاء طلبات وهمية أو ملغاة.
                     </p>
                   </div>
 
                   {loyaltySaveSuccess && (
-                    <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>تم حفظ إعدادات نظام النقاط بنجاح ويسري مفعولها الآن!</span>
                     </div>
@@ -6704,20 +6699,20 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Card 2: Change Admin Password */}
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
-                <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-6">
+                <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
                   <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
                     <Lock className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-white">تغيير كلمة مرور الإدارة (SuperAdmin)</h4>
-                    <p className="text-[11px] text-slate-400">تحديث كلمة السر للدخول إلى لوحة التحكم الرئيسية</p>
+                    <h4 className="text-sm font-black text-slate-900">تغيير كلمة مرور الإدارة (SuperAdmin)</h4>
+                    <p className="text-[11px] text-slate-500">تحديث كلمة السر للدخول إلى لوحة التحكم الرئيسية</p>
                   </div>
                 </div>
 
                 <form onSubmit={handleChangeAdminPassword} className="space-y-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                    <label className="text-xs font-bold text-slate-600 block mb-1.5">
                       كلمة المرور الحالية
                     </label>
                     <div className="relative">
@@ -6726,7 +6721,7 @@ export const AdminPage: React.FC = () => {
                         value={currentAdminPassword}
                         onChange={(e) => setCurrentAdminPassword(e.target.value)}
                         placeholder="أدخل كلمة المرور الحالية للتحقق"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
                         required
                       />
                       <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
@@ -6734,7 +6729,7 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                    <label className="text-xs font-bold text-slate-600 block mb-1.5">
                       كلمة المرور الجديدة
                     </label>
                     <div className="relative">
@@ -6743,7 +6738,7 @@ export const AdminPage: React.FC = () => {
                         value={newAdminPassword}
                         onChange={(e) => setNewAdminPassword(e.target.value)}
                         placeholder="كلمة مرور جديدة (6 خانات على الأقل)"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
                         required
                         minLength={6}
                       />
@@ -6752,7 +6747,7 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                    <label className="text-xs font-bold text-slate-600 block mb-1.5">
                       تأكيد كلمة المرور الجديدة
                     </label>
                     <div className="relative">
@@ -6761,7 +6756,7 @@ export const AdminPage: React.FC = () => {
                         value={confirmAdminPassword}
                         onChange={(e) => setConfirmAdminPassword(e.target.value)}
                         placeholder="أعد إدخال كلمة المرور الجديدة"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
                         required
                         minLength={6}
                       />
@@ -6770,14 +6765,14 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   {passwordChangeError && (
-                    <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2">
+                    <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                       <span>{passwordChangeError}</span>
                     </div>
                   )}
 
                   {passwordChangeSuccess && (
-                    <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>{passwordChangeSuccess}</span>
                     </div>
@@ -6787,7 +6782,7 @@ export const AdminPage: React.FC = () => {
                     <button
                       type="submit"
                       disabled={passwordChangeLoading}
-                      className="w-full h-11 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white border border-slate-700 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full h-11 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-900 border border-slate-200 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       {passwordChangeLoading ? (
                         <>
@@ -6804,9 +6799,9 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </form>
 
-                <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2">
-                  <span className="text-xs font-black text-slate-300 block">💡 نصائح أمنية</span>
-                  <ul className="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <span className="text-xs font-black text-slate-600 block">💡 نصائح أمنية</span>
+                  <ul className="text-[11px] text-slate-500 space-y-1 list-disc list-inside">
                     <li>استخدم مزيجاً من الحروف والأرقام لزيادة قوة كلمة المرور.</li>
                     <li>لا تشارك كلمة المرور مع مدراء الفروع؛ لكل فرع حسابه المستقل.</li>
                     <li>يتم تشفير كلمة المرور فوراً باستخدام تقنية Bcrypt مع Salt عالي الأمان.</li>
@@ -6818,20 +6813,20 @@ export const AdminPage: React.FC = () => {
 
 
             {/* Card 3: Notification Sound Customization */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
                     <Volume2 className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                       <span>التحكم في صوت نغمة الإشعارات والتنبيهات</span>
-                      <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] font-black rounded-md border border-indigo-500/30">
+                      <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-700 text-[10px] font-black rounded-md border border-indigo-500/30">
                         بث لحظي للـ POS وبوابات الطيارين 🔔
                       </span>
                     </h4>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-500">
                       رفع نغمة تنبيه مخصصة (MP3, WAV, OGG) تُعزف فورياً عند وصول أي أوردر جديد لكابتن التوصيل أو مطبخ الفرع
                     </p>
                   </div>
@@ -6848,10 +6843,10 @@ export const AdminPage: React.FC = () => {
 
               <form onSubmit={handleSaveSoundSettings} className="space-y-5">
                 {/* Master Audio Toggle */}
-                <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl flex items-center justify-between">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-black text-slate-200 block">تشغيل نغمة الإشعارات الصوتية</span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                    <span className="text-xs font-black text-slate-800 block">تشغيل نغمة الإشعارات الصوتية</span>
+                    <span className="text-[11px] text-slate-500 block mt-0.5">
                       عند الإلغاء، ستصل الأوردرات بصمت دون تشغيل أي تنبيه صوتي في المنظومة
                     </span>
                   </div>
@@ -6862,32 +6857,32 @@ export const AdminPage: React.FC = () => {
                       onChange={(e) => setSoundSettings({ ...soundSettings, enabled: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <div className="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                   </label>
                 </div>
 
                 {/* Sound Source & Uploader */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Active Sound File Card */}
-                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3 flex flex-col justify-between">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 flex flex-col justify-between">
                     <div>
-                      <span className="text-[11px] font-bold text-slate-400 block mb-1">النغمة المعتمدة حالياً:</span>
+                      <span className="text-[11px] font-bold text-slate-500 block mb-1">النغمة المعتمدة حالياً:</span>
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0">
                           <Music className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-black text-white truncate">
+                          <p className="text-xs font-black text-slate-900 truncate">
                             {soundSettings.soundName || 'النغمة الافتراضية للنظام'}
                           </p>
-                          <span className="text-[10px] text-slate-400 block truncate">
+                          <span className="text-[10px] text-slate-500 block truncate">
                             {soundSettings.soundUrl ? '🎵 ملف صوتي مخصص مرفوع' : '🔔 نغمة رنين إلكترونية افتراضية'}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200">
                       <button
                         type="button"
                         onClick={handlePlaySoundPreview}
@@ -6901,7 +6896,7 @@ export const AdminPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleResetSoundSettings}
-                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all"
                         >
                           استعادة النغمة الافتراضية
                         </button>
@@ -6910,10 +6905,10 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   {/* Upload Custom Audio File */}
-                  <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                     <div>
-                      <span className="text-[11px] font-bold text-slate-400 block mb-1">رفع نغمة صوت جديدة من اختيارك:</span>
-                      <label className="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors bg-slate-900/50 group">
+                      <span className="text-[11px] font-bold text-slate-500 block mb-1">رفع نغمة صوت جديدة من اختيارك:</span>
+                      <label className="border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors bg-white group">
                         <input
                           type="file"
                           accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac"
@@ -6928,8 +6923,8 @@ export const AdminPage: React.FC = () => {
                           </div>
                         ) : (
                           <>
-                            <Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-400 transition-colors mb-1.5" />
-                            <span className="text-xs font-black text-slate-200 group-hover:text-white">
+                            <Upload className="w-6 h-6 text-slate-500 group-hover:text-indigo-400 transition-colors mb-1.5" />
+                            <span className="text-xs font-black text-slate-800 group-hover:text-slate-900">
                               اضغط هنا لاختيار ملف صوتي
                             </span>
                             <span className="text-[10px] text-slate-500 mt-1">
@@ -6941,7 +6936,7 @@ export const AdminPage: React.FC = () => {
                     </div>
 
                     {audioUploadError && (
-                      <div className="p-2.5 bg-rose-950/60 border border-rose-800 text-rose-300 text-[11px] rounded-xl flex items-center gap-2">
+                      <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 text-[11px] rounded-xl flex items-center gap-2">
                         <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                         <span>{audioUploadError}</span>
                       </div>
@@ -6950,9 +6945,9 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 {/* Volume Slider */}
-                <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <label className="font-bold text-slate-300 flex items-center gap-1.5">
+                    <label className="font-bold text-slate-600 flex items-center gap-1.5">
                       <Volume2 className="w-4 h-4 text-indigo-400" />
                       <span>مستوى شدة صوت الرنين والتنبيه:</span>
                     </label>
@@ -6967,12 +6962,12 @@ export const AdminPage: React.FC = () => {
                     step="0.05"
                     value={soundSettings.volume}
                     onChange={(e) => setSoundSettings({ ...soundSettings, volume: parseFloat(e.target.value) || 1.0 })}
-                    className="w-full accent-indigo-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
+                    className="w-full accent-indigo-500 h-2 bg-slate-100 rounded-lg cursor-pointer"
                   />
                 </div>
 
                 {soundSaveSuccess && (
-                  <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>تم حفظ صوت التنبيه بنجاح وبثه لجميع الشاشات ونقاط البيع وبوابات الطيارين! ✅</span>
                   </div>
@@ -7001,20 +6996,20 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {/* Card: Android Native Apps (Admin & Restaurant Kitchen APK) */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
-              <div className="border-b border-slate-800 pb-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-5">
+              <div className="border-b border-slate-200 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
                     <Smartphone className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                       <span>تطبيقات الأندرويد للأجهزة والهواتف (Android APKs)</span>
                       <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-md border border-emerald-500/30">
                         حزم أصلية مستقلة 📲
                       </span>
                     </h4>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5">
                       تطبيقات أندرويد مستقلة وسريعة تعمل بجانب بعضها على نفس الهاتف أو التابلت بدون أي تعارض
                     </p>
                   </div>
@@ -7024,10 +7019,10 @@ export const AdminPage: React.FC = () => {
               {/* Action Buttons for Both Apps */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* 1. Restaurant Kitchen APK */}
-                <div className="p-4 bg-emerald-950/30 border border-emerald-800/50 rounded-2xl flex flex-col justify-between gap-3">
+                <div className="p-4 bg-emerald-50 border border-emerald-200/50 rounded-2xl flex flex-col justify-between gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                      <span className="text-xs font-black text-emerald-700 flex items-center gap-1.5">
                         <Store className="w-4 h-4 text-emerald-400" />
                         <span>نسخة كاشير ومطبخ المطعم (Restaurant APK)</span>
                       </span>
@@ -7035,7 +7030,7 @@ export const AdminPage: React.FC = () => {
                         com.unifood.restaurant
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
                       مخصصة لهواتف وتابلت كاشير ومطبخ المطاعم لاستقبال الطلبات فورياً مع إنذار صوتي مستمر وإبقاء الشاشة مفعلة دائماً.
                     </p>
                   </div>
@@ -7053,10 +7048,10 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 {/* 2. Admin Control Panel APK */}
-                <div className="p-4 bg-purple-950/30 border border-purple-800/50 rounded-2xl flex flex-col justify-between gap-3">
+                <div className="p-4 bg-purple-50 border border-purple-200/50 rounded-2xl flex flex-col justify-between gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                      <span className="text-xs font-black text-purple-700 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-purple-400" />
                         <span>نسخة لوحة تحكم الإدارة (Admin APK)</span>
                       </span>
@@ -7064,7 +7059,7 @@ export const AdminPage: React.FC = () => {
                         com.unifood.admin
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
                       مخصصة للإدارة المركزية لمتابعة كافة الفروع والطلبات، إدارة الحسابات، وتلقي التنبيهات الحساسة للعمليات.
                     </p>
                   </div>
@@ -7084,23 +7079,23 @@ export const AdminPage: React.FC = () => {
 
               {/* Feature Highlights */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-slate-200 block">🚀 تشغيل سريع وتلقائي</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                  <span className="font-bold text-slate-800 block">🚀 تشغيل سريع وتلقائي</span>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
                     يفتح الشاشة المخصصة لكل دور فوراً بدون الحاجة لكتابة روابط أو البحث في المتصفحات.
                   </p>
                 </div>
 
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-slate-200 block">📱 شاشة نشطة دائماً</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                  <span className="font-bold text-slate-800 block">📱 شاشة نشطة دائماً</span>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
                     إبقاء شاشة الهاتف/التابلت نشطة في المطبخ لضمان عدم إغلاق الشاشة أثناء انتظار الطلبات.
                   </p>
                 </div>
 
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                  <span className="font-bold text-slate-200 block">🔔 دعم التنبيهات والإشعارات</span>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                  <span className="font-bold text-slate-800 block">🔔 دعم التنبيهات والإشعارات</span>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
                     استقبال إشعارات النظام الفورية وأجراس التنبيه بالطلبات الجديدة واعتذار الطيارين.
                   </p>
                 </div>
@@ -7110,20 +7105,20 @@ export const AdminPage: React.FC = () => {
 
 
             {/* Card 3: Factory Reset to Zero State (حالة الصفر) */}
-            <div className="bg-rose-950/20 border border-rose-900/50 rounded-3xl p-6 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rose-900/40 pb-4">
+            <div className="bg-rose-50/20 border border-rose-200 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rose-200/40 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
                     <Trash2 className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                       <span>إعادة ضبط المصنع وتصفير بيانات التشغيل (حالة الصفر)</span>
                       <span className="px-2 py-0.5 bg-rose-500/20 text-rose-400 text-[10px] font-black rounded-md border border-rose-500/30">
                         إجراء حساس ومحمي 🔒
                       </span>
                     </h4>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5">
                       حذف كافة الطلبات التجريبية وحسابات وسلات الطلاب لبدء التشغيل الفعلي من نقطة الصفر
                     </p>
                   </div>
@@ -7145,9 +7140,9 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1.5">
-                  <span className="font-bold text-rose-300 block">🗑️ البيانات التي سيتم حذفها وتصفيرها:</span>
-                  <ul className="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                  <span className="font-bold text-rose-700 block">🗑️ البيانات التي سيتم حذفها وتصفيرها:</span>
+                  <ul className="text-[11px] text-slate-500 space-y-1 list-disc list-inside">
                     <li>كافة الطلبات المسجلة بجميع حالاتها وعناصرها وسجلاتها.</li>
                     <li>كافة السلات الجماعية (سلة الشلة) المشتركة.</li>
                     <li>حسابات الطلاب التجريبية مع أرصدة المحافظ ونقاط الولاء والعناوين.</li>
@@ -7155,9 +7150,9 @@ export const AdminPage: React.FC = () => {
                   </ul>
                 </div>
 
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1.5">
-                  <span className="font-bold text-emerald-300 block">🛡️ البيانات المحفوظة والآمنة التي لن تتأثر:</span>
-                  <ul className="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                  <span className="font-bold text-emerald-700 block">🛡️ البيانات المحفوظة والآمنة التي لن تتأثر:</span>
+                  <ul className="text-[11px] text-slate-500 space-y-1 list-disc list-inside">
                     <li>حساب الإدارة الرئيسية (SuperAdmin) وكلمة المرور.</li>
                     <li>فروع المطاعم وبيانات الدخول الخاصة بها وإعدادات الدفع والتوصيل.</li>
                     <li>قوائم الطعام (المنيو) والأصناف والأسعار والإضافات والصور الثابتة.</li>
@@ -7173,13 +7168,13 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'SUPPORT' && (
           <div className="space-y-6 animate-fadeIn">
             {/* Header */}
-            <div className="bg-gradient-to-r from-rose-950/40 via-slate-900 to-purple-950/40 border border-rose-500/30 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-gradient-to-r from-rose-50 via-white to-purple-50 border border-rose-500/30 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
                   <Headphones className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <span>مركز الدعم الفني وبلاغات الطلاب</span>
                     {supportTickets.filter((t: any) => t.status === 'OPEN').length > 0 && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-rose-500 text-white font-black animate-pulse">
@@ -7187,7 +7182,7 @@ export const AdminPage: React.FC = () => {
                       </span>
                     )}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     متابعة بلاغات وشكاوى واقتراحات الطلاب والتواصل الفوري معهم عبر الواتساب أو الهاتف
                   </p>
                 </div>
@@ -7195,7 +7190,7 @@ export const AdminPage: React.FC = () => {
 
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Filter buttons */}
-                <div className="bg-slate-950/80 p-1 rounded-xl border border-slate-800 flex items-center gap-1">
+                <div className="bg-slate-50 p-1 rounded-xl border border-slate-200 flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setSupportFilter('ALL')}
@@ -7235,7 +7230,7 @@ export const AdminPage: React.FC = () => {
                   type="button"
                   onClick={fetchSupportTickets}
                   disabled={loadingSupportTickets}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all active:scale-95"
+                  className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 transition-all active:scale-95"
                   title="تحديث البلاغات"
                 >
                   <RefreshCw className={`w-4 h-4 ${loadingSupportTickets ? 'animate-spin' : ''}`} />
@@ -7244,20 +7239,20 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {/* WhatsApp Support Reception Number Card */}
-            <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl p-5 sm:p-6 shadow-xl space-y-3.5">
+            <div className="bg-white border border-emerald-500/30 rounded-3xl p-5 sm:p-6 shadow-xl space-y-3.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
                     <MessageSquare className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                       <span>رقم واتساب استقبال بلاغات ودعم الطلاب</span>
-                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-700 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
                         تحديث فوري للطلاب ⚡
                       </span>
                     </h4>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5">
                       الرقم الذي يتم توجيه الطلاب إليه عند النقر على (محادثة واتساب مباشرة للدعم) في صفحة حسابي بالتطبيق
                     </p>
                   </div>
@@ -7268,7 +7263,7 @@ export const AdminPage: React.FC = () => {
                     href={`https://wa.me/20${supportWhatsappInput.replace(/\D/g, '').replace(/^0/, '')}?text=${encodeURIComponent('تجربة اتصال دعم فني من لوحة إدارة UniFood')}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shadow-sm"
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-emerald-400 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shadow-sm"
                     title="تجربة فتح المحادثة في الواتساب"
                   >
                     <span>تجربة فتح الرابط</span>
@@ -7288,7 +7283,7 @@ export const AdminPage: React.FC = () => {
                     placeholder="مثال: 01016629986"
                     value={supportWhatsappInput}
                     onChange={(e) => setSupportWhatsappInput(e.target.value)}
-                    className="w-full pr-10 pl-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full pr-10 pl-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
 
@@ -7304,7 +7299,7 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {supportWhatsappSaveSuccess && (
-                <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
                   <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>✓ تم تحديث رقم واتساب الدعم بنجاح وتفعيله لجميع الطلاب بالتطبيق فوراً.</span>
                 </div>
@@ -7313,13 +7308,13 @@ export const AdminPage: React.FC = () => {
 
             {/* Tickets List */}
             {loadingSupportTickets ? (
-              <div className="text-center py-12 text-slate-400 text-xs font-bold">
+              <div className="text-center py-12 text-slate-500 text-xs font-bold">
                 جاري تحميل بلاغات الدعم الفني...
               </div>
             ) : supportTickets.length === 0 ? (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
+              <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-3">
                 <LifeBuoy className="w-12 h-12 text-slate-600 mx-auto" />
-                <h4 className="text-white font-black text-sm">لا توجد أي بلاغات دعم فني مسجلة حتى الآن</h4>
+                <h4 className="text-slate-900 font-black text-sm">لا توجد أي بلاغات دعم فني مسجلة حتى الآن</h4>
                 <p className="text-xs text-slate-500">
                   عندما يرسل أي طالب بلاغاً أو مشكلة من صفحة حسابي بالتطبيق ستظهر هنا فوراً.
                 </p>
@@ -7348,13 +7343,13 @@ export const AdminPage: React.FC = () => {
                         <div className="space-y-3">
                           {/* Card Header: category & status */}
                           <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300">
+                            <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-700">
                               {ticket.categoryLabel || ticket.category || 'استفسار عام'}
                             </span>
 
                             <div className="flex items-center gap-2">
                               {ticket.orderNumber && (
-                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-amber-300 border border-amber-400/20">
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-amber-800 border border-amber-400/20">
                                   طلب #{ticket.orderNumber}
                                 </span>
                               )}
@@ -7372,21 +7367,21 @@ export const AdminPage: React.FC = () => {
 
                           {/* Subject & Message */}
                           <div>
-                            <h4 className="font-black text-sm text-white mb-1">
+                            <h4 className="font-black text-sm text-slate-900 mb-1">
                               {ticket.subject}
                             </h4>
-                            <p className="text-xs text-slate-300 bg-slate-950/70 p-3 rounded-2xl border border-slate-800 leading-relaxed whitespace-pre-wrap">
+                            <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-200 leading-relaxed whitespace-pre-wrap">
                               {ticket.message}
                             </p>
                           </div>
 
                           {/* Student Info & Date */}
-                          <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/80">
+                          <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-200">
                             <div className="space-y-0.5">
-                              <span className="font-bold text-slate-200 block text-xs">
+                              <span className="font-bold text-slate-800 block text-xs">
                                 👤 {ticket.userName || 'طالب جامعي'}
                               </span>
-                              <span className="text-[11px] font-mono text-slate-400 block" dir="ltr">
+                              <span className="text-[11px] font-mono text-slate-500 block" dir="ltr">
                                 📞 {ticket.userPhone}
                               </span>
                             </div>
@@ -7397,7 +7392,7 @@ export const AdminPage: React.FC = () => {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80 flex-wrap">
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-200 flex-wrap">
                           <a
                             href={`https://wa.me/20${cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone}?text=${encodeURIComponent(`مرحباً يا ${ticket.userName || 'بطل'}، بخصوص بلاغك في تطبيق UniFood [${ticket.subject}]...`)}`}
                             target="_blank"
@@ -7410,7 +7405,7 @@ export const AdminPage: React.FC = () => {
 
                           <a
                             href={`tel:${ticket.userPhone}`}
-                            className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all"
+                            className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all"
                             title="اتصال هاتفي"
                           >
                             <Phone className="w-3.5 h-3.5" />
@@ -7421,7 +7416,7 @@ export const AdminPage: React.FC = () => {
                               type="button"
                               disabled={updatingTicketId === ticket.id}
                               onClick={() => handleUpdateTicketStatus(ticket.id, 'OPEN')}
-                              className="py-2 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition-all"
+                              className="py-2 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 border border-amber-500/30 rounded-xl text-xs font-bold transition-all"
                               title="إعادة فتح البلاغ"
                             >
                               إعادة فتح
@@ -7431,7 +7426,7 @@ export const AdminPage: React.FC = () => {
                               type="button"
                               disabled={updatingTicketId === ticket.id}
                               onClick={() => handleUpdateTicketStatus(ticket.id, 'RESOLVED')}
-                              className="py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all"
+                              className="py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all"
                               title="تعليم كتم الحل"
                             >
                               {updatingTicketId === ticket.id ? '...' : '✓ تم الحل'}
@@ -7460,7 +7455,7 @@ export const AdminPage: React.FC = () => {
       {/* Mobile Bottom Navigation Bar */}
       <nav 
         aria-label="التنقل السريع في لوحة الإدارة"
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 border-t border-slate-800/80 backdrop-blur-xl px-2 py-1.5 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.6)]"
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 backdrop-blur-xl px-2 py-1.5 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.6)]"
       >
         <div className="grid grid-cols-5 gap-1 items-center max-w-lg mx-auto">
           {/* 1. Branches */}
@@ -7479,7 +7474,7 @@ export const AdminPage: React.FC = () => {
             <div className="relative">
               <Building className="w-5 h-5 mb-0.5" />
               {branches.length > 0 && (
-                <span className="absolute -top-1 -right-2 text-[9px] font-mono font-bold px-1 py-0.2 bg-slate-800 text-slate-300 rounded-full border border-slate-700 leading-none">
+                <span className="absolute -top-1 -right-2 text-[9px] font-mono font-bold px-1 py-0.2 bg-slate-100 text-slate-600 rounded-full border border-slate-200 leading-none">
                   {branches.length}
                 </span>
               )}
@@ -7533,7 +7528,7 @@ export const AdminPage: React.FC = () => {
             <div className="relative">
               <Users className="w-5 h-5 mb-0.5" />
               {students.length > 0 && (
-                <span className="absolute -top-1 -right-2 text-[9px] font-mono font-bold px-1 py-0.2 bg-slate-800 text-slate-300 rounded-full border border-slate-700 leading-none">
+                <span className="absolute -top-1 -right-2 text-[9px] font-mono font-bold px-1 py-0.2 bg-slate-100 text-slate-600 rounded-full border border-slate-200 leading-none">
                   {students.length}
                 </span>
               )}
@@ -7598,18 +7593,18 @@ export const AdminPage: React.FC = () => {
           />
 
           {/* Sheet */}
-          <div className="relative z-10 bg-slate-900 border-t border-slate-800 rounded-t-3xl p-5 pb-safe space-y-4 max-h-[85vh] overflow-y-auto custom-scrollbar animate-slideUp shadow-2xl">
+          <div className="relative z-10 bg-white border-t border-slate-200 rounded-t-3xl p-5 pb-safe space-y-4 max-h-[85vh] overflow-y-auto custom-scrollbar animate-slideUp shadow-2xl">
             {/* Grab Handle */}
             <div className="w-12 h-1.5 bg-slate-700/80 rounded-full mx-auto" />
 
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h3 className="text-sm font-black text-white flex items-center gap-2">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                 <span>أقسام الإدارة والخدمات الإضافية</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowMobileMoreMenu(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -7626,8 +7621,8 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'ANALYTICS'
-                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -7637,8 +7632,8 @@ export const AdminPage: React.FC = () => {
                   <span className="text-[10px] font-mono text-purple-400 font-bold">إحصاءات</span>
                 </div>
                 <div>
-                  <span className="text-xs font-black block text-white">التقارير والمخططات</span>
-                  <span className="text-[10px] text-slate-400 block">رسوم بيانية للأداء التاريخي</span>
+                  <span className="text-xs font-black block text-slate-900">التقارير والمخططات</span>
+                  <span className="text-[10px] text-slate-500 block">رسوم بيانية للأداء التاريخي</span>
                 </div>
               </button>
 
@@ -7651,21 +7646,21 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'DRIVERS'
-                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                     <Truck className="w-4 h-4" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
                     {drivers.length}
                   </span>
                 </div>
                 <div>
-                  <span className="text-xs font-black block text-white">كباتن التوصيل (الطيارين)</span>
-                  <span className="text-[10px] text-slate-400 block">إدارة الطيارين ونطاق المطاعم</span>
+                  <span className="text-xs font-black block text-slate-900">كباتن التوصيل (الطيارين)</span>
+                  <span className="text-[10px] text-slate-500 block">إدارة الطيارين ونطاق المطاعم</span>
                 </div>
               </button>
               {/* REVIEWS */}
@@ -7677,21 +7672,21 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'REVIEWS'
-                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
                     <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
                     {reviews.length}
                   </span>
                 </div>
                 <div>
-                  <span className="text-xs font-black block text-white">تقييمات وآراء العملاء</span>
-                  <span className="text-[10px] text-slate-400 block">آراء وملاحظات الطلبات</span>
+                  <span className="text-xs font-black block text-slate-900">تقييمات وآراء العملاء</span>
+                  <span className="text-[10px] text-slate-500 block">آراء وملاحظات الطلبات</span>
                 </div>
               </button>
 
@@ -7704,21 +7699,21 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'BANNERS'
-                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
                     <ImageIcon className="w-4 h-4" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
                     {banners.length}
                   </span>
                 </div>
                 <div>
-                  <span className="text-xs font-black block text-white">البانرات والإعلانات</span>
-                  <span className="text-[10px] text-slate-400 block">واجهة متجر الطلاب</span>
+                  <span className="text-xs font-black block text-slate-900">البانرات والإعلانات</span>
+                  <span className="text-[10px] text-slate-500 block">واجهة متجر الطلاب</span>
                 </div>
               </button>
 
@@ -7731,21 +7726,21 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'PROMOS'
-                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
                     <Tag className="w-4 h-4" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
                     {promos.length}
                   </span>
                 </div>
                 <div>
-                  <span className="text-xs font-black block text-white">كوبونات الخصم</span>
-                  <span className="text-[10px] text-slate-400 block">خصومات الفروع والعامة</span>
+                  <span className="text-xs font-black block text-slate-900">كوبونات الخصم</span>
+                  <span className="text-[10px] text-slate-500 block">خصومات الفروع والعامة</span>
                 </div>
               </button>
 
@@ -7758,21 +7753,21 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'FLASH_DEALS'
-                    ? 'bg-rose-950/70 border-rose-600 text-white shadow-md'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-rose-50 border-rose-600 text-white shadow-md'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
                     <Flame className="w-4 h-4 fill-rose-400" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
                     {flashDealsList.length}
                   </span>
                 </div>
                 <div>
-                  <span className="text-xs font-black block text-white">عروض الفلاش والبريك 🔥</span>
-                  <span className="text-[10px] text-slate-400 block">عروض موقوتة وكومبوهات</span>
+                  <span className="text-xs font-black block text-slate-900">عروض الفلاش والبريك 🔥</span>
+                  <span className="text-[10px] text-slate-500 block">عروض موقوتة وكومبوهات</span>
                 </div>
               </button>
 
@@ -7785,8 +7780,8 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'WHATSAPP'
-                    ? 'bg-emerald-950/70 border-emerald-600 text-white shadow-md'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-emerald-50 border-emerald-600 text-white shadow-md'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -7796,8 +7791,8 @@ export const AdminPage: React.FC = () => {
                   <span className={`w-2.5 h-2.5 rounded-full ${whatsAppStatus?.isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-500'}`} />
                 </div>
                 <div>
-                  <span className="text-xs font-black block text-white">بوت الواتساب و OTP</span>
-                  <span className="text-[10px] text-slate-400 block">
+                  <span className="text-xs font-black block text-slate-900">بوت الواتساب و OTP</span>
+                  <span className="text-[10px] text-slate-500 block">
                     {whatsAppStatus?.isConnected ? 'متصل بنجاح ✅' : 'بانتظار المسح ⚠️'}
                   </span>
                 </div>
@@ -7812,19 +7807,19 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'SETTINGS'
-                    ? 'bg-purple-950/70 border-purple-600 text-white shadow-md'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-slate-800 text-purple-400 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-slate-100 text-purple-400 flex items-center justify-center">
                     <Settings className="w-4 h-4" />
                   </div>
                   <span className="text-[10px] text-purple-400 font-mono">سيرفر</span>
                 </div>
                 <div>
-                  <span className="text-xs font-black block text-white">إعدادات النظام والأمان</span>
-                  <span className="text-[10px] text-slate-400 block">التنبيهات وتصفير المنظومة</span>
+                  <span className="text-xs font-black block text-slate-900">إعدادات النظام والأمان</span>
+                  <span className="text-[10px] text-slate-500 block">التنبيهات وتصفير المنظومة</span>
                 </div>
               </button>
               {/* SUPPORT */}
@@ -7836,8 +7831,8 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 col-span-2 ${
                   activeTab === 'SUPPORT'
-                    ? 'bg-rose-950/70 border-rose-600 text-white shadow-md'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-rose-50 border-rose-600 text-white shadow-md'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -7851,8 +7846,8 @@ export const AdminPage: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <span className="text-xs font-black block text-white">الدعم الفني والشكاوى</span>
-                  <span className="text-[10px] text-slate-400 block">رسائل وبلاغات الطلاب والمشاكل</span>
+                  <span className="text-xs font-black block text-slate-900">الدعم الفني والشكاوى</span>
+                  <span className="text-[10px] text-slate-500 block">رسائل وبلاغات الطلاب والمشاكل</span>
                 </div>
               </button>
             </div>
@@ -7864,15 +7859,15 @@ export const AdminPage: React.FC = () => {
                 onClick={() => {
                   triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
                 }}
-                className="w-full p-3 bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/70 border border-purple-700/60 rounded-2xl flex items-center justify-between gap-3 text-white transition-all active:scale-98 shadow-md"
+                className="w-full p-3 bg-gradient-to-r from-purple-50 via-white to-indigo-50 border border-purple-200/60 rounded-2xl flex items-center justify-between gap-3 text-slate-900 transition-all active:scale-98 shadow-md"
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-base shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-700 flex items-center justify-center text-base shrink-0">
                     📲
                   </div>
                   <div className="text-right">
                     <span className="text-xs font-black block">تحميل تطبيق الإدارة (APK)</span>
-                    <span className="text-[10px] text-purple-300 block">تثبيت لوحة التحكم كتطبيق أندرويد مستقل</span>
+                    <span className="text-[10px] text-purple-700 block">تثبيت لوحة التحكم كتطبيق أندرويد مستقل</span>
                   </div>
                 </div>
                 <span className="text-xs font-bold px-2.5 py-1 bg-purple-600 hover:bg-purple-500 rounded-xl shrink-0">تثبيت</span>
@@ -7880,7 +7875,7 @@ export const AdminPage: React.FC = () => {
             )}
 
             {/* Quick Actions Row */}
-            <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
+            <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -7888,7 +7883,7 @@ export const AdminPage: React.FC = () => {
                   fetchDashboardData();
                 }}
                 disabled={loading}
-                className="flex-1 py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-400' : ''}`} />
                 <span>تحديث البيانات</span>
@@ -7909,7 +7904,7 @@ export const AdminPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-10 h-10 flex items-center justify-center text-rose-400 bg-rose-950/40 border border-rose-900/60 rounded-xl transition-colors hover:bg-rose-900 shrink-0"
+                className="w-10 h-10 flex items-center justify-center text-rose-400 bg-rose-50 border border-rose-200 rounded-xl transition-colors hover:bg-rose-100 shrink-0"
                 title="تسجيل الخروج"
               >
                 <Power className="w-4 h-4" />
@@ -7924,12 +7919,12 @@ export const AdminPage: React.FC = () => {
       {/* A. Add Branch Modal */}
       {showAddBranchModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
-              <h3 className="font-black text-base text-white">إضافة فرع مطعم جديد بالجامعة</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
+              <h3 className="font-black text-base text-slate-900">إضافة فرع مطعم جديد بالجامعة</h3>
               <button 
                 onClick={() => setShowAddBranchModal(false)} 
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -7939,26 +7934,26 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleCreateBranch} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {/* لوجو المطعم */}
-              <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   {newLogoUrl ? (
                     <img
                       src={getFullImageUrl(newLogoUrl)}
                       alt="لوجو"
-                      className="w-12 h-12 rounded-xl object-cover border border-slate-700 bg-slate-800"
+                      className="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
+                    <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500">
                       <ImageIcon className="w-5 h-5" />
                     </div>
                   )}
                   <div>
-                    <span className="text-xs font-bold text-slate-200 block">لوجو المطعم</span>
-                    <span className="text-[10px] text-slate-400">صورة واضحة تظهر للطلاب في القائمة</span>
+                    <span className="text-xs font-bold text-slate-800 block">لوجو المطعم</span>
+                    <span className="text-[10px] text-slate-500">صورة واضحة تظهر للطلاب في القائمة</span>
                   </div>
                 </div>
 
-                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold transition-all">
+                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-700 border border-purple-500/30 rounded-xl text-xs font-bold transition-all">
                   <Upload className="w-3.5 h-3.5" />
                   <span>{uploadingNewLogo ? 'جاري الرفع...' : (newLogoUrl ? 'تغيير' : 'رفع لوجو')}</span>
                   <input
@@ -7972,59 +7967,59 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">اسم المطعم / الفرع *</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">اسم المطعم / الفرع *</label>
                 <input
                   type="text"
                   required
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
                   placeholder="مثال: شاورما الجامعة"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-600 mb-1">
                   معرف الرابط المباشر للمطعم (Slug / Endpoint)
                 </label>
-                <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-purple-500" dir="ltr">
+                <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-purple-500" dir="ltr">
                   <span className="text-xs font-mono font-bold text-purple-400 select-none whitespace-nowrap shrink-0">?branch=</span>
                   <input
                     type="text"
                     value={newSlug}
                     onChange={e => setNewSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, ''))}
                     placeholder="shawarma-elreem"
-                    className="w-full bg-transparent text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-transparent text-xs text-slate-900 focus:outline-none font-mono"
                     dir="ltr"
                   />
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">يسمح بمشاركة رابط مباشر ومخصص للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
+                <p className="text-[10px] text-slate-500 mt-1">يسمح بمشاركة رابط مباشر ومخصص للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">موقع المبنى بالجامعة</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">موقع المبنى بالجامعة</label>
                   <div className="relative">
-                    <MapPin className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <MapPin className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={newAddress}
                       onChange={e => setNewAddress(e.target.value)}
                       placeholder="مثال: مجمع الكليات النظرية"
-                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">رقم هاتف الفرع</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">رقم هاتف الفرع</label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Phone className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="tel"
                       value={newPhone}
                       onChange={e => setNewPhone(e.target.value)}
                       placeholder="01XXXXXXXXX"
-                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                       dir="ltr"
                     />
                   </div>
@@ -8032,14 +8027,14 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* تحديد موقع الفرع بالـ GPS */}
-              <div className="p-3.5 bg-gradient-to-r from-cyan-950/40 to-slate-950/70 border border-cyan-800/40 rounded-2xl space-y-3">
+              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-100 border border-cyan-800/40 rounded-2xl space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div>
                     <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
                       <Navigation className="w-3.5 h-3.5 text-cyan-400" />
                       <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
                     </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
                       تحدد دبوس المطعم في خريطة التتبع المباشر وحساب مسافة التوصيل
                     </span>
                   </div>
@@ -8048,7 +8043,7 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={handleDetectGpsForNewBranch}
                     disabled={detectingNewGps}
-                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-slate-900 rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
                   >
                     <Navigation className={`w-3.5 h-3.5 ${detectingNewGps ? 'animate-spin' : ''}`} />
                     <span>{detectingNewGps ? 'جاري التقاط الإحداثيات...' : '📍 سحب الموقع الحالي'}</span>
@@ -8057,7 +8052,7 @@ export const AdminPage: React.FC = () => {
 
                 {/* معالم الحرم الجامعي للاختيار السريع */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400">أو اختر بالقرب من معالم الحرم الجامعي:</span>
+                  <span className="text-[10px] font-bold text-slate-500">أو اختر بالقرب من معالم الحرم الجامعي:</span>
                   <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {CAMPUS_LANDMARKS.map(lm => {
                       const isSelected = newLat === lm.lat && newLng === lm.lng;
@@ -8087,25 +8082,25 @@ export const AdminPage: React.FC = () => {
                 {/* Coordinate inputs */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-300 mb-1">خط العرض (Lat)</label>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">خط العرض (Lat)</label>
                     <input
                       type="number"
                       step="0.000001"
                       value={newLat ?? ''}
                       onChange={e => setNewLat(e.target.value ? parseFloat(e.target.value) : null)}
                       placeholder="30.026200"
-                      className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-300 mb-1">خط الطول (Lng)</label>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">خط الطول (Lng)</label>
                     <input
                       type="number"
                       step="0.000001"
                       value={newLng ?? ''}
                       onChange={e => setNewLng(e.target.value ? parseFloat(e.target.value) : null)}
                       placeholder="31.208800"
-                      className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
                     />
                   </div>
                 </div>
@@ -8130,7 +8125,7 @@ export const AdminPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => { setNewLat(null); setNewLng(null); }}
-                        className="text-slate-400 hover:text-rose-400 text-[10px]"
+                        className="text-slate-500 hover:text-rose-400 text-[10px]"
                       >
                         مسح
                       </button>
@@ -8140,20 +8135,20 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">رسوم التوصيل لمباني الكليات (ج.م)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">رسوم التوصيل لمباني الكليات (ج.م)</label>
                 <div className="relative">
-                  <Coins className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Coins className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="number"
                     value={newDeliveryFee}
                     onChange={e => setNewDeliveryFee(e.target.value)}
-                    className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                    className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                   />
                 </div>
               </div>
 
-              <div className="p-3 bg-purple-950/40 border border-purple-800/60 rounded-xl space-y-3">
-                <span className="text-[11px] font-bold text-purple-300 block">بيانات دخول تطبيق الديسكتوب للكاشير:</span>
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
+                <span className="text-[11px] font-bold text-purple-700 block">بيانات دخول تطبيق الديسكتوب للكاشير:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <input
@@ -8161,7 +8156,7 @@ export const AdminPage: React.FC = () => {
                       value={newUsername}
                       onChange={e => setNewUsername(e.target.value)}
                       placeholder="اسم المستخدم"
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                     />
                   </div>
                   <div>
@@ -8170,18 +8165,18 @@ export const AdminPage: React.FC = () => {
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       placeholder="كلمة المرور"
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                     />
                   </div>
                 </div>
               </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddBranchModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -8200,12 +8195,12 @@ export const AdminPage: React.FC = () => {
       {/* B. Edit Branch Details Modal */}
       {editingBranch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
-              <h3 className="font-black text-base text-white">تعديل بيانات: {editingBranch.name}</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
+              <h3 className="font-black text-base text-slate-900">تعديل بيانات: {editingBranch.name}</h3>
               <button 
                 onClick={() => setEditingBranch(null)} 
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -8215,26 +8210,26 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleSaveEditBranch} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {/* لوجو المطعم */}
-              <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   {editLogoUrl ? (
                     <img
                       src={getFullImageUrl(editLogoUrl)}
                       alt="لوجو"
-                      className="w-12 h-12 rounded-xl object-cover border border-slate-700 bg-slate-800"
+                      className="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
+                    <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500">
                       <ImageIcon className="w-5 h-5" />
                     </div>
                   )}
                   <div>
-                    <span className="text-xs font-bold text-slate-200 block">لوجو المطعم</span>
-                    <span className="text-[10px] text-slate-400">تحديث شعار الفرع</span>
+                    <span className="text-xs font-bold text-slate-800 block">لوجو المطعم</span>
+                    <span className="text-[10px] text-slate-500">تحديث شعار الفرع</span>
                   </div>
                 </div>
 
-                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold transition-all">
+                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-700 border border-purple-500/30 rounded-xl text-xs font-bold transition-all">
                   <Upload className="w-3.5 h-3.5" />
                   <span>{uploadingEditLogo ? 'جاري الرفع...' : (editLogoUrl ? 'تغيير' : 'رفع لوجو')}</span>
                   <input
@@ -8248,58 +8243,58 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">اسم المطعم *</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">اسم المطعم *</label>
                 <input
                   type="text"
                   required
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-600 mb-1">
                   معرف الرابط المباشر للمطعم (Slug / Endpoint)
                 </label>
-                <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-purple-500" dir="ltr">
+                <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-purple-500" dir="ltr">
                   <span className="text-xs font-mono font-bold text-purple-400 select-none whitespace-nowrap shrink-0">?branch=</span>
                   <input
                     type="text"
                     value={editSlug}
                     onChange={e => setEditSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, ''))}
                     placeholder="shawarma-elreem"
-                    className="w-full bg-transparent text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-transparent text-xs text-slate-900 focus:outline-none font-mono"
                     dir="ltr"
                   />
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">يسمح بمشاركة رابط مباشر ومخصص للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
+                <p className="text-[10px] text-slate-500 mt-1">يسمح بمشاركة رابط مباشر ومخصص للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">موقع المبنى بالحرم الجامعي</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">موقع المبنى بالحرم الجامعي</label>
                   <div className="relative">
-                    <MapPin className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <MapPin className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={editAddress}
                       onChange={e => setEditAddress(e.target.value)}
                       placeholder="مثال: مجمع الكليات النظرية"
-                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">رقم الهاتف للتواصل</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">رقم الهاتف للتواصل</label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Phone className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="tel"
                       value={editPhone}
                       onChange={e => setEditPhone(e.target.value)}
                       placeholder="01XXXXXXXXX"
-                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                       dir="ltr"
                     />
                   </div>
@@ -8307,14 +8302,14 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* تحديد وتحديث موقع الفرع بالـ GPS */}
-              <div className="p-3.5 bg-gradient-to-r from-cyan-950/40 to-slate-950/70 border border-cyan-800/40 rounded-2xl space-y-3">
+              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-100 border border-cyan-800/40 rounded-2xl space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div>
                     <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
                       <Navigation className="w-3.5 h-3.5 text-cyan-400" />
                       <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
                     </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
                       تحدد دبوس المطعم في خريطة التتبع المباشر وحساب مسافة التوصيل
                     </span>
                   </div>
@@ -8323,7 +8318,7 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={handleDetectGpsForEditBranch}
                     disabled={detectingEditGps}
-                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-slate-900 rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
                   >
                     <Navigation className={`w-3.5 h-3.5 ${detectingEditGps ? 'animate-spin' : ''}`} />
                     <span>{detectingEditGps ? 'جاري التقاط الإحداثيات...' : '📍 سحب الموقع الحالي'}</span>
@@ -8332,7 +8327,7 @@ export const AdminPage: React.FC = () => {
 
                 {/* معالم الحرم الجامعي للاختيار السريع */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400">أو اختر بالقرب من معالم الحرم الجامعي:</span>
+                  <span className="text-[10px] font-bold text-slate-500">أو اختر بالقرب من معالم الحرم الجامعي:</span>
                   <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {CAMPUS_LANDMARKS.map(lm => {
                       const isSelected = editLat === lm.lat && editLng === lm.lng;
@@ -8362,25 +8357,25 @@ export const AdminPage: React.FC = () => {
                 {/* Coordinate inputs */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-300 mb-1">خط العرض (Lat)</label>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">خط العرض (Lat)</label>
                     <input
                       type="number"
                       step="0.000001"
                       value={editLat ?? ''}
                       onChange={e => setEditLat(e.target.value ? parseFloat(e.target.value) : null)}
                       placeholder="30.026200"
-                      className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-300 mb-1">خط الطول (Lng)</label>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">خط الطول (Lng)</label>
                     <input
                       type="number"
                       step="0.000001"
                       value={editLng ?? ''}
                       onChange={e => setEditLng(e.target.value ? parseFloat(e.target.value) : null)}
                       placeholder="31.208800"
-                      className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
                     />
                   </div>
                 </div>
@@ -8405,7 +8400,7 @@ export const AdminPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => { setEditLat(null); setEditLng(null); }}
-                        className="text-slate-400 hover:text-rose-400 text-[10px]"
+                        className="text-slate-500 hover:text-rose-400 text-[10px]"
                       >
                         مسح
                       </button>
@@ -8415,20 +8410,20 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Delivery Zone & Range Settings (Task 9) */}
-              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-indigo-700 flex items-center gap-1.5">
                     <Navigation className="w-3.5 h-3.5 text-indigo-400" />
                     <span>نطاق وزون التوصيل والطلب للعملاء 🎯</span>
                   </span>
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] text-slate-500">
                     يحدد نطاق ظهور المطعم للطلاب
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">
                       نطاق التوصيل الأقصى (بالكيلومتر)
                     </label>
                     <div className="relative">
@@ -8439,20 +8434,20 @@ export const AdminPage: React.FC = () => {
                         value={editDeliveryRadiusKm}
                         onChange={e => setEditDeliveryRadiusKm(e.target.value)}
                         placeholder="مثال: 5"
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-indigo-500 font-mono font-bold"
+                        className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 font-mono font-bold"
                       />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">كم</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">كم</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">
                       نظام تسعير ونطاق التوصيل
                     </label>
                     <select
                       value={editDeliveryType}
                       onChange={e => setEditDeliveryType(e.target.value as 'FIXED' | 'ZONES')}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="FIXED">رسوم موحدة لنطاق المسافة ({editDeliveryFee} ج.م)</option>
                       <option value="ZONES">تخصيص مناطق ومباني محددة بالحرم</option>
@@ -8461,21 +8456,21 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 {editDeliveryType === 'ZONES' && (
-                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         placeholder="اسم المنطقة (مثال: كلية الهندسة)"
                         value={newZoneName}
                         onChange={e => setNewZoneName(e.target.value)}
-                        className="flex-1 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white"
+                        className="flex-1 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900"
                       />
                       <input
                         type="number"
                         placeholder="الرسوم"
                         value={newZoneFee}
                         onChange={e => setNewZoneFee(e.target.value)}
-                        className="w-20 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white font-mono"
+                        className="w-20 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
                       />
                       <button
                         type="button"
@@ -8492,12 +8487,12 @@ export const AdminPage: React.FC = () => {
 
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {editDeliveryZones.map((z, idx) => (
-                        <span key={idx} className="bg-slate-800 text-indigo-300 border border-indigo-900/60 px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5">
+                        <span key={idx} className="bg-slate-100 text-indigo-700 border border-indigo-200/60 px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5">
                           <span>{z.name} ({z.fee} ج.م)</span>
                           <button
                             type="button"
                             onClick={() => setEditDeliveryZones(prev => prev.filter((_, i) => i !== idx))}
-                            className="text-slate-400 hover:text-rose-400 font-bold"
+                            className="text-slate-500 hover:text-rose-400 font-bold"
                           >
                             ×
                           </button>
@@ -8509,50 +8504,50 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">رسوم التوصيل لمباني الجامعة (ج.م)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">رسوم التوصيل لمباني الجامعة (ج.م)</label>
                 <div className="relative">
-                  <Coins className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Coins className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="number"
                     value={editDeliveryFee}
                     onChange={e => setEditDeliveryFee(e.target.value)}
-                    className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                    className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">وقت بدء العمل (فتح المطعم)</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">وقت بدء العمل (فتح المطعم)</label>
                   <div className="relative">
-                    <Clock className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Clock className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="time"
                       value={editOpeningTime}
                       onChange={e => setEditOpeningTime(e.target.value)}
                       style={{ colorScheme: 'dark' }}
-                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono cursor-pointer"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono cursor-pointer"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">وقت إغلاق العمل اليومي</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">وقت إغلاق العمل اليومي</label>
                   <div className="relative">
-                    <Clock className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Clock className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="time"
                       value={editClosingTime}
                       onChange={e => setEditClosingTime(e.target.value)}
                       style={{ colorScheme: 'dark' }}
-                      className="w-full pr-9 pl-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono cursor-pointer"
+                      className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono cursor-pointer"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-2.5">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-200">أيام العمل المتاحة للفرع</label>
+                  <label className="text-xs font-bold text-slate-800">أيام العمل المتاحة للفرع</label>
                   <span className="text-[11px] text-purple-400 font-bold">
                     {editWorkingDays ? editWorkingDays.split(',').filter(Boolean).length : 0} أيام محددة
                   </span>
@@ -8586,17 +8581,17 @@ export const AdminPage: React.FC = () => {
                             : 'bg-slate-800/80 text-slate-400 border-slate-700/60 hover:border-slate-600 hover:text-slate-200'
                         }`}
                       >
-                        {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
+                        {isSelected && <Check className="w-3 h-3 text-slate-900 shrink-0" />}
                         <span>{day.label}</span>
                       </button>
                     );
                   })}
                 </div>
-                <div className="flex items-center gap-2 pt-1 flex-wrap border-t border-slate-800/80">
+                <div className="flex items-center gap-2 pt-1 flex-wrap border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => setEditWorkingDays(DAYS_OF_WEEK.map(d => d.key).join(','))}
-                    className="text-[11px] text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors font-medium"
+                    className="text-[11px] text-purple-400 hover:text-purple-700 underline underline-offset-2 transition-colors font-medium"
                   >
                     طوال الأسبوع (7 أيام)
                   </button>
@@ -8604,7 +8599,7 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setEditWorkingDays(['SUN', 'MON', 'TUE', 'WED', 'THU'].join(','))}
-                    className="text-[11px] text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors font-medium"
+                    className="text-[11px] text-purple-400 hover:text-purple-700 underline underline-offset-2 transition-colors font-medium"
                   >
                     أيام الدراسة (الأحد - الخميس)
                   </button>
@@ -8612,7 +8607,7 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setEditWorkingDays(['FRI', 'SAT'].join(','))}
-                    className="text-[11px] text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors font-medium"
+                    className="text-[11px] text-purple-400 hover:text-purple-700 underline underline-offset-2 transition-colors font-medium"
                   >
                     عطلة نهاية الأسبوع (الجمعة والسبت)
                   </button>
@@ -8620,14 +8615,14 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">حالة التشغيل اللحظية للفرع</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">حالة التشغيل اللحظية للفرع</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setEditOperationalStatus('OPEN')}
                     className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
                       editOperationalStatus === 'OPEN'
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-md shadow-emerald-500/20 ring-1 ring-emerald-500'
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-700 shadow-md shadow-emerald-500/20 ring-1 ring-emerald-500'
                         : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:border-slate-600 hover:text-slate-200'
                     }`}
                   >
@@ -8669,51 +8664,51 @@ export const AdminPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                   editAllowDelivery
-                    ? 'bg-purple-950/40 border-purple-500/60 shadow-sm shadow-purple-900/30 ring-1 ring-purple-500/30'
+                    ? 'bg-purple-50 border-purple-500/60 shadow-sm shadow-purple-200/50 ring-1 ring-purple-500/30'
                     : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
                 }`}>
                   <input
                     type="checkbox"
                     checked={editAllowDelivery}
                     onChange={e => setEditAllowDelivery(e.target.checked)}
-                    className="w-4 h-4 rounded text-purple-600 focus:ring-0 bg-slate-900 border-slate-700 cursor-pointer"
+                    className="w-4 h-4 rounded text-purple-600 focus:ring-0 bg-white border-slate-200 cursor-pointer"
                   />
                   <div className="flex items-center gap-2">
                     <Truck className={`w-4 h-4 ${editAllowDelivery ? 'text-purple-400' : 'text-slate-500'}`} />
                     <div>
-                      <span className="text-xs font-bold text-slate-200 block">إتاحة التوصيل للجامعة</span>
-                      <span className="text-[10px] text-slate-400">توصيل الطلبات للكليات والمباني</span>
+                      <span className="text-xs font-bold text-slate-800 block">إتاحة التوصيل للجامعة</span>
+                      <span className="text-[10px] text-slate-500">توصيل الطلبات للكليات والمباني</span>
                     </div>
                   </div>
                 </label>
 
                 <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                   editAllowPickup
-                    ? 'bg-purple-950/40 border-purple-500/60 shadow-sm shadow-purple-900/30 ring-1 ring-purple-500/30'
+                    ? 'bg-purple-50 border-purple-500/60 shadow-sm shadow-purple-200/50 ring-1 ring-purple-500/30'
                     : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
                 }`}>
                   <input
                     type="checkbox"
                     checked={editAllowPickup}
                     onChange={e => setEditAllowPickup(e.target.checked)}
-                    className="w-4 h-4 rounded text-purple-600 focus:ring-0 bg-slate-900 border-slate-700 cursor-pointer"
+                    className="w-4 h-4 rounded text-purple-600 focus:ring-0 bg-white border-slate-200 cursor-pointer"
                   />
                   <div className="flex items-center gap-2">
                     <ShoppingBag className={`w-4 h-4 ${editAllowPickup ? 'text-purple-400' : 'text-slate-500'}`} />
                     <div>
-                      <span className="text-xs font-bold text-slate-200 block">إتاحة الاستلام من الفرع</span>
-                      <span className="text-[10px] text-slate-400">الاستلام المباشر ذاتياً من المنفذ</span>
+                      <span className="text-xs font-bold text-slate-800 block">إتاحة الاستلام من الفرع</span>
+                      <span className="text-[10px] text-slate-500">الاستلام المباشر ذاتياً من المنفذ</span>
                     </div>
                   </div>
                 </label>
               </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingBranch(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -8732,12 +8727,12 @@ export const AdminPage: React.FC = () => {
       {/* C. Payment Config Modal */}
       {editingPaymentBranch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
-              <h3 className="font-black text-base text-white">طرق الدفع: {editingPaymentBranch.name}</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
+              <h3 className="font-black text-base text-slate-900">طرق الدفع: {editingPaymentBranch.name}</h3>
               <button 
                 onClick={() => setEditingPaymentBranch(null)} 
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -8747,10 +8742,10 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleSavePaymentSettings} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {/* Cash */}
-              <div className="p-3 bg-slate-800/70 rounded-xl flex items-center justify-between">
+              <div className="p-3 bg-slate-100 rounded-xl flex items-center justify-between">
                 <div>
-                  <span className="font-bold text-xs text-white block">الدفع كاش عند الاستلام</span>
-                  <span className="text-[11px] text-slate-400">يقوم الطالب بالدفع نقداً لمندوب المطعم أو الكاشير</span>
+                  <span className="font-bold text-xs text-slate-900 block">الدفع كاش عند الاستلام</span>
+                  <span className="text-[11px] text-slate-500">يقوم الطالب بالدفع نقداً لمندوب المطعم أو الكاشير</span>
                 </div>
                 <input
                   type="checkbox"
@@ -8761,9 +8756,9 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Vodafone Cash */}
-              <div className="p-3 bg-slate-800/70 rounded-xl space-y-2">
+              <div className="p-3 bg-slate-100 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-rose-300">فودافون كاش ومحافظ الهاتف</span>
+                  <span className="font-bold text-xs text-rose-700">فودافون كاش ومحافظ الهاتف</span>
                   <input
                     type="checkbox"
                     checked={vodafoneCashEnabled}
@@ -8777,15 +8772,15 @@ export const AdminPage: React.FC = () => {
                     value={vodafoneCashNumber}
                     onChange={e => setVodafoneCashNumber(e.target.value)}
                     placeholder="رقم محفظة كاش الخاصة بالمطعم (مثال: 01012345678)"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-mono"
                   />
                 )}
               </div>
 
               {/* InstaPay */}
-              <div className="p-3 bg-slate-800/70 rounded-xl space-y-2">
+              <div className="p-3 bg-slate-100 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-indigo-300">إنستاباي (InstaPay)</span>
+                  <span className="font-bold text-xs text-indigo-700">إنستاباي (InstaPay)</span>
                   <input
                     type="checkbox"
                     checked={instapayEnabled}
@@ -8799,16 +8794,16 @@ export const AdminPage: React.FC = () => {
                     value={instapayHandle}
                     onChange={e => setInstapayHandle(e.target.value)}
                     placeholder="معرف إنستاباي للمطعم (مثال: restaurant@instapay)"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 font-mono"
                   />
                 )}
               </div>
 
               {/* Card */}
-              <div className="p-3 bg-slate-800/70 rounded-xl flex items-center justify-between">
+              <div className="p-3 bg-slate-100 rounded-xl flex items-center justify-between">
                 <div>
-                  <span className="font-bold text-xs text-emerald-300 block">بطاقات بنكية أونلاين (Visa / MasterCard)</span>
-                  <span className="text-[11px] text-slate-400">بوابة الدفع الإلكتروني</span>
+                  <span className="font-bold text-xs text-emerald-700 block">بطاقات بنكية أونلاين (Visa / MasterCard)</span>
+                  <span className="text-[11px] text-slate-500">بوابة الدفع الإلكتروني</span>
                 </div>
                 <input
                   type="checkbox"
@@ -8819,11 +8814,11 @@ export const AdminPage: React.FC = () => {
               </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingPaymentBranch(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -8842,12 +8837,12 @@ export const AdminPage: React.FC = () => {
       {/* D. Desktop Credentials Modal */}
       {editingCredentialsBranch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
-              <h3 className="font-black text-base text-white">حساب الديسكتوب: {editingCredentialsBranch.name}</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
+              <h3 className="font-black text-base text-slate-900">حساب الديسكتوب: {editingCredentialsBranch.name}</h3>
               <button 
                 onClick={() => setEditingCredentialsBranch(null)} 
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -8857,35 +8852,35 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleSaveCredentials} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">اسم المستخدم للفرع</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">اسم المستخدم للفرع</label>
                   <input
                     type="text"
                     required
                     value={credUsername}
                     onChange={e => setCredUsername(e.target.value)}
                     placeholder="مثال: burger_branch"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">كلمة المرور الجديدة</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">كلمة المرور الجديدة</label>
                   <input
                     type="password"
                     required
                     value={credPassword}
                     onChange={e => setCredPassword(e.target.value)}
                     placeholder="أدخل كلمة مرور جديدة"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingCredentialsBranch(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -8904,34 +8899,34 @@ export const AdminPage: React.FC = () => {
       {/* E. Order Details Modal */}
       {selectedOrderDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-lg text-white">تفاصيل الطلب #{selectedOrderDetails.orderNumber}</h3>
-                <span className="text-xs text-purple-400 bg-purple-950 px-2 py-0.5 rounded-md">
+                <h3 className="font-black text-lg text-slate-900">تفاصيل الطلب #{selectedOrderDetails.orderNumber}</h3>
+                <span className="text-xs text-purple-400 bg-purple-50 px-2 py-0.5 rounded-md">
                   {selectedOrderDetails.branch?.name}
                 </span>
               </div>
-              <button onClick={() => setSelectedOrderDetails(null)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setSelectedOrderDetails(null)} className="text-slate-500 hover:text-slate-900">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Student & Location */}
-            <div className="p-3 bg-slate-950 rounded-xl space-y-1 text-xs border border-slate-800">
+            <div className="p-3 bg-slate-50 rounded-xl space-y-1 text-xs border border-slate-200">
               <div className="flex justify-between">
-                <span className="text-slate-400">الطالب:</span>
-                <span className="font-bold text-white">{selectedOrderDetails.customerName}</span>
+                <span className="text-slate-500">الطالب:</span>
+                <span className="font-bold text-slate-900">{selectedOrderDetails.customerName}</span>
               </div>
               <div className="flex justify-between font-mono">
-                <span className="text-slate-400">الهاتف:</span>
-                <span className="text-slate-200">{selectedOrderDetails.customerPhone}</span>
+                <span className="text-slate-500">الهاتف:</span>
+                <span className="text-slate-800">{selectedOrderDetails.customerPhone}</span>
               </div>
               {selectedOrderDetails.addressText && (
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-400">المكان بالجامعة:</span>
+                  <span className="text-slate-500">المكان بالجامعة:</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-amber-300 font-bold">{cleanAddressText(selectedOrderDetails.addressText)}</span>
+                    <span className="text-amber-800 font-bold">{cleanAddressText(selectedOrderDetails.addressText)}</span>
                     {(() => {
                       const coords = extractCoordinatesFromAddress(selectedOrderDetails.addressText);
                       if (coords) {
@@ -8954,8 +8949,8 @@ export const AdminPage: React.FC = () => {
                 </div>
               )}
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">طريقة الدفع:</span>
-                <span className="font-bold text-amber-300">
+                <span className="text-slate-500">طريقة الدفع:</span>
+                <span className="font-bold text-amber-800">
                   {selectedOrderDetails.paymentMethod === 'VODAFONE_CASH'
                     ? '📱 فودافون كاش / محفظة'
                     : selectedOrderDetails.paymentMethod === 'INSTAPAY'
@@ -8966,8 +8961,8 @@ export const AdminPage: React.FC = () => {
                 </span>
               </div>
               {selectedOrderDetails.paymentSenderPhone && (
-                <div className="flex justify-between items-center pt-1 border-t border-slate-800/80">
-                  <span className="text-slate-400">رقم / حساب المحوّل منه:</span>
+                <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+                  <span className="text-slate-500">رقم / حساب المحوّل منه:</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono font-black text-amber-400 dir-ltr">{selectedOrderDetails.paymentSenderPhone}</span>
                     <a
@@ -8983,19 +8978,19 @@ export const AdminPage: React.FC = () => {
                 </div>
               )}
               {selectedOrderDetails.paymentProofUrl && (
-                <div className="mt-2 pt-2 border-t border-slate-800/80 space-y-1.5">
+                <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">إيصال التحويل:</span>
+                    <span className="text-slate-500">إيصال التحويل:</span>
                     <a
                       href={getFullImageUrl(selectedOrderDetails.paymentProofUrl)}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-indigo-400 hover:text-indigo-300 text-[11px] underline font-bold"
+                      className="text-indigo-400 hover:text-indigo-700 text-[11px] underline font-bold"
                     >
                       فتح بحجم كامل ↗
                     </a>
                   </div>
-                  <div className="rounded-lg overflow-hidden border border-slate-800 bg-slate-900 max-h-56 flex items-center justify-center p-1">
+                  <div className="rounded-lg overflow-hidden border border-slate-200 bg-white max-h-56 flex items-center justify-center p-1">
                     <img
                       src={getFullImageUrl(selectedOrderDetails.paymentProofUrl)}
                       alt="إيصال التحويل"
@@ -9008,9 +9003,9 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {/* Stage Timings Breakdown in Admin Details Modal */}
-            <div className="p-3 bg-slate-950 rounded-xl space-y-2 text-xs border border-slate-800">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-300 border-b border-slate-800 pb-1.5">
-                <span className="flex items-center gap-1 text-purple-300">
+            <div className="p-3 bg-slate-50 rounded-xl space-y-2 text-xs border border-slate-200">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 border-b border-slate-200 pb-1.5">
+                <span className="flex items-center gap-1 text-purple-700">
                   <Timer className="w-3.5 h-3.5" />
                   <span>سجل توقيت مراحل الطلب</span>
                 </span>
@@ -9022,32 +9017,32 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-[10px]">
-                <div className="p-2 bg-slate-900 rounded-lg space-y-0.5">
+                <div className="p-2 bg-white rounded-lg space-y-0.5">
                   <span className="text-slate-500 block">وقت إنشاء الطلب:</span>
-                  <span className="font-mono text-white font-bold">
+                  <span className="font-mono text-slate-900 font-bold">
                     {new Date(selectedOrderDetails.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
 
-                <div className="p-2 bg-slate-900 rounded-lg space-y-0.5">
+                <div className="p-2 bg-white rounded-lg space-y-0.5">
                   <span className="text-slate-500 block">وقت قبول المطعم:</span>
-                  <span className="font-mono text-white font-bold">
+                  <span className="font-mono text-slate-900 font-bold">
                     {selectedOrderDetails.acceptedAt
                       ? new Date(selectedOrderDetails.acceptedAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
                       : 'بانتظار القبول'}
                   </span>
                 </div>
 
-                <div className="p-2 bg-slate-900 rounded-lg space-y-0.5">
+                <div className="p-2 bg-white rounded-lg space-y-0.5">
                   <span className="text-slate-500 block">وقت الجاهزية / خروج:</span>
-                  <span className="font-mono text-white font-bold">
+                  <span className="font-mono text-slate-900 font-bold">
                     {selectedOrderDetails.readyAt
                       ? new Date(selectedOrderDetails.readyAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
                       : 'قيد التحضير'}
                   </span>
                 </div>
 
-                <div className="p-2 bg-slate-900 rounded-lg space-y-0.5">
+                <div className="p-2 bg-white rounded-lg space-y-0.5">
                   <span className="text-slate-500 block">وقت التسليم النهائي:</span>
                   <span className="font-mono text-emerald-400 font-bold">
                     {selectedOrderDetails.completedAt
@@ -9060,29 +9055,29 @@ export const AdminPage: React.FC = () => {
 
             {/* Items */}
             <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-400 block">الأصناف المطلوبة:</span>
+              <span className="text-xs font-bold text-slate-500 block">الأصناف المطلوبة:</span>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {selectedOrderDetails.items?.map((it: any) => (
-                  <div key={it.id} className="p-2.5 bg-slate-800/60 rounded-xl text-xs flex justify-between items-center">
+                  <div key={it.id} className="p-2.5 bg-slate-100 rounded-xl text-xs flex justify-between items-center">
                     <div>
-                      <span className="font-black text-white">{it.quantity}x {it.itemName}</span>
-                      {it.sizeName && <span className="text-purple-300 mr-1 font-mono">({it.sizeName})</span>}
+                      <span className="font-black text-slate-900">{it.quantity}x {it.itemName}</span>
+                      {it.sizeName && <span className="text-purple-700 mr-1 font-mono">({it.sizeName})</span>}
                     </div>
-                    <span className="font-mono font-bold text-slate-200">{it.totalPrice} ج.م</span>
+                    <span className="font-mono font-bold text-slate-800">{it.totalPrice} ج.م</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Total */}
-            <div className="p-3 bg-purple-950/40 border border-purple-800/50 rounded-xl flex justify-between items-center font-mono">
-              <span className="text-xs font-sans text-purple-200">الإجمالي الكلي:</span>
-              <span className="text-lg font-black text-white">{selectedOrderDetails.total} ج.م</span>
+            <div className="p-3 bg-purple-50 border border-purple-200/50 rounded-xl flex justify-between items-center font-mono">
+              <span className="text-xs font-sans text-purple-700">الإجمالي الكلي:</span>
+              <span className="text-lg font-black text-slate-900">{selectedOrderDetails.total} ج.م</span>
             </div>
 
             <button
               onClick={() => setSelectedOrderDetails(null)}
-              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold"
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold"
             >
               إغلاق
             </button>
@@ -9093,15 +9088,15 @@ export const AdminPage: React.FC = () => {
       {/* D. Add Banner Modal */}
       {showAddBannerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-purple-400" />
-                <h3 className="font-black text-base text-white">إضافة بانر إعلاني جديد</h3>
+                <h3 className="font-black text-base text-slate-900">إضافة بانر إعلاني جديد</h3>
               </div>
               <button 
                 onClick={() => setShowAddBannerModal(false)} 
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -9111,26 +9106,26 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleCreateBanner} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {/* صورة الإعلان */}
-              <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   {newBannerImageUrl ? (
                     <img
                       src={getFullImageUrl(newBannerImageUrl)}
                       alt="معاينة"
-                      className="w-16 h-12 rounded-lg object-cover border border-slate-700 bg-slate-800"
+                      className="w-16 h-12 rounded-lg object-cover border border-slate-200 bg-slate-100"
                     />
                   ) : (
-                    <div className="w-16 h-12 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
+                    <div className="w-16 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500">
                       <ImageIcon className="w-5 h-5" />
                     </div>
                   )}
                   <div>
-                    <span className="text-xs font-bold text-slate-200 block">صورة البانر</span>
-                    <span className="text-[10px] text-slate-400">بانر عريض جذاب (اختياري)</span>
+                    <span className="text-xs font-bold text-slate-800 block">صورة البانر</span>
+                    <span className="text-[10px] text-slate-500">بانر عريض جذاب (اختياري)</span>
                   </div>
                 </div>
 
-                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold transition-all">
+                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-700 border border-purple-500/30 rounded-xl text-xs font-bold transition-all">
                   <Upload className="w-3.5 h-3.5" />
                   <span>{uploadingBannerImage ? 'جاري الرفع...' : (newBannerImageUrl ? 'تغيير الصورة' : 'رفع صورة')}</span>
                   <input
@@ -9144,61 +9139,61 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">عنوان الإعلان الرئيسي *</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">عنوان الإعلان الرئيسي *</label>
                 <input
                   type="text"
                   required
                   placeholder="مثال: خصم 20% على جميع وجبات البرجر اليوم!"
                   value={newBannerTitle}
                   onChange={e => setNewBannerTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">الوصف الفرعي (اختياري)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">الوصف الفرعي (اختياري)</label>
                 <input
                   type="text"
                   placeholder="مثال: اطلب الآن واستلم في أقل من 15 دقيقة داخل كليتك"
                   value={newBannerSubtitle}
                   onChange={e => setNewBannerSubtitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">نص الشارة العلوية (Badge)</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">نص الشارة العلوية (Badge)</label>
                   <input
                     type="text"
                     value={newBannerBadge}
                     onChange={e => setNewBannerBadge(e.target.value)}
                     placeholder="مثال: عرض خاص ⚡"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">رابط التوجيه أو المطعم (اختياري)</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">رابط التوجيه أو المطعم (اختياري)</label>
                   <input
                     type="text"
                     value={newBannerLink}
                     onChange={e => setNewBannerLink(e.target.value)}
                     placeholder="مثال: ?branch=shawarma&item=item_id"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                     dir="ltr"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-slate-500 mt-1">
                     يمكنك وضع رابط مباشر لمطعم أو صنف محدد ليفتح شاشة الطلب مباشرة عند النقر!
                   </p>
                   {branches.length > 0 && (
                     <div className="mt-2 flex flex-wrap items-center gap-1">
-                      <span className="text-[10px] text-slate-400 ml-1">ربط سريع بمطعم:</span>
+                      <span className="text-[10px] text-slate-500 ml-1">ربط سريع بمطعم:</span>
                       {branches.slice(0, 5).map(b => (
                         <button
                           key={b.id}
                           type="button"
                           onClick={() => setNewBannerLink(`?branch=${b.slug || b.id}`)}
-                          className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-purple-900/50 text-purple-300 border border-slate-700 transition-colors"
+                          className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-purple-900/50 text-purple-700 border border-slate-200 transition-colors"
                         >
                           {b.name}
                         </button>
@@ -9209,11 +9204,11 @@ export const AdminPage: React.FC = () => {
               </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddBannerModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -9232,15 +9227,15 @@ export const AdminPage: React.FC = () => {
       {/* D2. Edit Banner Modal */}
       {editingBanner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-purple-400" />
-                <h3 className="font-black text-base text-white">تعديل البانر الإعلاني</h3>
+                <h3 className="font-black text-base text-slate-900">تعديل البانر الإعلاني</h3>
               </div>
               <button 
                 onClick={() => setEditingBanner(null)} 
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -9249,26 +9244,26 @@ export const AdminPage: React.FC = () => {
 
             <form onSubmit={handleSaveEditBanner} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-              <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   {editBannerImageUrl ? (
                     <img
                       src={getFullImageUrl(editBannerImageUrl)}
                       alt="معاينة"
-                      className="w-16 h-12 rounded-lg object-cover border border-slate-700 bg-slate-800"
+                      className="w-16 h-12 rounded-lg object-cover border border-slate-200 bg-slate-100"
                     />
                   ) : (
-                    <div className="w-16 h-12 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
+                    <div className="w-16 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500">
                       <ImageIcon className="w-5 h-5" />
                     </div>
                   )}
                   <div>
-                    <span className="text-xs font-bold text-slate-200 block">صورة البانر</span>
-                    <span className="text-[10px] text-slate-400">تحديث صورة الإعلان</span>
+                    <span className="text-xs font-bold text-slate-800 block">صورة البانر</span>
+                    <span className="text-[10px] text-slate-500">تحديث صورة الإعلان</span>
                   </div>
                 </div>
 
-                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold transition-all">
+                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-700 border border-purple-500/30 rounded-xl text-xs font-bold transition-all">
                   <Upload className="w-3.5 h-3.5" />
                   <span>{uploadingEditBannerImage ? 'جاري الرفع...' : 'تغيير الصورة'}</span>
                   <input
@@ -9282,59 +9277,59 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">عنوان الإعلان الرئيسي *</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">عنوان الإعلان الرئيسي *</label>
                 <input
                   type="text"
                   required
                   value={editBannerTitle}
                   onChange={e => setEditBannerTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">الوصف الفرعي (اختياري)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">الوصف الفرعي (اختياري)</label>
                 <input
                   type="text"
                   value={editBannerSubtitle}
                   onChange={e => setEditBannerSubtitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">نص الشارة العلوية (Badge)</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">نص الشارة العلوية (Badge)</label>
                   <input
                     type="text"
                     value={editBannerBadge}
                     onChange={e => setEditBannerBadge(e.target.value)}
                     placeholder="مثال: عرض خاص ⚡"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">رابط التوجيه أو المطعم (اختياري)</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">رابط التوجيه أو المطعم (اختياري)</label>
                   <input
                     type="text"
                     value={editBannerLink}
                     onChange={e => setEditBannerLink(e.target.value)}
                     placeholder="مثال: ?branch=shawarma&item=item_id"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                     dir="ltr"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-slate-500 mt-1">
                     يمكنك وضع رابط مباشر لمطعم أو صنف محدد ليفتح شاشة الطلب مباشرة عند النقر!
                   </p>
                   {branches.length > 0 && (
                     <div className="mt-2 flex flex-wrap items-center gap-1">
-                      <span className="text-[10px] text-slate-400 ml-1">ربط سريع بمطعم:</span>
+                      <span className="text-[10px] text-slate-500 ml-1">ربط سريع بمطعم:</span>
                       {branches.slice(0, 5).map(b => (
                         <button
                           key={b.id}
                           type="button"
                           onClick={() => setEditBannerLink(`?branch=${b.slug || b.id}`)}
-                          className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-purple-900/50 text-purple-300 border border-slate-700 transition-colors"
+                          className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-purple-900/50 text-purple-700 border border-slate-200 transition-colors"
                         >
                           {b.name}
                         </button>
@@ -9344,22 +9339,22 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer">
+              <label className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl cursor-pointer">
                 <input
                   type="checkbox"
                   checked={editBannerActive}
                   onChange={e => setEditBannerActive(e.target.checked)}
                   className="rounded text-purple-600 focus:ring-0"
                 />
-                <span className="text-xs font-bold text-slate-200">مفعل ويظهر للطلاب في الصفحة الرئيسية</span>
+                <span className="text-xs font-bold text-slate-800">مفعل ويظهر للطلاب في الصفحة الرئيسية</span>
               </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingBanner(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -9378,15 +9373,15 @@ export const AdminPage: React.FC = () => {
       {/* E. Add Promo Code Modal */}
       {showAddPromoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2">
                 <Tag className="w-5 h-5 text-purple-400" />
-                <h3 className="font-black text-base text-white">إنشاء كوبون خصم جديد</h3>
+                <h3 className="font-black text-base text-slate-900">إنشاء كوبون خصم جديد</h3>
               </div>
               <button 
                 onClick={() => setShowAddPromoModal(false)} 
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق النافذة"
               >
                 <X className="w-5 h-5" />
@@ -9396,24 +9391,24 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleCreatePromo} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">كود الكوبون (رمز الخصم) *</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">كود الكوبون (رمز الخصم) *</label>
                   <input
                     type="text"
                     required
                     placeholder="مثال: UNI20 أو STUDENT15"
                     value={newPromoCode}
                     onChange={e => setNewPromoCode(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 uppercase font-mono font-bold tracking-wider"
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 uppercase font-mono font-bold tracking-wider"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">نوع الخصم</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">نوع الخصم</label>
                     <select
                       value={newPromoType}
                       onChange={e => setNewPromoType(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="FIXED">مبلغ ثابت (ج.م)</option>
                       <option value="PERCENT">نسبة مئوية (%)</option>
@@ -9421,7 +9416,7 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">قيمة الخصم *</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">قيمة الخصم *</label>
                     <input
                       type="number"
                       min="1"
@@ -9429,37 +9424,37 @@ export const AdminPage: React.FC = () => {
                       required
                       value={newPromoValue}
                       onChange={e => setNewPromoValue(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono font-bold"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">الحد الأدنى للطلب (ج.م)</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">الحد الأدنى للطلب (ج.م)</label>
                     <input
                       type="number"
                       min="0"
                       value={newPromoMinOrder}
                       onChange={e => setNewPromoMinOrder(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono font-bold"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">أقصى عدد مرات الاستخدام</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">أقصى عدد مرات الاستخدام</label>
                     <input
                       type="number"
                       min="1"
                       placeholder="غير محدود (∞)"
                       value={newPromoMaxUses}
                       onChange={e => setNewPromoMaxUses(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono font-bold"
                     />
                   </div>
                 </div>
 
-                <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer border border-slate-700/50 hover:bg-slate-800 transition-colors">
+                <label className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-100 transition-colors">
                   <input
                     type="checkbox"
                     checked={newPromoOncePerUser}
@@ -9467,14 +9462,14 @@ export const AdminPage: React.FC = () => {
                     className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
                   />
                   <div>
-                    <span className="text-xs font-bold text-slate-200 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
-                    <span className="text-[10px] text-slate-400">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
+                    <span className="text-xs font-bold text-slate-800 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
+                    <span className="text-[10px] text-slate-500">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
                   </div>
                 </label>
 
                 {/* Branch Applicability Scope */}
-                <div className="p-3.5 bg-slate-800/80 rounded-xl space-y-2.5 border border-slate-700/60">
-                  <label className="block text-xs font-bold text-slate-200 mb-1">
+                <div className="p-3.5 bg-slate-100 rounded-xl space-y-2.5 border border-slate-200">
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
                     نطاق صلاحية الكوبون (الفروع والمطاعم)
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -9508,8 +9503,8 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   {newPromoScope === 'SPECIFIC' && (
-                    <div className="pt-2 border-t border-slate-700/60 mt-2 space-y-1.5">
-                      <p className="text-[11px] text-slate-400 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
+                    <div className="pt-2 border-t border-slate-200 mt-2 space-y-1.5">
+                      <p className="text-[11px] text-slate-500 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
                       <div className="max-h-40 overflow-y-auto space-y-1.5 p-1 custom-scrollbar">
                         {branches.map(b => {
                           const isChecked = newPromoBranchIds.includes(b.id);
@@ -9518,7 +9513,7 @@ export const AdminPage: React.FC = () => {
                               key={b.id}
                               className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs transition-colors border ${
                                 isChecked
-                                  ? 'bg-purple-950/60 border-purple-700 text-purple-200 font-bold'
+                                  ? 'bg-purple-50 border-purple-200 text-purple-700 font-bold'
                                   : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80'
                               }`}
                             >
@@ -9550,11 +9545,11 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddPromoModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -9573,15 +9568,15 @@ export const AdminPage: React.FC = () => {
       {/* E2. Edit Promo Code Modal */}
       {editingPromo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-purple-400" />
-                <h3 className="font-black text-base text-white">تعديل كوبون الخصم: {editingPromo.code}</h3>
+                <h3 className="font-black text-base text-slate-900">تعديل كوبون الخصم: {editingPromo.code}</h3>
               </div>
               <button 
                 onClick={() => setEditingPromo(null)} 
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق النافذة"
               >
                 <X className="w-5 h-5" />
@@ -9591,23 +9586,23 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleSaveEditPromo} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">كود الكوبون (رمز الخصم) *</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">كود الكوبون (رمز الخصم) *</label>
                   <input
                     type="text"
                     required
                     value={editPromoCode}
                     onChange={e => setEditPromoCode(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 uppercase font-mono font-bold tracking-wider"
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 uppercase font-mono font-bold tracking-wider"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">نوع الخصم</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">نوع الخصم</label>
                     <select
                       value={editPromoType}
                       onChange={e => setEditPromoType(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="FIXED">مبلغ ثابت (ج.م)</option>
                       <option value="PERCENT">نسبة مئوية (%)</option>
@@ -9615,7 +9610,7 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">قيمة الخصم *</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">قيمة الخصم *</label>
                     <input
                       type="number"
                       min="1"
@@ -9623,37 +9618,37 @@ export const AdminPage: React.FC = () => {
                       required
                       value={editPromoValue}
                       onChange={e => setEditPromoValue(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono font-bold"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">الحد الأدنى للطلب (ج.م)</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">الحد الأدنى للطلب (ج.م)</label>
                     <input
                       type="number"
                       min="0"
                       value={editPromoMinOrder}
                       onChange={e => setEditPromoMinOrder(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono font-bold"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">أقصى عدد مرات الاستخدام</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">أقصى عدد مرات الاستخدام</label>
                     <input
                       type="number"
                       min="1"
                       placeholder="غير محدود (∞)"
                       value={editPromoMaxUses}
                       onChange={e => setEditPromoMaxUses(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono font-bold"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono font-bold"
                     />
                   </div>
                 </div>
 
-                <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer border border-slate-700/50 hover:bg-slate-800 transition-colors">
+                <label className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-100 transition-colors">
                   <input
                     type="checkbox"
                     checked={editPromoOncePerUser}
@@ -9661,24 +9656,24 @@ export const AdminPage: React.FC = () => {
                     className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
                   />
                   <div>
-                    <span className="text-xs font-bold text-slate-200 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
-                    <span className="text-[10px] text-slate-400">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
+                    <span className="text-xs font-bold text-slate-800 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
+                    <span className="text-[10px] text-slate-500">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
                   </div>
                 </label>
 
-                <label className="flex items-center gap-2 p-3 bg-slate-800/80 rounded-xl cursor-pointer border border-slate-700/50 hover:bg-slate-800 transition-colors">
+                <label className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-100 transition-colors">
                   <input
                     type="checkbox"
                     checked={editPromoActive}
                     onChange={e => setEditPromoActive(e.target.checked)}
                     className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
                   />
-                  <span className="text-xs font-bold text-slate-200">تفعيل الكوبون للطلاب</span>
+                  <span className="text-xs font-bold text-slate-800">تفعيل الكوبون للطلاب</span>
                 </label>
 
                 {/* Branch Applicability Scope */}
-                <div className="p-3.5 bg-slate-800/80 rounded-xl space-y-2.5 border border-slate-700/60">
-                  <label className="block text-xs font-bold text-slate-200 mb-1">
+                <div className="p-3.5 bg-slate-100 rounded-xl space-y-2.5 border border-slate-200">
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
                     نطاق صلاحية الكوبون (الفروع والمطاعم)
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -9712,8 +9707,8 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   {editPromoScope === 'SPECIFIC' && (
-                    <div className="pt-2 border-t border-slate-700/60 mt-2 space-y-1.5">
-                      <p className="text-[11px] text-slate-400 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
+                    <div className="pt-2 border-t border-slate-200 mt-2 space-y-1.5">
+                      <p className="text-[11px] text-slate-500 font-bold mb-1">اختر الفروع التي يعمل بها الكوبون:</p>
                       <div className="max-h-40 overflow-y-auto space-y-1.5 p-1 custom-scrollbar">
                         {branches.map(b => {
                           const isChecked = editPromoBranchIds.includes(b.id);
@@ -9722,7 +9717,7 @@ export const AdminPage: React.FC = () => {
                               key={b.id}
                               className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs transition-colors border ${
                                 isChecked
-                                  ? 'bg-purple-950/60 border-purple-700 text-purple-200 font-bold'
+                                  ? 'bg-purple-50 border-purple-200 text-purple-700 font-bold'
                                   : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80'
                               }`}
                             >
@@ -9754,11 +9749,11 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingPromo(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -9777,18 +9772,18 @@ export const AdminPage: React.FC = () => {
       {/* Flash Deal Add/Edit Modal */}
       {showAddFlashDealModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl my-auto flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-xl my-auto flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0 bg-slate-900/90">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0 bg-white">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500/20 to-amber-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
                   <Flame className="w-5 h-5 text-rose-500" />
                 </div>
                 <div>
-                  <h3 className="font-black text-base text-white">
+                  <h3 className="font-black text-base text-slate-900">
                     {editingFlashDeal ? 'تعديل عرض الفلاش الموقوت' : 'إنشاء عرض فلاش موقوت جديد 🔥'}
                   </h3>
-                  <span className="text-[11px] text-slate-400">عروض البريك والصفقات الترويجية مع عد تنازلي حي</span>
+                  <span className="text-[11px] text-slate-500">عروض البريك والصفقات الترويجية مع عد تنازلي حي</span>
                 </div>
               </div>
               <button
@@ -9797,7 +9792,7 @@ export const AdminPage: React.FC = () => {
                   setShowAddFlashDealModal(false);
                   setEditingFlashDeal(null);
                 }}
-                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
                 title="إغلاق النافذة"
               >
                 <X className="w-5 h-5" />
@@ -9809,7 +9804,7 @@ export const AdminPage: React.FC = () => {
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 {/* Title */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
                     عنوان العرض الرئيسي *
                   </label>
                   <input
@@ -9818,13 +9813,13 @@ export const AdminPage: React.FC = () => {
                     placeholder="مثال: وجبة بريك كرسبي + كانز هدية"
                     value={dealTitle}
                     onChange={e => setDealTitle(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 placeholder-slate-500 font-bold"
+                    className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-rose-500 placeholder-slate-400 font-bold"
                   />
                 </div>
 
                 {/* Subtitle */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
                     وصف أو تفاصيل العرض (اختياري)
                   </label>
                   <input
@@ -9832,13 +9827,13 @@ export const AdminPage: React.FC = () => {
                     placeholder="مثال: عرض خاص ومحدود حتى نهاية فترة البريك"
                     value={dealSubtitle}
                     onChange={e => setDealSubtitle(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 placeholder-slate-500"
+                    className="w-full px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-rose-500 placeholder-slate-400"
                   />
                 </div>
 
                 {/* Badge text & quick presets */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
                     شارة العرض (Badge)
                   </label>
                   <div className="flex flex-wrap gap-1.5 mb-2">
@@ -9861,13 +9856,13 @@ export const AdminPage: React.FC = () => {
                     type="text"
                     value={dealBadge}
                     onChange={e => setDealBadge(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-bold"
+                    className="w-full px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-rose-500 font-bold"
                   />
                 </div>
 
                 {/* Deal Type */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">نوع العرض</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">نوع العرض</label>
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
@@ -9908,7 +9903,7 @@ export const AdminPage: React.FC = () => {
                 {/* Branch Selection */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">
                       المطعم / الفرع المرتبط
                     </label>
                     <select
@@ -9919,7 +9914,7 @@ export const AdminPage: React.FC = () => {
                         setDealMenuItemId('');
                         loadBranchItemsForDeal(newBId);
                       }}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-rose-500"
                     >
                       <option value="">بدون مطعم محدد (عام)</option>
                       {branches.map(b => (
@@ -9930,7 +9925,7 @@ export const AdminPage: React.FC = () => {
 
                   {/* Menu Item picker (if branch is chosen) */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">
                       ربط بصنف من القائمة
                     </label>
                     <select
@@ -9956,7 +9951,7 @@ export const AdminPage: React.FC = () => {
                         }
                       }}
                       disabled={!dealBranchId}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 disabled:opacity-50"
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-rose-500 disabled:opacity-50"
                     >
                       <option value="">{dealBranchId ? '-- اختر صنفاً لربطه --' : 'اختر الفرع أولاً'}</option>
                       {dealBranchItems.map(item => {
@@ -9972,10 +9967,10 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 {/* Prices: Original & Discount */}
-                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 space-y-3">
+                <div className="p-3.5 bg-slate-100 rounded-2xl border border-slate-200 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-600 mb-1">
                         السعر الأصلي قبل الخصم (ج.م)
                       </label>
                       <input
@@ -9985,7 +9980,7 @@ export const AdminPage: React.FC = () => {
                         placeholder="مثال: 95"
                         value={dealOriginalPrice}
                         onChange={e => setDealOriginalPrice(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-mono font-bold"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-rose-500 font-mono font-bold"
                       />
                     </div>
 
@@ -10000,18 +9995,18 @@ export const AdminPage: React.FC = () => {
                         placeholder="مثال: 65"
                         value={dealDiscountPrice}
                         onChange={e => setDealDiscountPrice(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-rose-500/50 rounded-xl text-xs text-rose-300 focus:ring-2 focus:ring-rose-500 font-mono font-black"
+                        className="w-full px-3 py-2 bg-white border border-rose-500/50 rounded-xl text-xs text-rose-700 focus:ring-2 focus:ring-rose-500 font-mono font-black"
                       />
                     </div>
                   </div>
 
                   {/* Calculated savings display */}
                   {Boolean(dealOriginalPrice && dealDiscountPrice && parseFloat(dealOriginalPrice) > parseFloat(dealDiscountPrice)) && (
-                    <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-950/40 border border-emerald-800/40 text-[11px]">
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-50 border border-emerald-200/40 text-[11px]">
                       <span className="text-emerald-400 font-bold">
                         🎉 نسبة التوفير للطالب:
                       </span>
-                      <span className="text-emerald-300 font-black font-mono">
+                      <span className="text-emerald-700 font-black font-mono">
                         وفر {(parseFloat(dealOriginalPrice) - parseFloat(dealDiscountPrice)).toFixed(1)} ج.م (
                         {Math.round(((parseFloat(dealOriginalPrice) - parseFloat(dealDiscountPrice)) / parseFloat(dealOriginalPrice)) * 100)}%)
                       </span>
@@ -10022,7 +10017,7 @@ export const AdminPage: React.FC = () => {
                 {/* Promo Code if applicable */}
                 {dealType === 'PROMO' && (
                   <div>
-                    <label className="block text-xs font-bold text-purple-300 mb-1">
+                    <label className="block text-xs font-bold text-purple-700 mb-1">
                       كود الخصم المرتبط *
                     </label>
                     <input
@@ -10030,15 +10025,15 @@ export const AdminPage: React.FC = () => {
                       placeholder="مثال: FLASH20"
                       value={dealPromoCode}
                       onChange={e => setDealPromoCode(e.target.value.toUpperCase())}
-                      className="w-full px-3.5 py-2 bg-slate-800 border border-purple-500/50 rounded-xl text-xs text-purple-200 uppercase font-mono font-black tracking-wider focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3.5 py-2 bg-slate-100 border border-purple-500/50 rounded-xl text-xs text-purple-700 uppercase font-mono font-black tracking-wider focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
                 )}
 
                 {/* Expiry Date & Duration Presets */}
-                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 space-y-2.5">
+                <div className="p-3.5 bg-slate-100 rounded-2xl border border-slate-200 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                    <label className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
                       <Timer className="w-3.5 h-3.5 text-amber-400" />
                       <span>موعد وتاريخ انتهاء العرض (العد التنازلي) *</span>
                     </label>
@@ -10062,7 +10057,7 @@ export const AdminPage: React.FC = () => {
                           const tzOffset = exp.getTimezoneOffset() * 60000;
                           setDealExpiresAt(new Date(exp.getTime() - tzOffset).toISOString().slice(0, 16));
                         }}
-                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:text-amber-300 hover:border-amber-500/50 transition-colors"
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:text-amber-800 hover:border-amber-500/50 transition-colors"
                       >
                         {btn.label}
                       </button>
@@ -10074,20 +10069,20 @@ export const AdminPage: React.FC = () => {
                     required
                     value={dealExpiresAt}
                     onChange={e => setDealExpiresAt(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-amber-500 font-mono font-bold"
+                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-amber-500 font-mono font-bold"
                   />
                 </div>
 
                 {/* Max Quantity & Per-User Limit (Task 1 & Task 3) */}
-                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 space-y-3">
+                <div className="p-3.5 bg-slate-100 rounded-2xl border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-300">حدود المخزون والطلبات</span>
-                    <label className="flex items-center gap-1.5 text-xs text-amber-300 cursor-pointer font-bold">
+                    <span className="text-xs font-bold text-slate-600">حدود المخزون والطلبات</span>
+                    <label className="flex items-center gap-1.5 text-xs text-amber-800 cursor-pointer font-bold">
                       <input
                         type="checkbox"
                         checked={dealIsUnlimited}
                         onChange={e => setDealIsUnlimited(e.target.checked)}
-                        className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                        className="rounded border-slate-200 text-amber-500 focus:ring-amber-500 w-4 h-4"
                       />
                       <span>كمية غير محدودة ♾️</span>
                     </label>
@@ -10095,7 +10090,7 @@ export const AdminPage: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1">
+                      <label className="block text-xs font-bold text-slate-500 mb-1">
                         الكمية المتاحة للعرض الكلي
                       </label>
                       <input
@@ -10105,12 +10100,12 @@ export const AdminPage: React.FC = () => {
                         placeholder={dealIsUnlimited ? 'كمية غير محدودة ♾️' : 'مثال: 30'}
                         value={dealIsUnlimited ? '' : dealMaxQuantity}
                         onChange={e => setDealMaxQuantity(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-mono font-bold disabled:opacity-50"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-rose-500 font-mono font-bold disabled:opacity-50"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-rose-300 mb-1">
+                      <label className="block text-xs font-bold text-rose-700 mb-1">
                         الحد الأقصى لكل طالب/حساب 👤
                       </label>
                       <input
@@ -10119,34 +10114,34 @@ export const AdminPage: React.FC = () => {
                         placeholder="اتركه فارغاً لغير محدود (مثال: 1)"
                         value={dealMaxPerUser}
                         onChange={e => setDealMaxPerUser(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-mono font-bold"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-rose-500 font-mono font-bold"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Recurring Schedule (Task 3) */}
-                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 space-y-3">
+                <div className="p-3.5 bg-slate-100 rounded-2xl border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-indigo-700 flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-indigo-400" />
                       <span>جدولة التكرار التلقائي (يومي أو أوقات محددة)</span>
                     </span>
-                    <label className="flex items-center gap-1.5 text-xs text-indigo-300 cursor-pointer font-bold">
+                    <label className="flex items-center gap-1.5 text-xs text-indigo-700 cursor-pointer font-bold">
                       <input
                         type="checkbox"
                         checked={dealIsRecurring}
                         onChange={e => setDealIsRecurring(e.target.checked)}
-                        className="rounded border-slate-700 text-indigo-500 focus:ring-indigo-500 w-4 h-4"
+                        className="rounded border-slate-200 text-indigo-500 focus:ring-indigo-500 w-4 h-4"
                       />
                       <span>تفعيل التكرار المجدول 🔄</span>
                     </label>
                   </div>
 
                   {dealIsRecurring && (
-                    <div className="space-y-3 pt-2 border-t border-slate-700/60">
+                    <div className="space-y-3 pt-2 border-t border-slate-200">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 mb-1.5">
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
                           أيام تشغيل العرض أسبوعياً:
                         </label>
                         <div className="flex flex-wrap gap-1">
@@ -10195,7 +10190,7 @@ export const AdminPage: React.FC = () => {
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">
                             ساعة البدء اليومية:
                           </label>
                           <input
@@ -10203,11 +10198,11 @@ export const AdminPage: React.FC = () => {
                             value={dealDailyStartTime}
                             onChange={e => setDealDailyStartTime(e.target.value)}
                             style={{ colorScheme: 'dark' }}
-                            className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-mono"
+                            className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">
                             ساعة الانتهاء اليومية:
                           </label>
                           <input
@@ -10215,7 +10210,7 @@ export const AdminPage: React.FC = () => {
                             value={dealDailyEndTime}
                             onChange={e => setDealDailyEndTime(e.target.value)}
                             style={{ colorScheme: 'dark' }}
-                            className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-mono"
+                            className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
                           />
                         </div>
                       </div>
@@ -10225,29 +10220,29 @@ export const AdminPage: React.FC = () => {
 
                 {/* Active Toggle */}
                 <div>
-                  <label className="flex items-center gap-2 p-3 bg-slate-800 rounded-xl cursor-pointer border border-slate-700/60 hover:bg-slate-700/50 transition-colors">
+                  <label className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-200/50 transition-colors">
                     <input
                       type="checkbox"
                       checked={dealIsActive}
                       onChange={e => setDealIsActive(e.target.checked)}
                       className="rounded text-rose-600 focus:ring-0 w-4 h-4 accent-rose-600 cursor-pointer"
                     />
-                    <span className="text-xs font-bold text-slate-200">العرض نشط ويظهر للطلاب فوراً</span>
+                    <span className="text-xs font-bold text-slate-800">العرض نشط ويظهر للطلاب فوراً</span>
                   </label>
                 </div>
 
                 {/* Deal Image URL + Upload */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">صورة العرض</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">صورة العرض</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       placeholder="رابط الصورة (URL) أو ارفع من جهازك"
                       value={dealImageUrl}
                       onChange={e => setDealImageUrl(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500"
+                      className="flex-1 px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-rose-500"
                     />
-                    <label className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors">
+                    <label className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors">
                       <Upload className="w-3.5 h-3.5 text-rose-400" />
                       <span>{uploadingDealImage ? 'جاري الرفع...' : 'رفع صورة'}</span>
                       <input
@@ -10265,23 +10260,23 @@ export const AdminPage: React.FC = () => {
                       <img
                         src={getFullImageUrl(dealImageUrl)}
                         alt="معاينة"
-                        className="w-12 h-12 rounded-xl object-cover border border-slate-700 bg-slate-800"
+                        className="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100"
                       />
-                      <span className="text-[10px] text-slate-400">معاينة صورة العرض المحددة</span>
+                      <span className="text-[10px] text-slate-500">معاينة صورة العرض المحددة</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddFlashDealModal(false);
                     setEditingFlashDeal(null);
                   }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -10301,21 +10296,21 @@ export const AdminPage: React.FC = () => {
       {/* WhatsApp Multi-Account QR Code Modal */}
       {activeQrAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md my-auto flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
                   📱
                 </div>
                 <div>
-                  <h3 className="font-black text-sm text-white">ربط حساب الواتساب: {activeQrAccount.name}</h3>
-                  <span className="text-[11px] text-slate-400">مسح رمز الاستجابة السريعة (QR) عبر هاتفك</span>
+                  <h3 className="font-black text-sm text-slate-900">ربط حساب الواتساب: {activeQrAccount.name}</h3>
+                  <span className="text-[11px] text-slate-500">مسح رمز الاستجابة السريعة (QR) عبر هاتفك</span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveQrAccount(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق النافذة"
               >
                 <X className="w-5 h-5" />
@@ -10324,16 +10319,16 @@ export const AdminPage: React.FC = () => {
 
             <div className="p-6 text-center space-y-5">
               {activeQrAccount.isConnected ? (
-                <div className="p-6 bg-emerald-950/40 border border-emerald-800/60 rounded-2xl space-y-3">
+                <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-3">
                   <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto">
                     ✅
                   </div>
                   <div>
-                    <h4 className="text-base font-black text-emerald-300">الرقم متصل ويعمل بنجاح!</h4>
-                    <span className="text-xs text-slate-300 font-mono block mt-1">
+                    <h4 className="text-base font-black text-emerald-700">الرقم متصل ويعمل بنجاح!</h4>
+                    <span className="text-xs text-slate-600 font-mono block mt-1">
                       الرقم النشط: {activeQrAccount.phoneNumber || 'متصل'}
                     </span>
-                    <p className="text-[11px] text-slate-400 mt-2">
+                    <p className="text-[11px] text-slate-500 mt-2">
                       تم حفظ الجلسة وتأكيد الاتصال. الحساب جاهز لإرسال الرسائل المخصصة له.
                     </p>
                   </div>
@@ -10347,7 +10342,7 @@ export const AdminPage: React.FC = () => {
                 </div>
               ) : activeQrAccount.qrCode ? (
                 <div className="space-y-4">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/60 text-[11px] font-bold">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 text-[11px] font-bold">
                     <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                     <span>وجّه كاميرا الهاتف لمسح الرمز أدناه</span>
                   </div>
@@ -10360,7 +10355,7 @@ export const AdminPage: React.FC = () => {
                     />
                   </div>
 
-                  <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl text-right text-xs text-slate-300 space-y-1.5">
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl text-right text-xs text-slate-600 space-y-1.5">
                     <span className="font-black text-emerald-400 block text-xs">خطوات الربط في 10 ثوانٍ:</span>
                     <p>1. افتح تطبيق واتساب على الهاتف الذي يحمل الشريحة المخصصة لهذا الحساب.</p>
                     <p>2. اضغط على القائمة ➔ <strong>الأجهزة المرتبطة (Linked Devices)</strong>.</p>
@@ -10370,16 +10365,16 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleRefreshWhatsAppQr(activeQrAccount.id)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-1.5"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>تحديث رمز الـ QR</span>
                   </button>
                 </div>
               ) : (
-                <div className="p-8 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                <div className="p-8 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                   <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-xs text-slate-400">جاري إنشاء وتجهيز رمز الاستجابة السريعة (QR Code)...</p>
+                  <p className="text-xs text-slate-500">جاري إنشاء وتجهيز رمز الاستجابة السريعة (QR Code)...</p>
                   <button
                     type="button"
                     onClick={() => handleRefreshWhatsAppQr(activeQrAccount.id)}
@@ -10397,23 +10392,23 @@ export const AdminPage: React.FC = () => {
       {/* Add / Edit WhatsApp Account Modal */}
       {showAddWhatsAppModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
                   📱
                 </div>
                 <div>
-                  <h3 className="font-black text-sm text-white">
+                  <h3 className="font-black text-sm text-slate-900">
                     {editingWhatsAppAccount ? 'تعديل تخصيص حساب الواتساب' : 'إضافة وتخصيص حساب واتساب جديد'}
                   </h3>
-                  <span className="text-[11px] text-slate-400">تحديد نوع الرسائل والمطعم المخصص لهذا الرقم</span>
+                  <span className="text-[11px] text-slate-500">تحديد نوع الرسائل والمطعم المخصص لهذا الرقم</span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddWhatsAppModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق النافذة"
               >
                 <X className="w-5 h-5" />
@@ -10423,7 +10418,7 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleSaveWhatsAppAccount} className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {/* Account Name */}
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-600 mb-1">
                   اسم أو وصف الحساب *
                 </label>
                 <input
@@ -10432,18 +10427,18 @@ export const AdminPage: React.FC = () => {
                   placeholder="مثال: رقم التحقق والـ OTP، رقم فرع ديفادو، واتساب تنبيهات الإدارة"
                   value={waAccName}
                   onChange={e => setWaAccName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500 placeholder-slate-500 font-bold"
+                  className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 placeholder-slate-400 font-bold"
                 />
               </div>
 
               {/* Roles Section */}
               <div className="space-y-2 pt-1">
-                <label className="block text-xs font-bold text-slate-200">
+                <label className="block text-xs font-bold text-slate-800">
                   تحديد أنواع الرسائل التي سيرسلها هذا الرقم:
                 </label>
 
                 {/* Role 1: OTP */}
-                <label className="flex items-start gap-3 p-3 bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-2xl cursor-pointer transition-colors">
+                <label className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200 hover:border-slate-200 rounded-2xl cursor-pointer transition-colors">
                   <input
                     type="checkbox"
                     checked={waAccSendOtp}
@@ -10451,15 +10446,15 @@ export const AdminPage: React.FC = () => {
                     className="rounded text-emerald-600 focus:ring-0 w-4 h-4 accent-emerald-600 cursor-pointer mt-0.5"
                   />
                   <div>
-                    <span className="text-xs font-black text-white block">🔐 إرسال أكواد التحقق (OTP) وتفعيل الحسابات</span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                    <span className="text-xs font-black text-slate-900 block">🔐 إرسال أكواد التحقق (OTP) وتفعيل الحسابات</span>
+                    <span className="text-[11px] text-slate-500 block mt-0.5">
                       إرسال كود الـ OTP واستعادة كلمة المرور وروابط التفعيل السريع للطلاب عند التسجيل.
                     </span>
                   </div>
                 </label>
 
                 {/* Role 2: Admin Alerts */}
-                <label className="flex items-start gap-3 p-3 bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-2xl cursor-pointer transition-colors">
+                <label className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200 hover:border-slate-200 rounded-2xl cursor-pointer transition-colors">
                   <input
                     type="checkbox"
                     checked={waAccSendAdminAlerts}
@@ -10467,15 +10462,15 @@ export const AdminPage: React.FC = () => {
                     className="rounded text-emerald-600 focus:ring-0 w-4 h-4 accent-emerald-600 cursor-pointer mt-0.5"
                   />
                   <div>
-                    <span className="text-xs font-black text-white block">🚨 تنبيهات الإدارة ومسؤولي المطاعم وتقارير الشيفت</span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                    <span className="text-xs font-black text-slate-900 block">🚨 تنبيهات الإدارة ومسؤولي المطاعم وتقارير الشيفت</span>
+                    <span className="text-[11px] text-slate-500 block mt-0.5">
                       إشعار المشرفين فور إلغاء أي مطعم للطلب، وإنذار تأخر قبول الطلبات، وتقارير الإغلاق اليومية للشيفت.
                     </span>
                   </div>
                 </label>
 
                 {/* Role 3: Customer Orders */}
-                <label className="flex items-start gap-3 p-3 bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-2xl cursor-pointer transition-colors">
+                <label className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200 hover:border-slate-200 rounded-2xl cursor-pointer transition-colors">
                   <input
                     type="checkbox"
                     checked={waAccSendCustomerOrders}
@@ -10483,8 +10478,8 @@ export const AdminPage: React.FC = () => {
                     className="rounded text-emerald-600 focus:ring-0 w-4 h-4 accent-emerald-600 cursor-pointer mt-0.5"
                   />
                   <div>
-                    <span className="text-xs font-black text-white block">🍔 إشعارات مراحل وحالة الطلب للعملاء</span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                    <span className="text-xs font-black text-slate-900 block">🍔 إشعارات مراحل وحالة الطلب للعملاء</span>
+                    <span className="text-[11px] text-slate-500 block mt-0.5">
                       إرسال رسائل التحديث للعميل عند تأكيد الطلب، وبدء التجهيز، وخروج الكابتن للتوصيل.
                     </span>
                   </div>
@@ -10492,14 +10487,14 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Specific Branch Assignment */}
-              <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-2xl space-y-2">
-                <label className="block text-xs font-bold text-amber-300">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <label className="block text-xs font-bold text-amber-800">
                   🏪 تخصيص الرقم لمطعم معين (اختياري):
                 </label>
                 <select
                   value={waAccBranchId}
                   onChange={e => setWaAccBranchId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="">بدون تخصيص (حساب عام يعمل لكافة المطاعم)</option>
                   {branches.map(b => (
@@ -10508,13 +10503,13 @@ export const AdminPage: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <p className="text-[10px] text-slate-400 leading-relaxed">
+                <p className="text-[10px] text-slate-500 leading-relaxed">
                   💡 عند تخصيص هذا الرقم لمطعم معين، فإن كافة رسائل وتنبيهات وتقارير إغلاق الشيفت الخاصة بهذا المطعم ستخرج حصرياً من رقم الواتساب هذا.
                 </p>
               </div>
 
               {/* Default Account Switch */}
-              <label className="flex items-center gap-2.5 p-3 bg-slate-800/80 rounded-xl cursor-pointer border border-slate-700/60 hover:bg-slate-800 transition-colors">
+              <label className="flex items-center gap-2.5 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-100 transition-colors">
                 <input
                   type="checkbox"
                   checked={waAccIsDefault}
@@ -10522,17 +10517,17 @@ export const AdminPage: React.FC = () => {
                   className="rounded text-emerald-600 focus:ring-0 w-4 h-4 accent-emerald-600 cursor-pointer"
                 />
                 <div>
-                  <span className="text-xs font-bold text-slate-200 block">تعيين كحساب افتراضي عام (Fallback Account) ⭐</span>
-                  <span className="text-[10px] text-slate-400 block">يُستخدم هذا الرقم كبديل تلقائي عند عدم وجود رقم مخصص لمطعم أو مهمة بعينها.</span>
+                  <span className="text-xs font-bold text-slate-800 block">تعيين كحساب افتراضي عام (Fallback Account) ⭐</span>
+                  <span className="text-[10px] text-slate-500 block">يُستخدم هذا الرقم كبديل تلقائي عند عدم وجود رقم مخصص لمطعم أو مهمة بعينها.</span>
                 </div>
               </label>
 
               {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowAddWhatsAppModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -10551,18 +10546,18 @@ export const AdminPage: React.FC = () => {
       {/* F. Student Wallet & Loyalty Points Top-Up Modal */}
       {editingStudentWallet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-emerald-400" />
                 <div>
-                  <h3 className="font-black text-sm text-white">شحن محفظة الطالب: {editingStudentWallet.name}</h3>
-                  <span className="text-[11px] text-slate-400 font-mono block">{editingStudentWallet.phone}</span>
+                  <h3 className="font-black text-sm text-slate-900">شحن محفظة الطالب: {editingStudentWallet.name}</h3>
+                  <span className="text-[11px] text-slate-500 font-mono block">{editingStudentWallet.phone}</span>
                 </div>
               </div>
               <button 
                 onClick={() => setEditingStudentWallet(null)} 
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -10571,9 +10566,9 @@ export const AdminPage: React.FC = () => {
 
             <form onSubmit={handleSaveStudentWallet} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-              <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-2.5">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-black text-emerald-300">رصيد المحفظة النقدية (ج.م)</label>
+                  <label className="text-xs font-black text-emerald-700">رصيد المحفظة النقدية (ج.م)</label>
                   <span className="text-[10px] text-slate-500">يُخصم مباشرة عند الدفع</span>
                 </div>
                 <input
@@ -10583,16 +10578,16 @@ export const AdminPage: React.FC = () => {
                   required
                   value={editStudentBalance}
                   onChange={e => setEditStudentBalance(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white focus:ring-2 focus:ring-emerald-500 font-mono font-black"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500 font-mono font-black"
                 />
                 <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[10px] text-slate-400 ml-1">شحن سريع:</span>
+                  <span className="text-[10px] text-slate-500 ml-1">شحن سريع:</span>
                   {[10, 20, 50, 100].map(amt => (
                     <button
                       key={amt}
                       type="button"
                       onClick={() => setEditStudentBalance(String((parseFloat(editStudentBalance) || 0) + amt))}
-                      className="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/70 rounded-lg text-[10px] font-black font-mono transition-all active:scale-95"
+                      className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 rounded-lg text-[10px] font-black font-mono transition-all active:scale-95"
                     >
                       +{amt} ج.م
                     </button>
@@ -10600,9 +10595,9 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-2.5">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-black text-amber-300">نقاط الولاء الجامعية (★ نقطة)</label>
+                  <label className="text-xs font-black text-amber-800">نقاط الولاء الجامعية (★ نقطة)</label>
                   <span className="text-[10px] text-slate-500">كل 1 نقطة = 1 ج.م</span>
                 </div>
                 <input
@@ -10612,16 +10607,16 @@ export const AdminPage: React.FC = () => {
                   required
                   value={editStudentPoints}
                   onChange={e => setEditStudentPoints(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white focus:ring-2 focus:ring-amber-500 font-mono font-black"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 font-mono font-black"
                 />
                 <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[10px] text-slate-400 ml-1">إهداء نقاط:</span>
+                  <span className="text-[10px] text-slate-500 ml-1">إهداء نقاط:</span>
                   {[10, 25, 50].map(pts => (
                     <button
                       key={pts}
                       type="button"
                       onClick={() => setEditStudentPoints(String((parseInt(editStudentPoints) || 0) + pts))}
-                      className="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/70 rounded-lg text-[10px] font-black font-mono transition-all active:scale-95"
+                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-900 text-amber-800 border border-amber-200/70 rounded-lg text-[10px] font-black font-mono transition-all active:scale-95"
                     >
                       +{pts} ★
                     </button>
@@ -10629,8 +10624,8 @@ export const AdminPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-2">
-                <label className="block text-xs font-black text-purple-300">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <label className="block text-xs font-black text-purple-700">
                   📌 ملاحظات مسجلة على رقم الطالب (تظهر للكاشير عند الطلب)
                 </label>
                 <textarea
@@ -10638,13 +10633,13 @@ export const AdminPage: React.FC = () => {
                   placeholder="أضف ملاحظة حول الطالب أو سجل طلباته السابقة..."
                   value={editStudentNotes}
                   onChange={e => setEditStudentNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
-              <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-2">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-black text-purple-300">
+                  <label className="text-xs font-black text-purple-700">
                     🔑 تعيين كلمة مرور جديدة للطالب (اختياري)
                   </label>
                   <span className="text-[10px] text-slate-500">في حال نسيان الباسورد</span>
@@ -10654,25 +10649,25 @@ export const AdminPage: React.FC = () => {
                   placeholder="اتركه فارغاً إذا كنت لا ترغب بتغيير كلمة المرور"
                   value={editStudentPassword}
                   onChange={e => setEditStudentPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                 />
               </div>
 
-              <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-center justify-between gap-3">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-white">حالة تفعيل رقم الهاتف:</span>
+                    <span className="text-xs font-black text-slate-900">حالة تفعيل رقم الهاتف:</span>
                     {editingStudentWallet.isVerified ? (
-                      <span className="text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
                         ✓ مفعل ومؤكد
                       </span>
                     ) : (
-                      <span className="text-[10px] font-black bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full">
                         ⏳ بانتظار التفعيل
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
                     {editingStudentWallet.isVerified
                       ? 'يمكن للطالب تسجيل الدخول وإجراء الطلبات مباشرة'
                       : 'في حال لم يصل كود الواتساب للطالب، يمكنك تفعيل حسابه يدوياً فوراً'}
@@ -10693,7 +10688,7 @@ export const AdminPage: React.FC = () => {
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 shrink-0 ${
                     editingStudentWallet.isVerified
-                      ? 'bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800'
+                      ? 'bg-amber-50 hover:bg-amber-900 text-amber-300 border border-amber-200'
                       : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30'
                   }`}
                 >
@@ -10703,7 +10698,7 @@ export const AdminPage: React.FC = () => {
 
               <label className={`flex items-start gap-2.5 p-3 rounded-2xl border cursor-pointer transition-all ${
                 editStudentBlocked
-                  ? 'bg-rose-950/50 border-rose-800 text-rose-200'
+                  ? 'bg-rose-50 border-rose-200 text-rose-700'
                   : 'bg-slate-950/70 border-slate-800 text-slate-300'
               }`}>
                 <input
@@ -10714,16 +10709,16 @@ export const AdminPage: React.FC = () => {
                 />
                 <div className="text-xs">
                   <span className="font-black text-rose-400 block">🚫 إيقاف وحظر هذا الحساب من الطلب</span>
-                  <span className="text-[10px] text-slate-400 block">يمنع هذا الرقم من إرسال أي طلبات جديدة</span>
+                  <span className="text-[10px] text-slate-500 block">يمنع هذا الرقم من إرسال أي طلبات جديدة</span>
                 </div>
               </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingStudentWallet(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -10743,14 +10738,14 @@ export const AdminPage: React.FC = () => {
       {/* G. Factory Reset Confirmation Modal (حالة الصفر) */}
       {showFactoryResetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-rose-800/80 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-rose-200/80 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
                   <Trash2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm text-white">تصفير النظام وإعادته لحالة الصفر</h3>
+                  <h3 className="font-black text-sm text-slate-900">تصفير النظام وإعادته لحالة الصفر</h3>
                   <span className="text-[11px] text-rose-400 font-bold block">تحذير أمني: هذا الإجراء لا يمكن التراجع عنه</span>
                 </div>
               </div>
@@ -10761,7 +10756,7 @@ export const AdminPage: React.FC = () => {
                     setFactoryResetError(null);
                   }
                 }}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -10770,17 +10765,17 @@ export const AdminPage: React.FC = () => {
 
             <form onSubmit={handleExecuteFactoryReset} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-                <div className="p-3 bg-rose-950/40 border border-rose-900/60 rounded-2xl space-y-2 text-xs">
-                  <p className="text-rose-200 leading-relaxed font-semibold">
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl space-y-2 text-xs">
+                  <p className="text-rose-700 leading-relaxed font-semibold">
                     ⚠️ سيتم حذف جميع الطلبات التجريبية وسلات الشلة وحسابات الطلاب.
                   </p>
-                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                  <p className="text-slate-600 text-[11px] leading-relaxed">
                     ستبقى فروع المطاعم والمنيو وأسعار الوجبات وحساب الإدارة الرئيسية محفوظاً بالكامل دون أي مساس.
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-200 block mb-1.5">
+                  <label className="text-xs font-bold text-slate-800 block mb-1.5">
                     أدخل كلمة مرور الإدارة (SuperAdmin) للتأكيد:
                   </label>
                   <div className="relative">
@@ -10791,33 +10786,33 @@ export const AdminPage: React.FC = () => {
                       placeholder="كلمة مرور الإدارة الحالية..."
                       required
                       disabled={factoryResetLoading}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500 font-mono"
                     />
                     <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                   </div>
                 </div>
 
                 {factoryResetError && (
-                  <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
                     <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                     <span>{factoryResetError}</span>
                   </div>
                 )}
 
                 {factoryResetSuccess && (
-                  <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2 animate-fadeIn">
                     <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>{factoryResetSuccess}</span>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   disabled={factoryResetLoading}
                   onClick={() => setShowFactoryResetModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                 >
                   إلغاء التراجع
                 </button>
@@ -10847,17 +10842,17 @@ export const AdminPage: React.FC = () => {
       {/* H. Add / Edit Delivery Driver Modal */}
       {showAddDriverModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
                   <Truck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm text-white">
+                  <h3 className="font-black text-sm text-slate-900">
                     {editingDriver ? 'تعديل بيانات ونطاق كابتن التوصيل' : 'إضافة كابتن توصيل (طيار) جديد'}
                   </h3>
-                  <span className="text-[11px] text-slate-400 block">
+                  <span className="text-[11px] text-slate-500 block">
                     تحديد نطاق عمل الطيار (عام لجميع المطاعم أو مطاعم محددة)
                   </span>
                 </div>
@@ -10865,7 +10860,7 @@ export const AdminPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowAddDriverModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -10874,7 +10869,7 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleSaveDriver} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar text-xs">
                 {driverFormError && (
-                  <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 rounded-xl flex items-center gap-2">
+                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
                     <span>{driverFormError}</span>
                   </div>
@@ -10883,26 +10878,26 @@ export const AdminPage: React.FC = () => {
                 {/* Name & Phone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-300 font-bold mb-1">اسم الكابتن الكامل *</label>
+                    <label className="block text-slate-600 font-bold mb-1">اسم الكابتن الكامل *</label>
                     <input
                       type="text"
                       required
                       placeholder="مثال: أحمد محمود"
                       value={driverName}
                       onChange={e => setDriverName(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-300 font-bold mb-1">رقم الهاتف *</label>
+                    <label className="block text-slate-600 font-bold mb-1">رقم الهاتف *</label>
                     <input
                       type="tel"
                       required
                       placeholder="01xxxxxxxxx"
                       value={driverPhone}
                       onChange={e => setDriverPhone(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
                 </div>
@@ -10910,19 +10905,19 @@ export const AdminPage: React.FC = () => {
                 {/* Username & Password */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-300 font-bold mb-1">اسم المستخدم للدخول (Username) *</label>
+                    <label className="block text-slate-600 font-bold mb-1">اسم المستخدم للدخول (Username) *</label>
                     <input
                       type="text"
                       required
                       placeholder="مثال: ahmed_driver"
                       value={driverUsername}
                       onChange={e => setDriverUsername(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-300 font-bold mb-1">
+                    <label className="block text-slate-600 font-bold mb-1">
                       {editingDriver ? 'كلمة المرور (اتركه فارغاً للإبقاء)' : 'كلمة المرور *'}
                     </label>
                     <input
@@ -10931,14 +10926,14 @@ export const AdminPage: React.FC = () => {
                       placeholder={editingDriver ? '••••••••' : 'كلمة مرور الدخول'}
                       value={driverPassword}
                       onChange={e => setDriverPassword(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
                 </div>
 
                 {/* Driver Scope Selector (نطاق العمل واستقبال الطلبات) */}
                 <div className="pt-2 space-y-2.5">
-                  <label className="block text-xs font-black text-slate-200">
+                  <label className="block text-xs font-black text-slate-800">
                     نطاق استقبال طلبات المطاعم:
                   </label>
 
@@ -10947,7 +10942,7 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setDriverIsAllBranches(true)}
                     className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                       driverIsAllBranches
-                        ? 'bg-purple-950/60 border-purple-600 ring-1 ring-purple-500'
+                        ? 'bg-purple-50 border-purple-600 ring-1 ring-purple-500'
                         : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
                     }`}
                   >
@@ -10960,10 +10955,10 @@ export const AdminPage: React.FC = () => {
                         className="text-purple-600 focus:ring-purple-500"
                       />
                       <div className="flex-1">
-                        <span className="font-black text-white text-xs block">
+                        <span className="font-black text-slate-900 text-xs block">
                           🌐 استقبال طلبات جميع المطاعم والفروع (طيار عام للمنظومة)
                         </span>
-                        <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
+                        <span className="text-[11px] text-slate-500 block mt-0.5 leading-relaxed">
                           يستقبل الطلبات من كافة مطاعم الحرم الجامعي، ويظهر اسمه في قائمة التعيين لدى جميع كاشيرات الفروع ونقاط البيع.
                         </span>
                       </div>
@@ -10975,7 +10970,7 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setDriverIsAllBranches(false)}
                     className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                       !driverIsAllBranches
-                        ? 'bg-purple-950/60 border-purple-600 ring-1 ring-purple-500'
+                        ? 'bg-purple-50 border-purple-600 ring-1 ring-purple-500'
                         : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
                     }`}
                   >
@@ -10988,10 +10983,10 @@ export const AdminPage: React.FC = () => {
                         className="text-purple-600 focus:ring-purple-500"
                       />
                       <div className="flex-1">
-                        <span className="font-black text-white text-xs block">
+                        <span className="font-black text-slate-900 text-xs block">
                           🏪 مطاعم وفروع محددة فقط
                         </span>
-                        <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
+                        <span className="text-[11px] text-slate-500 block mt-0.5 leading-relaxed">
                           يستقبل الطلبات ويظهر فقط لكاشيرات المطاعم المختارة بالأسفل.
                         </span>
                       </div>
@@ -11000,9 +10995,9 @@ export const AdminPage: React.FC = () => {
 
                   {/* Branch Checkboxes if specific branches chosen */}
                   {!driverIsAllBranches && (
-                    <div className="p-3 bg-slate-950/90 border border-slate-800 rounded-2xl space-y-2.5 animate-fadeIn">
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5 animate-fadeIn">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-slate-300">حدد المطاعم المصرح بها ({driverSelectedBranchIds.length} محددة):</span>
+                        <span className="font-bold text-slate-600">حدد المطاعم المصرح بها ({driverSelectedBranchIds.length} محددة):</span>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -11015,7 +11010,7 @@ export const AdminPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setDriverSelectedBranchIds([])}
-                            className="text-slate-400 hover:underline"
+                            className="text-slate-500 hover:underline"
                           >
                             إلغاء التحديد
                           </button>
@@ -11030,7 +11025,7 @@ export const AdminPage: React.FC = () => {
                               key={branch.id}
                               className={`flex items-center gap-2.5 p-2 rounded-xl border cursor-pointer transition-colors ${
                                 isChecked
-                                  ? 'bg-purple-950/40 border-purple-800 text-white'
+                                  ? 'bg-purple-50 border-purple-200 text-white'
                                   : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
                               }`}
                             >
@@ -11057,7 +11052,7 @@ export const AdminPage: React.FC = () => {
 
                 {/* Active Checkbox if editing */}
                 {editingDriver && (
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer">
+                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={driverIsActive}
@@ -11065,7 +11060,7 @@ export const AdminPage: React.FC = () => {
                       className="rounded text-purple-600 focus:ring-0"
                     />
                     <div>
-                      <span className="font-bold text-slate-200 block">تفعيل حساب كابتن التوصيل</span>
+                      <span className="font-bold text-slate-800 block">تفعيل حساب كابتن التوصيل</span>
                       <span className="text-[10px] text-slate-500 block">عند التعطيل، لن يستطيع الطيار تسجيل الدخول أو استقبال أي طلبات</span>
                     </div>
                   </label>
@@ -11073,11 +11068,11 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-800 bg-slate-900/95 shrink-0">
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddDriverModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
                 >
                   إلغاء
                 </button>
@@ -11107,17 +11102,17 @@ export const AdminPage: React.FC = () => {
       {/* Admin Order Cancellation Dialog */}
       {adminCancellingOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn" dir="rtl">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-scaleUp">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-scaleUp">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
                   <AlertCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-white text-base">
+                  <h3 className="font-black text-slate-900 text-base">
                     إلغاء الطلب #{adminCancellingOrder.orderNumber}
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500">
                     {adminCancellingOrder.branch?.name ? `مطعم: ${adminCancellingOrder.branch.name}` : ''}
                     {adminCancellingOrder.customerName ? ` • العميل: ${adminCancellingOrder.customerName}` : ''}
                   </p>
@@ -11128,14 +11123,14 @@ export const AdminPage: React.FC = () => {
                   setAdminCancellingOrder(null);
                   setAdminCancelReason('');
                 }}
-                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+                className="p-1.5 text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 block">
+              <label className="text-xs font-bold text-slate-600 block">
                 اختر سبب الإلغاء السريع أو اكتب سبباً مخصصاً:
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -11160,18 +11155,18 @@ export const AdminPage: React.FC = () => {
                 value={adminCancelReason}
                 onChange={(e) => setAdminCancelReason(e.target.value)}
                 placeholder="اكتب سبب إلغاء هذا الطلب هنا..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors mt-2"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors mt-2"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => {
                   setAdminCancellingOrder(null);
                   setAdminCancelReason('');
                 }}
-                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
               >
                 تراجع
               </button>
@@ -11196,7 +11191,7 @@ export const AdminPage: React.FC = () => {
       {/* Admin Custom Confirmation Modal */}
       {adminConfirmDialog && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-fadeIn" dir="rtl">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-scaleUp">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-scaleUp">
             <div className="flex items-center gap-3">
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
                 adminConfirmDialog.isDanger 
@@ -11206,24 +11201,24 @@ export const AdminPage: React.FC = () => {
                 <AlertCircle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-black text-white text-base">
+                <h3 className="font-black text-slate-900 text-base">
                   {adminConfirmDialog.title}
                 </h3>
-                <span className="text-[10px] text-slate-400 font-bold block">
+                <span className="text-[10px] text-slate-500 font-bold block">
                   لوحة الإدارة المركزية
                 </span>
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed font-medium whitespace-pre-line">
+            <p className="text-xs text-slate-600 leading-relaxed font-medium whitespace-pre-line">
               {adminConfirmDialog.message}
             </p>
 
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setAdminConfirmDialog(null)}
-                className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs transition-colors"
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-xs transition-colors"
               >
                 {adminConfirmDialog.cancelText || 'تراجع'}
               </button>
@@ -11250,18 +11245,18 @@ export const AdminPage: React.FC = () => {
       {/* Selected Driver Orders Breakdown Modal (كشف تفاصيل طلبات الطيار) */}
       {selectedDriverOrdersModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-fadeIn" dir="rtl">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-scaleUp">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-scaleUp">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950/60">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
                   <Truck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-white text-base">
+                  <h3 className="font-black text-slate-900 text-base">
                     سجل طلبات كابتن التوصيل: {selectedDriverOrdersModal.driverName}
                   </h3>
-                  <div className="flex items-center gap-2 text-xs text-slate-400 font-mono mt-0.5">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 font-mono mt-0.5">
                     <Phone className="w-3.5 h-3.5 text-slate-500" />
                     <span>{selectedDriverOrdersModal.driverPhone}</span>
                     <span className="text-slate-600">|</span>
@@ -11273,34 +11268,34 @@ export const AdminPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedDriverOrdersModal(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Quick Summary Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-950/40 border-b border-slate-800 text-xs font-mono">
-              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-sans block">الطلبات المسلمة:</span>
-                <span className="text-base font-black text-white">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-50 border-b border-slate-200 text-xs font-mono">
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200">
+                <span className="text-[10px] text-slate-500 font-sans block">الطلبات المسلمة:</span>
+                <span className="text-base font-black text-slate-900">
                   {selectedDriverOrdersModal.deliveredOrdersCount || 0} طلب
                 </span>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-sans block">الكاش في اليد:</span>
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200">
+                <span className="text-[10px] text-slate-500 font-sans block">الكاش في اليد:</span>
                 <span className="text-base font-black text-amber-400">
                   {Number(selectedDriverOrdersModal.cashCollectedInHand || 0).toFixed(2)} ج.م
                 </span>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-sans block">أجرة التوصيل المستحقة:</span>
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200">
+                <span className="text-[10px] text-slate-500 font-sans block">أجرة التوصيل المستحقة:</span>
                 <span className="text-base font-black text-indigo-400">
                   {Number(selectedDriverOrdersModal.totalDeliveryFeesEarned || 0).toFixed(2)} ج.م
                 </span>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-sans block">صافي التوريد للإدارة:</span>
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200">
+                <span className="text-[10px] text-slate-500 font-sans block">صافي التوريد للإدارة:</span>
                 <span
                   className={`text-base font-black ${
                     selectedDriverOrdersModal.netCashToDeliver > 0 ? 'text-emerald-400' : 'text-slate-300'
@@ -11321,38 +11316,38 @@ export const AdminPage: React.FC = () => {
                 selectedDriverOrdersModal.orders.map((ord: any) => (
                   <div
                     key={ord.id}
-                    className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                   >
                     <div className="flex items-start gap-3">
-                      <span className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-mono font-bold shrink-0">
+                      <span className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-700 flex items-center justify-center font-mono font-bold shrink-0">
                         #{ord.orderNumber}
                       </span>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-white">{ord.branchName}</span>
+                          <span className="font-black text-slate-900">{ord.branchName}</span>
                           <span
                             className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                               ord.paymentMethod === 'CASH'
-                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                                : 'bg-indigo-950 text-indigo-400 border border-indigo-800'
+                                ? 'bg-emerald-50 text-emerald-400 border border-emerald-200'
+                                : 'bg-indigo-50 text-indigo-400 border border-indigo-200'
                             }`}
                           >
                             {ord.paymentMethod === 'CASH' ? 'كاش في اليد' : 'دفع إلكتروني'}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-1">
-                          العميل: <strong className="text-slate-200">{ord.customerName}</strong>
+                        <div className="text-[11px] text-slate-500 mt-1">
+                          العميل: <strong className="text-slate-800">{ord.customerName}</strong>
                           {ord.customerPhone && (
                             <span className="font-mono text-slate-500 mr-2">({ord.customerPhone})</span>
                           )}
                           {ord.deliveryZoneName && (
-                            <span className="text-slate-400 mr-2">📍 {ord.deliveryZoneName}</span>
+                            <span className="text-slate-500 mr-2">📍 {ord.deliveryZoneName}</span>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800/60 font-mono">
+                    <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-200 font-mono">
                       <div>
                         <span className="text-[10px] text-slate-500 font-sans block">أجرة التوصيل:</span>
                         <span className="text-indigo-400 font-bold">{Number(ord.deliveryFee || 0).toFixed(2)} ج.م</span>
@@ -11373,11 +11368,11 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end p-4 border-t border-slate-800 bg-slate-950/60">
+            <div className="flex items-center justify-end p-4 border-t border-slate-200 bg-slate-50">
               <button
                 type="button"
                 onClick={() => setSelectedDriverOrdersModal(null)}
-                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors"
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-xl text-xs font-bold transition-colors"
               >
                 إغلاق النافذة
               </button>
@@ -11389,20 +11384,20 @@ export const AdminPage: React.FC = () => {
       {/* G. Custom Dark Branch Selector Modal for Orders */}
       {showOrderBranchSelectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overscroll-contain">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[85vh] shadow-2xl overflow-hidden overscroll-contain">
-            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[85vh] shadow-2xl overflow-hidden overscroll-contain">
+            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
                   <Building className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm text-white">تصفية الطلبات حسب الفرع</h3>
-                  <p className="text-[11px] text-slate-400">اختر الفرع لعرض طلباته فقط</p>
+                  <h3 className="font-black text-sm text-slate-900">تصفية الطلبات حسب الفرع</h3>
+                  <p className="text-[11px] text-slate-500">اختر الفرع لعرض طلباته فقط</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowOrderBranchSelectModal(false)}
-                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -11417,19 +11412,19 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
                   orderBranchFilter === 'ALL'
-                    ? 'bg-purple-950/60 border-purple-600/80 text-white shadow-sm ring-1 ring-purple-500/30'
+                    ? 'bg-purple-50 border-purple-600/80 text-white shadow-sm ring-1 ring-purple-500/30'
                     : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    orderBranchFilter === 'ALL' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'
+                    orderBranchFilter === 'ALL' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'
                   }`}>
                     <Store className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="font-black text-xs sm:text-sm block">جميع فروع الجامعة</span>
-                    <span className="text-[10px] text-slate-400">عرض الطلبات من كافة المطاعم ({branches.length} فروع)</span>
+                    <span className="text-[10px] text-slate-500">عرض الطلبات من كافة المطاعم ({branches.length} فروع)</span>
                   </div>
                 </div>
                 {orderBranchFilter === 'ALL' && (
@@ -11451,7 +11446,7 @@ export const AdminPage: React.FC = () => {
                     }}
                     className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
                       isSelected
-                        ? 'bg-purple-950/60 border-purple-600/80 text-white shadow-sm ring-1 ring-purple-500/30'
+                        ? 'bg-purple-50 border-purple-600/80 text-white shadow-sm ring-1 ring-purple-500/30'
                         : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
                     }`}
                   >
@@ -11460,28 +11455,28 @@ export const AdminPage: React.FC = () => {
                         <img
                           src={getFullImageUrl(b.logoUrl)}
                           alt={b.name}
-                          className="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0 bg-slate-800"
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-xl bg-purple-950/60 border border-purple-800/80 flex items-center justify-center text-purple-400 shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-400 shrink-0">
                           <Store className="w-5 h-5" />
                         </div>
                       )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-xs sm:text-sm text-white truncate">{b.name}</span>
+                          <span className="font-black text-xs sm:text-sm text-slate-900 truncate">{b.name}</span>
                           {b.isActive ? (
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 shrink-0">
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-400 border border-emerald-200 shrink-0">
                               نشط
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-950 text-rose-400 border border-rose-800 shrink-0">
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-50 text-rose-400 border border-rose-200 shrink-0">
                               معطل
                             </span>
                           )}
                         </div>
                         {b.address && (
-                          <span className="text-[10px] text-slate-400 block truncate mt-0.5">{b.address}</span>
+                          <span className="text-[10px] text-slate-500 block truncate mt-0.5">{b.address}</span>
                         )}
                       </div>
                     </div>
@@ -11502,20 +11497,20 @@ export const AdminPage: React.FC = () => {
       {/* H. Custom Dark Branch Selector Modal for Financials */}
       {showFinanceBranchSelectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overscroll-contain">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[85vh] shadow-2xl overflow-hidden overscroll-contain">
-            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-800 shrink-0">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[85vh] shadow-2xl overflow-hidden overscroll-contain">
+            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                   <Building className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm text-white">تصفية الحسابات حسب المطعم</h3>
-                  <p className="text-[11px] text-slate-400">اختر الفرع لحساب مبيعاته وشيفتاته</p>
+                  <h3 className="font-black text-sm text-slate-900">تصفية الحسابات حسب المطعم</h3>
+                  <p className="text-[11px] text-slate-500">اختر الفرع لحساب مبيعاته وشيفتاته</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowFinanceBranchSelectModal(false)}
-                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -11530,19 +11525,19 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
                   financeBranchFilter === 'ALL'
-                    ? 'bg-emerald-950/60 border-emerald-600/80 text-white shadow-sm ring-1 ring-emerald-500/30'
+                    ? 'bg-emerald-50 border-emerald-600/80 text-white shadow-sm ring-1 ring-emerald-500/30'
                     : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    financeBranchFilter === 'ALL' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    financeBranchFilter === 'ALL' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'
                   }`}>
                     <Store className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="font-black text-xs sm:text-sm block">جميع الفروع والمطاعم</span>
-                    <span className="text-[10px] text-slate-400">حسابات مجمعة لكافة فروع الحرم ({branches.length} فروع)</span>
+                    <span className="text-[10px] text-slate-500">حسابات مجمعة لكافة فروع الحرم ({branches.length} فروع)</span>
                   </div>
                 </div>
                 {financeBranchFilter === 'ALL' && (
@@ -11564,7 +11559,7 @@ export const AdminPage: React.FC = () => {
                     }}
                     className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
                       isSelected
-                        ? 'bg-emerald-950/60 border-emerald-600/80 text-white shadow-sm ring-1 ring-emerald-500/30'
+                        ? 'bg-emerald-50 border-emerald-600/80 text-white shadow-sm ring-1 ring-emerald-500/30'
                         : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
                     }`}
                   >
@@ -11573,27 +11568,27 @@ export const AdminPage: React.FC = () => {
                         <img
                           src={getFullImageUrl(b.logoUrl)}
                           alt={b.name}
-                          className="w-10 h-10 rounded-xl object-cover border border-slate-700 shrink-0 bg-slate-800"
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-800/80 flex items-center justify-center text-emerald-400 shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-400 shrink-0">
                           <Store className="w-5 h-5" />
                         </div>
                       )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-xs sm:text-sm text-white truncate">{b.name}</span>
+                          <span className="font-black text-xs sm:text-sm text-slate-900 truncate">{b.name}</span>
                           {b.isActive ? (
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800 shrink-0">
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-400 border border-emerald-200 shrink-0">
                               نشط
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-950 text-rose-400 border border-rose-800 shrink-0">
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-50 text-rose-400 border border-rose-200 shrink-0">
                               معطل
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                        <span className="text-[10px] text-slate-500 block truncate mt-0.5">
                           {b.openingTime && b.closingTime ? `مواعيد العمل: ${b.openingTime} - ${b.closingTime}` : b.address}
                         </span>
                       </div>
@@ -11615,16 +11610,16 @@ export const AdminPage: React.FC = () => {
       {/* Admin Exit Confirmation Dialog */}
       {showAdminExitDialog && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn overscroll-contain" dir="rtl">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-scaleUp text-center overscroll-contain">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-sm p-6 shadow-2xl space-y-4 animate-scaleUp text-center overscroll-contain">
             <div className="w-14 h-14 bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
               <LogOut className="w-7 h-7" />
             </div>
 
             <div className="space-y-1.5">
-              <h3 className="font-black text-white text-base">
+              <h3 className="font-black text-slate-900 text-base">
                 الخروج من لوحة الإدارة
               </h3>
-              <p className="text-xs text-slate-400 leading-relaxed font-medium">
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
                 هل تريد مغادرة لوحة التحكم أو تسجيل الخروج؟
               </p>
             </div>
@@ -11633,7 +11628,7 @@ export const AdminPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowAdminExitDialog(false)}
-                className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs transition-colors border border-slate-700/60"
+                className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-xs transition-colors border border-slate-200"
               >
                 البقاء في اللوحة
               </button>
