@@ -9,7 +9,7 @@ import helmet from "helmet";
 dotenv.config();
 const backendEnvPath = path.resolve(process.cwd(), "backend", ".env");
 if (fs.existsSync(backendEnvPath)) {
-  dotenv.config({ path: backendEnvPath });
+  dotenv.config({ path: backendEnvPath, override: true });
 }
 
 import { initSocket } from "./sockets/socketManager.js";
@@ -347,6 +347,17 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "closedUntil" TIMESTAMP(3);`,
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "closingReason" TEXT;`,
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "deliveryType" TEXT DEFAULT 'FIXED';`,
+      `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "deliveryRadiusKm" DOUBLE PRECISION DEFAULT 10.0;`,
+      `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "latitude" DOUBLE PRECISION;`,
+      `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "longitude" DOUBLE PRECISION;`,
+      `ALTER TABLE "GroupCart" ADD COLUMN IF NOT EXISTS "isClosed" BOOLEAN DEFAULT false;`,
+      `ALTER TABLE "GroupCart" ADD COLUMN IF NOT EXISTS "closedAt" TIMESTAMP(3);`,
+      `ALTER TABLE "FlashDeal" ADD COLUMN IF NOT EXISTS "isUnlimited" BOOLEAN DEFAULT false;`,
+      `ALTER TABLE "FlashDeal" ADD COLUMN IF NOT EXISTS "maxPerUser" INTEGER;`,
+      `ALTER TABLE "FlashDeal" ADD COLUMN IF NOT EXISTS "isRecurring" BOOLEAN DEFAULT false;`,
+      `ALTER TABLE "FlashDeal" ADD COLUMN IF NOT EXISTS "recurringDays" TEXT;`,
+      `ALTER TABLE "FlashDeal" ADD COLUMN IF NOT EXISTS "dailyStartTime" TEXT;`,
+      `ALTER TABLE "FlashDeal" ADD COLUMN IF NOT EXISTS "dailyEndTime" TEXT;`,
       `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "unavailableUntil" TIMESTAMP(3);`,
       `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "comboItems" TEXT;`,
       `ALTER TABLE "ModifierOption" ADD COLUMN IF NOT EXISTS "unavailableUntil" TIMESTAMP(3);`,

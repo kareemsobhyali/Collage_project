@@ -577,14 +577,16 @@ router.get("/branches", async (_req: Request, res: Response) => {
 // 2. تصفح منيو الفرع وطرق الدفع ومناطق التوصيل المتاحة له (شامل التقييمات ومؤشر زحمة المطبخ)
 router.get("/branches/:id/menu", async (req: Request, res: Response) => {
   try {
-    const id = req.params.id as string;
+    const rawId = req.params.id as string;
+    const id = typeof rawId === 'string' ? decodeURIComponent(rawId).trim() : '';
     const now = new Date();
 
     const branch = await prisma.branch.findFirst({
       where: {
         OR: [
           { id },
-          { slug: id }
+          { slug: id },
+          { slug: id.toLowerCase() },
         ],
         isActive: true,
       },
@@ -770,9 +772,9 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         itemsSummary: (r.items || []).map((i) => `${i.quantity}× ${i.itemName}`).join(" ، "),
       })),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Get branch menu for customer error:", error);
-    res.status(500).json({ error: "فشل تحميل منيو الفرع" });
+    res.status(500).json({ error: error?.message || "فشل تحميل منيو الفرع" });
   }
 });
 
