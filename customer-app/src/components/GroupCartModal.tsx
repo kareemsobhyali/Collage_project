@@ -107,6 +107,14 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
     });
 
     socket.on('group_cart_updated', (updatedCart: any) => {
+      if (updatedCart?.isClosed) {
+        alert('تم إغلاق سلة الشلة من قِبل المنشئ وتوقيف الرابط.');
+        setCart(null);
+        setShareCode(null);
+        onActiveCodeChange(null);
+        onClose();
+        return;
+      }
       setCart((prev: any) => ({
         ...prev,
         ...updatedCart,
@@ -166,8 +174,13 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
     onActiveCodeChange(null);
   };
 
-  const confirmLeaveGroupCart = () => {
+  const confirmLeaveGroupCart = async () => {
     setShowLeaveConfirmModal(false);
+    if (isHost && shareCode) {
+      try {
+        await api.closeGroupCart(shareCode);
+      } catch (_e) {}
+    }
     setCart(null);
     setShareCode(null);
     onActiveCodeChange(null);

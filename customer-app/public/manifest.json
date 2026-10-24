@@ -3,7 +3,14 @@
   "short_name": "UniFood",
   "description": "منصة طلب وتوصيل الوجبات داخل الحرم الجامعي وسلة الشلة التشاركية",
   "start_url": "/",
+  "scope": "/",
+  "id": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
   "background_color": "#f8fafc",
   "theme_color": "#4f46e5",
   "orientation": "portrait",

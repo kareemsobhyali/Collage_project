@@ -976,10 +976,33 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
               )}
 
+              {/* تفاصيل الخصومات المطبقة (كوبون / رصيد المحفظة) */}
               {Boolean(dOrder.discount && Number(dOrder.discount) > 0) && (
-                <div className="flex justify-between text-emerald-600 font-bold">
-                  <span>خصم الكوبون ({dOrder.promoCode}):</span>
-                  <span className="font-mono">-{dOrder.discount} ج.م</span>
+                <div className="flex justify-between text-emerald-700 font-bold bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                  <span className="flex items-center gap-1.5">
+                    <span>🎟️</span>
+                    <span>خصم الكوبون ({dOrder.promoCode || 'كود ترويجي'}):</span>
+                  </span>
+                  <span className="font-mono font-black">-{dOrder.discount} ج.م</span>
+                </div>
+              )}
+
+              {Boolean(dOrder.walletDiscount && Number(dOrder.walletDiscount) > 0) && (
+                <div className="flex justify-between text-purple-800 font-bold bg-purple-50 p-2.5 rounded-xl border border-purple-200">
+                  <span className="flex items-center gap-1.5">
+                    <span>💳</span>
+                    <span>خصم مسحوب من محفظة العميل:</span>
+                  </span>
+                  <span className="font-mono font-black">-{dOrder.walletDiscount} ج.م</span>
+                </div>
+              )}
+
+              {Boolean((Number(dOrder.discount) || 0) + (Number(dOrder.walletDiscount) || 0) > 0) && (
+                <div className="flex justify-between text-slate-500 text-[11px] font-semibold pr-1">
+                  <span>إجمالي الخصومات المطبقة:</span>
+                  <span className="font-mono font-bold text-rose-600">
+                    -{((Number(dOrder.discount) || 0) + (Number(dOrder.walletDiscount) || 0)).toFixed(1)} ج.م
+                  </span>
                 </div>
               )}
 
@@ -1432,6 +1455,25 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                             <span>الإيصال</span>
                           </button>
                         )}
+                      </div>
+                    )}
+
+                    {/* Discount Badge on Card */}
+                    {Boolean((order.discount && Number(order.discount) > 0) || (order.walletDiscount && Number(order.walletDiscount) > 0)) && (
+                      <div className="bg-emerald-50 border border-emerald-200/90 rounded-xl px-2.5 py-1.5 flex items-center justify-between text-[11px] text-emerald-800 font-bold">
+                        <span className="flex items-center gap-1">
+                          <span>🏷️</span>
+                          <span>خصم:</span>
+                          <span className="text-[10px] text-emerald-600 font-normal">
+                            {[
+                              order.discount && Number(order.discount) > 0 ? `كوبون (${order.promoCode || 'كود'})` : null,
+                              order.walletDiscount && Number(order.walletDiscount) > 0 ? 'محفظة' : null
+                            ].filter(Boolean).join(' + ')}
+                          </span>
+                        </span>
+                        <span className="font-mono font-black text-emerald-700">
+                          -{((Number(order.discount) || 0) + (Number(order.walletDiscount) || 0)).toFixed(1)} ج.م
+                        </span>
                       </div>
                     )}
 

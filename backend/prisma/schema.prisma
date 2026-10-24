@@ -38,6 +38,9 @@ model Branch {
   allowDelivery     Boolean               @default(true)
   allowPickup       Boolean               @default(true)
   deliveryFee       Float                 @default(10.0)
+  deliveryRadiusKm  Float?                @default(10.0) // أقصى نطاق توصيل للمطعم بالكيلومتر
+  latitude          Float?                // إحداثي خط العرض للمطعم
+  longitude         Float?                // إحداثي خط الطول للمطعم
   deliveryType      String                @default("FIXED") // "FIXED" | "ZONES"
   deliveryZones     BranchDeliveryZone[]
   scheduledLeadMins Int                   @default(20) // دقائق إشعار المطبخ قبل موعد الطلب المحجوز
@@ -319,6 +322,8 @@ model GroupCart {
   shareCode String          @unique
   branchId  String
   hostName  String
+  isClosed  Boolean         @default(false)
+  closedAt  DateTime?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
   items     GroupCartItem[]
@@ -407,6 +412,12 @@ model FlashDeal {
   imageUrl        String?
   maxQuantity     Int?      // الكمية المتاحة للعرض (مثال: 50)
   soldQuantity    Int       @default(0) // الكمية المستهلكة
+  isUnlimited     Boolean   @default(false) // كمية غير محدودة
+  maxPerUser      Int?      // الحد الأقصى المسموح به لكل حساب طالب (مثال: 1 أو 2)
+  isRecurring     Boolean   @default(false) // تكرار مجدول تلقائياً
+  recurringDays   String?   // أيام التكرار (مثال: SUN,MON,TUE,WED,THU أو ALL)
+  dailyStartTime  String?   // وقت البدء اليومي (مثال: 12:00)
+  dailyEndTime    String?   // وقت الانتهاء اليومي (مثال: 16:00)
   startsAt        DateTime  @default(now())
   expiresAt       DateTime
   isActive        Boolean   @default(true)

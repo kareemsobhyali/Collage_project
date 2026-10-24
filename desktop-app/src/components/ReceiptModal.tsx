@@ -146,6 +146,18 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, branchName, o
                   <span>{order.deliveryFee} ج.م</span>
                 </div>
               )}
+              {Boolean(order.discount && Number(order.discount) > 0) && (
+                <div className="flex justify-between font-bold text-emerald-800">
+                  <span>خصم الكوبون ({order.promoCode || 'كود'}):</span>
+                  <span>-{order.discount} ج.م</span>
+                </div>
+              )}
+              {Boolean(order.walletDiscount && Number(order.walletDiscount) > 0) && (
+                <div className="flex justify-between font-bold text-purple-900">
+                  <span>خصم المحفظة الإلكترونية:</span>
+                  <span>-{order.walletDiscount} ج.م</span>
+                </div>
+              )}
               <div className="flex justify-between font-black text-sm text-slate-900 border-t border-slate-300 pt-1">
                 <span>الإجمالي الكلي:</span>
                 <span>{order.total} ج.م</span>

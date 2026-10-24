@@ -637,6 +637,16 @@ export const api = {
     return data;
   },
 
+  async closeGroupCart(code: string) {
+    const res = await fetch(`${API_BASE_URL}/customer/group-cart/${code}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إغلاق سلة الشلة');
+    return data;
+  },
+
   // 14. كابتن التوصيل (الطيار)
   async driverLogin(username: string, password: string) {
     const res = await fetch(`${API_BASE_URL}/driver/login`, {

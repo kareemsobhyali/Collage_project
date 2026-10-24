@@ -15,6 +15,7 @@ import {
 import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert, getRestaurantLocationSettings } from "../services/settings.service.js";
 import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
 import { restoreFlashDealsForOrder } from "../services/flashDeal.service.js";
+import { findBestSmartDriverForBranch } from "../services/dispatch.service.js";
 
 
 const router = Router();
@@ -1275,81 +1276,7 @@ function calcHaversineKm(a: { lat: number; lng: number }, b: { lat: number; lng:
   return R * (2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
 }
 
-async function findBestSmartDriverForBranch(branchId: string) {
-  const [allDrivers, branch, defaultLoc, activeDriverOrders] = await Promise.all([
-    prisma.deliveryDriver.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        branchId: true,
-        name: true,
-        phone: true,
-        username: true,
-        isActive: true,
-      },
-    }),
-    prisma.branch.findUnique({
-      where: { id: branchId },
-      select: { id: true, address: true },
-    }),
-    getRestaurantLocationSettings().catch(() => ({ lat: 30.0277, lng: 31.2105 })),
-    prisma.order.groupBy({
-      by: ["driverId"],
-      where: {
-        driverId: { not: null },
-        status: { in: ["ACCEPTED", "PREPARING", "READY"] },
-      },
-      _count: { _all: true },
-    }),
-  ]);
 
-  const activeCountMap = new Map<string, number>();
-  for (const row of activeDriverOrders) {
-    if (row.driverId) activeCountMap.set(row.driverId, row._count._all);
-  }
-
-  const branchCoords = parseBranchCoordsFromAddress(branch?.address, defaultLoc);
-  const nowMs = Date.now();
-
-  const candidates: Array<{
-    driver: any;
-    activeOrdersCount: number;
-    distanceKm: number | null;
-    hasLiveGps: boolean;
-    score: number;
-  }> = [];
-
-  for (const d of allDrivers) {
-    const allowed = await canDriverServeBranch(d.id, d.branchId, branchId);
-    if (!allowed) continue;
-
-    const activeOrdersCount = activeCountMap.get(d.id) || 0;
-    const liveLoc = latestDriverLocations.get(d.id);
-    const hasRecentGps = Boolean(liveLoc && nowMs - liveLoc.timestamp < 30 * 60 * 1000);
-    const distanceKm = hasRecentGps && liveLoc
-      ? Number(calcHaversineKm(branchCoords, { lat: liveLoc.lat, lng: liveLoc.lng }).toFixed(2))
-      : null;
-
-    // معادلة الترتيب الذكي:
-    // 1. الأولوية القصوى للطيار المتفرغ (أقل عدد طلبات جارية)
-    // 2. الأقرب مسافة بالـ GPS للمطعم
-    // 3. أولوية خفيفة لطيار الفرع المباشر عند التساوي
-    const branchAffinityPenalty = d.branchId === branchId ? 0 : 0.25;
-    const distancePenalty = distanceKm !== null ? distanceKm : 3.5;
-    const score = activeOrdersCount * 100 + distancePenalty + branchAffinityPenalty;
-
-    candidates.push({
-      driver: d,
-      activeOrdersCount,
-      distanceKm,
-      hasLiveGps: hasRecentGps,
-      score,
-    });
-  }
-
-  candidates.sort((a, b) => a.score - b.score);
-  return candidates[0] || null;
-}
 
 // 18. جلب قائمة كباتن التوصيل (الطيارين) المتاحين للفرع (طياري الفرع + الطيارين العامين لكل المطاعم)
 router.get("/drivers", async (req: AuthRequest, res: Response) => {

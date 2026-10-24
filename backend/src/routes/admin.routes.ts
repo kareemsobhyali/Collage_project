@@ -118,6 +118,7 @@ router.get("/branches", async (_req: AuthRequest, res: Response) => {
     const branches = await prisma.branch.findMany({
       include: {
         paymentConfig: true,
+        deliveryZones: true,
         users: {
           select: { id: true, username: true, createdAt: true },
         },
@@ -143,6 +144,11 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
       logoUrl,
       address,
       deliveryFee,
+      deliveryRadiusKm,
+      latitude,
+      longitude,
+      deliveryType,
+      deliveryZones,
       allowDelivery,
       allowPickup,
       slug,
@@ -186,6 +192,16 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
         logoUrl: logoUrl || null,
         address: address ? address.trim() : null,
         deliveryFee: deliveryFee !== undefined ? parseFloat(deliveryFee) : 10.0,
+        deliveryRadiusKm: deliveryRadiusKm !== undefined && deliveryRadiusKm !== "" ? parseFloat(deliveryRadiusKm) : 10.0,
+        latitude: latitude !== undefined && latitude !== "" ? parseFloat(latitude) : null,
+        longitude: longitude !== undefined && longitude !== "" ? parseFloat(longitude) : null,
+        deliveryType: deliveryType !== undefined ? String(deliveryType) : 'FIXED',
+        deliveryZones: Array.isArray(deliveryZones) && deliveryZones.length > 0 ? {
+          create: deliveryZones.map((z: any) => ({
+            name: typeof z === 'string' ? z.trim() : (z.name || '').trim(),
+            fee: typeof z === 'object' && z.fee !== undefined ? parseFloat(z.fee) || 0 : (deliveryFee ? parseFloat(deliveryFee) : 10),
+          })).filter((z: any) => Boolean(z.name)),
+        } : undefined,
         allowDelivery: allowDelivery !== undefined ? Boolean(allowDelivery) : true,
         allowPickup: allowPickup !== undefined ? Boolean(allowPickup) : true,
         isActive: true,
@@ -268,6 +284,11 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
       phone, 
       address, 
       deliveryFee, 
+      deliveryRadiusKm,
+      latitude,
+      longitude,
+      deliveryType,
+      deliveryZones,
       allowDelivery, 
       allowPickup, 
       logoUrl, 
@@ -305,6 +326,10 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
         address: address !== undefined ? (address ? address.trim() : null) : undefined,
         logoUrl: logoUrl !== undefined ? (logoUrl ? logoUrl.trim() : null) : undefined,
         deliveryFee: deliveryFee !== undefined ? parseFloat(deliveryFee) : undefined,
+        deliveryRadiusKm: deliveryRadiusKm !== undefined && deliveryRadiusKm !== "" ? parseFloat(deliveryRadiusKm) : undefined,
+        latitude: latitude !== undefined && latitude !== "" ? parseFloat(latitude) : undefined,
+        longitude: longitude !== undefined && longitude !== "" ? parseFloat(longitude) : undefined,
+        deliveryType: deliveryType !== undefined ? String(deliveryType) : undefined,
         allowDelivery: allowDelivery !== undefined ? Boolean(allowDelivery) : undefined,
         allowPickup: allowPickup !== undefined ? Boolean(allowPickup) : undefined,
         openingTime: openingTime !== undefined ? (openingTime ? String(openingTime).trim() : null) : undefined,
@@ -314,7 +339,23 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
         closedUntil: closedUntil !== undefined ? (closedUntil ? new Date(closedUntil) : null) : undefined,
         closingReason: closingReason !== undefined ? (closingReason ? String(closingReason).trim() : null) : undefined,
       },
+      include: {
+        deliveryZones: true,
+      },
     });
+
+    if (deliveryZones && Array.isArray(deliveryZones)) {
+      await prisma.branchDeliveryZone.deleteMany({ where: { branchId: id } });
+      if (deliveryZones.length > 0) {
+        await prisma.branchDeliveryZone.createMany({
+          data: deliveryZones.map((z: any) => ({
+            branchId: id,
+            name: typeof z === 'string' ? z.trim() : (z.name || '').trim(),
+            fee: typeof z === 'object' && z.fee !== undefined ? parseFloat(z.fee) || 0 : (deliveryFee ? parseFloat(deliveryFee) : 10),
+          })).filter(z => Boolean(z.name)),
+        });
+      }
+    }
 
     notifyBranchStatusChanged(id, updated);
     notifyBranchesListChanged();
@@ -1206,6 +1247,12 @@ router.post("/flash-deals", async (req: AuthRequest, res: Response) => {
       badgeText,
       imageUrl,
       maxQuantity,
+      isUnlimited,
+      maxPerUser,
+      isRecurring,
+      recurringDays,
+      dailyStartTime,
+      dailyEndTime,
       expiresAt,
       isActive,
       displayOrder
@@ -1216,10 +1263,9 @@ router.post("/flash-deals", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    if (!expiresAt) {
-      res.status(400).json({ error: "تاريخ وساعة انتهاء العرض مطلوبة" });
-      return;
-    }
+    const resolvedExpiresAt = expiresAt
+      ? new Date(expiresAt)
+      : new Date(Date.now() + 365 * 24 * 3600 * 1000);
 
     const origPrice = originalPrice !== undefined && originalPrice !== "" && !isNaN(Number(originalPrice)) ? Number(originalPrice) : null;
     const discPrice = discountPrice !== undefined && discountPrice !== "" && !isNaN(Number(discountPrice)) ? Number(discountPrice) : null;
@@ -1241,8 +1287,14 @@ router.post("/flash-deals", async (req: AuthRequest, res: Response) => {
         promoCode: promoCode ? promoCode.trim().toUpperCase() : null,
         badgeText: badgeText ? badgeText.trim() : "عرض البريك 🔥",
         imageUrl: imageUrl ? imageUrl.trim() : null,
-        maxQuantity: maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : null,
-        expiresAt: new Date(expiresAt),
+        maxQuantity: isUnlimited ? null : (maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : null),
+        isUnlimited: Boolean(isUnlimited),
+        maxPerUser: maxPerUser !== undefined && maxPerUser !== "" && !isNaN(Number(maxPerUser)) ? Math.max(1, parseInt(maxPerUser)) : null,
+        isRecurring: Boolean(isRecurring),
+        recurringDays: recurringDays ? String(recurringDays).trim() : null,
+        dailyStartTime: dailyStartTime ? String(dailyStartTime).trim() : null,
+        dailyEndTime: dailyEndTime ? String(dailyEndTime).trim() : null,
+        expiresAt: resolvedExpiresAt,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
         displayOrder: displayOrder !== undefined ? parseInt(displayOrder) || 0 : 0
       },
@@ -1280,6 +1332,12 @@ router.put("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
       badgeText,
       imageUrl,
       maxQuantity,
+      isUnlimited,
+      maxPerUser,
+      isRecurring,
+      recurringDays,
+      dailyStartTime,
+      dailyEndTime,
       expiresAt,
       isActive,
       displayOrder
@@ -1311,7 +1369,13 @@ router.put("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
         promoCode: promoCode ? promoCode.trim().toUpperCase() : null,
         badgeText: badgeText ? badgeText.trim() : "عرض البريك 🔥",
         imageUrl: imageUrl ? imageUrl.trim() : null,
-        maxQuantity: maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : null,
+        maxQuantity: isUnlimited ? null : (maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : null),
+        isUnlimited: isUnlimited !== undefined ? Boolean(isUnlimited) : undefined,
+        maxPerUser: maxPerUser !== undefined ? (maxPerUser !== "" && !isNaN(Number(maxPerUser)) ? Math.max(1, parseInt(maxPerUser)) : null) : undefined,
+        isRecurring: isRecurring !== undefined ? Boolean(isRecurring) : undefined,
+        recurringDays: recurringDays !== undefined ? (recurringDays ? String(recurringDays).trim() : null) : undefined,
+        dailyStartTime: dailyStartTime !== undefined ? (dailyStartTime ? String(dailyStartTime).trim() : null) : undefined,
+        dailyEndTime: dailyEndTime !== undefined ? (dailyEndTime ? String(dailyEndTime).trim() : null) : undefined,
         ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {}),
         ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
         ...(displayOrder !== undefined ? { displayOrder: parseInt(displayOrder) || 0 } : {})

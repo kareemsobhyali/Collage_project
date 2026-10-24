@@ -276,6 +276,12 @@ export const AdminPage: React.FC = () => {
   const [dealMaxQuantity, setDealMaxQuantity] = useState('30');
   const [dealExpiresAt, setDealExpiresAt] = useState('');
   const [dealIsActive, setDealIsActive] = useState(true);
+  const [dealIsUnlimited, setDealIsUnlimited] = useState(false);
+  const [dealMaxPerUser, setDealMaxPerUser] = useState('');
+  const [dealIsRecurring, setDealIsRecurring] = useState(false);
+  const [dealRecurringDays, setDealRecurringDays] = useState('ALL');
+  const [dealDailyStartTime, setDealDailyStartTime] = useState('11:00');
+  const [dealDailyEndTime, setDealDailyEndTime] = useState('17:00');
   const [dealBranchItems, setDealBranchItems] = useState<any[]>([]);
   const [uploadingDealImage, setUploadingDealImage] = useState(false);
 
@@ -628,6 +634,11 @@ export const AdminPage: React.FC = () => {
   const [editLogoUrl, setEditLogoUrl] = useState('');
   const [uploadingEditLogo, setUploadingEditLogo] = useState(false);
   const [editDeliveryFee, setEditDeliveryFee] = useState('10');
+  const [editDeliveryRadiusKm, setEditDeliveryRadiusKm] = useState('10');
+  const [editDeliveryType, setEditDeliveryType] = useState<'FIXED' | 'ZONES'>('FIXED');
+  const [editDeliveryZones, setEditDeliveryZones] = useState<any[]>([]);
+  const [newZoneName, setNewZoneName] = useState('');
+  const [newZoneFee, setNewZoneFee] = useState('10');
   const [editAllowDelivery, setEditAllowDelivery] = useState(true);
   const [editAllowPickup, setEditAllowPickup] = useState(true);
   const [editOpeningTime, setEditOpeningTime] = useState('08:00');
@@ -2029,6 +2040,12 @@ export const AdminPage: React.FC = () => {
     setDealBadge('عرض البريك 🔥');
     setDealImageUrl('');
     setDealMaxQuantity('30');
+    setDealIsUnlimited(false);
+    setDealMaxPerUser('');
+    setDealIsRecurring(false);
+    setDealRecurringDays('ALL');
+    setDealDailyStartTime('11:00');
+    setDealDailyEndTime('17:00');
     // Default 3 hours from now
     const exp = new Date(Date.now() + 3 * 3600 * 1000);
     const tzOffset = exp.getTimezoneOffset() * 60000;
@@ -2054,6 +2071,12 @@ export const AdminPage: React.FC = () => {
     setDealBadge(deal.badgeText || 'عرض البريك 🔥');
     setDealImageUrl(deal.imageUrl || '');
     setDealMaxQuantity(deal.maxQuantity ? String(deal.maxQuantity) : '30');
+    setDealIsUnlimited(Boolean(deal.isUnlimited || deal.maxQuantity == null));
+    setDealMaxPerUser(deal.maxPerUser ? String(deal.maxPerUser) : '');
+    setDealIsRecurring(Boolean(deal.isRecurring));
+    setDealRecurringDays(deal.recurringDays || 'ALL');
+    setDealDailyStartTime(deal.dailyStartTime || '11:00');
+    setDealDailyEndTime(deal.dailyEndTime || '17:00');
     
     if (deal.expiresAt) {
       const exp = new Date(deal.expiresAt);
@@ -2111,8 +2134,14 @@ export const AdminPage: React.FC = () => {
       promoCode: dealPromoCode ? dealPromoCode.trim().toUpperCase() : null,
       badgeText: dealBadge.trim() || 'عرض البريك 🔥',
       imageUrl: dealImageUrl.trim() || null,
-      maxQuantity: dealMaxQuantity ? parseInt(dealMaxQuantity) : null,
-      expiresAt: new Date(dealExpiresAt).toISOString(),
+      maxQuantity: dealIsUnlimited ? null : (dealMaxQuantity ? parseInt(dealMaxQuantity) : null),
+      isUnlimited: dealIsUnlimited,
+      maxPerUser: dealMaxPerUser ? parseInt(dealMaxPerUser) : null,
+      isRecurring: dealIsRecurring,
+      recurringDays: dealRecurringDays,
+      dailyStartTime: dealDailyStartTime,
+      dailyEndTime: dealDailyEndTime,
+      expiresAt: dealExpiresAt ? new Date(dealExpiresAt).toISOString() : new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString(),
       isActive: dealIsActive,
     };
 
@@ -2317,6 +2346,9 @@ export const AdminPage: React.FC = () => {
           phone: newPhone.trim() || undefined,
           logoUrl: newLogoUrl.trim() || undefined,
           address: formattedAddress,
+          latitude: newLat ?? undefined,
+          longitude: newLng ?? undefined,
+          deliveryRadiusKm: 10,
           deliveryFee: parseFloat(newDeliveryFee) || 10,
           username: newUsername.trim() || undefined,
           password: newPassword.trim() || undefined,
@@ -2352,6 +2384,9 @@ export const AdminPage: React.FC = () => {
     setEditAddress(cleanAddressText(branch.address || ''));
     setEditLogoUrl(branch.logoUrl || '');
     setEditDeliveryFee(String(branch.deliveryFee ?? 10));
+    setEditDeliveryRadiusKm(branch.deliveryRadiusKm !== undefined && branch.deliveryRadiusKm !== null ? String(branch.deliveryRadiusKm) : '10');
+    setEditDeliveryType(branch.deliveryType || 'FIXED');
+    setEditDeliveryZones(Array.isArray(branch.deliveryZones) ? branch.deliveryZones : []);
     setEditAllowDelivery(branch.allowDelivery ?? true);
     setEditAllowPickup(branch.allowPickup ?? true);
     setEditOpeningTime(branch.openingTime || '08:00');
@@ -2379,6 +2414,11 @@ export const AdminPage: React.FC = () => {
           address: formattedAddress,
           logoUrl: editLogoUrl.trim() || null,
           deliveryFee: parseFloat(editDeliveryFee) || 10,
+          deliveryRadiusKm: parseFloat(editDeliveryRadiusKm) || 10,
+          deliveryType: editDeliveryType,
+          deliveryZones: editDeliveryZones,
+          latitude: editLat,
+          longitude: editLng,
           allowDelivery: editAllowDelivery,
           allowPickup: editAllowPickup,
           openingTime: editOpeningTime.trim() || '08:00',
@@ -8360,6 +8400,100 @@ export const AdminPage: React.FC = () => {
                 ) : null}
               </div>
 
+              {/* Delivery Zone & Range Settings (Task 9) */}
+              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                    <Navigation className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>نطاق وزون التوصيل والطلب للعملاء 🎯</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    يحدد نطاق ظهور المطعم للطلاب
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      نطاق التوصيل الأقصى (بالكيلومتر)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0.5"
+                        step="0.5"
+                        value={editDeliveryRadiusKm}
+                        onChange={e => setEditDeliveryRadiusKm(e.target.value)}
+                        placeholder="مثال: 5"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-indigo-500 font-mono font-bold"
+                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">كم</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      نظام تسعير ونطاق التوصيل
+                    </label>
+                    <select
+                      value={editDeliveryType}
+                      onChange={e => setEditDeliveryType(e.target.value as 'FIXED' | 'ZONES')}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="FIXED">رسوم موحدة لنطاق المسافة ({editDeliveryFee} ج.م)</option>
+                      <option value="ZONES">تخصيص مناطق ومباني محددة بالحرم</option>
+                    </select>
+                  </div>
+                </div>
+
+                {editDeliveryType === 'ZONES' && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="اسم المنطقة (مثال: كلية الهندسة)"
+                        value={newZoneName}
+                        onChange={e => setNewZoneName(e.target.value)}
+                        className="flex-1 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white"
+                      />
+                      <input
+                        type="number"
+                        placeholder="الرسوم"
+                        value={newZoneFee}
+                        onChange={e => setNewZoneFee(e.target.value)}
+                        className="w-20 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!newZoneName.trim()) return;
+                          setEditDeliveryZones(prev => [...prev, { name: newZoneName.trim(), fee: parseFloat(newZoneFee) || 10 }]);
+                          setNewZoneName('');
+                        }}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shrink-0"
+                      >
+                        + إضافة منطقة
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {editDeliveryZones.map((z, idx) => (
+                        <span key={idx} className="bg-slate-800 text-indigo-300 border border-indigo-900/60 px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5">
+                          <span>{z.name} ({z.fee} ج.م)</span>
+                          <button
+                            type="button"
+                            onClick={() => setEditDeliveryZones(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-slate-400 hover:text-rose-400 font-bold"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">رسوم التوصيل لمباني الجامعة (ج.م)</label>
                 <div className="relative">
@@ -9792,14 +9926,17 @@ export const AdminPage: React.FC = () => {
                         setDealMenuItemId(mId);
                         const selectedItem = dealBranchItems.find(it => it.id === mId);
                         if (selectedItem) {
-                          const itemPrice = selectedItem.originalBasePrice ?? selectedItem.basePrice ?? selectedItem.price ?? selectedItem.sizes?.[0]?.price;
-                          if (!dealTitle || dealTitle === '') {
-                            setDealTitle(selectedItem.name);
-                          }
-                          if (itemPrice !== undefined && itemPrice !== null) {
-                            setDealOriginalPrice(String(itemPrice));
-                          }
-                          if (selectedItem.imageUrl && !dealImageUrl) {
+                          const itemPrice = (selectedItem.originalBasePrice && Number(selectedItem.originalBasePrice) > 0)
+                            ? selectedItem.originalBasePrice
+                            : (selectedItem.basePrice && Number(selectedItem.basePrice) > 0)
+                            ? selectedItem.basePrice
+                            : (selectedItem.sizes?.[0]?.price && Number(selectedItem.sizes[0].price) > 0)
+                            ? selectedItem.sizes[0].price
+                            : (selectedItem.price || 0);
+
+                          setDealOriginalPrice(String(itemPrice));
+                          setDealTitle(selectedItem.name);
+                          if (selectedItem.imageUrl) {
                             setDealImageUrl(selectedItem.imageUrl);
                           }
                         }
@@ -9927,34 +10064,162 @@ export const AdminPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Max Quantity */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">
-                      الحد الأقصى للكمية (وجبة/طلب)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="30 (اتركه فارغاً لغير محدود)"
-                      value={dealMaxQuantity}
-                      onChange={e => setDealMaxQuantity(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-mono font-bold"
-                    />
-                  </div>
-
-                  {/* Active Toggle */}
-                  <div className="flex flex-col justify-end">
-                    <label className="flex items-center gap-2 p-2.5 bg-slate-800 rounded-xl cursor-pointer border border-slate-700/60 hover:bg-slate-700/50 transition-colors">
+                {/* Max Quantity & Per-User Limit (Task 1 & Task 3) */}
+                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300">حدود المخزون والطلبات</span>
+                    <label className="flex items-center gap-1.5 text-xs text-amber-300 cursor-pointer font-bold">
                       <input
                         type="checkbox"
-                        checked={dealIsActive}
-                        onChange={e => setDealIsActive(e.target.checked)}
-                        className="rounded text-rose-600 focus:ring-0 w-4 h-4 accent-rose-600 cursor-pointer"
+                        checked={dealIsUnlimited}
+                        onChange={e => setDealIsUnlimited(e.target.checked)}
+                        className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 w-4 h-4"
                       />
-                      <span className="text-xs font-bold text-slate-200">العرض نشط ويظهر للطلاب فوراً</span>
+                      <span>كمية غير محدودة ♾️</span>
                     </label>
                   </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">
+                        الكمية المتاحة للعرض الكلي
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        disabled={dealIsUnlimited}
+                        placeholder={dealIsUnlimited ? 'كمية غير محدودة ♾️' : 'مثال: 30'}
+                        value={dealIsUnlimited ? '' : dealMaxQuantity}
+                        onChange={e => setDealMaxQuantity(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-mono font-bold disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-rose-300 mb-1">
+                        الحد الأقصى لكل طالب/حساب 👤
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="اتركه فارغاً لغير محدود (مثال: 1)"
+                        value={dealMaxPerUser}
+                        onChange={e => setDealMaxPerUser(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-rose-500 font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recurring Schedule (Task 3) */}
+                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>جدولة التكرار التلقائي (يومي أو أوقات محددة)</span>
+                    </span>
+                    <label className="flex items-center gap-1.5 text-xs text-indigo-300 cursor-pointer font-bold">
+                      <input
+                        type="checkbox"
+                        checked={dealIsRecurring}
+                        onChange={e => setDealIsRecurring(e.target.checked)}
+                        className="rounded border-slate-700 text-indigo-500 focus:ring-indigo-500 w-4 h-4"
+                      />
+                      <span>تفعيل التكرار المجدول 🔄</span>
+                    </label>
+                  </div>
+
+                  {dealIsRecurring && (
+                    <div className="space-y-3 pt-2 border-t border-slate-700/60">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1.5">
+                          أيام تشغيل العرض أسبوعياً:
+                        </label>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            { id: 'ALL', label: 'كل يوم' },
+                            { id: 'SUN', label: 'الأحد' },
+                            { id: 'MON', label: 'الإثنين' },
+                            { id: 'TUE', label: 'الثلاثاء' },
+                            { id: 'WED', label: 'الأربعاء' },
+                            { id: 'THU', label: 'الخميس' },
+                            { id: 'FRI', label: 'الجمعة' },
+                            { id: 'SAT', label: 'السبت' },
+                          ].map(day => {
+                            const isSelected = dealRecurringDays === 'ALL' 
+                              ? day.id === 'ALL'
+                              : dealRecurringDays.split(',').includes(day.id);
+                            return (
+                              <button
+                                key={day.id}
+                                type="button"
+                                onClick={() => {
+                                  if (day.id === 'ALL') {
+                                    setDealRecurringDays('ALL');
+                                  } else {
+                                    let current = dealRecurringDays === 'ALL' ? [] : dealRecurringDays.split(',').filter(Boolean);
+                                    if (current.includes(day.id)) {
+                                      current = current.filter(d => d !== day.id);
+                                    } else {
+                                      current.push(day.id);
+                                    }
+                                    setDealRecurringDays(current.length === 0 ? 'ALL' : current.join(','));
+                                  }
+                                }}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                  isSelected 
+                                    ? 'bg-indigo-600 text-white' 
+                                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-700'
+                                }`}
+                              >
+                                {day.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            ساعة البدء اليومية:
+                          </label>
+                          <input
+                            type="time"
+                            value={dealDailyStartTime}
+                            onChange={e => setDealDailyStartTime(e.target.value)}
+                            style={{ colorScheme: 'dark' }}
+                            className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                            ساعة الانتهاء اليومية:
+                          </label>
+                          <input
+                            type="time"
+                            value={dealDailyEndTime}
+                            onChange={e => setDealDailyEndTime(e.target.value)}
+                            style={{ colorScheme: 'dark' }}
+                            className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Active Toggle */}
+                <div>
+                  <label className="flex items-center gap-2 p-3 bg-slate-800 rounded-xl cursor-pointer border border-slate-700/60 hover:bg-slate-700/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={dealIsActive}
+                      onChange={e => setDealIsActive(e.target.checked)}
+                      className="rounded text-rose-600 focus:ring-0 w-4 h-4 accent-rose-600 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-slate-200">العرض نشط ويظهر للطلاب فوراً</span>
+                  </label>
                 </div>
 
                 {/* Deal Image URL + Upload */}

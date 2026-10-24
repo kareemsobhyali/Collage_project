@@ -34,6 +34,19 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
 
+  // الحد الأقصى المسموح به للكمية بناءً على مخزون عرض الفلاش وحد الحساب الواحد
+  const maxAllowedQuantity = useMemo(() => {
+    if (!item.flashDeal) return 99;
+    let limit = 99;
+    if (!item.flashDeal.isUnlimited && typeof item.flashDeal.remainingQuantity === 'number') {
+      limit = Math.min(limit, Math.max(1, item.flashDeal.remainingQuantity));
+    }
+    if (typeof item.flashDeal.maxPerUser === 'number' && item.flashDeal.maxPerUser > 0) {
+      limit = Math.min(limit, item.flashDeal.maxPerUser);
+    }
+    return Math.max(1, limit);
+  }, [item.flashDeal]);
+
   // استخراج عروض الكومبو الخاصة بهذا الصنف إن وجدت
   const comboOffers: ComboOffer[] = useMemo(() => {
     if (!item.comboItems) return [];
@@ -468,20 +481,33 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
         {/* Footer: Quantity & Add Button */}
         <div className="p-4 border-t bg-slate-50 flex items-center gap-3 pb-safe">
           {/* Quantity Selector */}
-          <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-2xl border border-slate-200 shadow-sm">
-            <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="p-1 rounded-lg text-slate-600 hover:bg-slate-100"
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-            <span className="font-black text-sm text-slate-800 w-4 text-center">{quantity}</span>
-            <button
-              onClick={() => setQuantity(quantity + 1)}
-              className="p-1 rounded-lg text-slate-600 hover:bg-slate-100"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-2xl border border-slate-200 shadow-sm">
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="p-1 rounded-lg text-slate-600 hover:bg-slate-100"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="font-black text-sm text-slate-800 w-4 text-center">{quantity}</span>
+              <button
+                disabled={quantity >= maxAllowedQuantity}
+                onClick={() => {
+                  if (quantity < maxAllowedQuantity) {
+                    setQuantity(quantity + 1);
+                  }
+                }}
+                className="p-1 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                title={quantity >= maxAllowedQuantity ? `الحد الأقصى المتاح: ${maxAllowedQuantity}` : 'زيادة'}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+            {maxAllowedQuantity < 99 && (
+              <span className="text-[10px] font-bold text-rose-600 text-center">
+                أقصى حد: {maxAllowedQuantity}
+              </span>
+            )}
           </div>
 
           {/* Add to Cart button */}

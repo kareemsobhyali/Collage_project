@@ -6,6 +6,7 @@ import { authLimiter } from "../middleware/rateLimiter.js";
 import { notifyOrderStatusChanged, notifyDriverRejectedOrder, notifyDriverReturnedOrder } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted } from "../services/settings.service.js";
 import { getDriverBranchConfig, markOrderAcceptedByDriver, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
+import { handleDriverRejectionWithFallback } from "../services/dispatch.service.js";
 
 const router = Router();
 
@@ -243,44 +244,17 @@ router.put("/orders/:id/reject", async (req: AuthRequest, res: Response) => {
     });
     const driverName = driverInfo?.name || "الطيار";
 
-    await clearOrderAcceptedByDriver(orderId);
-
-    const updated = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        driverId: null,
-        driverAssignedAt: null,
-      },
-      include: {
-        branch: true,
-        items: true,
-        driver: { select: { id: true, name: true, phone: true } },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            isBlocked: true,
-            restaurantNotes: true,
-            _count: { select: { orders: true } },
-          },
-        },
-      },
-    });
-
-    // إشعار الفرع فوراً لإعادة إسناد الطلب لكابتن آخر وتفعيل التنبيه الصوتي
-    notifyOrderStatusChanged(order.id, order.branchId, updated);
-    notifyDriverRejectedOrder(order.branchId, {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      driverName,
-      order: updated,
-    });
+    // تنفيذ الاعتذار والبحث التلقائي الذكي عن الكابتن التالي في الترتيب
+    const fallbackResult = await handleDriverRejectionWithFallback(orderId, driverId);
+    const updated = fallbackResult?.updatedOrder || (await prisma.order.findUnique({ where: { id: orderId } }));
 
     res.json({
       success: true,
-      message: "تم الاعتذار عن استلام الطلب بنجاح وإعادته للفرع",
+      message: fallbackResult?.nextDriver 
+        ? `تم الاعتذار عن الطلب وتمريره تلقائياً إلى الكابتن (${fallbackResult.nextDriver.name})` 
+        : "تم الاعتذار عن استلام الطلب بنجاح وإعادته للفرع",
       order: sanitizeOrderForDriver(updated),
+      reassignedTo: fallbackResult?.nextDriver?.name || null,
     });
   } catch (error) {
     console.error("Driver reject order error:", error);

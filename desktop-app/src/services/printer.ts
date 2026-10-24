@@ -313,6 +313,11 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
               <span>خصم الكوبون${order.promoCode ? ` (${escapeHtml(order.promoCode)})` : ''}:</span>
               <span class="price-val">-${escapeHtml(order.discount)} ج.م</span>
             </div>` : ''}
+            ${order.walletDiscount && order.walletDiscount > 0 ? `
+            <div class="row" style="font-weight: 900;">
+              <span>خصم المحفظة:</span>
+              <span class="price-val">-${escapeHtml(order.walletDiscount)} ج.م</span>
+            </div>` : ''}
             <div class="row font-black" style="border-top: 2px solid #000; padding-top: 4px; margin-top: 4px; font-size: 15px;">
               <span>الإجمالي المطلوب:</span>
               <span class="price-val" style="font-size: 16px;">${escapeHtml(order.total || 0)} ج.م</span>

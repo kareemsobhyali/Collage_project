@@ -612,6 +612,21 @@ export function App() {
       });
     });
 
+    // 5.2 تحديث سلة الشلة المشتركة فور إغلاقها من المنشئ
+    socket.on('group_cart_updated', (data: any) => {
+      if (data?.isClosed) {
+        setGroupCartCode((currentCode) => {
+          if (currentCode === data.shareCode) {
+            localStorage.removeItem('active_group_cart_code');
+            alert('تم إغلاق سلة الشلة من قِبل المنشئ وتوقيف رابط المشاركة.');
+            setShowGroupCartModal(false);
+            return null;
+          }
+          return currentCode;
+        });
+      }
+    });
+
     // 6. تحديث رصيد المحفظة ونقاط الولاء أو حظر الحساب للطالب فورياً
     socket.on('user_profile_updated', (data: any) => {
       setUser((prevUser: any) => {
@@ -844,7 +859,7 @@ export function App() {
             {/* Group Cart Button */}
             <button
               onClick={handleOpenGroupCartClick}
-              className={`h-9 px-2.5 sm:px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0 ${
+              className={`h-9 px-2 sm:px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0 ${
                 groupCartCode
                   ? 'bg-purple-600 text-white shadow-sm'
                   : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100'
@@ -852,7 +867,7 @@ export function App() {
               title="مشاركة سلة جماعية مع أصحابك (سلة الشلة)"
             >
               <Users className="w-4 h-4 shrink-0" />
-              <span>سلة الشلة</span>
+              <span className="hidden sm:inline">سلة الشلة</span>
               {groupCartCode && (
                 <span className="w-2 h-2 rounded-full bg-amber-300 animate-pulse shrink-0" />
               )}
@@ -867,7 +882,7 @@ export function App() {
                     handleSelectBranch(b).then(() => setShowCartModal(true));
                   }
                 }}
-                className="relative h-9 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 shrink-0"
+                className="relative h-9 px-2 sm:px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1 sm:gap-1.5 transition-all active:scale-95 shrink-0"
                 title="عرض سلة الطلبات"
               >
                 <ShoppingBag className="w-4 h-4 shrink-0" />
@@ -879,10 +894,10 @@ export function App() {
             )}
 
             {user ? (
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <button
                   onClick={() => setShowMyOrdersModal(true)}
-                  className="h-9 px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                  className="h-9 w-9 sm:w-auto px-0 sm:px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0"
                   title="طلباتي السابقة والحالية"
                 >
                   <Clock className="w-4 h-4 shrink-0" />
@@ -891,12 +906,12 @@ export function App() {
 
                 <button
                   onClick={() => setShowProfileModal(true)}
-                  className="h-9 px-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200/80 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                  className="h-9 w-9 sm:w-auto px-0 sm:px-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200/80 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
                   title="حسابي والمحفظة الجامعية ونقاط الولاء"
                 >
                   <User className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span className="hidden sm:inline max-w-[90px] truncate">{user.name.split(' ')[0]}</span>
-                  <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-lg text-[10px] font-black flex items-center gap-0.5 leading-none shrink-0">
+                  <span className="hidden sm:inline max-w-[80px] truncate">{user.name.split(' ')[0]}</span>
+                  <span className="hidden sm:flex bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-lg text-[10px] font-black items-center gap-0.5 leading-none shrink-0">
                     <span>★</span>
                     <span>{user.loyaltyPoints ?? 0}</span>
                   </span>
@@ -913,7 +928,7 @@ export function App() {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="h-9 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center transition-all shrink-0"
+                className="h-9 px-2.5 sm:px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center transition-all shrink-0"
               >
                 دخول / حساب
               </button>

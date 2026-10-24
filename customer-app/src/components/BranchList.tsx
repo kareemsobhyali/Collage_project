@@ -25,7 +25,13 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
-import { getDisplayAddress } from '../services/campusLocations';
+import {
+  getDisplayAddress,
+  CAMPUS_LANDMARKS,
+  calculateDistanceMeters,
+  extractCoordinatesFromAddress,
+  DEFAULT_CAMPUS_RESTAURANT_COORDS
+} from '../services/campusLocations';
 
 interface BranchListProps {
   branches: any[];
@@ -219,6 +225,26 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
       isMounted = false;
     };
   }, [user?.id, branches.length]);
+
+  // Student Selected Campus Landmark / Geofence Zone Filter
+  const [selectedLandmarkId, setSelectedLandmarkId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('unifood_student_landmark_id') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const handleSelectLandmark = (landmarkId: string) => {
+    setSelectedLandmarkId(landmarkId);
+    try {
+      if (landmarkId) {
+        localStorage.setItem('unifood_student_landmark_id', landmarkId);
+      } else {
+        localStorage.removeItem('unifood_student_landmark_id');
+      }
+    } catch {}
+  };
 
   // Flash Deals Countdown State
   const [flashDeals, setFlashDeals] = useState<{ deals?: any[]; promoDeals: any[]; comboDeals: any[] }>({ deals: [], promoDeals: [], comboDeals: [] });
@@ -756,6 +782,61 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   };
 
   const filteredBranches = branches.filter(b => {
+    // فحص نطاق التوصيل الجغرافي للمطعم بناءً على مبنى/معلم الطالب المحدد (طلب 9)
+    if (selectedLandmarkId) {
+      const landmark = CAMPUS_LANDMARKS.find(lm => lm.id === selectedLandmarkId);
+      if (landmark) {
+        // استخراج إحداثيات الفرع
+        let bLat = typeof b.latitude === 'number' && !isNaN(b.latitude) ? b.latitude : null;
+        let bLng = typeof b.longitude === 'number' && !isNaN(b.longitude) ? b.longitude : null;
+        if (bLat === null || bLng === null) {
+          const coords = extractCoordinatesFromAddress(b.address);
+          if (coords) {
+            bLat = coords.lat;
+            bLng = coords.lng;
+          } else {
+            bLat = DEFAULT_CAMPUS_RESTAURANT_COORDS.lat;
+            bLng = DEFAULT_CAMPUS_RESTAURANT_COORDS.lng;
+          }
+        }
+
+        // 1. فحص نطاق الكيلومترات (deliveryRadiusKm)
+        const radiusKm = typeof b.deliveryRadiusKm === 'number' && b.deliveryRadiusKm > 0 ? b.deliveryRadiusKm : 10;
+        const distMeters = calculateDistanceMeters(bLat, bLng, landmark.lat, landmark.lng);
+        const distKm = distMeters / 1000;
+        if (distKm > radiusKm) {
+          return false;
+        }
+
+        // 2. فحص مناطق التوصيل المحددة إذا كان نظام المطعم ZONES
+        if (b.deliveryType === 'ZONES') {
+          let zones: any[] = [];
+          if (Array.isArray(b.deliveryZones)) {
+            zones = b.deliveryZones;
+          } else if (typeof b.deliveryZones === 'string') {
+            try {
+              zones = JSON.parse(b.deliveryZones);
+            } catch {}
+          }
+          if (zones.length > 0) {
+            const coversZone = zones.some((z: any) => {
+              const zName = (typeof z === 'string' ? z : z?.name || '').toLowerCase();
+              return (
+                zName &&
+                (landmark.name.toLowerCase().includes(zName) ||
+                  landmark.code.toLowerCase().includes(zName) ||
+                  zName.includes(landmark.name.toLowerCase()) ||
+                  zName.includes(landmark.code.toLowerCase()))
+              );
+            });
+            if (!coversZone) {
+              return false;
+            }
+          }
+        }
+      }
+    }
+
     const q = search.trim().toLowerCase();
     const matchesSearch =
       !q ||
@@ -827,10 +908,11 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   const renderDealCard = (deal: any) => {
     const isPromo = deal.type === 'PROMO_CODE' || deal.type === 'PROMO';
     const isCopied = copiedCode === (deal.promoCode || deal.code);
-    const remainingCount = Math.max(0, deal.remainingUses ?? 15);
+    const isUnlimited = deal.isUnlimited === true;
+    const remainingCount = isUnlimited ? 999 : Math.max(0, deal.remainingUses ?? 15);
     const totalQuota = deal.maxUses ?? 50;
-    const remainingPercent = totalQuota > 0 ? Math.min(100, Math.max(0, Math.round((remainingCount / totalQuota) * 100))) : 0;
-    const isSoldOut = remainingCount <= 0;
+    const remainingPercent = isUnlimited ? 100 : (totalQuota > 0 ? Math.min(100, Math.max(0, Math.round((remainingCount / totalQuota) * 100))) : 0);
+    const isSoldOut = !isUnlimited && remainingCount <= 0;
     const targetBranchName = deal.targetBranch?.name || branches.find(b => b.id === deal.branchId)?.name || 'مطعم الجامعة';
 
     return (
@@ -897,6 +979,21 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             </p>
           )}
 
+          {/* Max Quota Per Student Badge (طلب 1) */}
+          {deal.maxPerUser && deal.maxPerUser > 0 && (
+            <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100/80 rounded-lg px-2 py-0.5 w-fit">
+              <span>🔒 حد أقصى {deal.maxPerUser} لكل طالب</span>
+            </div>
+          )}
+
+          {/* Recurring Schedule Badge (طلب 3) */}
+          {deal.isRecurring && (
+            <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200/60 rounded-lg px-2 py-0.5 w-fit">
+              <RotateCcw className="w-2.5 h-2.5 text-amber-600" />
+              <span>عرض متكرر {deal.dailyStartTime ? `(${deal.dailyStartTime} - ${deal.dailyEndTime})` : 'يومياً'}</span>
+            </div>
+          )}
+
           {/* Price & Savings or Promo Code Box */}
           {deal.price !== undefined && Number(deal.price) > 0 ? (
             <div className="flex items-baseline justify-between mt-2 pt-2 border-t border-slate-100">
@@ -929,7 +1026,11 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           {/* Remaining Stock / Quota Indicator */}
           <div className="my-2.5">
             <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-              {isSoldOut ? (
+              {isUnlimited ? (
+                <span className="flex items-center gap-1 text-emerald-600 font-black">
+                  <span>كمية غير محدودة ♾️</span>
+                </span>
+              ) : isSoldOut ? (
                 <span className="flex items-center gap-1 text-slate-500 font-black">
                   <span>نفدت الكمية ⌛</span>
                 </span>
@@ -939,18 +1040,24 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                   <span>متبقي {remainingCount} فقط</span>
                 </span>
               )}
-              <span className="text-slate-400">{totalQuota} متاح</span>
+              {isUnlimited ? (
+                <span className="text-emerald-600 font-bold text-[10px]">متاح للجميع</span>
+              ) : (
+                <span className="text-slate-400">{totalQuota} متاح</span>
+              )}
             </div>
-            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  isSoldOut
-                    ? 'bg-slate-300 w-0'
-                    : 'bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400'
-                }`}
-                style={{ width: `${remainingPercent}%` }}
-              />
-            </div>
+            {!isUnlimited && (
+              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    isSoldOut
+                      ? 'bg-slate-300 w-0'
+                      : 'bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400'
+                  }`}
+                  style={{ width: `${remainingPercent}%` }}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -1243,7 +1350,56 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         </div>
       )}
 
-      {/* 2. Search & Quick Filters */}
+      {/* 2. Campus Landmark / Delivery Geofence Location Selector (طلب 9) */}
+      <div className="bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-blue-50/90 border border-indigo-100 rounded-2xl p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-indigo-600/30">
+            <MapPin className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-black text-slate-900">موقع استلام طلبك داخل الحرم:</span>
+              {selectedLandmarkId && (
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200/60 px-1.5 py-0.2 rounded-md">
+                  نطاق مخصص
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium">
+              {selectedLandmarkId
+                ? `عرض المطاعم المتاحة بنطاق توصيل: ${CAMPUS_LANDMARKS.find(l => l.id === selectedLandmarkId)?.name || ''}`
+                : 'حدد كليتك أو مبناك لإظهار المطاعم التي تغطي نطاق تواجدك'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <select
+            value={selectedLandmarkId}
+            onChange={(e) => handleSelectLandmark(e.target.value)}
+            className="w-full sm:w-auto px-3 py-1.5 bg-white border border-indigo-200 hover:border-indigo-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 shadow-xs cursor-pointer"
+          >
+            <option value="">🏢 كل مباني الجامعة (الكل)</option>
+            {CAMPUS_LANDMARKS.map((lm) => (
+              <option key={lm.id} value={lm.id}>
+                {lm.name} ({lm.code})
+              </option>
+            ))}
+          </select>
+          {selectedLandmarkId && (
+            <button
+              type="button"
+              onClick={() => handleSelectLandmark('')}
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition-colors shrink-0"
+              title="إلغاء تحديد المبنى وعرض الكل"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 3. Search & Quick Filters */}
       <div className="space-y-2.5">
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />

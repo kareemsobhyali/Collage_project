@@ -412,7 +412,7 @@ export function notifyDriverAssigned(driverId: string, order: any): void {
   }
 }
 
-export function notifyDriverRejectedOrder(branchId: string, payload: { orderId: string; orderNumber: number; driverName: string; order: any }): void {
+export function notifyDriverRejectedOrder(branchId: string, payload: { orderId: string; orderNumber: number; driverName: string; reassignedTo?: string | null; order: any }): void {
   if (io) {
     // إشعار فوري للفرع مع تنبيه صوتي عاجل عند اعتذار/رفض الطيار لاستلام الطلب
     io.to(`branch_${branchId}`).emit("driver_rejected_order", payload);

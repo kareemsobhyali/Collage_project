@@ -6,7 +6,13 @@ import { authenticateUser, AuthRequest, JWT_SECRET } from "../middleware/auth.js
 import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated } from "../sockets/socketManager.js";
 import { getLoyaltySettings, awardLoyaltyPointsIfCompleted, getRestaurantLocationSettings } from "../services/settings.service.js";
 import { isOrderAcceptedByDriver } from "../services/driver.service.js";
-import { recordFlashDealsConsumption, restoreFlashDealsForOrder } from "../services/flashDeal.service.js";
+import { 
+  recordFlashDealsConsumption, 
+  restoreFlashDealsForOrder, 
+  isFlashDealCurrentlyActive, 
+  getDealStockInfo, 
+  findActiveFlashDealForItem 
+} from "../services/flashDeal.service.js";
 
 const router = Router();
 
@@ -233,13 +239,12 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
   try {
     const now = new Date();
 
-    // جلب عروض الفلاش المخصصة المدارة حصراً من لوحة الإدارة
+    // جلب عروض الفلاش المخصصة المدارة حصراً من لوحة الإدارة مع فحص التكرار وساعات العمل
     let customDeals: any[] = [];
     try {
-      const activeCustomDeals = await prisma.flashDeal.findMany({
+      const allActiveDeals = await prisma.flashDeal.findMany({
         where: {
           isActive: true,
-          expiresAt: { gt: now }
         },
         include: {
           branch: { select: { id: true, name: true, slug: true, logoUrl: true } }
@@ -247,28 +252,39 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
         orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }]
       });
 
-      customDeals = activeCustomDeals.map((d) => ({
-        id: `custom_${d.id}`,
-        dbId: d.id,
-        type: d.dealType, // "COMBO" | "PROMO" | "CUSTOM"
-        title: d.title,
-        subtitle: d.subtitle,
-        originalPrice: d.originalPrice,
-        discountPrice: d.discountPrice,
-        price: d.discountPrice || d.originalPrice,
-        discountPercent: d.discountPercent,
-        promoCode: d.promoCode,
-        code: d.promoCode,
-        badgeText: d.badgeText || "عرض البريك 🔥",
-        imageUrl: d.imageUrl,
-        expiresAt: d.expiresAt.toISOString(),
-        maxUses: d.maxQuantity || 50,
-        usedCount: d.soldQuantity || 0,
-        remainingUses: Math.max(0, (d.maxQuantity || 50) - (d.soldQuantity || 0)),
-        targetBranch: d.branch,
-        branchId: d.branchId,
-        menuItemId: d.menuItemId
-      }));
+      const activeCustomDeals = allActiveDeals.filter(d => isFlashDealCurrentlyActive(d, now));
+
+      customDeals = activeCustomDeals.map((d) => {
+        const stockInfo = getDealStockInfo(d);
+        return {
+          id: `custom_${d.id}`,
+          dbId: d.id,
+          type: d.dealType, // "COMBO" | "PROMO" | "CUSTOM"
+          title: d.title,
+          subtitle: d.subtitle,
+          originalPrice: d.originalPrice,
+          discountPrice: d.discountPrice,
+          price: d.discountPrice || d.originalPrice,
+          discountPercent: d.discountPercent,
+          promoCode: d.promoCode,
+          code: d.promoCode,
+          badgeText: d.badgeText || "عرض البريك 🔥",
+          imageUrl: d.imageUrl,
+          expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
+          maxUses: stockInfo.isUnlimited ? 9999 : (d.maxQuantity || 50),
+          usedCount: d.soldQuantity || 0,
+          remainingUses: stockInfo.remainingQuantity,
+          isUnlimited: stockInfo.isUnlimited,
+          maxPerUser: d.maxPerUser || null,
+          isRecurring: Boolean(d.isRecurring),
+          recurringDays: d.recurringDays,
+          dailyStartTime: d.dailyStartTime,
+          dailyEndTime: d.dailyEndTime,
+          targetBranch: d.branch,
+          branchId: d.branchId,
+          menuItemId: d.menuItemId
+        };
+      });
     } catch (_e) {
       // Table may not exist yet on initial boot
     }
@@ -480,8 +496,6 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       prisma.flashDeal.findMany({
         where: {
           isActive: true,
-          expiresAt: { gt: now },
-          startsAt: { lte: now },
           OR: [
             { branchId: actualBranchId },
             { branchId: null },
@@ -490,6 +504,8 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         },
       }),
     ]);
+
+    const liveFlashDeals = (activeFlashDeals || []).filter(d => isFlashDealCurrentlyActive(d, now));
 
     let currentStatus = branch.operationalStatus;
     let currentClosedUntil = branch.closedUntil;
@@ -510,9 +526,9 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
     const formattedCategories = categories.map((cat) => ({
       ...cat,
       items: (cat.items || []).map((item) => {
-        const matchingDeal = (activeFlashDeals || []).find((d) => d.menuItemId === item.id);
-        const isStockAvailable = !matchingDeal?.maxQuantity || (matchingDeal.soldQuantity < matchingDeal.maxQuantity);
-        if (matchingDeal && isStockAvailable && matchingDeal.discountPrice != null && matchingDeal.discountPrice > 0) {
+        const matchingDeal = liveFlashDeals.find((d) => d.menuItemId === item.id);
+        const stockInfo = matchingDeal ? getDealStockInfo(matchingDeal) : null;
+        if (matchingDeal && stockInfo?.isStockAvailable && matchingDeal.discountPrice != null && matchingDeal.discountPrice > 0) {
           const originalPrice = matchingDeal.originalPrice || item.basePrice;
           const discountDiff = Math.max(0, originalPrice - matchingDeal.discountPrice);
           return {
@@ -526,6 +542,9 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
               discountPrice: matchingDeal.discountPrice,
               originalPrice,
               expiresAt: matchingDeal.expiresAt,
+              remainingQuantity: stockInfo.remainingQuantity,
+              isUnlimited: stockInfo.isUnlimited,
+              maxPerUser: matchingDeal.maxPerUser || null,
             },
             sizes: (item.sizes || []).map((s) => ({
               ...s,
@@ -628,6 +647,11 @@ router.get("/group-cart/:code", async (req: Request, res: Response) => {
       return;
     }
 
+    if (cart.isClosed) {
+      res.status(410).json({ error: "تم إغلاق سلة الشلة من قِبل المنشئ، ولم يعد بإمكان أي شخص الدخول إليها أو إضافة أصناف.", isClosed: true });
+      return;
+    }
+
     const branch = await prisma.branch.findUnique({
       where: { id: cart.branchId },
       select: {
@@ -667,6 +691,11 @@ router.post("/group-cart/:code/items", async (req: Request, res: Response) => {
 
     if (!cart) {
       res.status(404).json({ error: "سلة الشلة غير موجودة" });
+      return;
+    }
+
+    if (cart.isClosed) {
+      res.status(410).json({ error: "تم إغلاق سلة الشلة من قِبل المنشئ، ولا يمكن إضافة أصناف جديدة.", isClosed: true });
       return;
     }
 
@@ -790,6 +819,11 @@ router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Respo
       return;
     }
 
+    if (cart.isClosed) {
+      res.status(410).json({ error: "تم إغلاق سلة الشلة من قِبل المنشئ، ولا يمكن إضافة أصناف جديدة.", isClosed: true });
+      return;
+    }
+
     const item = await prisma.groupCartItem.findUnique({
       where: { id: itemId },
     });
@@ -819,6 +853,39 @@ router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Respo
   } catch (error) {
     console.error("Delete group cart item error:", error);
     res.status(500).json({ error: "فشل حذف الصنف من سلة الشلة" });
+  }
+});
+
+// إغلاق سلة الشلة المشتركة من قِبل المنشئ وتوقيف الرابط فوراً
+router.post("/group-cart/:code/close", async (req: Request, res: Response) => {
+  try {
+    const code = (req.params.code as string).toUpperCase();
+    const cart = await prisma.groupCart.findUnique({
+      where: { shareCode: code },
+    });
+
+    if (!cart) {
+      res.status(404).json({ error: "سلة الشلة غير موجودة" });
+      return;
+    }
+
+    const updated = await prisma.groupCart.update({
+      where: { shareCode: code },
+      data: {
+        isClosed: true,
+        closedAt: new Date(),
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    notifyGroupCartUpdated(code, { ...updated, isClosed: true });
+
+    res.json({ success: true, message: "تم إغلاق سلة الشلة بنجاح وتوقيف رابط المشاركة", isClosed: true });
+  } catch (error) {
+    console.error("Close group cart error:", error);
+    res.status(500).json({ error: "فشل إغلاق سلة الشلة" });
   }
 });
 
@@ -972,20 +1039,57 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       }
 
       // التحقق مما إذا كان الصنف مشمولاً في عرض فلاش مؤقت نشط حالياً وتتوفر منه كمية
-      const activeItemDeal = await prisma.flashDeal.findFirst({
-        where: {
-          menuItemId: dbItem.id,
-          isActive: true,
-          expiresAt: { gt: currentTime },
-          startsAt: { lte: currentTime },
-        },
-      });
-
-      const isStockAvailable = !activeItemDeal?.maxQuantity || (activeItemDeal.soldQuantity < activeItemDeal.maxQuantity);
+      const activeItemDeal = await findActiveFlashDealForItem(dbItem.id, currentTime, prisma);
 
       let effectiveItemBasePrice = dbItem.basePrice;
       let dealDiscountDiff = 0;
-      if (activeItemDeal && isStockAvailable && activeItemDeal.discountPrice != null && activeItemDeal.discountPrice > 0) {
+
+      if (activeItemDeal && activeItemDeal.discountPrice != null && activeItemDeal.discountPrice > 0) {
+        const stockInfo = getDealStockInfo(activeItemDeal);
+        const reqQty = Math.max(1, Number(itemInput.quantity) || 1);
+
+        // 1. التحقق الصارم من توفر كمية العرض: منع طلب كمية أكبر من المتاح للعرض
+        if (!stockInfo.isUnlimited && stockInfo.remainingQuantity < reqQty) {
+          res.status(400).json({
+            error: stockInfo.remainingQuantity <= 0
+              ? `عذراً، نفدت كمية عرض الفلاش للصنف "${dbItem.name}" بالكامل ⌛`
+              : `الكمية المطلوبة من الصنف "${dbItem.name}" (${reqQty}) تتجاوز المتبقي من عرض الفلاش (المتاح حالياً: ${stockInfo.remainingQuantity} فقط)`,
+          });
+          return;
+        }
+
+        // 2. التحقق الصارم من الحد الأقصى لكل حساب طالب (maxPerUser)
+        if (activeItemDeal.maxPerUser && activeItemDeal.maxPerUser > 0) {
+          if (reqQty > activeItemDeal.maxPerUser) {
+            res.status(400).json({
+              error: `الحد الأقصى المسموح به لكل طالب من عرض "${activeItemDeal.title}" هو ${activeItemDeal.maxPerUser} فقط (طلبت: ${reqQty})`,
+            });
+            return;
+          }
+
+          if (userId) {
+            const userHistory = await prisma.orderItem.aggregate({
+              _sum: { quantity: true },
+              where: {
+                order: {
+                  customerId: userId,
+                  status: { notIn: ["REJECTED", "CANCELLED"] },
+                  createdAt: { gte: activeItemDeal.startsAt || new Date(Date.now() - 24 * 3600 * 1000) },
+                },
+                menuItemId: dbItem.id,
+              },
+            });
+            const alreadyOrdered = userHistory._sum.quantity || 0;
+            if (alreadyOrdered + reqQty > activeItemDeal.maxPerUser) {
+              const remainingAllowed = Math.max(0, activeItemDeal.maxPerUser - alreadyOrdered);
+              res.status(400).json({
+                error: `لقد استنفدت الحد الأقصى المسموح به لحسابك من عرض "${activeItemDeal.title}" (${activeItemDeal.maxPerUser} لكل طالب). المتبقي لحسابك: ${remainingAllowed}`,
+              });
+              return;
+            }
+          }
+        }
+
         const orig = activeItemDeal.originalPrice || dbItem.basePrice;
         effectiveItemBasePrice = activeItemDeal.discountPrice;
         dealDiscountDiff = Math.max(0, orig - activeItemDeal.discountPrice);
