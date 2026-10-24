@@ -18,10 +18,12 @@ import {
   HelpCircle,
   Truck,
   Zap,
-  ShoppingBag
+  ShoppingBag,
+  Bell,
+  Compass
 } from 'lucide-react';
 import { api, API_BASE_URL, getFullImageUrl } from '../services/api';
-import { isRunningInNativeApk } from '../services/notifications';
+import { isRunningInNativeApk, getDeferredInstallPrompt, setDeferredInstallPrompt, triggerInstallApp } from '../services/notifications';
 
 interface ApkMeta {
   isBranch: boolean;
@@ -166,39 +168,53 @@ export const InstallApkPage: React.FC<{
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [installPrompt, setInstallPrompt] = useState<any>(() => getDeferredInstallPrompt());
   const [isInstalled, setIsInstalled] = useState(() => isRunningInNativeApk());
   const [isInstalling, setIsInstalling] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
+  const [showDirectApkModal, setShowDirectApkModal] = useState(false);
+  const [showInstallBanner, setShowInstallBanner] = useState(true);
   const [showQrModal, setShowQrModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // فحص نظام التشغيل (iOS vs Android / Desktop)
-  const isIos = typeof window !== 'undefined' && /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const DIRECT_APK_DOWNLOAD_URL = 'https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk';
 
-  // 1. التقاط حدث التثبيت للـ PWA
+  // فحص نظام التشغيل والمتصفحات المدمجة (In-App Browsers مثل متصفح واتساب وتيك توك وفيسبوك)
+  const isIos = typeof window !== 'undefined' && /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const isInAppBrowser = typeof window !== 'undefined' && /FBAN|FBAV|Instagram|WhatsApp|TikTok|Snapchat|Line/i.test(window.navigator.userAgent);
+
+  // 1. التقاط ومزامنة حدث التثبيت للـ PWA مع المتصفح
   useEffect(() => {
+    const syncPrompt = (e?: any) => {
+      const p = e?.detail || getDeferredInstallPrompt();
+      if (p) {
+        setInstallPrompt(p);
+      }
+    };
+
+    syncPrompt();
+
     const handleBeforeInstall = (e: any) => {
       e.preventDefault();
+      setDeferredInstallPrompt(e);
       setInstallPrompt(e);
-      (window as any).deferredInstallPrompt = e;
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('pwa_prompt_available', syncPrompt);
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setInstallPrompt(null);
+      setDeferredInstallPrompt(null);
+      setShowInstallBanner(false);
     };
 
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    if ((window as any).deferredInstallPrompt) {
-      setInstallPrompt((window as any).deferredInstallPrompt);
-    }
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('pwa_prompt_available', syncPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
@@ -262,42 +278,55 @@ export const InstallApkPage: React.FC<{
     ? `/?r=${encodeURIComponent(meta.slug)}`
     : '/';
 
+  // فتح الصفحة مباشرة في تطبيق Google Chrome (لتخطي متصفح الواتساب والفيسبوك)
+  const handleOpenInChrome = () => {
+    if (typeof window === 'undefined') return;
+    const cleanUrl = window.location.href.replace(/^https?:\/\//i, '');
+    const intentUrl = `intent://${cleanUrl}#Intent;scheme=https;package=com.android.chrome;end`;
+    window.location.href = intentUrl;
+  };
+
   // معالجة الضغط على زر التثبيت
   const handleInstallClick = async () => {
-    // إذا كان التطبيق مثبتاً بالفعل
+    // 1. إذا كان التطبيق مثبتاً بالفعل
     if (isInstalled) {
       window.location.href = webTargetUrl;
       return;
     }
 
-    // إذا كنا على آيفون / آيباد (iOS Safari)
+    // 2. إذا كنا على آيفون / آيباد (iOS Safari)
     if (isIos) {
       setShowIosGuide(true);
       return;
     }
 
-    // إذا كان حدث قبل التثبيت متاحاً (Android / Chrome / Edge)
-    if (installPrompt) {
+    // 3. فحص حدث قبل التثبيت المباشر في أندرويد وكروم (One-Click Native System Prompt)
+    const promptObj = installPrompt || getDeferredInstallPrompt();
+    if (promptObj) {
       setIsInstalling(true);
       try {
-        await installPrompt.prompt();
-        const choice = await installPrompt.userChoice;
+        await promptObj.prompt();
+        const choice = await promptObj.userChoice;
         if (choice?.outcome === 'accepted') {
           setIsInstalled(true);
+          setDeferredInstallPrompt(null);
+          setInstallPrompt(null);
+          setShowInstallBanner(false);
           setTimeout(() => {
             window.location.href = webTargetUrl;
           }, 1500);
         }
-      } catch (_e) {
-        // Fallback
+      } catch (err) {
+        console.warn('Install prompt error:', err);
+        setShowDirectApkModal(true);
       } finally {
         setIsInstalling(false);
       }
       return;
     }
 
-    // متصفح أندرويد بدون prompt جاهز: إرشاد مباشر
-    alert('لتثبيت التطبيق على شاشتك:\n1. اضغط على القائمة (⋮) أعلى المتصفح.\n2. اختر "تثبيت التطبيق" أو "إضافة إلى الشاشة الرئيسية".');
+    // 4. إذا لم يكن متصفح أندرويد قد جهز الـ Prompt (أو كنا داخل متصفح واتساب / فيسبوك)
+    setShowDirectApkModal(true);
   };
 
   // نسخ رابط الصفحة
@@ -508,6 +537,18 @@ export const InstallApkPage: React.FC<{
             <span>تطبيق آمن وخفيف جداً (أقل من 2 ميجابايت) - يفتح بدون متصفح</span>
           </div>
 
+          {/* Direct APK Link for Android Users */}
+          <div className="flex items-center justify-center gap-3 pt-1">
+            <a
+              href={DIRECT_APK_DOWNLOAD_URL}
+              download
+              className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1 underline underline-offset-4"
+            >
+              <Download className="w-3 h-3" />
+              <span>أو تحميل ملف APK المباشر للأندرويد (UniFood.apk)</span>
+            </a>
+          </div>
+
           {/* Secondary Button (Browse in Web) */}
           <a
             href={webTargetUrl}
@@ -595,9 +636,151 @@ export const InstallApkPage: React.FC<{
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 p-4 border-t border-slate-900 text-center text-[11px] text-slate-500 max-w-3xl mx-auto w-full">
+      <footer className="relative z-10 p-4 border-t border-slate-900 text-center text-[11px] text-slate-500 max-w-3xl mx-auto w-full mb-16 sm:mb-0">
         <span>UniFood منصة مطاعم وكافيهات الحرم الجامعي © {new Date().getFullYear()}</span>
       </footer>
+
+      {/* Floating Notification / Install Action Toast (او يجي ليه اشعار ويدوس علي كلمة تثبيت) */}
+      {showInstallBanner && !isInstalled && (
+        <aside
+          aria-label="تنبيه تثبيت التطبيق"
+          className="fixed bottom-4 inset-x-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-96 z-40 animate-in fade-in slide-in-from-bottom-5 duration-500"
+        >
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-indigo-500/50 rounded-2xl p-3.5 shadow-2xl shadow-indigo-950/60 flex items-center justify-between gap-3 text-right">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative shrink-0">
+                <img
+                  src={logoSrc}
+                  alt={meta.name}
+                  className="w-11 h-11 rounded-xl object-cover border border-indigo-400/30 bg-slate-800"
+                />
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center animate-ping" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center text-[7px] text-white">✓</span>
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black text-white truncate">{meta.name}</span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-amber-400/20 text-amber-300 font-bold shrink-0">تطبيق</span>
+                </div>
+                <p className="text-[11px] text-slate-300 truncate mt-0.5">
+                  {isIos ? 'اضغط للمشاركة والإضافة للشاشة' : 'تثبيت فوري على شاشتك بنقرة واحدة'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleInstallClick}
+                disabled={isInstalling}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white text-xs font-black shadow-lg shadow-indigo-600/40 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                {isInstalling ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-amber-300" />
+                )}
+                <span>تثبيت</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowInstallBanner(false)}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                title="إغلاق التنبيه"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* Modal: Smart Direct APK / Chrome Options (Fallback when browser blocks PWA prompt) */}
+      {showDirectApkModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-5 text-right shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                  <Download className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-black text-white">تثبيت تطبيق {meta.name}</h3>
+              </div>
+              <button
+                onClick={() => setShowDirectApkModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 mb-4 leading-relaxed">
+              اختر الطريقة الأنسب لهاتفك لتثبيت التطبيق بنقرة واحدة مباشرة:
+            </p>
+
+            <div className="space-y-2.5">
+              {/* Option 1: Direct Android APK Download */}
+              <a
+                href={DIRECT_APK_DOWNLOAD_URL}
+                download
+                onClick={() => setShowDirectApkModal(false)}
+                className="w-full p-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-emerald-950/40 transition-all active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                    <Smartphone className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-black block">تحميل ملف APK المباشر (أندرويد)</span>
+                    <span className="text-[10px] text-emerald-100">تنزيل وتثبيت فوري بدون متجر</span>
+                  </div>
+                </div>
+                <Download className="w-4 h-4 text-white" />
+              </a>
+
+              {/* Option 2: Open in Google Chrome (if inside in-app browser like WhatsApp) */}
+              {isInAppBrowser && (
+                <button
+                  type="button"
+                  onClick={handleOpenInChrome}
+                  className="w-full p-3.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 rounded-2xl flex items-center justify-between transition-all active:scale-98 cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/30 flex items-center justify-center">
+                      <Compass className="w-5 h-5 text-indigo-300" />
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-black block">فتح في متصفح Google Chrome</span>
+                      <span className="text-[10px] text-indigo-300">للتثبيت السريع بضغطة زر وتخطي الواتساب</span>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-indigo-300" />
+                </button>
+              )}
+
+              {/* Option 3: Browser Menu Instructions */}
+              <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2.5">
+                <HelpCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-slate-300 block mb-0.5">أو من قائمة المتصفح مباشرة:</span>
+                  <span>اضغط على (⋮) أعلى متصفحك ثم اختر <strong className="text-white">"تثبيت التطبيق"</strong> أو <strong className="text-white">"إضافة إلى الشاشة الرئيسية"</strong>.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3.5 mt-3.5 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDirectApkModal(false)}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: iOS Installation Steps */}
       {showIosGuide && (

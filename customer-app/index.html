@@ -10,6 +10,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>UniFood | يونيفود - مطاعم الحرم الجامعي</title>
+    <script>
+      (function() {
+        window.addEventListener('beforeinstallprompt', function(e) {
+          e.preventDefault();
+          window.deferredInstallPrompt = e;
+          try {
+            window.dispatchEvent(new CustomEvent('pwa_prompt_available', { detail: e }));
+          } catch (_err) {}
+        });
+      })();
+    </script>
   </head>
   <body class="bg-[#0B0F19] text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
     <div id="root">

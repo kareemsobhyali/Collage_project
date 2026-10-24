@@ -33,15 +33,32 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e: any) => {
     e.preventDefault();
     deferredInstallPrompt = e;
+    try {
+      (window as any).deferredInstallPrompt = e;
+      window.dispatchEvent(new CustomEvent('pwa_prompt_available', { detail: e }));
+    } catch (_e) {}
   });
 }
 
+export function getDeferredInstallPrompt(): any {
+  if (typeof window === 'undefined') return null;
+  return (window as any).deferredInstallPrompt || deferredInstallPrompt || null;
+}
+
+export function setDeferredInstallPrompt(prompt: any): void {
+  deferredInstallPrompt = prompt;
+  if (typeof window !== 'undefined') {
+    (window as any).deferredInstallPrompt = prompt;
+  }
+}
+
 export async function triggerInstallApp(fallbackApkUrl: string): Promise<void> {
-  if (deferredInstallPrompt) {
+  const prompt = getDeferredInstallPrompt();
+  if (prompt) {
     try {
-      deferredInstallPrompt.prompt();
-      const choiceResult = await deferredInstallPrompt.userChoice;
-      deferredInstallPrompt = null;
+      prompt.prompt();
+      const choiceResult = await prompt.userChoice;
+      setDeferredInstallPrompt(null);
       if (choiceResult?.outcome === 'accepted') {
         return;
       }
