@@ -29,19 +29,31 @@ import {
   MessageSquare,
   ArrowRight,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Navigation
 } from 'lucide-react';
 import { api, getFullImageUrl } from '../services/api';
 import { toast } from '../utils/toast';
 import { useLockBodyScroll } from '../utils/scrollLock';
-import { getDisplayAddress } from '../utils/address';
+import { 
+  getDisplayAddress,
+  extractCoordinatesFromAddress,
+  calculateDistanceMeters,
+  calculateEtaMinutes,
+  formatDistance,
+  DEFAULT_CAMPUS_RESTAURANT_COORDS
+} from '../utils/address';
 import { ReceiptModal } from './ReceiptModal';
 import { soundNotifier } from '../services/audioAlert';
 import { getAutoPrintEnabled, getAutoPrintOnAccept, printOrderReceipt } from '../services/printer';
+import { OrderDriverLiveMap } from './OrderDriverLiveMap';
 
 interface OrdersViewProps {
   orders: any[];
   branchName: string;
+  branch?: any;
+  socket?: any;
+  liveDriverLocations?: Record<string, { lat: number; lng: number; orderId?: string; timestamp: number }>;
   onRefreshOrders: () => void;
   initialDetailedOrder?: any | null;
   onClearDetailedOrder?: () => void;
@@ -83,6 +95,9 @@ const cleanDriverName = (name?: string | null): string => {
 export const OrdersView: React.FC<OrdersViewProps> = ({ 
   orders, 
   branchName, 
+  branch,
+  socket,
+  liveDriverLocations,
   onRefreshOrders,
   initialDetailedOrder,
   onClearDetailedOrder,
@@ -97,6 +112,19 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [detailedOrder, setDetailedOrder] = useState<any | null>(null);
   const [copiedPhone, setCopiedPhone] = useState<boolean>(false);
   const [showDriverPicker, setShowDriverPicker] = useState<boolean>(false);
+  const [trackingOrderMap, setTrackingOrderMap] = useState<any | null>(null);
+
+  // عند فتح تفاصيل الطلب أو خريطة التتبع، ننضم لغرفة السوكيت ونطلب موقع الطيار اللحظي
+  useEffect(() => {
+    const activeOrd = detailedOrder || trackingOrderMap;
+    const activeDriverId = activeOrd?.driver?.id || activeOrd?.driverId;
+    if (socket && activeOrd?.id) {
+      socket.emit('join_order', activeOrd.id);
+    }
+    if (socket && activeDriverId) {
+      socket.emit('get_driver_location', activeDriverId);
+    }
+  }, [detailedOrder?.id, trackingOrderMap?.id, socket]);
 
   // Return Modal state (PIN and direct confirm from cashier)
   const [returnModalOrder, setReturnModalOrder] = useState<any | null>(null);
@@ -165,7 +193,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       rejectingOrder ||
       viewingProofUrl ||
       editingCustomerCRM ||
-      printingOrder
+      printingOrder ||
+      trackingOrderMap
     )
   );
 
@@ -671,6 +700,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <span>مسند للطيار • بانتظار استلامه للوجبة من الفرع</span>
                       </div>
                     )}
+                  </div>
+
+                  {/* الخريطة الحية لتتبع مكان الطيار والمسافة والوقت المتبقي */}
+                  <div className="pt-2">
+                    <OrderDriverLiveMap
+                      order={dOrder}
+                      branch={branch || { name: branchName }}
+                      liveDriverCoords={liveDriverLocations?.[assignedDriver.id] || null}
+                      onRefreshLocation={() => {
+                        if (socket && assignedDriver?.id) {
+                          socket.emit('get_driver_location', assignedDriver.id);
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               ) : isCompleted ? (
@@ -1494,6 +1537,62 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       </div>
                     </div>
 
+                    {/* شريط تتبع الطيار الحي على بطاقة الطلب (قبل الاستلام وبعد الاستلام) */}
+                    {order.orderType === 'DELIVERY' && (order.driver || order.driverId) && !isCompleted && !isRejected && (() => {
+                      const drv = order.driver || drivers.find((d: any) => d.id === order.driverId);
+                      const isPickedUp = Boolean(order.driverPickedUpAt) || order.status === 'READY';
+                      const drvCoords = (drv?.id && liveDriverLocations?.[drv.id]) || null;
+                      
+                      let cardDistMeters: number | null = null;
+                      let cardEtaMins: number | null = null;
+                      if (drvCoords) {
+                        const targetPos = isPickedUp
+                          ? (extractCoordinatesFromAddress(order.addressText) || { lat: 30.031, lng: 31.212 })
+                          : (branch?.latitude && branch?.longitude ? { lat: branch.latitude, lng: branch.longitude } : DEFAULT_CAMPUS_RESTAURANT_COORDS);
+                        cardDistMeters = calculateDistanceMeters(drvCoords.lat, drvCoords.lng, targetPos.lat, targetPos.lng);
+                        cardEtaMins = calculateEtaMinutes(cardDistMeters);
+                      }
+
+                      return (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTrackingOrderMap(order);
+                          }}
+                          className={`p-2 rounded-xl border flex items-center justify-between gap-1.5 transition-all cursor-pointer ${
+                            isPickedUp
+                              ? 'bg-emerald-50 hover:bg-emerald-100/80 border-emerald-300 text-emerald-950 shadow-2xs'
+                              : 'bg-indigo-50 hover:bg-indigo-100/80 border-indigo-300 text-indigo-950 shadow-2xs'
+                          }`}
+                          title="اضغط لعرض خريطة تتبع الكابتن المباشرة"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-base shrink-0 animate-pulse">
+                              {isPickedUp ? '🚀' : '🛵'}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="text-[11px] font-black block truncate leading-tight">
+                                {isPickedUp ? 'الكابتن في طريقه للعميل' : 'الكابتن في طريقه للمطعم'}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500 block truncate mt-0.5">
+                                {cleanDriverName(drv?.name)}
+                                {cardEtaMins !== null ? ` • ~${cardEtaMins} د (${formatDistance(cardDistMeters!)})` : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center gap-1 shadow-2xs shrink-0 active:scale-90 transition-transform ${
+                              isPickedUp ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white'
+                            }`}
+                          >
+                            <Navigation className="w-3 h-3" />
+                            <span>خريطة</span>
+                          </span>
+                        </div>
+                      );
+                    })()}
+
                     {/* 4. Footer link to open */}
                     <div className="pt-1 flex items-center justify-between text-[11px] font-black text-indigo-600 group-hover:text-indigo-700 border-t border-slate-100">
                       <span className="flex items-center gap-1">
@@ -2088,6 +2187,27 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
           branchName={branchName}
           onClose={() => setPrintingOrder(null)}
         />
+      )}
+
+      {/* نافذة خريطة تتبع الطيار المباشرة (Live GPS Tracking Modal) */}
+      {trackingOrderMap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-3 sm:p-6 animate-fadeIn">
+          <div className="w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl animate-scaleIn">
+            <OrderDriverLiveMap
+              order={trackingOrderMap}
+              branch={branch || { name: branchName }}
+              liveDriverCoords={liveDriverLocations?.[trackingOrderMap.driver?.id || trackingOrderMap.driverId] || null}
+              onRefreshLocation={() => {
+                const drvId = trackingOrderMap.driver?.id || trackingOrderMap.driverId;
+                if (socket && drvId) {
+                  socket.emit('get_driver_location', drvId);
+                }
+              }}
+              onClose={() => setTrackingOrderMap(null)}
+              isModal={true}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

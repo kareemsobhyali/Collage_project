@@ -221,6 +221,15 @@ export function initSocket(server: any): SocketIOServer {
       latestDriverLocations.set(verifiedDriverId, payload);
       if (data.orderId) {
         io?.to(`order_${data.orderId}`).emit("driver_location_updated", payload);
+        // بث التحديث لفرع المطعم الخاص بالطلب لضمان ظهوره على شاشة استقبال طلبات الفرع
+        prisma.order.findUnique({
+          where: { id: data.orderId },
+          select: { branchId: true }
+        }).then((ord) => {
+          if (ord?.branchId && ord.branchId !== authUser.branchId) {
+            io?.to(`branch_${ord.branchId}`).emit("driver_location_updated", payload);
+          }
+        }).catch(() => {});
       }
       if (authUser.branchId) {
         io?.to(`branch_${authUser.branchId}`).emit("driver_location_updated", payload);

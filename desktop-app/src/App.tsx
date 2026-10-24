@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { 
   Store, 
@@ -72,6 +72,8 @@ export function App() {
     order?: any;
   } | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
+  const socketRef = useRef<Socket | null>(null);
+  const [liveDriverLocations, setLiveDriverLocations] = useState<Record<string, { lat: number; lng: number; orderId?: string; timestamp: number }>>({});
 
   // حساب العداد التنازلي وتحديثه كل ثانية عندما يكون الفرع مغلقاً مؤقتاً
   useEffect(() => {
@@ -164,6 +166,22 @@ export function App() {
         ? `http://${window.location.hostname || 'localhost'}:5000`
         : window.location.origin;
     const socket: Socket = io(socketUrl, { auth: { token } });
+    socketRef.current = socket;
+
+    // استقبال تحديث موقع الطيار الحي على الخريطة وبثه لشاشة استقبال الطلبات
+    socket.on('driver_location_updated', (payload: any) => {
+      if (payload && payload.driverId && typeof payload.lat === 'number' && typeof payload.lng === 'number') {
+        setLiveDriverLocations((prev) => ({
+          ...prev,
+          [payload.driverId]: {
+            lat: payload.lat,
+            lng: payload.lng,
+            orderId: payload.orderId,
+            timestamp: payload.timestamp || Date.now(),
+          },
+        }));
+      }
+    });
 
     const sendAppState = () => {
       const state = typeof document !== 'undefined' && document.visibilityState === 'visible' ? 'foreground' : 'background';
@@ -282,6 +300,7 @@ export function App() {
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibility);
       }
+      socketRef.current = null;
       socket.disconnect();
     };
   }, [token, branch?.id]);
@@ -622,6 +641,9 @@ export function App() {
           <OrdersView
             orders={orders}
             branchName={branch.name}
+            branch={branch}
+            socket={socketRef.current}
+            liveDriverLocations={liveDriverLocations}
             onRefreshOrders={loadData}
             initialDetailedOrder={targetedDetailedOrder}
             onClearDetailedOrder={() => setTargetedDetailedOrder(null)}
