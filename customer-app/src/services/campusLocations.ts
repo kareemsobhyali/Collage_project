@@ -252,3 +252,93 @@ export async function getNearestLocationName(lat: number, lng: number): Promise<
     distanceMeters: minDistance,
   };
 }
+
+/**
+ * استرجاع إحداثيات موقع العميل الحالية من التخزين المحلي
+ */
+export function getStoredClientCoords(): { lat: number; lng: number } | null {
+  try {
+    const saved = localStorage.getItem('unifood_client_gps_coords');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number' && !isNaN(parsed.lat) && !isNaN(parsed.lng)) {
+        return { lat: parsed.lat, lng: parsed.lng };
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+/**
+ * فحص ما إذا كان المطعم يقع ضمن نطاق التوصيل لموقع العميل الحالي
+ */
+export function isBranchInDeliveryZone(
+  branch: any,
+  clientCoords?: { lat: number; lng: number } | null
+): { inZone: boolean; distKm: number; radiusKm: number } {
+  const radiusKm = typeof branch?.deliveryRadiusKm === 'number' && branch.deliveryRadiusKm > 0 ? branch.deliveryRadiusKm : 10;
+
+  if (!clientCoords || typeof clientCoords.lat !== 'number' || typeof clientCoords.lng !== 'number' || isNaN(clientCoords.lat) || isNaN(clientCoords.lng)) {
+    return { inZone: true, distKm: 0, radiusKm };
+  }
+
+  // استخراج إحداثيات الفرع
+  let bLat = typeof branch?.latitude === 'number' && !isNaN(branch.latitude) ? branch.latitude : null;
+  let bLng = typeof branch?.longitude === 'number' && !isNaN(branch.longitude) ? branch.longitude : null;
+  if (bLat === null || bLng === null) {
+    const coords = extractCoordinatesFromAddress(branch?.address);
+    if (coords) {
+      bLat = coords.lat;
+      bLng = coords.lng;
+    } else {
+      bLat = DEFAULT_CAMPUS_RESTAURANT_COORDS.lat;
+      bLng = DEFAULT_CAMPUS_RESTAURANT_COORDS.lng;
+    }
+  }
+
+  const distMeters = calculateDistanceMeters(bLat, bLng, clientCoords.lat, clientCoords.lng);
+  const distKm = distMeters / 1000;
+
+  return {
+    inZone: distKm <= radiusKm,
+    distKm,
+    radiusKm,
+  };
+}
+
+/**
+ * مطابقة البانر مع الفرع المستهدف في حال كان البانر مرتبطاً بمطعم معين
+ */
+export function findBranchForBanner(banner: any, branches: any[]): any | null {
+  if (!banner || !Array.isArray(branches) || branches.length === 0) return null;
+  if (banner.branchId) {
+    return branches.find(b => b.id === banner.branchId) || null;
+  }
+  if (!banner.linkUrl) return null;
+  const url = String(banner.linkUrl).trim();
+
+  // فحص معاملات الرابط مثل ?branch= أو ?r=
+  if (url.includes('?')) {
+    try {
+      const q = url.split('?')[1];
+      const params = new URLSearchParams(q);
+      const bParam = params.get('branch') || params.get('r');
+      if (bParam) {
+        const norm = bParam.trim().toLowerCase();
+        return branches.find(b => b.id === bParam || (b.slug && b.slug.toLowerCase() === norm)) || null;
+      }
+    } catch (_) {}
+  }
+
+  // فحص أجزاء المسار مثل /slug أو /r/slug أو /slug/menu أو /slug/apk
+  const cleanPath = url.replace(/^[a-z]+:\/\/[^/]+/i, '').split('?')[0].replace(/^\//, '').replace(/\/$/, '');
+  const parts = cleanPath.split('/');
+  for (const part of parts) {
+    if (!part || part === 'r' || part === 'menu' || part === 'apk' || part === 'download') continue;
+    const norm = part.toLowerCase();
+    const match = branches.find(b => (b.slug && b.slug.toLowerCase() === norm) || b.id === part);
+    if (match) return match;
+  }
+
+  return null;
+}

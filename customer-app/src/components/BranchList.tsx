@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Store, 
   Search, 
@@ -32,7 +32,10 @@ import {
   calculateDistanceMeters,
   extractCoordinatesFromAddress,
   DEFAULT_CAMPUS_RESTAURANT_COORDS,
-  getNearestLocationName
+  getNearestLocationName,
+  isBranchInDeliveryZone,
+  findBranchForBanner,
+  getStoredClientCoords
 } from '../services/campusLocations';
 
 interface BranchListProps {
@@ -361,10 +364,23 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     return () => window.removeEventListener('banners_updated', fetchBanners);
   }, []);
 
+  // فلترة البانرات الإعلانية: إخفاء أي بانر يروج لمطعم يقع خارج نطاق العميل (طلب المستخدم)
+  const visibleBanners = useMemo(() => {
+    return banners.filter(banner => {
+      if (!clientCoords) return true;
+      const targetBranch = findBranchForBanner(banner, branches);
+      if (targetBranch) {
+        const check = isBranchInDeliveryZone(targetBranch, clientCoords);
+        if (!check.inZone) return false;
+      }
+      return true;
+    });
+  }, [banners, clientCoords, branches]);
+
   const scrollToBanner = (index: number, smooth: boolean = true) => {
     const container = bannerScrollRef.current;
-    if (!container || banners.length === 0) return;
-    const bounded = Math.max(0, Math.min(index, banners.length - 1));
+    if (!container || visibleBanners.length === 0) return;
+    const bounded = Math.max(0, Math.min(index, visibleBanners.length - 1));
     const slides = container.querySelectorAll('[data-banner-slide="true"]');
     const target = slides[bounded] as HTMLElement | undefined;
     if (target) {
@@ -386,20 +402,20 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   };
 
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (visibleBanners.length <= 1) return;
     const interval = setInterval(() => {
       if (!isInteractingRef.current && !isMouseDownRef.current) {
-        const next = (activeBannerIdxRef.current + 1) % banners.length;
+        const next = (activeBannerIdxRef.current + 1) % visibleBanners.length;
         scrollToBanner(next, true);
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, [banners.length]);
+  }, [visibleBanners.length]);
 
   const handleBannerScroll = () => {
     if (isProgrammaticScroll.current) return;
     const container = bannerScrollRef.current;
-    if (!container || banners.length <= 1) return;
+    if (!container || visibleBanners.length <= 1) return;
 
     if (scrollDebounceTimer.current) clearTimeout(scrollDebounceTimer.current);
     scrollDebounceTimer.current = setTimeout(() => {
@@ -485,13 +501,13 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
 
   const handlePrevBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const prev = (activeBannerIdx - 1 + banners.length) % banners.length;
+    const prev = (activeBannerIdx - 1 + visibleBanners.length) % visibleBanners.length;
     scrollToBanner(prev, true);
   };
 
   const handleNextBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const next = (activeBannerIdx + 1) % banners.length;
+    const next = (activeBannerIdx + 1) % visibleBanners.length;
     scrollToBanner(next, true);
   };
 
@@ -833,60 +849,75 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     );
   };
 
-  const filteredBranches = branches.filter(b => {
-    // فحص نطاق التوصيل الجغرافي للمطعم بناءً على لوكيشن العميل الحالي عبر GPS (طلب 10)
-    if (clientCoords) {
-      // استخراج إحداثيات الفرع
-      let bLat = typeof b.latitude === 'number' && !isNaN(b.latitude) ? b.latitude : null;
-      let bLng = typeof b.longitude === 'number' && !isNaN(b.longitude) ? b.longitude : null;
-      if (bLat === null || bLng === null) {
-        const coords = extractCoordinatesFromAddress(b.address);
-        if (coords) {
-          bLat = coords.lat;
-          bLng = coords.lng;
-        } else {
-          bLat = DEFAULT_CAMPUS_RESTAURANT_COORDS.lat;
-          bLng = DEFAULT_CAMPUS_RESTAURANT_COORDS.lng;
-        }
+  // 1. الفروع المتاحة جغرافياً بنطاق موقع العميل الحالي فقط (طلب المستخدم)
+  const zoneBranches = useMemo(() => {
+    return branches.filter(b => {
+      if (!clientCoords) return true;
+      return isBranchInDeliveryZone(b, clientCoords).inZone;
+    });
+  }, [branches, clientCoords]);
+
+  // إحصائيات الفروع المرئية للمستخدم فقط حسب النطاق الجغرافي (طلب المستخدم: فلتر الكل يظهر فقط المطاعم الظاهرة لي)
+  const totalVisibleBranchesCount = zoneBranches.length;
+  const openBranchesCount = zoneBranches.filter(
+    b => b.operationalStatus === 'OPEN' && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
+  ).length;
+  const favBranchesCount = zoneBranches.filter(b => favBranchIds.includes(b.id)).length;
+  const deliveryBranchesCount = zoneBranches.filter(b => b.allowDelivery === true).length;
+  const pickupBranchesCount = zoneBranches.filter(b => b.allowPickup === true).length;
+
+  const filteredBranches = useMemo(() => {
+    return zoneBranches.filter(b => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        (b.name && b.name.toLowerCase().includes(q)) ||
+        (b.address && b.address.toLowerCase().includes(q));
+
+      if (!matchesSearch) return false;
+
+      if (activeFilter === 'OPEN') {
+        return (
+          b.operationalStatus === 'OPEN' &&
+          isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
+        );
+      }
+      if (activeFilter === 'FAVORITES') {
+        return favBranchIds.includes(b.id);
+      }
+      if (activeFilter === 'DELIVERY') {
+        return b.allowDelivery === true;
+      }
+      if (activeFilter === 'PICKUP') {
+        return b.allowPickup === true;
       }
 
-      // 1. حساب المسافة المباشرة بين لوكيشن العميل الحالي وموقع الفرع
-      const radiusKm = typeof b.deliveryRadiusKm === 'number' && b.deliveryRadiusKm > 0 ? b.deliveryRadiusKm : 10;
-      const distMeters = calculateDistanceMeters(bLat, bLng, clientCoords.lat, clientCoords.lng);
-      const distKm = distMeters / 1000;
+      return true;
+    });
+  }, [zoneBranches, search, activeFilter, favBranchIds]);
 
-      // إذا كان العميل خارج نطاق التوصيل المحدد للمطعم، يختفي المطعم تماماً ولا يظهر
-      if (distKm > radiusKm) {
-        return false;
-      }
-    }
+  // 2. ترتيب المطاعم: المفتوح أولاً ثم المشغول ثم المغلق في الأسفل (طلب المستخدم)
+  const sortedFilteredBranches = useMemo(() => {
+    return [...filteredBranches].sort((a, b) => {
+      const isAClosed = a.operationalStatus === 'CLOSED';
+      const isABusy = a.operationalStatus === 'BUSY';
+      const isAOpen = !isAClosed && !isABusy && isBranchOpenByHours(a.openingTime, a.closingTime, a.isWithinWorkingHours);
 
-    const q = search.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      (b.name && b.name.toLowerCase().includes(q)) ||
-      (b.address && b.address.toLowerCase().includes(q));
+      const isBClosed = b.operationalStatus === 'CLOSED';
+      const isBBusy = b.operationalStatus === 'BUSY';
+      const isBOpen = !isBClosed && !isBBusy && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours);
 
-    if (!matchesSearch) return false;
+      // 1. المطاعم المفتوحة في البداية
+      if (isAOpen && !isBOpen) return -1;
+      if (!isAOpen && isBOpen) return 1;
 
-    if (activeFilter === 'OPEN') {
-      return (
-        b.operationalStatus === 'OPEN' &&
-        isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
-      );
-    }
-    if (activeFilter === 'FAVORITES') {
-      return favBranchIds.includes(b.id);
-    }
-    if (activeFilter === 'DELIVERY') {
-      return b.allowDelivery === true;
-    }
-    if (activeFilter === 'PICKUP') {
-      return b.allowPickup === true;
-    }
+      // 2. المطاعم المشغولة (استراحة) ثانياً
+      if (isABusy && isBClosed) return -1;
+      if (isAClosed && isBBusy) return 1;
 
-    return true;
-  });
+      return 0;
+    });
+  }, [filteredBranches]);
 
   const handleBannerClick = (banner: any) => {
     if (!banner?.linkUrl) return;
@@ -907,6 +938,13 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             (b) => b.id === branchParam || (b.slug && b.slug.toLowerCase() === normalized)
           );
           if (target) {
+            if (clientCoords) {
+              const check = isBranchInDeliveryZone(target, clientCoords);
+              if (!check.inZone) {
+                alert(`عذراً، مطعم (${target.name}) يقع خارج نطاق التوصيل لموقعك الحالي (${check.distKm.toFixed(1)} كم • الحد الأقصى للنطاق: ${check.radiusKm} كم). لا يمكن فتح العرض أو الطلب منه.`);
+                return;
+              }
+            }
             onSelectBranch(target, itemParam);
             return;
           }
@@ -923,9 +961,25 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     }
   };
 
-  const allFlashDeals = (flashDeals.deals && flashDeals.deals.length > 0)
-    ? flashDeals.deals
-    : [...(flashDeals.promoDeals || []), ...(flashDeals.comboDeals || [])];
+  // 4. فلترة عروض الفلاش والكودات: إخفاء أي عرض يخص مطعماً خارج النطاق (طلب المستخدم)
+  const allFlashDeals = useMemo(() => {
+    const raw = (flashDeals.deals && flashDeals.deals.length > 0)
+      ? flashDeals.deals
+      : [...(flashDeals.promoDeals || []), ...(flashDeals.comboDeals || [])];
+
+    return raw.filter(deal => {
+      if (!clientCoords) return true;
+      const bId = deal.targetBranch?.id || deal.branchId;
+      if (bId) {
+        const branch = branches.find(b => b.id === bId);
+        if (branch) {
+          const check = isBranchInDeliveryZone(branch, clientCoords);
+          if (!check.inZone) return false;
+        }
+      }
+      return true;
+    });
+  }, [flashDeals, clientCoords, branches]);
 
   const hasFlashSection = allFlashDeals.length > 0;
 
@@ -1229,7 +1283,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
       {mainTab === 'RESTAURANTS' && (
         <div className="space-y-4 animate-fadeIn">
           {/* 1. Dynamic or Default UniFood Campus Banner Carousel (يدعم السكرول والسحب يمين وشمال) */}
-      {banners.length > 0 ? (
+      {visibleBanners.length > 0 ? (
         <div className="relative group select-none">
           {/* Horizontal Scrollable Carousel Container */}
           <div
@@ -1249,7 +1303,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               touchAction: 'pan-x pan-y',
             }}
           >
-            {banners.map((banner, idx) => (
+            {visibleBanners.map((banner, idx) => (
               <div
                 key={banner.id || idx}
                 data-banner-slide="true"
@@ -1299,8 +1353,8 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             ))}
           </div>
 
-          {/* Navigation Controls: Arrows and Dots if banners.length > 1 */}
-          {banners.length > 1 && (
+          {/* Navigation Controls: Arrows and Dots if visibleBanners.length > 1 */}
+          {visibleBanners.length > 1 && (
             <>
               {/* Prev / Next Arrows for Desktop & Quick Navigation */}
               <button
@@ -1324,7 +1378,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               {/* Bottom Overlay: Dots & Slide Counter */}
               <div className="absolute bottom-2.5 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
                 <div className="flex items-center gap-1.5 pointer-events-auto bg-black/35 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-sm">
-                  {banners.map((_, idx) => (
+                  {visibleBanners.map((_, idx) => (
                     <button
                       key={idx}
                       type="button"
@@ -1340,7 +1394,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                 <div className="pointer-events-auto bg-black/35 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-mono font-bold text-white/90 border border-white/10 shadow-sm flex items-center gap-1">
                   <span>{activeBannerIdx + 1}</span>
                   <span className="text-white/40">/</span>
-                  <span>{banners.length}</span>
+                  <span>{visibleBanners.length}</span>
                 </div>
               </div>
             </>
@@ -1450,7 +1504,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             }`}
           >
             <UtensilsCrossed className="w-3.5 h-3.5" />
-            <span>الكل ({branches.length})</span>
+            <span>الكل ({totalVisibleBranchesCount})</span>
           </button>
 
           <button
@@ -1462,7 +1516,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${activeFilter === 'FAVORITES' ? 'fill-white text-white' : 'text-rose-500'}`} />
-            <span>المفضلة ({favBranchIds.length})</span>
+            <span>المفضلة ({favBranchesCount})</span>
           </button>
 
           <button
@@ -1474,7 +1528,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>مفتوح الآن</span>
+            <span>مفتوح الآن ({openBranchesCount})</span>
           </button>
 
           <button
@@ -1486,7 +1540,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             }`}
           >
             <Truck className="w-3.5 h-3.5" />
-            <span>توصيل للمباني</span>
+            <span>توصيل للمباني ({deliveryBranchesCount})</span>
           </button>
 
           <button
@@ -1498,7 +1552,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             }`}
           >
             <ShoppingBag className="w-3.5 h-3.5" />
-            <span>استلام من الفرع</span>
+            <span>استلام من الفرع ({pickupBranchesCount})</span>
           </button>
         </div>
       </div>
@@ -1510,7 +1564,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
               <span>مطاعم وكافيهات الحرم الجامعي</span>
               <span className="text-xs font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
-                {filteredBranches.length}
+                {sortedFilteredBranches.length}
               </span>
             </h3>
           </div>
@@ -1519,7 +1573,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           </span>
         </div>
 
-        {filteredBranches.length === 0 ? (
+        {sortedFilteredBranches.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center text-slate-400 border border-slate-200 shadow-sm">
             <Store className="w-14 h-14 mx-auto mb-2 opacity-30 text-indigo-600" />
             <h4 className="text-sm font-bold text-slate-700">
@@ -1539,7 +1593,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredBranches.map((branch, idx) => {
+            {sortedFilteredBranches.map((branch, idx) => {
               const payment = branch.paymentConfig;
               const gradientClass = BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length];
               const emoji = FOOD_EMOJIS[idx % FOOD_EMOJIS.length];

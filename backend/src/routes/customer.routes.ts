@@ -1160,6 +1160,57 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // التحقق من نطاق التوصيل الجغرافي للمطعم في حال كان الطلب توصيل (طلب المستخدم)
+    if (orderType === "DELIVERY") {
+      let clientLat: number | null = typeof req.body.latitude === "number" && !isNaN(req.body.latitude) ? req.body.latitude : null;
+      let clientLng: number | null = typeof req.body.longitude === "number" && !isNaN(req.body.longitude) ? req.body.longitude : null;
+      if (clientLat === null || clientLng === null) {
+        const match = addressText?.match(/\[GPS:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/i);
+        if (match) {
+          const lat = parseFloat(match[1]);
+          const lng = parseFloat(match[2]);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            clientLat = lat;
+            clientLng = lng;
+          }
+        }
+      }
+
+      if (clientLat !== null && clientLng !== null) {
+        let bLat = typeof branch.latitude === "number" && !isNaN(branch.latitude) ? branch.latitude : null;
+        let bLng = typeof branch.longitude === "number" && !isNaN(branch.longitude) ? branch.longitude : null;
+        if ((bLat === null || bLng === null) && branch.address) {
+          const bMatch = branch.address.match(/\[GPS:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/i);
+          if (bMatch) {
+            bLat = parseFloat(bMatch[1]);
+            bLng = parseFloat(bMatch[2]);
+          }
+        }
+        if (bLat === null || bLng === null) {
+          bLat = 30.0275;
+          bLng = 31.2095;
+        }
+
+        const radiusKm = typeof branch.deliveryRadiusKm === "number" && branch.deliveryRadiusKm > 0 ? branch.deliveryRadiusKm : 10.0;
+        // حساب المسافة بمعادلة Haversine
+        const R = 6371; // Earth radius in km
+        const dLat = (clientLat - bLat) * Math.PI / 180;
+        const dLon = (clientLng - bLng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(bLat * Math.PI / 180) * Math.cos(clientLat * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distKm = R * c;
+
+        if (distKm > radiusKm) {
+          res.status(400).json({
+            error: `عذراً، موقع التوصيل يقع خارج نطاق التوصيل المحدد لهذا المطعم (${distKm.toFixed(1)} كم • أقصى نطاق مسموح: ${radiusKm} كم). لا يمكن إتمام الطلب.`
+          });
+          return;
+        }
+      }
+    }
+
     // إذا كان الطلب محجوزاً مسبقاً، يجب أن يكون موعد الحجز صالحاً وفي المستقبل وضمن ساعات عمل المطعم الرسمية
     if (isScheduled) {
       if (!scheduledFor) {

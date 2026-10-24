@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   ArrowRight, 
   MapPin, 
+  MapPinOff,
   Phone, 
   Plus, 
   ShoppingBag, 
@@ -18,7 +19,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
-import { getDisplayAddress } from '../services/campusLocations';
+import { getDisplayAddress, getStoredClientCoords, isBranchInDeliveryZone } from '../services/campusLocations';
 import { getItemFallbackImage } from '../utils/foodImages';
 
 interface BranchMenuProps {
@@ -709,7 +710,18 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // فحص نطاق التوصيل الجغرافي للمطعم بناءً على لوكيشن العميل الحالي (طلب المستخدم)
+  const clientCoords = useMemo(() => getStoredClientCoords(), []);
+  const zoneCheck = useMemo(() => isBranchInDeliveryZone(branch, clientCoords), [branch, clientCoords]);
+  const isOutOfDeliveryZone = !zoneCheck.inZone;
+
   const handleItemSelection = (item: any) => {
+    if (isOutOfDeliveryZone) {
+      alert(
+        `عذراً، هذا المطعم يقع خارج نطاق التوصيل لموقعك الحالي (${zoneCheck.distKm.toFixed(1)} كم • الحد الأقصى للنطاق: ${zoneCheck.radiusKm} كم).\nلا يمكن إضافة أصناف أو طلب وجبات منه.`
+      );
+      return;
+    }
     if (!isBranchOpen) {
       if (branch?.isActive === false) {
         alert('عذراً، هذا المطعم موقوف حالياً من قِبل إدارة المنظومة.');
@@ -941,6 +953,26 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         )}
       </div>
 
+      {/* Out of Delivery Zone Warning Banner 📍 (طلب المستخدم: لا يمكن الطلب إذا كان المطعم خارج الزون) */}
+      {isOutOfDeliveryZone && (
+        <div className="bg-rose-50 border-2 border-rose-200 text-rose-900 p-4 rounded-3xl shadow-sm flex items-start sm:items-center gap-3 animate-fadeIn">
+          <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center shrink-0 text-rose-600 mt-0.5 sm:mt-0">
+            <MapPinOff className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-black text-xs sm:text-sm text-rose-700">المطعم خارج نطاق التوصيل لموقعك الحالي 📍</span>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-800">
+                المسافة: {zoneCheck.distKm.toFixed(1)} كم / أقصى نطاق: {zoneCheck.radiusKm} كم
+              </span>
+            </div>
+            <p className="text-[11px] text-rose-600 mt-1 leading-relaxed">
+              أنت تتصفح قائمة الطعام للاطلاع فقط؛ لا يمكن إضافة أصناف للسلة أو إرسال طلبات لهذا المطعم لأنك خارج نطاق التغطية الجغرافي.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Operational Live Countdown Banner */}
       {branch.operationalStatus === 'BUSY' && secondsLeft > 0 && (
         <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white p-4 rounded-3xl shadow-lg flex items-center justify-between gap-3">
@@ -1153,6 +1185,10 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         <div className="fixed bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 max-w-lg mx-auto z-40 pb-safe">
           <button
             onClick={() => {
+              if (isOutOfDeliveryZone) {
+                alert(`عذراً، هذا المطعم يقع خارج نطاق التوصيل لموقعك الحالي (${zoneCheck.distKm.toFixed(1)} كم • الحد الأقصى للنطاق: ${zoneCheck.radiusKm} كم). لا يمكن إتمام الطلب.`);
+                return;
+              }
               if (!isBranchOpen) {
                 alert(
                   branch.operationalStatus === 'BUSY'
@@ -1163,17 +1199,21 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
               }
               onOpenCart();
             }}
-            className={`w-full text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl flex items-center justify-between transition-all active:scale-95 border border-slate-700/50 backdrop-blur-md ${
-              isBranchOpen ? 'bg-slate-900 hover:bg-slate-800' : 'bg-slate-800/90'
+            className={`w-full text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl flex items-center justify-between transition-all active:scale-95 border backdrop-blur-md ${
+              isOutOfDeliveryZone
+                ? 'bg-rose-950/95 border-rose-800/80 hover:bg-rose-900/95 shadow-rose-950/30'
+                : isBranchOpen
+                ? 'bg-slate-900 hover:bg-slate-800 border-slate-700/50'
+                : 'bg-slate-800/90 border-slate-700/50'
             }`}
           >
             <div className="flex items-center gap-3">
               <div
                 className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-black ${
-                  isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
+                  isOutOfDeliveryZone ? 'bg-rose-600' : isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
                 }`}
               >
-                <ShoppingBag className="w-5 h-5" />
+                {isOutOfDeliveryZone ? <MapPinOff className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
               </div>
               <div className="text-right">
                 <div className="text-xs text-slate-400">سلة المشتريات ({cartItemCount} أصناف)</div>
@@ -1183,10 +1223,10 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
             <span
               className={`px-4 py-2 text-white text-xs font-black rounded-xl transition-all ${
-                isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
+                isOutOfDeliveryZone ? 'bg-rose-600' : isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
               }`}
             >
-              {isBranchOpen ? 'إتمام الطلب' : 'المطعم مغلق'}
+              {isOutOfDeliveryZone ? 'خارج نطاق التوصيل 🚫' : isBranchOpen ? 'إتمام الطلب' : 'المطعم مغلق'}
             </span>
           </button>
         </div>

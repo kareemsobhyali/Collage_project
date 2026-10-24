@@ -23,6 +23,7 @@ import {
   Navigation,
   Copy,
   Crosshair,
+  MapPinOff,
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { requestPushPermission } from '../services/notifications';
@@ -32,6 +33,8 @@ import {
   getDisplayAddress,
   getNearestLocationName,
   extractCoordinatesFromAddress,
+  getStoredClientCoords,
+  isBranchInDeliveryZone,
 } from '../services/campusLocations';
 
 interface CartCheckoutModalProps {
@@ -170,6 +173,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [gpsStatusMessage, setGpsStatusMessage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [editingItemNoteIdx, setEditingItemNoteIdx] = useState<number | null>(null);
+
+  // فحص نطاق التوصيل الجغرافي للمطعم لموقع العميل الحالي (طلب المستخدم: منع الطلب إذا كان المطعم خارج الزون)
+  const effectiveClientCoords = capturedCoords || extractCoordinatesFromAddress(addressText) || getStoredClientCoords();
+  const deliveryZoneCheck = isBranchInDeliveryZone(branch, effectiveClientCoords);
+  const isOutOfDeliveryZone = orderType === 'DELIVERY' && !!effectiveClientCoords && !deliveryZoneCheck.inZone;
 
   // دالة التقاط الـ GPS (سواء تلقائياً بالخلفية عند كتابة عنوان أو يدوياً بالزر)
   const acquireGpsLocation = useCallback(
@@ -598,6 +606,15 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       if (!coords) {
         setError(
           'لازم يتم تحديد موقعك بالـ GPS بجانب العنوان المكتوب عشان الكابتن يوصلك على الخريطة بدقة. اضغط على زر (سحب موقعي بالـ GPS) أو فعّل الموقع في هاتفك.'
+        );
+        return;
+      }
+
+      // التحقق من نطاق التوصيل الجغرافي للمطعم (طلب المستخدم: منع الطلب إذا كان المطعم خارج الزون)
+      const zoneCheck = isBranchInDeliveryZone(branch, coords);
+      if (!zoneCheck.inZone) {
+        setError(
+          `عذراً، موقع التوصيل يقع خارج نطاق التوصيل المحدد لهذا المطعم (${zoneCheck.distKm.toFixed(1)} كم • الحد الأقصى للنطاق: ${zoneCheck.radiusKm} كم). لا يمكن إتمام طلب التوصيل.`
         );
         return;
       }
@@ -1247,6 +1264,24 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {/* تحذير في حال كان موقع العميل خارج نطاق التوصيل للمطعم (طلب المستخدم) */}
+              {isOutOfDeliveryZone && (
+                <div className="p-3 bg-rose-50 border-2 border-rose-200 rounded-2xl flex items-start gap-2.5 text-rose-800 text-xs font-bold animate-fadeIn">
+                  <MapPinOff className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-black text-rose-700">موقعك الحالي خارج نطاق التوصيل لهذا المطعم 📍</span>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-900">
+                        المسافة: {deliveryZoneCheck.distKm.toFixed(1)} كم / أقصى نطاق: {deliveryZoneCheck.radiusKm} كم
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-rose-600 font-normal mt-0.5 leading-relaxed">
+                      عذراً، لا يمكن توصيل الطلب لموقعك الحالي لأنه يقع خارج النطاق الجغرافي للمطعم. يمكنك تغيير مكان التوصيل أو التبديل إلى "استلام من الفرع".
+                    </p>
                   </div>
                 </div>
               )}
@@ -1911,9 +1946,9 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           <button
             type="button"
             onClick={handleCheckout}
-            disabled={loading || isBranchClosed}
+            disabled={loading || isBranchClosed || isOutOfDeliveryZone}
             className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black shadow-lg transition-all flex items-center justify-between ${
-              isBranchClosed
+              isBranchClosed || isOutOfDeliveryZone
                 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
                 : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white shadow-indigo-600/25'
             }`}
@@ -1922,6 +1957,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               <span>
                 {loading
                   ? 'جاري إرسال الطلب وتثبيت الموقع...'
+                  : isOutOfDeliveryZone
+                  ? 'المطعم خارج نطاق التوصيل'
                   : isBranchClosed
                   ? 'المطعم مغلق حالياً'
                   : !user
