@@ -78,6 +78,7 @@ import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { isRunningInNativeApk, triggerInstallApp, openExternalLink } from '../services/notifications';
 import { Logo } from './Logo';
 import { cleanAddressText, getDisplayAddress, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark } from '../services/campusLocations';
+import { LocationPickerModal } from './LocationPickerModal';
 const QUICK_ADMIN_CANCEL_REASONS = [
   'المطعم مغلق حالياً',
   'نفاد الكمية في المطعم',
@@ -619,6 +620,7 @@ export const AdminPage: React.FC = () => {
   const [newLat, setNewLat] = useState<number | null>(30.0262);
   const [newLng, setNewLng] = useState<number | null>(31.2088);
   const [detectingNewGps, setDetectingNewGps] = useState(false);
+  const [locationPickerTarget, setLocationPickerTarget] = useState<'NEW_BRANCH' | 'EDIT_BRANCH' | null>(null);
   const [newLogoUrl, setNewLogoUrl] = useState('');
   const [uploadingNewLogo, setUploadingNewLogo] = useState(false);
   const [newDeliveryFee, setNewDeliveryFee] = useState('10');
@@ -8052,43 +8054,24 @@ export const AdminPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleDetectGpsForNewBranch}
-                    disabled={detectingNewGps}
-                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
-                  >
-                    <Navigation className={`w-3.5 h-3.5 ${detectingNewGps ? 'animate-spin' : ''}`} />
-                    <span>{detectingNewGps ? 'جاري التقاط الإحداثيات...' : '📍 سحب الموقع الحالي'}</span>
-                  </button>
-                </div>
-
-                {/* معالم الحرم الجامعي للاختيار السريع */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-600">أو اختر بالقرب من معالم الحرم الجامعي:</span>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                    {CAMPUS_LANDMARKS.map(lm => {
-                      const isSelected = newLat === lm.lat && newLng === lm.lng;
-                      return (
-                        <button
-                          key={lm.id}
-                          type="button"
-                          onClick={() => {
-                            setNewLat(lm.lat);
-                            setNewLng(lm.lng);
-                            if (!newAddress) setNewAddress(lm.name);
-                          }}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 border transition-all flex items-center gap-1 active:scale-95 ${
-                            isSelected
-                              ? 'bg-cyan-600 text-white border-cyan-500 font-black'
-                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span>🏛️</span>
-                          <span>{lm.name}</span>
-                        </button>
-                      );
-                    })}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLocationPickerTarget('NEW_BRANCH')}
+                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>🗺️ تحديد من الخريطة</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDetectGpsForNewBranch}
+                      disabled={detectingNewGps}
+                      className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                    >
+                      <Navigation className={`w-3.5 h-3.5 ${detectingNewGps ? 'animate-spin' : ''}`} />
+                      <span>{detectingNewGps ? 'جاري التقاط...' : '📍 سحب الموقع الحالي'}</span>
+                    </button>
                   </div>
                 </div>
 
@@ -8102,7 +8085,7 @@ export const AdminPage: React.FC = () => {
                       value={newLat ?? ''}
                       onChange={e => setNewLat(e.target.value ? parseFloat(e.target.value) : null)}
                       placeholder="30.026200"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:ring-1 focus:ring-cyan-500"
                     />
                   </div>
                   <div>
@@ -8113,32 +8096,29 @@ export const AdminPage: React.FC = () => {
                       value={newLng ?? ''}
                       onChange={e => setNewLng(e.target.value ? parseFloat(e.target.value) : null)}
                       placeholder="31.208800"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:ring-1 focus:ring-cyan-500"
                     />
                   </div>
                 </div>
 
                 {newLat && newLng ? (
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-cyan-800/30">
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <div className="flex items-center justify-between text-[11px] pt-2 border-t border-cyan-200">
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
                       <CheckCircle className="w-3.5 h-3.5" />
                       <span>تم ربط الإحداثيات: {newLat.toFixed(4)}, {newLng.toFixed(4)}</span>
                     </span>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          openExternalLink(`https://www.google.com/maps?q=${newLat},${newLng}`);
-                        }}
-                        className="text-cyan-400 hover:underline font-bold text-[10px] cursor-pointer"
+                        onClick={() => setLocationPickerTarget('NEW_BRANCH')}
+                        className="text-purple-600 hover:underline font-bold text-[10px] cursor-pointer"
                       >
-                        معاينة على الخريطة ↗
+                        تعديل على الخريطة 🗺️
                       </button>
                       <button
                         type="button"
                         onClick={() => { setNewLat(null); setNewLng(null); }}
-                        className="text-slate-500 hover:text-rose-400 text-[10px]"
+                        className="text-slate-500 hover:text-rose-600 text-[10px]"
                       >
                         مسح
                       </button>
@@ -8327,43 +8307,24 @@ export const AdminPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleDetectGpsForEditBranch}
-                    disabled={detectingEditGps}
-                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
-                  >
-                    <Navigation className={`w-3.5 h-3.5 ${detectingEditGps ? 'animate-spin' : ''}`} />
-                    <span>{detectingEditGps ? 'جاري التقاط الإحداثيات...' : '📍 سحب الموقع الحالي'}</span>
-                  </button>
-                </div>
-
-                {/* معالم الحرم الجامعي للاختيار السريع */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-600">أو اختر بالقرب من معالم الحرم الجامعي:</span>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                    {CAMPUS_LANDMARKS.map(lm => {
-                      const isSelected = editLat === lm.lat && editLng === lm.lng;
-                      return (
-                        <button
-                          key={lm.id}
-                          type="button"
-                          onClick={() => {
-                            setEditLat(lm.lat);
-                            setEditLng(lm.lng);
-                            if (!editAddress) setEditAddress(lm.name);
-                          }}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 border transition-all flex items-center gap-1 active:scale-95 ${
-                            isSelected
-                              ? 'bg-cyan-600 text-white border-cyan-500 font-black'
-                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span>🏛️</span>
-                          <span>{lm.name}</span>
-                        </button>
-                      );
-                    })}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLocationPickerTarget('EDIT_BRANCH')}
+                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>🗺️ تحديد من الخريطة</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDetectGpsForEditBranch}
+                      disabled={detectingEditGps}
+                      className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                    >
+                      <Navigation className={`w-3.5 h-3.5 ${detectingEditGps ? 'animate-spin' : ''}`} />
+                      <span>{detectingEditGps ? 'جاري التقاط...' : '📍 سحب الموقع الحالي'}</span>
+                    </button>
                   </div>
                 </div>
 
@@ -8377,7 +8338,7 @@ export const AdminPage: React.FC = () => {
                       value={editLat ?? ''}
                       onChange={e => setEditLat(e.target.value ? parseFloat(e.target.value) : null)}
                       placeholder="30.026200"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:ring-1 focus:ring-cyan-500"
                     />
                   </div>
                   <div>
@@ -8388,32 +8349,29 @@ export const AdminPage: React.FC = () => {
                       value={editLng ?? ''}
                       onChange={e => setEditLng(e.target.value ? parseFloat(e.target.value) : null)}
                       placeholder="31.208800"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-cyan-300 placeholder-slate-600 focus:ring-1 focus:ring-cyan-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:ring-1 focus:ring-cyan-500"
                     />
                   </div>
                 </div>
 
                 {editLat && editLng ? (
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-cyan-800/30">
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <div className="flex items-center justify-between text-[11px] pt-2 border-t border-cyan-200">
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
                       <CheckCircle className="w-3.5 h-3.5" />
                       <span>تم ربط الإحداثيات: {editLat.toFixed(4)}, {editLng.toFixed(4)}</span>
                     </span>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          openExternalLink(`https://www.google.com/maps?q=${editLat},${editLng}`);
-                        }}
-                        className="text-cyan-400 hover:underline font-bold text-[10px] cursor-pointer"
+                        onClick={() => setLocationPickerTarget('EDIT_BRANCH')}
+                        className="text-purple-600 hover:underline font-bold text-[10px] cursor-pointer"
                       >
-                        معاينة على الخريطة ↗
+                        تعديل على الخريطة 🗺️
                       </button>
                       <button
                         type="button"
                         onClick={() => { setEditLat(null); setEditLng(null); }}
-                        className="text-slate-500 hover:text-rose-400 text-[10px]"
+                        className="text-slate-500 hover:text-rose-600 text-[10px]"
                       >
                         مسح
                       </button>
@@ -11946,6 +11904,35 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Interactive Location Picker Modal with Autocomplete Search */}
+      <LocationPickerModal
+        isOpen={locationPickerTarget !== null}
+        onClose={() => setLocationPickerTarget(null)}
+        initialLat={locationPickerTarget === 'NEW_BRANCH' ? newLat : editLat}
+        initialLng={locationPickerTarget === 'NEW_BRANCH' ? newLng : editLng}
+        initialAddress={locationPickerTarget === 'NEW_BRANCH' ? newAddress : editAddress}
+        title={
+          locationPickerTarget === 'NEW_BRANCH'
+            ? 'تحديد موقع الفرع الجديد على الخريطة'
+            : `تحديد موقع فرع ${editName || ''} على الخريطة`
+        }
+        onConfirm={({ lat, lng, address }) => {
+          if (locationPickerTarget === 'NEW_BRANCH') {
+            setNewLat(lat);
+            setNewLng(lng);
+            if (address && !newAddress) {
+              setNewAddress(address);
+            }
+          } else if (locationPickerTarget === 'EDIT_BRANCH') {
+            setEditLat(lat);
+            setEditLng(lng);
+            if (address && !editAddress) {
+              setEditAddress(address);
+            }
+          }
+        }}
+      />
 
     </div>
   );
