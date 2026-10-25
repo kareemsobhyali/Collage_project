@@ -8042,37 +8042,35 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* تحديد موقع الفرع بالـ GPS */}
-              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-50 border border-cyan-200 rounded-2xl space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div>
-                    <span className="text-xs font-bold text-cyan-800 flex items-center gap-1.5">
-                      <Navigation className="w-3.5 h-3.5 text-cyan-600" />
-                      <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
-                    </span>
-                    <span className="text-[10px] text-slate-500 block mt-0.5">
-                      تحدد دبوس المطعم في خريطة التتبع المباشر وحساب مسافة التوصيل
-                    </span>
-                  </div>
+              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-50 border border-cyan-200 rounded-2xl space-y-2.5">
+                <div>
+                  <span className="text-xs font-bold text-cyan-800 flex items-center gap-1.5">
+                    <Navigation className="w-3.5 h-3.5 text-cyan-600" />
+                    <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    تحدد دبوس المطعم في خريطة التتبع المباشر وحساب مسافة التوصيل
+                  </span>
+                </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLocationPickerTarget('NEW_BRANCH')}
-                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
-                    >
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span>🗺️ تحديد من الخريطة</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDetectGpsForNewBranch}
-                      disabled={detectingNewGps}
-                      className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
-                    >
-                      <Navigation className={`w-3.5 h-3.5 ${detectingNewGps ? 'animate-spin' : ''}`} />
-                      <span>{detectingNewGps ? 'جاري التقاط...' : '📍 سحب الموقع الحالي'}</span>
-                    </button>
-                  </div>
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setLocationPickerTarget('NEW_BRANCH')}
+                    className="w-full py-2.5 px-2 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-[11px] sm:text-xs font-black shadow-xs transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">تحديد من الخريطة</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDetectGpsForNewBranch}
+                    disabled={detectingNewGps}
+                    className="w-full py-2.5 px-2 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-[11px] sm:text-xs font-black shadow-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Navigation className={`w-3.5 h-3.5 shrink-0 ${detectingNewGps ? 'animate-spin' : ''}`} />
+                    <span className="truncate">{detectingNewGps ? 'جاري السحب...' : 'سحب الموقع الحالي'}</span>
+                  </button>
                 </div>
 
                 {/* Coordinate inputs */}
@@ -8102,23 +8100,23 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 {newLat && newLng ? (
-                  <div className="flex items-center justify-between text-[11px] pt-2 border-t border-cyan-200">
-                    <span className="text-emerald-700 font-bold flex items-center gap-1">
-                      <CheckCircle className="w-3.5 h-3.5" />
+                  <div className="pt-2 border-t border-cyan-200/80 flex flex-wrap items-center justify-between gap-1.5">
+                    <span className="text-emerald-700 font-bold text-[11px] flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>تم ربط الإحداثيات: {newLat.toFixed(4)}, {newLng.toFixed(4)}</span>
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 mr-auto">
                       <button
                         type="button"
                         onClick={() => setLocationPickerTarget('NEW_BRANCH')}
-                        className="text-purple-600 hover:underline font-bold text-[10px] cursor-pointer"
+                        className="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
                       >
-                        تعديل على الخريطة 🗺️
+                        تعديل الخريطة 🗺️
                       </button>
                       <button
                         type="button"
                         onClick={() => { setNewLat(null); setNewLng(null); }}
-                        className="text-slate-500 hover:text-rose-600 text-[10px]"
+                        className="px-1.5 py-0.5 text-slate-500 hover:text-rose-600 rounded-lg text-[10px] font-bold transition-colors"
                       >
                         مسح
                       </button>
@@ -8295,37 +8293,35 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* تحديد وتحديث موقع الفرع بالـ GPS */}
-              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-50 border border-cyan-200 rounded-2xl space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div>
-                    <span className="text-xs font-bold text-cyan-800 flex items-center gap-1.5">
-                      <Navigation className="w-3.5 h-3.5 text-cyan-600" />
-                      <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
-                    </span>
-                    <span className="text-[10px] text-slate-500 block mt-0.5">
-                      تحدد دبوس المطعم في خريطة التتبع المباشر وحساب مسافة التوصيل
-                    </span>
-                  </div>
+              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-50 border border-cyan-200 rounded-2xl space-y-2.5">
+                <div>
+                  <span className="text-xs font-bold text-cyan-800 flex items-center gap-1.5">
+                    <Navigation className="w-3.5 h-3.5 text-cyan-600" />
+                    <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    تحدد دبوس المطعم في خريطة التتبع المباشر وحساب مسافة التوصيل
+                  </span>
+                </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLocationPickerTarget('EDIT_BRANCH')}
-                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
-                    >
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span>🗺️ تحديد من الخريطة</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDetectGpsForEditBranch}
-                      disabled={detectingEditGps}
-                      className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
-                    >
-                      <Navigation className={`w-3.5 h-3.5 ${detectingEditGps ? 'animate-spin' : ''}`} />
-                      <span>{detectingEditGps ? 'جاري التقاط...' : '📍 سحب الموقع الحالي'}</span>
-                    </button>
-                  </div>
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setLocationPickerTarget('EDIT_BRANCH')}
+                    className="w-full py-2.5 px-2 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-[11px] sm:text-xs font-black shadow-xs transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">تحديد من الخريطة</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDetectGpsForEditBranch}
+                    disabled={detectingEditGps}
+                    className="w-full py-2.5 px-2 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-[11px] sm:text-xs font-black shadow-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Navigation className={`w-3.5 h-3.5 shrink-0 ${detectingEditGps ? 'animate-spin' : ''}`} />
+                    <span className="truncate">{detectingEditGps ? 'جاري السحب...' : 'سحب الموقع الحالي'}</span>
+                  </button>
                 </div>
 
                 {/* Coordinate inputs */}
@@ -8355,23 +8351,23 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 {editLat && editLng ? (
-                  <div className="flex items-center justify-between text-[11px] pt-2 border-t border-cyan-200">
-                    <span className="text-emerald-700 font-bold flex items-center gap-1">
-                      <CheckCircle className="w-3.5 h-3.5" />
+                  <div className="pt-2 border-t border-cyan-200/80 flex flex-wrap items-center justify-between gap-1.5">
+                    <span className="text-emerald-700 font-bold text-[11px] flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>تم ربط الإحداثيات: {editLat.toFixed(4)}, {editLng.toFixed(4)}</span>
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 mr-auto">
                       <button
                         type="button"
                         onClick={() => setLocationPickerTarget('EDIT_BRANCH')}
-                        className="text-purple-600 hover:underline font-bold text-[10px] cursor-pointer"
+                        className="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
                       >
-                        تعديل على الخريطة 🗺️
+                        تعديل الخريطة 🗺️
                       </button>
                       <button
                         type="button"
                         onClick={() => { setEditLat(null); setEditLng(null); }}
-                        className="text-slate-500 hover:text-rose-600 text-[10px]"
+                        className="px-1.5 py-0.5 text-slate-500 hover:text-rose-600 rounded-lg text-[10px] font-bold transition-colors"
                       >
                         مسح
                       </button>
