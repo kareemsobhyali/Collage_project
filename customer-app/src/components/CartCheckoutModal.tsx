@@ -173,6 +173,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [gpsStatusMessage, setGpsStatusMessage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [editingItemNoteIdx, setEditingItemNoteIdx] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // فحص نطاق التوصيل الجغرافي للمطعم لموقع العميل الحالي (طلب المستخدم: منع الطلب إذا كان المطعم خارج الزون)
   const effectiveClientCoords = capturedCoords || extractCoordinatesFromAddress(addressText) || getStoredClientCoords();
@@ -389,9 +391,6 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [paymentSenderPhone, setPaymentSenderPhone] = useState('');
   const [paymentProofUrl, setPaymentProofUrl] = useState('');
   const [uploadingProof, setUploadingProof] = useState(false);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
 

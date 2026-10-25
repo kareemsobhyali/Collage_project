@@ -1323,7 +1323,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
               _sum: { quantity: true },
               where: {
                 order: {
-                  customerId: userId,
+                  userId: userId,
                   status: { notIn: ["REJECTED", "CANCELLED"] },
                   createdAt: { gte: activeItemDeal.startsAt || new Date(Date.now() - 24 * 3600 * 1000) },
                 },

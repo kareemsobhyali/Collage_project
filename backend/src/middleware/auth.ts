@@ -2,9 +2,13 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
 
-export const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-campus-delivery-2026";
-if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
-  console.warn("⚠️ [SECURITY WARNING]: JWT_SECRET is not set in environment variables! Please set a strong JWT_SECRET in production.");
+export const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? "" : "super-secret-key-campus-delivery-2026");
+if (!process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FATAL CONFIGURATION: JWT_SECRET environment variable must be set in production mode!");
+  } else {
+    console.warn("⚠️ [DEV NOTICE]: Using default JWT_SECRET for local development. Make sure to define JWT_SECRET in production.");
+  }
 }
 
 export interface AuthenticatedUserPayload {
@@ -81,7 +85,7 @@ export function requireSuperAdmin(req: AuthRequest, res: Response, next: NextFun
       return;
     }
     next();
-  });
+  }).catch(next);
 }
 
 // حماية مسارات تطبيق الديسكتوب الخاص بالفرع

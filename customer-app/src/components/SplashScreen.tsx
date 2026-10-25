@@ -155,13 +155,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     };
   }, []);
 
-  if (!visible) return null;
-
   // Filter only real active branches - NO DUMMY/FAKE DATA!
   const realBranches = useMemo(() => {
     if (!Array.isArray(branches)) return [];
     return branches.filter((b) => b && b.name && String(b.name).trim().length > 0).slice(0, 6);
   }, [branches]);
+
+  if (!visible) return null;
 
   const hasRealBranches = realBranches.length > 0;
 
