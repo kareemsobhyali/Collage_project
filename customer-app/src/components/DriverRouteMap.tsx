@@ -225,10 +225,10 @@ export const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className={`rounded-2xl overflow-hidden border shadow-md transition-all ${
+      className={`rounded-2xl overflow-hidden border shadow-sm transition-all ${
         isToRestaurant
-          ? 'border-amber-400/80 bg-slate-900'
-          : 'border-emerald-500/80 bg-slate-900'
+          ? 'border-amber-300 bg-white'
+          : 'border-emerald-300 bg-white'
       }`}
     >
       {/* Top Banner showing current stage */}
@@ -327,37 +327,37 @@ export const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
       </div>
 
       {/* Bottom Stats Bar: Remaining Distance & ETA + Google Maps Trigger */}
-      <div className="p-2.5 bg-slate-900/95 border-t border-slate-800 space-y-2">
+      <div className="p-2.5 bg-slate-50 border-t border-slate-100 space-y-2">
         <div className="grid grid-cols-2 gap-2">
-          <div className="p-2 bg-slate-950/80 border border-slate-800 rounded-xl flex items-center gap-2">
+          <div className="p-2 bg-white border border-slate-200/80 rounded-xl flex items-center gap-2 shadow-2xs">
             <div
               className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                 isToRestaurant
-                  ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400'
-                  : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
+                  ? 'bg-amber-50 border border-amber-200 text-amber-600'
+                  : 'bg-emerald-50 border border-emerald-200 text-emerald-600'
               }`}
             >
               <Gauge className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] text-slate-400 block font-medium truncate">
+              <span className="text-[10px] text-slate-500 block font-bold truncate">
                 {isToRestaurant ? 'فاضل للمطعم' : 'فاضل للعميل'}
               </span>
-              <span className="text-xs font-black text-white block truncate">
+              <span className="text-xs font-black text-slate-900 block truncate font-mono">
                 {formatDistance(distanceMeters)}
               </span>
             </div>
           </div>
 
-          <div className="p-2 bg-slate-950/80 border border-slate-800 rounded-xl flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+          <div className="p-2 bg-white border border-slate-200/80 rounded-xl flex items-center gap-2 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
               <Clock className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] text-slate-400 block font-medium truncate">
+              <span className="text-[10px] text-slate-500 block font-bold truncate">
                 الوقت المتبقي
               </span>
-              <span className="text-xs font-black text-indigo-300 block truncate">
+              <span className="text-xs font-black text-indigo-700 block truncate font-mono">
                 {etaMinutes} دقيقة تقريباً
               </span>
             </div>
@@ -367,10 +367,10 @@ export const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
         <button
           type="button"
           onClick={handleOpenGoogleMaps}
-          className={`w-full py-2 px-3 rounded-xl text-[11px] font-black text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+          className={`w-full py-2.5 px-3 rounded-xl text-xs font-black text-white shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
             isToRestaurant
-              ? 'bg-amber-600 hover:bg-amber-500'
-              : 'bg-emerald-600 hover:bg-emerald-500'
+              ? 'bg-amber-600 hover:bg-amber-700'
+              : 'bg-emerald-600 hover:bg-emerald-700'
           }`}
         >
           <Navigation className="w-3.5 h-3.5" />

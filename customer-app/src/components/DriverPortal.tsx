@@ -1562,37 +1562,46 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn overscroll-contain" dir="rtl">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slideUp overscroll-contain">
             {/* Modal Header */}
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
+            <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-white border-b border-slate-100 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <button
                   type="button"
                   onClick={() => setSelectedOrder(null)}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 shrink-0"
                 >
                   <ArrowRight className="w-4 h-4" />
-                  <span>رجوع لشاشة الأوردرات</span>
+                  <span>رجوع</span>
                 </button>
-                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center font-mono font-black text-xs text-white">
+                <div className="px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-100 font-mono font-black text-xs text-indigo-700 shrink-0">
                   #{selectedOrder.orderNumber}
                 </div>
-                <div>
-                  <h3 className="font-black text-xs sm:text-sm text-white flex items-center gap-1.5">
-                    <span>{selectedOrder.branch?.name || 'المطعم'}</span>
-                  </h3>
-                </div>
+                <h3 className="font-black text-xs sm:text-sm text-slate-900 truncate">
+                  {selectedOrder.branch?.name || 'تفاصيل الطلب'}
+                </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
-                title="إغلاق"
-              >
-                <XCircle className="w-6 h-6" />
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                  selectedOrder.driverPickedUpAt
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : selectedOrder.isDriverAccepted
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                }`}>
+                  {selectedOrder.driverPickedUpAt ? '🛵 توصيل' : selectedOrder.isDriverAccepted ? '🏪 استلام' : 'طلب جديد'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrder(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
+                  title="إغلاق"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs overscroll-contain">
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 text-xs overscroll-contain pb-28 sm:pb-32">
               {/* Live Route Map inside Modal: To Restaurant after accept, To Customer after pickup */}
               {selectedOrder.status !== 'COMPLETED' && (selectedOrder.isDriverAccepted || selectedOrder.driverPickedUpAt) && (
                 <DriverRouteMap
@@ -1619,67 +1628,207 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 />
               )}
 
-              {/* Prominent Restaurant Pickup Header Card - اسم المطعم واضح وكامل */}
-              <div className="p-4 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-2xl border-2 border-amber-400/70 shadow-xs flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
-                    <Store className="w-6 h-6" />
+              {/* DELIVERY STAGE: Show Customer Delivery Destination First */}
+              {selectedOrder.driverPickedUpAt ? (
+                <div className="p-4 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-slate-50 rounded-2xl border-2 border-emerald-400/60 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between gap-2 border-b border-emerald-100 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                          🎯 وجهة التوصيل الحالية:
+                        </span>
+                        <span className="text-sm font-black text-slate-900">{selectedOrder.customerName}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <a
+                        href={`https://wa.me/20${selectedOrder.customerPhone.replace(/^0+/, '')}?text=${encodeURIComponent(
+                          `مرحباً أستاذ ${selectedOrder.customerName}، كابتن التوصيل معك بخصوص طلبك رقم #${selectedOrder.orderNumber}...`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-colors flex items-center gap-1 font-bold text-xs"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>واتساب</span>
+                      </a>
+                      <a
+                        href={`tel:${selectedOrder.customerPhone}`}
+                        className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition-colors flex items-center gap-1 font-bold text-xs"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>اتصال</span>
+                      </a>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block mb-0.5">
-                      🏪 مطعم الاستلام (توجه إلى):
-                    </span>
-                    <h3 className="text-base sm:text-lg font-black text-slate-900 break-words leading-snug">
-                      {selectedOrder.branch?.name || 'مطعم غير محدد'}
-                    </h3>
-                    {selectedOrder.branch?.address && (
-                      <p className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-1">
-                        <MapPin className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                        <span>{getDisplayAddress(selectedOrder.branch.address, 'موقع المطعم بالحرم الجامعي')}</span>
-                      </p>
+
+                  {selectedOrder.deliveryZoneName && (
+                    <div className="flex items-center gap-1.5 text-xs font-black text-indigo-700 bg-indigo-50/80 px-2.5 py-1.5 rounded-xl border border-indigo-100">
+                      <Building2 className="w-4 h-4 shrink-0 text-indigo-600" />
+                      <span>المنطقة الجامعية: {selectedOrder.deliveryZoneName}</span>
+                    </div>
+                  )}
+
+                  <div className="text-xs text-slate-700 space-y-1">
+                    <div className="flex items-start gap-1.5">
+                      <span className="font-bold text-slate-500 shrink-0">العنوان:</span>
+                      <span className="font-bold text-slate-800 leading-relaxed">
+                        {getDisplayAddress(selectedOrder.addressText, 'موقع العميل بالحرم الجامعي')}
+                      </span>
+                    </div>
+                    {selectedOrder.notes && (
+                      <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] font-bold">
+                        <span>ملاحظات الطالب: </span>
+                        <span>{selectedOrder.notes}</span>
+                      </div>
                     )}
                   </div>
                 </div>
+              ) : (
+                /* PICKUP STAGE: Prominent Restaurant Pickup Header Card */
+                <div className="p-4 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-amber-500/5 rounded-2xl border-2 border-amber-400/70 shadow-xs flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                      <Store className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block mb-0.5">
+                        🏪 مطعم الاستلام (توجه إلى):
+                      </span>
+                      <h3 className="text-base sm:text-lg font-black text-slate-900 break-words leading-snug">
+                        {selectedOrder.branch?.name || 'مطعم غير محدد'}
+                      </h3>
+                      {selectedOrder.branch?.address && (
+                        <p className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-1">
+                          <MapPin className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                          <span>{getDisplayAddress(selectedOrder.branch.address, 'موقع المطعم بالحرم الجامعي')}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-                {selectedOrder.branch?.phone && (
-                  <a
-                    href={`tel:${selectedOrder.branch.phone}`}
-                    className="px-3 py-2 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>اتصال</span>
-                  </a>
-                )}
-              </div>
+                  {selectedOrder.branch?.phone && (
+                    <a
+                      href={`tel:${selectedOrder.branch.phone}`}
+                      className="px-3 py-2 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>اتصال</span>
+                    </a>
+                  )}
+                </div>
+              )}
 
-              {/* Customer Contact & Call */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] text-slate-500 font-bold block">بيانات العميل (الطالب):</span>
-                  <span className="text-sm font-black text-slate-800">{selectedOrder.customerName}</span>
-                  <span className="text-xs font-mono text-slate-600 block">{selectedOrder.customerPhone}</span>
+              {/* Subtle Restaurant Badge during delivery stage */}
+              {selectedOrder.driverPickedUpAt && (
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-slate-500 font-bold block">تم استلام الوجبة من المطعم:</span>
+                      <span className="text-xs font-black text-slate-800 truncate block">
+                        {selectedOrder.branch?.name || 'المطعم'}
+                      </span>
+                    </div>
+                  </div>
+                  {selectedOrder.branch?.phone && (
+                    <a
+                      href={`tel:${selectedOrder.branch.phone}`}
+                      className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[11px] font-bold flex items-center gap-1 shrink-0"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>المطعم</span>
+                    </a>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={`https://wa.me/20${selectedOrder.customerPhone.replace(/^0+/, '')}?text=${encodeURIComponent(
-                      `مرحباً أستاذ ${selectedOrder.customerName}، كابتن التوصيل معك بخصوص طلبك رقم #${selectedOrder.orderNumber}...`
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-colors flex items-center gap-1 font-bold"
+              )}
+
+              {/* Pickup Stage: Customer Contact & Delivery Details */}
+              {!selectedOrder.driverPickedUpAt && (
+                <>
+                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-500 font-bold block">بيانات العميل (الطالب):</span>
+                      <span className="text-sm font-black text-slate-800">{selectedOrder.customerName}</span>
+                      <span className="text-xs font-mono text-slate-600 block">{selectedOrder.customerPhone}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`https://wa.me/20${selectedOrder.customerPhone.replace(/^0+/, '')}?text=${encodeURIComponent(
+                          `مرحباً أستاذ ${selectedOrder.customerName}، كابتن التوصيل معك بخصوص طلبك رقم #${selectedOrder.orderNumber}...`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-colors flex items-center gap-1 font-bold"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>واتساب</span>
+                      </a>
+                      <a
+                        href={`tel:${selectedOrder.customerPhone}`}
+                        className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition-colors flex items-center gap-1 font-bold"
+                      >
+                        <Phone className="w-4 h-4" />
+                        <span>اتصال</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 bg-white rounded-2xl border border-slate-200 space-y-1.5 shadow-xs">
+                    {selectedOrder.deliveryZoneName && (
+                      <div className="font-bold text-indigo-700 flex items-center gap-1.5">
+                        <Building2 className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <span>منطقة التوصيل: {selectedOrder.deliveryZoneName}</span>
+                      </div>
+                    )}
+                    <div className="flex items-start gap-2 text-slate-700">
+                      <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                      <div className="w-full">
+                        <span className="font-black text-slate-800">العنوان الجامعي المحدد: </span>
+                        <span className="text-slate-600">{getDisplayAddress(selectedOrder.addressText, 'موقع العميل بالحرم الجامعي')}</span>
+                      </div>
+                    </div>
+                    {selectedOrder.notes && (
+                      <div className="mt-2 p-2 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] font-bold">
+                        <span>ملاحظات الطالب: </span>
+                        <span>{selectedOrder.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Live GPS Broadcast Card when delivering */}
+              {selectedOrder.status !== 'COMPLETED' && selectedOrder.driverPickedUpAt && (
+                <div className="p-3.5 bg-gradient-to-r from-emerald-500/15 to-teal-500/10 border-2 border-emerald-500/40 rounded-2xl flex items-center justify-between gap-2 shadow-xs animate-fadeIn">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="relative flex h-3 w-3 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-xs font-black text-slate-900 block">بث الـ GPS الحي للعميل مفعل 🛰️</span>
+                      <span className="text-[10px] text-emerald-700 block truncate font-medium">
+                        {currentCoords ? (driverLocationName ? `موقعك: ${driverLocationName}` : 'موقعك محدد بدقة عبر الـ GPS 🛰️') : 'جاري بث تحركاتك للطالب على الخريطة'}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateOrSendLocation()}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition-all active:scale-95 flex items-center gap-1 shrink-0"
+                    title="تحديث وبث موقعي الحالي فوراً"
                   >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>واتساب</span>
-                  </a>
-                  <a
-                    href={`tel:${selectedOrder.customerPhone}`}
-                    className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition-colors flex items-center gap-1 font-bold"
-                  >
-                    <Phone className="w-4 h-4" />
-                    <span>اتصال</span>
-                  </a>
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>تحديث الموقع</span>
+                  </button>
                 </div>
-              </div>
+              )}
 
               {/* Quick In-App Status Messages inside Order Details Modal */}
               {selectedOrder.status !== 'COMPLETED' && selectedOrder.status !== 'REJECTED' && (
@@ -1768,77 +1917,6 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 </div>
               )}
 
-              {/* Delivery Address & Zone */}
-              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 space-y-1.5 shadow-xs">
-                {selectedOrder.deliveryZoneName && (
-                  <div className="font-bold text-indigo-700 flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-indigo-600 shrink-0" />
-                    <span>منطقة التوصيل: {selectedOrder.deliveryZoneName}</span>
-                  </div>
-                )}
-                <div className="flex items-start gap-2 text-slate-700">
-                  <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                  <div className="w-full">
-                    <span className="font-black text-slate-800">العنوان الجامعي المحدد: </span>
-                    <span className="text-slate-600">{getDisplayAddress(selectedOrder.addressText, 'موقع العميل بالحرم الجامعي')}</span>
-                    {(() => {
-                      const studentCoords = extractCoordinatesFromAddress(selectedOrder.addressText);
-                      if (studentCoords) {
-                        return (
-                          <div className="mt-2">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                openExternalLink(`https://www.google.com/maps/dir/?api=1&destination=${studentCoords.lat},${studentCoords.lng}`);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                            >
-                              <Navigation className="w-3.5 h-3.5 text-blue-600" />
-                              <span>فتح التوجيه على خرائط Google 🗺️</span>
-                            </button>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </div>
-                {selectedOrder.notes && (
-                  <div className="mt-2 p-2 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] font-bold">
-                    <span>ملاحظات الطالب: </span>
-                    <span>{selectedOrder.notes}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Live GPS Broadcast Card when delivering */}
-              {selectedOrder.status !== 'COMPLETED' && selectedOrder.driverPickedUpAt && (
-                <div className="p-3.5 bg-gradient-to-r from-emerald-500/15 to-teal-500/10 border-2 border-emerald-500/40 rounded-2xl flex items-center justify-between gap-2 shadow-xs animate-fadeIn">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="relative flex h-3 w-3 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                    </span>
-                    <div className="min-w-0">
-                      <span className="text-xs font-black text-slate-900 block">بث الـ GPS الحي للعميل مفعل 🛰️</span>
-                      <span className="text-[10px] text-emerald-700 block truncate font-medium">
-                        {currentCoords ? (driverLocationName ? `موقعك: ${driverLocationName}` : 'موقعك محدد بدقة عبر الـ GPS 🛰️') : 'جاري بث تحركاتك للطالب على الخريطة'}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleSimulateOrSendLocation()}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition-all active:scale-95 flex items-center gap-1 shrink-0"
-                    title="تحديث وبث موقعي الحالي فوراً"
-                  >
-                    <Navigation className="w-3.5 h-3.5" />
-                    <span>تحديث الموقع</span>
-                  </button>
-                </div>
-              )}
-
               {/* Group Cart / Bag Division if present */}
               {selectedOrder.groupCartDetails && (() => {
                 try {
@@ -1897,7 +1975,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
             </div>
 
             {/* Modal Actions Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0">
+            <div className="p-3.5 sm:p-4 bg-white/95 backdrop-blur-md border-t border-slate-200 flex gap-2 shrink-0">
               {/* Accept button if not yet accepted */}
               {selectedOrder.status !== 'COMPLETED' && !selectedOrder.driverPickedUpAt && !selectedOrder.isDriverAccepted && (
                 <>
@@ -1907,7 +1985,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                       handleAccept(selectedOrder.id);
                       setSelectedOrder({ ...selectedOrder, isDriverAccepted: true });
                     }}
-                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs sm:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     <Check className="w-4 h-4" />
                     <span>قبول الطلب والتوجه للمطعم</span>
@@ -1917,7 +1995,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     onClick={() => {
                       handleReject(selectedOrder);
                     }}
-                    className="px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs"
+                    className="px-4 py-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-2xl font-bold text-xs"
                   >
                     اعتذار
                   </button>
@@ -1932,7 +2010,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     onClick={() => {
                       handlePickup(selectedOrder);
                     }}
-                    className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs sm:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     <Truck className="w-4 h-4" />
                     <span>تأكيد الاستلام وبدء التوصيل</span>
@@ -1942,7 +2020,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     onClick={() => {
                       handleReject(selectedOrder);
                     }}
-                    className="px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs"
+                    className="px-4 py-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-2xl font-bold text-xs"
                     title="الاعتذار عن الطلب وإعادته للمطعم"
                   >
                     اعتذار
@@ -1959,7 +2037,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                       setDeliveringOrder(selectedOrder);
                       setSelectedOrder(null);
                     }}
-                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs sm:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     <KeyRound className="w-4 h-4" />
                     <span>تأكيد التسليم للطالب (PIN)</span>
@@ -1970,7 +2048,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                       setReturningOrder(selectedOrder);
                       setSelectedOrder(null);
                     }}
-                    className="px-3.5 py-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl font-bold text-xs flex items-center gap-1 shrink-0"
+                    className="px-4 py-3.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-2xl font-bold text-xs flex items-center gap-1 shrink-0"
                     title="إرجاع الوجبة للمطعم وإلغاء مسؤوليته عنك"
                   >
                     <RotateCcw className="w-4 h-4" />
@@ -1979,14 +2057,16 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 </>
               )}
 
-              {/* Close button */}
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                className="px-4 py-3 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl font-bold text-xs"
-              >
-                إغلاق
-              </button>
+              {/* Close button for completed or cancelled orders */}
+              {(selectedOrder.status === 'COMPLETED' || selectedOrder.status === 'REJECTED' || selectedOrder.status === 'CANCELLED') && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrder(null)}
+                  className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-xs transition-colors"
+                >
+                  إغلاق النافذة
+                </button>
+              )}
             </div>
           </div>
         </div>
