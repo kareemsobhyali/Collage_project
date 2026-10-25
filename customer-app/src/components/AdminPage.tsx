@@ -3271,7 +3271,7 @@ export const AdminPage: React.FC = () => {
                     className={`px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                       orderStatusFilter === st
                         ? 'bg-purple-600 text-white shadow-sm'
-                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
                     }`}
                   >
                     {st === 'ALL' && 'الكل'}
@@ -3343,7 +3343,7 @@ export const AdminPage: React.FC = () => {
                           <span className="text-xs font-bold text-purple-400 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200">
                             {order.branch?.name}
                           </span>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusColors[order.status] || 'bg-slate-800 text-slate-300'}`}>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusColors[order.status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
                             {statusLabels[order.status] || order.status}
                           </span>
                         </div>
@@ -3493,10 +3493,10 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={exportShiftsToExcel}
                     disabled={financeLoading || !financeReportData?.branchBreakdown?.length}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
                     title="تصدير مبيعات وشيفتات الفروع لملف إكسل"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                     <span>شيفتات الفروع (Excel)</span>
                   </button>
 
@@ -3504,10 +3504,10 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={exportDriversToExcel}
                     disabled={financeLoading || !financeReportData?.driversBreakdown?.length}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-900/60 hover:bg-indigo-800/80 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
                     title="تصدير كشف حساب وتصفية كباتن التوصيل لملف إكسل"
                   >
-                    <Truck className="w-3.5 h-3.5 text-indigo-400" />
+                    <Truck className="w-3.5 h-3.5 text-indigo-600" />
                     <span>حساب الطيارين (Excel)</span>
                   </button>
 
@@ -3515,10 +3515,10 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={exportAllOrdersToExcel}
                     disabled={financeLoading || !financeReportData?.orders?.length}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-900/60 hover:bg-purple-800/80 text-purple-700 border border-purple-200/60 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-40"
                     title="تصدير كافة طلبات الفترة لملف إكسل"
                   >
-                    <Download className="w-3.5 h-3.5 text-purple-400" />
+                    <Download className="w-3.5 h-3.5 text-purple-600" />
                     <span>سجل الطلبات (Excel)</span>
                   </button>
                 </div>
@@ -3630,7 +3630,7 @@ export const AdminPage: React.FC = () => {
                           e.stopPropagation();
                           try { (e.currentTarget as any).showPicker?.(); } catch (_) {}
                         }}
-                        style={{ colorScheme: 'dark' }}
+                        style={{ colorScheme: 'light' }}
                         className="bg-transparent text-slate-900 text-xs font-bold focus:outline-none font-mono cursor-pointer"
                       />
                     </div>
@@ -3658,7 +3658,7 @@ export const AdminPage: React.FC = () => {
                           e.stopPropagation();
                           try { (e.currentTarget as any).showPicker?.(); } catch (_) {}
                         }}
-                        style={{ colorScheme: 'dark' }}
+                        style={{ colorScheme: 'light' }}
                         className="bg-transparent text-slate-900 text-xs font-bold focus:outline-none font-mono cursor-pointer"
                       />
                     </div>
@@ -4306,7 +4306,7 @@ export const AdminPage: React.FC = () => {
                                 ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                                 : d.netCashToDeliver < 0
                                 ? 'bg-sky-50 border-sky-200 text-sky-700'
-                                : 'bg-slate-950/80 border-slate-800 text-slate-400'
+                                : 'bg-slate-50 border-slate-200 text-slate-700'
                             }`}
                           >
                             <div className="flex items-center gap-2 min-w-0">
@@ -4594,8 +4594,8 @@ export const AdminPage: React.FC = () => {
                       onClick={() => setReviewRatingFilter(isSelected ? 'ALL' : String(stars))}
                       className={`p-2.5 rounded-xl border text-right transition-all flex flex-col justify-between gap-1.5 ${
                         isSelected
-                          ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-400/30'
-                          : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
+                          ? 'bg-purple-50 border-purple-500 text-purple-900 ring-1 ring-purple-400/30'
+                          : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-slate-100 text-slate-800'
                       }`}
                     >
                       <div className="flex items-center justify-between w-full">
@@ -4603,9 +4603,9 @@ export const AdminPage: React.FC = () => {
                           <span className="font-mono font-black text-xs text-slate-900">{stars}</span>
                           <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                         </div>
-                        <span className="text-[10px] font-mono text-slate-500">{count} ({pct}%)</span>
+                        <span className="text-[10px] font-mono text-slate-600 font-bold">{count} ({pct}%)</span>
                       </div>
-                      <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
+                      <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-300 ${
                             stars >= 4 ? 'bg-amber-400' : stars === 3 ? 'bg-amber-600' : 'bg-rose-500'
@@ -4671,7 +4671,7 @@ export const AdminPage: React.FC = () => {
                 className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border shrink-0 ${
                   reviewOnlyWithText
                     ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/20'
-                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -4766,7 +4766,7 @@ export const AdminPage: React.FC = () => {
                               <Star
                                 key={s}
                                 className={`w-3.5 h-3.5 ${
-                                  s <= ratingNum ? 'text-amber-400 fill-amber-400' : 'text-slate-700'
+                                  s <= ratingNum ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-100'
                                 }`}
                               />
                             ))}
@@ -5057,8 +5057,8 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setDriverScopeFilter('ALL')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                       driverScopeFilter === 'ALL'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     الكل ({drivers.length})
@@ -5068,8 +5068,8 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setDriverScopeFilter('GENERAL')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                       driverScopeFilter === 'GENERAL'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     🌐 طيار عام ({drivers.filter(d => d.isAllBranches).length})
@@ -5079,8 +5079,8 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setDriverScopeFilter('SPECIFIC')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                       driverScopeFilter === 'SPECIFIC'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     🏪 مطاعم محددة ({drivers.filter(d => !d.isAllBranches).length})
@@ -5090,8 +5090,8 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setDriverScopeFilter('INACTIVE')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                       driverScopeFilter === 'INACTIVE'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     🚫 معطل ({drivers.filter(d => !d.isActive).length})
@@ -5137,20 +5137,20 @@ export const AdminPage: React.FC = () => {
                 {filteredDrivers.map(driver => (
                   <div
                     key={driver.id}
-                    className={`bg-slate-900/70 border rounded-2xl p-4 sm:p-5 flex flex-col justify-between transition-all space-y-4 hover:shadow-xl ${
+                    className={`bg-white border rounded-2xl p-4 sm:p-5 flex flex-col justify-between transition-all space-y-4 shadow-sm hover:shadow-md ${
                       driver.isActive
-                        ? 'border-slate-800 hover:border-slate-700'
-                        : 'border-rose-200 bg-slate-950/40 opacity-75'
+                        ? 'border-slate-200 hover:border-purple-300'
+                        : 'border-rose-200 bg-rose-50/20 opacity-80'
                     }`}
                   >
                     {/* Top Identity */}
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-base shrink-0 shadow-inner ${
+                          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-base shrink-0 shadow-2xs ${
                             driver.isAllBranches
-                              ? 'bg-purple-50 text-purple-300 border border-purple-200'
-                              : 'bg-indigo-50 text-indigo-300 border border-indigo-200'
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                              : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                           }`}>
                             <Truck className="w-5 h-5" />
                           </div>
@@ -5163,8 +5163,8 @@ export const AdminPage: React.FC = () => {
                                 onClick={() => handleToggleDriverActive(driver.id)}
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
                                   driver.isActive
-                                    ? 'bg-emerald-50 text-emerald-400 border-emerald-200 hover:bg-emerald-100'
-                                    : 'bg-rose-50 text-rose-400 border-rose-200 hover:bg-rose-100'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                                 }`}
                               >
                                 {togglingDriverId === driver.id ? '...' : (driver.isActive ? 'نشط' : 'معطل')}
@@ -5181,7 +5181,7 @@ export const AdminPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <a
                           href={`tel:${driver.phone}`}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-mono transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-mono transition-colors"
                           title="اتصال هاتفي"
                         >
                           <Phone className="w-3.5 h-3.5 text-slate-500" />
@@ -5191,7 +5191,7 @@ export const AdminPage: React.FC = () => {
                           href={`https://wa.me/20${driver.phone.replace(/^0+/, '')}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 bg-emerald-50 border border-emerald-200 text-emerald-400 hover:bg-emerald-100 rounded-lg text-xs transition-colors"
+                          className="p-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs transition-colors"
                           title="محادثة واتساب"
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
@@ -5211,7 +5211,7 @@ export const AdminPage: React.FC = () => {
                         ) : (
                           <div className="space-y-1.5">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700">
-                              <Store className="w-3.5 h-3.5 text-indigo-400" />
+                              <Store className="w-3.5 h-3.5 text-indigo-600" />
                               <span>مطاعم محددة ({driver.servedBranches?.length || 0}):</span>
                             </div>
                             <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto custom-scrollbar">
@@ -5219,7 +5219,7 @@ export const AdminPage: React.FC = () => {
                                 driver.servedBranches.map((b: any) => (
                                   <span
                                     key={b.id}
-                                    className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-bold flex items-center gap-1"
+                                    className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold flex items-center gap-1"
                                   >
                                     <span>🏪</span>
                                     <span>{b.name}</span>
@@ -5234,9 +5234,9 @@ export const AdminPage: React.FC = () => {
                       </div>
 
                       {/* Stats */}
-                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
                         <span>إجمالي الطلبات المنجزة:</span>
-                        <span className="font-mono font-black text-amber-400 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/50">
+                        <span className="font-mono font-black text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                           {driver._count?.orders ?? 0} طلب
                         </span>
                       </div>
@@ -5247,9 +5247,9 @@ export const AdminPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenEditDriver(driver)}
-                        className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-slate-200"
+                        className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-slate-200"
                       >
-                        <Edit2 className="w-3.5 h-3.5 text-purple-400" />
+                        <Edit2 className="w-3.5 h-3.5 text-purple-600" />
                         <span>تعديل النطاق والبيانات</span>
                       </button>
 
@@ -5257,7 +5257,7 @@ export const AdminPage: React.FC = () => {
                         type="button"
                         disabled={deletingDriverId === driver.id}
                         onClick={() => handleDeleteDriver(driver.id, driver.name)}
-                        className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors border border-transparent hover:border-rose-200"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-200"
                         title="حذف الكابتن نهائياً"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -5291,7 +5291,7 @@ export const AdminPage: React.FC = () => {
                   className={`p-4 rounded-2xl border flex flex-col justify-between gap-3 ${
                     student.isBlocked
                       ? 'bg-rose-50/50 border-rose-200'
-                      : 'bg-slate-900/60 border-slate-800'
+                      : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -5584,13 +5584,13 @@ export const AdminPage: React.FC = () => {
                           )}
                         </div>
                       ) : (
-                        <div className="h-28 w-full bg-gradient-to-r from-purple-900 to-indigo-900 flex items-center justify-center p-4 relative">
+                        <div className="h-28 w-full bg-gradient-to-r from-purple-800 to-indigo-800 flex items-center justify-center p-4 relative">
                           {b.badgeText && (
-                            <span className="absolute top-2 right-2 text-[10px] font-black bg-white/20 text-slate-900 px-2.5 py-0.5 rounded-full">
+                            <span className="absolute top-2 right-2 text-[10px] font-black bg-white/20 text-white px-2.5 py-0.5 rounded-full">
                               {b.badgeText}
                             </span>
                           )}
-                          <span className="text-2xl font-black text-slate-900/50">UniFood Ads</span>
+                          <span className="text-2xl font-black text-white/50">UniFood Ads</span>
                         </div>
                       )}
 
@@ -5598,7 +5598,7 @@ export const AdminPage: React.FC = () => {
                         <h4 className="font-black text-sm text-slate-900">{b.title}</h4>
                         {b.subtitle && <p className="text-xs text-slate-500">{b.subtitle}</p>}
                         {b.linkUrl && (
-                          <p className="text-[10px] text-purple-400 font-mono truncate pt-1" dir="ltr">
+                          <p className="text-[10px] text-purple-600 font-mono truncate pt-1" dir="ltr">
                             🔗 {b.linkUrl}
                           </p>
                         )}
@@ -5611,7 +5611,7 @@ export const AdminPage: React.FC = () => {
                         className={`text-[10px] font-black px-2.5 py-1 rounded-full border transition-all ${
                           b.isActive
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
                         }`}
                       >
                         {b.isActive ? 'مفعل ويظهر للطلاب' : 'معطل ومخفي'}
@@ -5856,21 +5856,21 @@ export const AdminPage: React.FC = () => {
                   return (
                     <div
                       key={deal.id}
-                      className={`relative bg-slate-900 border rounded-3xl p-5 flex flex-col justify-between transition-all group overflow-hidden ${
+                      className={`relative bg-white border rounded-3xl p-5 flex flex-col justify-between transition-all group overflow-hidden shadow-sm hover:shadow-md ${
                         !deal.isActive || isExpired
-                          ? 'border-slate-800 opacity-75'
-                          : 'border-slate-800 hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-200/50'
+                          ? 'border-slate-200 opacity-75'
+                          : 'border-slate-200 hover:border-rose-300'
                       }`}
                     >
                       {/* Top ribbon: Status and Badge */}
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-700 border border-rose-500/30 flex items-center gap-1">
-                            <Flame className="w-3 h-3 text-rose-400" />
+                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                            <Flame className="w-3 h-3 text-rose-500" />
                             <span>{deal.badgeText || 'عرض البريك 🔥'}</span>
                           </span>
 
-                          <span className="px-2 py-0.5 rounded-lg text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                          <span className="px-2 py-0.5 rounded-lg text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                             {deal.dealType === 'COMBO' ? 'وجبة / كومبو' : deal.dealType === 'PROMO' ? 'كود خصم' : 'عرض مخصص'}
                           </span>
                         </div>
@@ -5881,12 +5881,12 @@ export const AdminPage: React.FC = () => {
                           onClick={() => handleToggleFlashDeal(deal.id)}
                           className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-colors flex items-center gap-1 shrink-0 ${
                             deal.isActive && !isExpired
-                              ? 'bg-emerald-500/20 text-emerald-700 border-emerald-500/30'
-                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
                           }`}
                           title={deal.isActive ? 'العرض مفعل - اضغط للتعطيل' : 'العرض معطل - اضغط للتفعيل'}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${deal.isActive && !isExpired ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${deal.isActive && !isExpired ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                           <span>{deal.isActive && !isExpired ? 'نشط' : isExpired ? 'منتهي' : 'معطل'}</span>
                         </button>
                       </div>
@@ -5911,8 +5911,8 @@ export const AdminPage: React.FC = () => {
                           {deal.subtitle && (
                             <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{deal.subtitle}</p>
                           )}
-                          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
-                            <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-600 mt-1">
+                            <Store className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                             <span className="truncate">{branch ? branch.name : 'كافة المطاعم'}</span>
                           </div>
                         </div>
@@ -5923,13 +5923,13 @@ export const AdminPage: React.FC = () => {
                         {deal.discountPrice ? (
                           <div className="flex items-baseline justify-between">
                             <div className="flex items-baseline gap-2">
-                              <span className="text-base font-black text-rose-400 font-mono">{deal.discountPrice} ج.م</span>
+                              <span className="text-base font-black text-rose-600 font-mono">{deal.discountPrice} ج.م</span>
                               {deal.originalPrice && (
                                 <span className="text-xs text-slate-500 line-through font-mono">{deal.originalPrice} ج.م</span>
                               )}
                             </div>
                             {discountPct && (
-                              <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black">
+                              <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black">
                                 خصم {discountPct}%
                               </span>
                             )}
@@ -5937,7 +5937,7 @@ export const AdminPage: React.FC = () => {
                         ) : deal.promoCode ? (
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-slate-500 font-bold">كود الخصم:</span>
-                            <span className="px-2 py-1 rounded-lg bg-purple-500/20 text-purple-700 border border-purple-500/30 font-mono font-black text-xs tracking-wider">
+                            <span className="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 font-mono font-black text-xs tracking-wider">
                               {deal.promoCode}
                             </span>
                           </div>
@@ -5948,10 +5948,10 @@ export const AdminPage: React.FC = () => {
                         {/* Expiry line */}
                         <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-200">
                           <div className="flex items-center gap-1">
-                            <Timer className="w-3 h-3 text-amber-400 shrink-0" />
+                            <Timer className="w-3 h-3 text-amber-600 shrink-0" />
                             <span>ينتهي:</span>
                           </div>
-                          <span className={`font-mono font-bold ${isExpired ? 'text-rose-400' : 'text-slate-200'}`}>
+                          <span className={`font-mono font-bold ${isExpired ? 'text-rose-600' : 'text-slate-700'}`}>
                             {deal.expiresAt ? new Date(deal.expiresAt).toLocaleString('ar-EG', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'مستمر'}
                           </span>
                         </div>
@@ -5963,7 +5963,7 @@ export const AdminPage: React.FC = () => {
                               <span className="text-slate-500 font-bold">الكمية المباعة:</span>
                               <span className="text-slate-600 font-mono font-black">{deal.soldQuantity || 0} من {deal.maxQuantity}</span>
                             </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
                                 style={{ width: `${Math.min(100, Math.round(((deal.soldQuantity || 0) / deal.maxQuantity) * 100))}%` }}
@@ -5983,7 +5983,7 @@ export const AdminPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenEditFlashDeal(deal)}
-                            className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-50 rounded-xl transition-colors"
+                            className="p-2 text-slate-500 hover:text-purple-700 hover:bg-purple-50 rounded-xl transition-colors border border-transparent hover:border-purple-200"
                             title="تعديل العرض"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -5991,7 +5991,7 @@ export const AdminPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDeleteFlashDeal(deal.id)}
-                            className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                            className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-200"
                             title="حذف العرض"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -6110,12 +6110,12 @@ export const AdminPage: React.FC = () => {
                       return (
                         <div
                           key={acc.id}
-                          className={`w-[85vw] max-w-[340px] sm:w-[350px] shrink-0 snap-center bg-slate-950/70 border rounded-3xl p-5 flex flex-col justify-between transition-all select-none ${
+                          className={`w-[85vw] max-w-[340px] sm:w-[350px] shrink-0 snap-center bg-white border-2 rounded-3xl p-5 flex flex-col justify-between transition-all select-none shadow-sm hover:shadow-md ${
                             acc.isConnected
-                              ? 'border-emerald-200 hover:border-emerald-500/60 shadow-lg shadow-emerald-200/50'
+                              ? 'border-emerald-300 shadow-emerald-50 hover:border-emerald-400'
                               : acc.qrCode
-                              ? 'border-amber-200/60 hover:border-amber-500/60 shadow-lg shadow-amber-200/50'
-                              : 'border-slate-800 opacity-80'
+                              ? 'border-amber-300 shadow-amber-50 hover:border-amber-400'
+                              : 'border-slate-200'
                           }`}
                         >
                           <div className="space-y-4">
@@ -6125,13 +6125,13 @@ export const AdminPage: React.FC = () => {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="text-base font-black text-slate-900">{acc.name}</h4>
                                   {acc.isDefault && (
-                                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-800 border border-amber-500/30 flex items-center gap-1">
+                                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
                                       <span>⭐</span>
                                       <span>افتراضي عام</span>
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-xs font-mono text-slate-500 block mt-1">
+                                <span className="text-xs font-mono text-slate-600 block mt-1">
                                   {acc.phoneNumber ? `📱 ${acc.phoneNumber}` : '⏳ لم يتم ربط الرقم بعد'}
                                 </span>
                               </div>
@@ -6140,15 +6140,15 @@ export const AdminPage: React.FC = () => {
                               <span
                                 className={`px-3 py-1 rounded-full text-[11px] font-black border flex items-center gap-1.5 shrink-0 ${
                                   acc.isConnected
-                                    ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                     : acc.qrCode
-                                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 animate-pulse'
-                                    : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200 animate-pulse'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200'
                                 }`}
                               >
                                 <span
                                   className={`w-2 h-2 rounded-full ${
-                                    acc.isConnected ? 'bg-emerald-400' : acc.qrCode ? 'bg-amber-400' : 'bg-rose-400'
+                                    acc.isConnected ? 'bg-emerald-500' : acc.qrCode ? 'bg-amber-500' : 'bg-rose-500'
                                   }`}
                                 />
                                 <span>{acc.isConnected ? 'متصل وجاهز ✅' : acc.qrCode ? 'بانتظار مسح QR ⏳' : 'غير متصل ❌'}</span>
@@ -6156,34 +6156,34 @@ export const AdminPage: React.FC = () => {
                             </div>
 
                             {/* Roles & Allocation Badges */}
-                            <div className="p-3 bg-white rounded-2xl border border-slate-200 space-y-2">
-                              <span className="text-[11px] font-bold text-slate-500 block">الأدوار والتخصيصات المحددة لهذا الرقم:</span>
+                            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                              <span className="text-[11px] font-bold text-slate-600 block">الأدوار والتخصيصات المحددة لهذا الرقم:</span>
                               <div className="flex flex-wrap gap-1.5">
                                 {acc.sendOtp && (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-purple-500/20 text-purple-700 border border-purple-500/30 flex items-center gap-1">
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
                                     <span>🔐</span>
                                     <span>أكواد التحقق (OTP)</span>
                                   </span>
                                 )}
                                 {acc.sendAdminAlerts && (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-700 border border-rose-500/30 flex items-center gap-1">
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
                                     <span>🚨</span>
                                     <span>تنبيهات الإدارة والشيفت</span>
                                   </span>
                                 )}
                                 {acc.sendCustomerOrders && (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-blue-500/20 text-blue-700 border border-blue-500/30 flex items-center gap-1">
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
                                     <span>🍔</span>
                                     <span>مراحل وإشعارات الطلب</span>
                                   </span>
                                 )}
                                 {acc.branch ? (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-amber-500/20 text-amber-800 border border-amber-500/30 flex items-center gap-1">
-                                    <Store className="w-3 h-3 text-amber-400" />
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                    <Store className="w-3 h-3 text-amber-600" />
                                     <span>مخصص لمطعم: {acc.branch.name}</span>
                                   </span>
                                 ) : (
-                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-white text-slate-700 border border-slate-200">
                                     🌐 عام لكافة المطاعم
                                   </span>
                                 )}
@@ -6218,7 +6218,7 @@ export const AdminPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditWhatsAppAccount(acc)}
-                                className="p-2 text-slate-500 hover:text-purple-700 hover:bg-purple-50 rounded-xl transition-colors"
+                                className="p-2 text-slate-500 hover:text-purple-700 hover:bg-purple-50 rounded-xl transition-colors border border-transparent hover:border-purple-200"
                                 title="تعديل الأدوار والتخصيص"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -6226,7 +6226,7 @@ export const AdminPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleDisconnectWhatsAppAccount(acc)}
-                                className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-50 rounded-xl transition-colors"
+                                className="p-2 text-slate-500 hover:text-amber-700 hover:bg-amber-50 rounded-xl transition-colors border border-transparent hover:border-amber-200"
                                 title="فصل الجلسة / تغيير الشريحة"
                               >
                                 <RefreshCw className="w-4 h-4" />
@@ -6234,7 +6234,7 @@ export const AdminPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteWhatsAppAccount(acc)}
-                                className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                                className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-200"
                                 title="حذف الحساب"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -7209,8 +7209,8 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setSupportFilter('ALL')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       supportFilter === 'ALL'
-                        ? 'bg-purple-600 text-white'
-                        : 'text-slate-400 hover:text-white'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     الكل ({supportTickets.length})
@@ -7220,8 +7220,8 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setSupportFilter('OPEN')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       supportFilter === 'OPEN'
-                        ? 'bg-rose-600 text-white'
-                        : 'text-slate-400 hover:text-white'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     المفتوحة ({supportTickets.filter((t: any) => t.status === 'OPEN').length})
@@ -7231,8 +7231,8 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setSupportFilter('RESOLVED')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       supportFilter === 'RESOLVED'
-                        ? 'bg-emerald-600 text-white'
-                        : 'text-slate-400 hover:text-white'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     تم الحل ({supportTickets.filter((t: any) => t.status === 'RESOLVED').length})
@@ -7347,30 +7347,30 @@ export const AdminPage: React.FC = () => {
                     return (
                       <div
                         key={ticket.id}
-                        className={`bg-slate-900 border rounded-3xl p-5 shadow-lg flex flex-col justify-between gap-4 transition-all ${
+                        className={`bg-white border rounded-3xl p-5 shadow-sm hover:shadow-md flex flex-col justify-between gap-4 transition-all ${
                           isResolved
-                            ? 'border-slate-800/80 opacity-75'
-                            : 'border-rose-500/30 ring-1 ring-rose-500/20'
+                            ? 'border-slate-200 bg-slate-50/40'
+                            : 'border-rose-300 ring-1 ring-rose-400/20'
                         }`}
                       >
                         <div className="space-y-3">
                           {/* Card Header: category & status */}
                           <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-700">
+                            <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-purple-50 border border-purple-200 text-purple-700">
                               {ticket.categoryLabel || ticket.category || 'استفسار عام'}
                             </span>
 
                             <div className="flex items-center gap-2">
                               {ticket.orderNumber && (
-                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-amber-800 border border-amber-400/20">
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
                                   طلب #{ticket.orderNumber}
                                 </span>
                               )}
                               <span
                                 className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
                                   isResolved
-                                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                                    : 'bg-rose-500/20 text-rose-400 border-rose-500/30 animate-pulse'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
                                 }`}
                               >
                                 {isResolved ? '✓ تم الحل' : '⚠️ مفتوح للمراجعة'}
@@ -7383,7 +7383,7 @@ export const AdminPage: React.FC = () => {
                             <h4 className="font-black text-sm text-slate-900 mb-1">
                               {ticket.subject}
                             </h4>
-                            <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-200 leading-relaxed whitespace-pre-wrap">
+                            <p className="text-xs text-slate-700 bg-slate-50 p-3 rounded-2xl border border-slate-200 leading-relaxed whitespace-pre-wrap">
                               {ticket.message}
                             </p>
                           </div>
@@ -7394,7 +7394,7 @@ export const AdminPage: React.FC = () => {
                               <span className="font-bold text-slate-800 block text-xs">
                                 👤 {ticket.userName || 'طالب جامعي'}
                               </span>
-                              <span className="text-[11px] font-mono text-slate-500 block" dir="ltr">
+                              <span className="text-[11px] font-mono text-slate-600 block" dir="ltr">
                                 📞 {ticket.userPhone}
                               </span>
                             </div>
@@ -7418,7 +7418,7 @@ export const AdminPage: React.FC = () => {
 
                           <a
                             href={`tel:${ticket.userPhone}`}
-                            className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all"
+                            className="py-2 px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all"
                             title="اتصال هاتفي"
                           >
                             <Phone className="w-3.5 h-3.5" />
@@ -7429,7 +7429,7 @@ export const AdminPage: React.FC = () => {
                               type="button"
                               disabled={updatingTicketId === ticket.id}
                               onClick={() => handleUpdateTicketStatus(ticket.id, 'OPEN')}
-                              className="py-2 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 border border-amber-500/30 rounded-xl text-xs font-bold transition-all"
+                              className="py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition-all"
                               title="إعادة فتح البلاغ"
                             >
                               إعادة فتح
@@ -7439,7 +7439,7 @@ export const AdminPage: React.FC = () => {
                               type="button"
                               disabled={updatingTicketId === ticket.id}
                               onClick={() => handleUpdateTicketStatus(ticket.id, 'RESOLVED')}
-                              className="py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all"
+                              className="py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all"
                               title="تعليم كتم الحل"
                             >
                               {updatingTicketId === ticket.id ? '...' : '✓ تم الحل'}
@@ -7449,7 +7449,7 @@ export const AdminPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDeleteTicket(ticket.id)}
-                            className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl border border-transparent hover:border-rose-500/30 transition-all"
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-200 transition-all"
                             title="حذف البلاغ"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -7634,15 +7634,15 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'ANALYTICS'
-                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm ring-1 ring-purple-300'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-600 flex items-center justify-center">
                     <TrendingUp className="w-4 h-4" />
                   </div>
-                  <span className="text-[10px] font-mono text-purple-400 font-bold">إحصاءات</span>
+                  <span className="text-[10px] font-mono text-purple-600 font-bold">إحصاءات</span>
                 </div>
                 <div>
                   <span className="text-xs font-black block text-slate-900">التقارير والمخططات</span>
@@ -7659,15 +7659,15 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'DRIVERS'
-                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm ring-1 ring-purple-300'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-600 flex items-center justify-center">
                     <Truck className="w-4 h-4" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
                     {drivers.length}
                   </span>
                 </div>
@@ -7685,15 +7685,15 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'REVIEWS'
-                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm ring-1 ring-purple-300'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                    <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
                     {reviews.length}
                   </span>
                 </div>
@@ -7712,15 +7712,15 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'BANNERS'
-                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm ring-1 ring-purple-300'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-600 flex items-center justify-center">
                     <ImageIcon className="w-4 h-4" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
                     {banners.length}
                   </span>
                 </div>
@@ -7739,15 +7739,15 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'PROMOS'
-                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm ring-1 ring-purple-300'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
                     <Tag className="w-4 h-4" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
                     {promos.length}
                   </span>
                 </div>
@@ -7766,15 +7766,15 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'FLASH_DEALS'
-                    ? 'bg-rose-50 border-rose-600 text-white shadow-md'
+                    ? 'bg-rose-50 border-rose-500 text-rose-900 shadow-sm ring-1 ring-rose-300'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
-                    <Flame className="w-4 h-4 fill-rose-400" />
+                  <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-600 flex items-center justify-center">
+                    <Flame className="w-4 h-4 fill-rose-500" />
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
                     {flashDealsList.length}
                   </span>
                 </div>
@@ -7793,15 +7793,15 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'WHATSAPP'
-                    ? 'bg-emerald-50 border-emerald-600 text-white shadow-md'
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-sm ring-1 ring-emerald-300'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 flex items-center justify-center">
                     <MessageSquare className="w-4 h-4" />
                   </div>
-                  <span className={`w-2.5 h-2.5 rounded-full ${whatsAppStatus?.isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-500'}`} />
+                  <span className={`w-2.5 h-2.5 rounded-full ${whatsAppStatus?.isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                 </div>
                 <div>
                   <span className="text-xs font-black block text-slate-900">بوت الواتساب و OTP</span>
@@ -7820,15 +7820,15 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
                   activeTab === 'SETTINGS'
-                    ? 'bg-purple-50 border-purple-600 text-white shadow-md'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm ring-1 ring-purple-300'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-slate-100 text-purple-400 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-slate-100 text-purple-600 flex items-center justify-center">
                     <Settings className="w-4 h-4" />
                   </div>
-                  <span className="text-[10px] text-purple-400 font-mono">سيرفر</span>
+                  <span className="text-[10px] text-purple-600 font-mono font-bold">سيرفر</span>
                 </div>
                 <div>
                   <span className="text-xs font-black block text-slate-900">إعدادات النظام والأمان</span>
@@ -7844,7 +7844,7 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 col-span-2 ${
                   activeTab === 'SUPPORT'
-                    ? 'bg-rose-50 border-rose-600 text-white shadow-md'
+                    ? 'bg-rose-50 border-rose-500 text-rose-900 shadow-sm ring-1 ring-rose-300'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
@@ -8040,11 +8040,11 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* تحديد موقع الفرع بالـ GPS */}
-              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-100 border border-cyan-800/40 rounded-2xl space-y-3">
+              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-50 border border-cyan-200 rounded-2xl space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div>
-                    <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                      <Navigation className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-xs font-bold text-cyan-800 flex items-center gap-1.5">
+                      <Navigation className="w-3.5 h-3.5 text-cyan-600" />
                       <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
                     </span>
                     <span className="text-[10px] text-slate-500 block mt-0.5">
@@ -8056,7 +8056,7 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={handleDetectGpsForNewBranch}
                     disabled={detectingNewGps}
-                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-slate-900 rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
                   >
                     <Navigation className={`w-3.5 h-3.5 ${detectingNewGps ? 'animate-spin' : ''}`} />
                     <span>{detectingNewGps ? 'جاري التقاط الإحداثيات...' : '📍 سحب الموقع الحالي'}</span>
@@ -8065,7 +8065,7 @@ export const AdminPage: React.FC = () => {
 
                 {/* معالم الحرم الجامعي للاختيار السريع */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-500">أو اختر بالقرب من معالم الحرم الجامعي:</span>
+                  <span className="text-[10px] font-bold text-slate-600">أو اختر بالقرب من معالم الحرم الجامعي:</span>
                   <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {CAMPUS_LANDMARKS.map(lm => {
                       const isSelected = newLat === lm.lat && newLng === lm.lng;
@@ -8080,8 +8080,8 @@ export const AdminPage: React.FC = () => {
                           }}
                           className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 border transition-all flex items-center gap-1 active:scale-95 ${
                             isSelected
-                              ? 'bg-cyan-500 text-slate-950 border-cyan-400 font-black'
-                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600'
+                              ? 'bg-cyan-600 text-white border-cyan-500 font-black'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                           }`}
                         >
                           <span>🏛️</span>
@@ -8315,11 +8315,11 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* تحديد وتحديث موقع الفرع بالـ GPS */}
-              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-100 border border-cyan-800/40 rounded-2xl space-y-3">
+              <div className="p-3.5 bg-gradient-to-r from-cyan-50 to-slate-50 border border-cyan-200 rounded-2xl space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div>
-                    <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                      <Navigation className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-xs font-bold text-cyan-800 flex items-center gap-1.5">
+                      <Navigation className="w-3.5 h-3.5 text-cyan-600" />
                       <span>إحداثيات وموقع المطعم بالـ GPS 🛰️</span>
                     </span>
                     <span className="text-[10px] text-slate-500 block mt-0.5">
@@ -8331,7 +8331,7 @@ export const AdminPage: React.FC = () => {
                     type="button"
                     onClick={handleDetectGpsForEditBranch}
                     disabled={detectingEditGps}
-                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-slate-900 rounded-xl text-xs font-bold shadow-md shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
                   >
                     <Navigation className={`w-3.5 h-3.5 ${detectingEditGps ? 'animate-spin' : ''}`} />
                     <span>{detectingEditGps ? 'جاري التقاط الإحداثيات...' : '📍 سحب الموقع الحالي'}</span>
@@ -8340,7 +8340,7 @@ export const AdminPage: React.FC = () => {
 
                 {/* معالم الحرم الجامعي للاختيار السريع */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-500">أو اختر بالقرب من معالم الحرم الجامعي:</span>
+                  <span className="text-[10px] font-bold text-slate-600">أو اختر بالقرب من معالم الحرم الجامعي:</span>
                   <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {CAMPUS_LANDMARKS.map(lm => {
                       const isSelected = editLat === lm.lat && editLng === lm.lng;
@@ -8355,8 +8355,8 @@ export const AdminPage: React.FC = () => {
                           }}
                           className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 border transition-all flex items-center gap-1 active:scale-95 ${
                             isSelected
-                              ? 'bg-cyan-500 text-slate-950 border-cyan-400 font-black'
-                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600'
+                              ? 'bg-cyan-600 text-white border-cyan-500 font-black'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                           }`}
                         >
                           <span>🏛️</span>
@@ -8538,7 +8538,7 @@ export const AdminPage: React.FC = () => {
                       type="time"
                       value={editOpeningTime}
                       onChange={e => setEditOpeningTime(e.target.value)}
-                      style={{ colorScheme: 'dark' }}
+                      style={{ colorScheme: 'light' }}
                       className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono cursor-pointer"
                     />
                   </div>
@@ -8551,7 +8551,7 @@ export const AdminPage: React.FC = () => {
                       type="time"
                       value={editClosingTime}
                       onChange={e => setEditClosingTime(e.target.value)}
-                      style={{ colorScheme: 'dark' }}
+                      style={{ colorScheme: 'light' }}
                       className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono cursor-pointer"
                     />
                   </div>
@@ -8561,7 +8561,7 @@ export const AdminPage: React.FC = () => {
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-800">أيام العمل المتاحة للفرع</label>
-                  <span className="text-[11px] text-purple-400 font-bold">
+                  <span className="text-[11px] text-purple-700 font-bold">
                     {editWorkingDays ? editWorkingDays.split(',').filter(Boolean).length : 0} أيام محددة
                   </span>
                 </div>
@@ -8591,10 +8591,10 @@ export const AdminPage: React.FC = () => {
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 active:scale-95 ${
                           isSelected
                             ? 'bg-purple-600 text-white border-purple-500 shadow-sm shadow-purple-600/30'
-                            : 'bg-slate-800/80 text-slate-400 border-slate-700/60 hover:border-slate-600 hover:text-slate-200'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
                         }`}
                       >
-                        {isSelected && <Check className="w-3 h-3 text-slate-900 shrink-0" />}
+                        {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
                         <span>{day.label}</span>
                       </button>
                     );
@@ -8604,23 +8604,23 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setEditWorkingDays(DAYS_OF_WEEK.map(d => d.key).join(','))}
-                    className="text-[11px] text-purple-400 hover:text-purple-700 underline underline-offset-2 transition-colors font-medium"
+                    className="text-[11px] text-purple-700 hover:text-purple-900 underline underline-offset-2 transition-colors font-medium"
                   >
                     طوال الأسبوع (7 أيام)
                   </button>
-                  <span className="text-slate-600 text-[10px]">•</span>
+                  <span className="text-slate-400 text-[10px]">•</span>
                   <button
                     type="button"
                     onClick={() => setEditWorkingDays(['SUN', 'MON', 'TUE', 'WED', 'THU'].join(','))}
-                    className="text-[11px] text-purple-400 hover:text-purple-700 underline underline-offset-2 transition-colors font-medium"
+                    className="text-[11px] text-purple-700 hover:text-purple-900 underline underline-offset-2 transition-colors font-medium"
                   >
                     أيام الدراسة (الأحد - الخميس)
                   </button>
-                  <span className="text-slate-600 text-[10px]">•</span>
+                  <span className="text-slate-400 text-[10px]">•</span>
                   <button
                     type="button"
                     onClick={() => setEditWorkingDays(['FRI', 'SAT'].join(','))}
-                    className="text-[11px] text-purple-400 hover:text-purple-700 underline underline-offset-2 transition-colors font-medium"
+                    className="text-[11px] text-purple-700 hover:text-purple-900 underline underline-offset-2 transition-colors font-medium"
                   >
                     عطلة نهاية الأسبوع (الجمعة والسبت)
                   </button>
@@ -8635,11 +8635,11 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setEditOperationalStatus('OPEN')}
                     className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
                       editOperationalStatus === 'OPEN'
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-700 shadow-md shadow-emerald-500/20 ring-1 ring-emerald-500'
-                        : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm ring-1 ring-emerald-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-xs font-black">مفتوح للطلب</span>
                     <span className="text-[9px] opacity-75">يستقبل الطلبات</span>
                   </button>
@@ -8649,11 +8649,11 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setEditOperationalStatus('BUSY')}
                     className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
                       editOperationalStatus === 'BUSY'
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-md shadow-amber-500/20 ring-1 ring-amber-500'
-                        : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                        ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-sm ring-1 ring-amber-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                     <span className="text-xs font-black">ضغط طلبات</span>
                     <span className="text-[9px] opacity-75">مغلق مؤقتاً</span>
                   </button>
@@ -8663,8 +8663,8 @@ export const AdminPage: React.FC = () => {
                     onClick={() => setEditOperationalStatus('CLOSED')}
                     className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
                       editOperationalStatus === 'CLOSED'
-                        ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-md shadow-rose-500/20 ring-1 ring-rose-500'
-                        : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                        ? 'bg-rose-50 border-rose-500 text-rose-800 shadow-sm ring-1 ring-rose-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
@@ -8677,8 +8677,8 @@ export const AdminPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                   editAllowDelivery
-                    ? 'bg-purple-50 border-purple-500/60 shadow-sm shadow-purple-200/50 ring-1 ring-purple-500/30'
-                    : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-xs ring-1 ring-purple-400/30'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
                 }`}>
                   <input
                     type="checkbox"
@@ -8687,9 +8687,9 @@ export const AdminPage: React.FC = () => {
                     className="w-4 h-4 rounded text-purple-600 focus:ring-0 bg-white border-slate-200 cursor-pointer"
                   />
                   <div className="flex items-center gap-2">
-                    <Truck className={`w-4 h-4 ${editAllowDelivery ? 'text-purple-400' : 'text-slate-500'}`} />
+                    <Truck className={`w-4 h-4 ${editAllowDelivery ? 'text-purple-600' : 'text-slate-500'}`} />
                     <div>
-                      <span className="text-xs font-bold text-slate-800 block">إتاحة التوصيل للجامعة</span>
+                      <span className="text-xs font-bold text-slate-900 block">إتاحة التوصيل للجامعة</span>
                       <span className="text-[10px] text-slate-500">توصيل الطلبات للكليات والمباني</span>
                     </div>
                   </div>
@@ -8697,8 +8697,8 @@ export const AdminPage: React.FC = () => {
 
                 <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                   editAllowPickup
-                    ? 'bg-purple-50 border-purple-500/60 shadow-sm shadow-purple-200/50 ring-1 ring-purple-500/30'
-                    : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-xs ring-1 ring-purple-400/30'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
                 }`}>
                   <input
                     type="checkbox"
@@ -8707,9 +8707,9 @@ export const AdminPage: React.FC = () => {
                     className="w-4 h-4 rounded text-purple-600 focus:ring-0 bg-white border-slate-200 cursor-pointer"
                   />
                   <div className="flex items-center gap-2">
-                    <ShoppingBag className={`w-4 h-4 ${editAllowPickup ? 'text-purple-400' : 'text-slate-500'}`} />
+                    <ShoppingBag className={`w-4 h-4 ${editAllowPickup ? 'text-purple-600' : 'text-slate-500'}`} />
                     <div>
-                      <span className="text-xs font-bold text-slate-800 block">إتاحة الاستلام من الفرع</span>
+                      <span className="text-xs font-bold text-slate-900 block">إتاحة الاستلام من الفرع</span>
                       <span className="text-[10px] text-slate-500">الاستلام المباشر ذاتياً من المنفذ</span>
                     </div>
                   </div>
@@ -9782,7 +9782,7 @@ export const AdminPage: React.FC = () => {
                       className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         newPromoScope === 'ALL'
                           ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <span>🌐</span>
@@ -9794,7 +9794,7 @@ export const AdminPage: React.FC = () => {
                       className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         newPromoScope === 'SPECIFIC'
                           ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <span>🏪</span>
@@ -9813,12 +9813,12 @@ export const AdminPage: React.FC = () => {
                               key={b.id}
                               className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs transition-colors border ${
                                 isChecked
-                                  ? 'bg-purple-50 border-purple-200 text-purple-700 font-bold'
-                                  : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80'
+                                  ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                               }`}
                             >
                               <div className="flex items-center gap-2">
-                                <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                                <Store className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                                 <span>{b.name}</span>
                               </div>
                               <input
@@ -9986,7 +9986,7 @@ export const AdminPage: React.FC = () => {
                       className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         editPromoScope === 'ALL'
                           ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <span>🌐</span>
@@ -9998,7 +9998,7 @@ export const AdminPage: React.FC = () => {
                       className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         editPromoScope === 'SPECIFIC'
                           ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <span>🏪</span>
@@ -10017,12 +10017,12 @@ export const AdminPage: React.FC = () => {
                               key={b.id}
                               className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs transition-colors border ${
                                 isChecked
-                                  ? 'bg-purple-50 border-purple-200 text-purple-700 font-bold'
-                                  : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80'
+                                  ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                               }`}
                             >
                               <div className="flex items-center gap-2">
-                                <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                                <Store className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                                 <span>{b.name}</span>
                               </div>
                               <input
@@ -10145,7 +10145,7 @@ export const AdminPage: React.FC = () => {
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
                           dealBadge === preset
                             ? 'bg-rose-500 text-white border-rose-400 shadow-sm'
-                            : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
                         {preset}
@@ -10170,7 +10170,7 @@ export const AdminPage: React.FC = () => {
                       className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
                         dealType === 'COMBO'
                           ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
-                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       وجبة / كومبو 🍔
@@ -10181,7 +10181,7 @@ export const AdminPage: React.FC = () => {
                       className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
                         dealType === 'PROMO'
                           ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
-                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       كوبون خصم 🏷️
@@ -10192,7 +10192,7 @@ export const AdminPage: React.FC = () => {
                       className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
                         dealType === 'CUSTOM'
                           ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-600/30'
-                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       عرض مخصص ✨
@@ -10478,7 +10478,7 @@ export const AdminPage: React.FC = () => {
                                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
                                   isSelected 
                                     ? 'bg-indigo-600 text-white' 
-                                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-700'
+                                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
                                 }`}
                               >
                                 {day.label}
@@ -10497,7 +10497,7 @@ export const AdminPage: React.FC = () => {
                             type="time"
                             value={dealDailyStartTime}
                             onChange={e => setDealDailyStartTime(e.target.value)}
-                            style={{ colorScheme: 'dark' }}
+                            style={{ colorScheme: 'light' }}
                             className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
                           />
                         </div>
@@ -10509,7 +10509,7 @@ export const AdminPage: React.FC = () => {
                             type="time"
                             value={dealDailyEndTime}
                             onChange={e => setDealDailyEndTime(e.target.value)}
-                            style={{ colorScheme: 'dark' }}
+                            style={{ colorScheme: 'light' }}
                             className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
                           />
                         </div>
@@ -10988,7 +10988,7 @@ export const AdminPage: React.FC = () => {
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 shrink-0 ${
                     editingStudentWallet.isVerified
-                      ? 'bg-amber-50 hover:bg-amber-900 text-amber-300 border border-amber-200'
+                      ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'
                       : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30'
                   }`}
                 >
@@ -10999,7 +10999,7 @@ export const AdminPage: React.FC = () => {
               <label className={`flex items-start gap-2.5 p-3 rounded-2xl border cursor-pointer transition-all ${
                 editStudentBlocked
                   ? 'bg-rose-50 border-rose-200 text-rose-700'
-                  : 'bg-slate-950/70 border-slate-800 text-slate-300'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}>
                 <input
                   type="checkbox"
@@ -11008,7 +11008,7 @@ export const AdminPage: React.FC = () => {
                   className="mt-0.5 rounded text-rose-600 focus:ring-0"
                 />
                 <div className="text-xs">
-                  <span className="font-black text-rose-400 block">🚫 إيقاف وحظر هذا الحساب من الطلب</span>
+                  <span className="font-black text-rose-600 block">🚫 إيقاف وحظر هذا الحساب من الطلب</span>
                   <span className="text-[10px] text-slate-500 block">يمنع هذا الرقم من إرسال أي طلبات جديدة</span>
                 </div>
               </label>
@@ -11243,7 +11243,7 @@ export const AdminPage: React.FC = () => {
                     className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                       driverIsAllBranches
                         ? 'bg-purple-50 border-purple-600 ring-1 ring-purple-500'
-                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -11271,7 +11271,7 @@ export const AdminPage: React.FC = () => {
                     className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                       !driverIsAllBranches
                         ? 'bg-purple-50 border-purple-600 ring-1 ring-purple-500'
-                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -11302,11 +11302,11 @@ export const AdminPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setDriverSelectedBranchIds(branches.map(b => b.id))}
-                            className="text-purple-400 hover:underline"
+                            className="text-purple-600 hover:underline font-bold"
                           >
                             تحديد الكل
                           </button>
-                          <span className="text-slate-600">•</span>
+                          <span className="text-slate-400">•</span>
                           <button
                             type="button"
                             onClick={() => setDriverSelectedBranchIds([])}
@@ -11325,8 +11325,8 @@ export const AdminPage: React.FC = () => {
                               key={branch.id}
                               className={`flex items-center gap-2.5 p-2 rounded-xl border cursor-pointer transition-colors ${
                                 isChecked
-                                  ? 'bg-purple-50 border-purple-200 text-white'
-                                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                                  ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                               }`}
                             >
                               <input
@@ -11442,7 +11442,7 @@ export const AdminPage: React.FC = () => {
                     className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
                       adminCancelReason === reason
                         ? 'bg-rose-600 text-white border-rose-500 font-bold shadow-xs'
-                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                        : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
                     }`}
                   >
                     {reason}
@@ -11712,8 +11712,8 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
                   orderBranchFilter === 'ALL'
-                    ? 'bg-purple-50 border-purple-600/80 text-white shadow-sm ring-1 ring-purple-500/30'
-                    : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm ring-1 ring-purple-300'
+                    : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -11746,8 +11746,8 @@ export const AdminPage: React.FC = () => {
                     }}
                     className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
                       isSelected
-                        ? 'bg-purple-50 border-purple-600/80 text-white shadow-sm ring-1 ring-purple-500/30'
-                        : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
+                        ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm ring-1 ring-purple-300'
+                        : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -11758,7 +11758,7 @@ export const AdminPage: React.FC = () => {
                           className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-400 shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 shrink-0">
                           <Store className="w-5 h-5" />
                         </div>
                       )}
@@ -11766,11 +11766,11 @@ export const AdminPage: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <span className="font-black text-xs sm:text-sm text-slate-900 truncate">{b.name}</span>
                           {b.isActive ? (
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-400 border border-emerald-200 shrink-0">
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                               نشط
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-50 text-rose-400 border border-rose-200 shrink-0">
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
                               معطل
                             </span>
                           )}
@@ -11825,8 +11825,8 @@ export const AdminPage: React.FC = () => {
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
                   financeBranchFilter === 'ALL'
-                    ? 'bg-emerald-50 border-emerald-600/80 text-white shadow-sm ring-1 ring-emerald-500/30'
-                    : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-950 shadow-sm ring-1 ring-emerald-300'
+                    : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -11859,8 +11859,8 @@ export const AdminPage: React.FC = () => {
                     }}
                     className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
                       isSelected
-                        ? 'bg-emerald-50 border-emerald-600/80 text-white shadow-sm ring-1 ring-emerald-500/30'
-                        : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50 hover:border-slate-700'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-950 shadow-sm ring-1 ring-emerald-300'
+                        : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -11871,7 +11871,7 @@ export const AdminPage: React.FC = () => {
                           className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-400 shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-600 shrink-0">
                           <Store className="w-5 h-5" />
                         </div>
                       )}
@@ -11879,11 +11879,11 @@ export const AdminPage: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <span className="font-black text-xs sm:text-sm text-slate-900 truncate">{b.name}</span>
                           {b.isActive ? (
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-400 border border-emerald-200 shrink-0">
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                               نشط
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-50 text-rose-400 border border-rose-200 shrink-0">
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
                               معطل
                             </span>
                           )}
