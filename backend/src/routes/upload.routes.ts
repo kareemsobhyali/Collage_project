@@ -115,11 +115,11 @@ router.post("/", authenticateAny, (req: AuthRequest, res: Response) => {
         console.warn("[Upload] Could not store binary copy in DB:", dbErr);
       });
 
-      const dataUrl = `data:${mimeType};base64,${fileBuffer.toString("base64")}`;
+      const fileUrl = `/uploads/${filename}`;
       return res.json({
         success: true,
-        url: dataUrl,
-        fileUrl: `/uploads/${filename}`,
+        url: fileUrl,
+        fileUrl,
         filename,
       });
     } catch {

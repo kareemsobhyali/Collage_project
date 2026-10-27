@@ -2327,7 +2327,8 @@ export const AdminPage: React.FC = () => {
     try {
       setUploadingNewLogo(true);
       const res = await api.uploadImage(file);
-      if (res.url) setNewLogoUrl(res.url);
+      const targetUrl = res.fileUrl || res.url;
+      if (targetUrl) setNewLogoUrl(targetUrl);
     } catch (err: any) {
       alert(err.message || 'فشل رفع لوجو الفرع');
     } finally {
@@ -2341,7 +2342,8 @@ export const AdminPage: React.FC = () => {
     try {
       setUploadingEditLogo(true);
       const res = await api.uploadImage(file);
-      if (res.url) setEditLogoUrl(res.url);
+      const targetUrl = res.fileUrl || res.url;
+      if (targetUrl) setEditLogoUrl(targetUrl);
     } catch (err: any) {
       alert(err.message || 'فشل رفع لوجو الفرع');
     } finally {

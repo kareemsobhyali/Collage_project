@@ -137,8 +137,9 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     try {
       setUploadingLogo(true);
       const res = await api.uploadImage(file);
-      if (res.url) {
-        setLogoUrl(res.url);
+      const targetUrl = res.fileUrl || res.url;
+      if (targetUrl) {
+        setLogoUrl(targetUrl);
         setLogoError(false);
         toast.success('تم رفع لوجو المطعم بنجاح');
       }

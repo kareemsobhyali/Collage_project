@@ -173,7 +173,9 @@ app.get("/manifest.json", async (req, res) => {
 
       if (branch) {
         let logoUrl = branch.logoUrl || "/logo.png";
-        if (logoUrl.startsWith("http")) {
+        if (logoUrl.startsWith("data:")) {
+          // الحفاظ على data: URL دون إضافة /uploads/ لتجنب إنتاج مسارات وهمية ضخمة تكسر المانيفست
+        } else if (logoUrl.startsWith("http")) {
           try {
             const parsed = new URL(logoUrl);
             if (parsed.pathname.startsWith("/uploads/")) {
@@ -432,7 +434,9 @@ if (fs.existsSync(customerDistPath)) {
         if (branch) {
           const branchKey = branch.slug || branch.id;
           let logoUrl = branch.logoUrl || "/logo.png";
-          if (logoUrl.startsWith("http")) {
+          if (logoUrl.startsWith("data:")) {
+            // الحفاظ على data: URL دون إضافة /uploads/
+          } else if (logoUrl.startsWith("http")) {
             try {
               logoUrl = new URL(logoUrl).pathname;
             } catch (_e) {}
@@ -456,8 +460,10 @@ if (fs.existsSync(customerDistPath)) {
           html = html.replace(/<title>.*?<\/title>/i, `<title>${safeBranchName} | طلب وتوصيل وجبات أونلاين</title>`);
 
           // 3. تحديث أيقونة الموقع والأيقونة التي يعتمدها iOS وأندرويد للشاشة
-          html = html.replace(/<link[^>]*rel="icon"[^>]*>/i, `<link rel="icon" type="image/png" href="${logoUrl}" />`);
-          html = html.replace(/<link[^>]*rel="apple-touch-icon"[^>]*>/i, `<link rel="apple-touch-icon" href="${logoUrl}" />`);
+          // حماية المتصفح من تدمير الاتصال عند وضع Data URL ضخمة في ترويسة HTML
+          const safeFaviconUrl = logoUrl.startsWith("data:") ? "/logo.png" : logoUrl;
+          html = html.replace(/<link[^>]*rel="icon"[^>]*>/i, `<link rel="icon" type="image/png" href="${safeFaviconUrl}" />`);
+          html = html.replace(/<link[^>]*rel="apple-touch-icon"[^>]*>/i, `<link rel="apple-touch-icon" href="${safeFaviconUrl}" />`);
 
           // 4. حقن سكريبت بالهيدر لحفظ معرف المطعم المثبت مسبقاً
           const preInjectScript = `<script>try{localStorage.setItem('pwa_installed_branch','${encodeURIComponent(branchKey).toLowerCase()}');}catch(e){}</script>`;
@@ -594,6 +600,43 @@ async function autoSyncDatabaseSchema() {
       await prisma.$executeRawUnsafe(sql).catch(() => {});
     }
     console.log("[DB Auto-Sync] Database schema columns verified and updated successfully.");
+
+    // تنظيف وترحيل أي لوجو مطعم مخزن بنظام Base64 القديم إلى ملف حقيقي لمنع انهيار وتوقف صفحة APK ومتصفحات الجوال
+    try {
+      const branchesWithDataLogo = await prisma.branch.findMany({
+        where: { logoUrl: { startsWith: "data:image" } },
+      });
+      for (const b of branchesWithDataLogo) {
+        if (!b.logoUrl) continue;
+        const match = b.logoUrl.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+        if (match) {
+          const rawExt = match[1].toLowerCase();
+          const ext = rawExt.includes("jpeg") || rawExt.includes("jpg") ? "jpg" : (rawExt.includes("png") ? "png" : "webp");
+          const base64Data = match[2];
+          const buffer = Buffer.from(base64Data, "base64");
+          const filename = `branch-logo-${b.id}.${ext}`;
+          const localPath = path.join(uploadsPath, filename);
+          try {
+            if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
+            fs.writeFileSync(localPath, buffer);
+          } catch (_e) {}
+
+          await prisma.uploadedFile.upsert({
+            where: { filename },
+            update: { mimeType: `image/${ext === "jpg" ? "jpeg" : ext}`, data: buffer, size: buffer.length },
+            create: { filename, mimeType: `image/${ext === "jpg" ? "jpeg" : ext}`, data: buffer, size: buffer.length },
+          }).catch(() => {});
+
+          await prisma.branch.update({
+            where: { id: b.id },
+            data: { logoUrl: `/uploads/${filename}` },
+          });
+          console.log(`[Auto-Clean] Successfully converted Base64 logo for branch "${b.name}" to /uploads/${filename}`);
+        }
+      }
+    } catch (cleanErr: any) {
+      console.warn("[Auto-Clean] Logo cleanup warning:", cleanErr?.message || cleanErr);
+    }
   } catch (err: any) {
     console.warn("[DB Auto-Sync] Column patch warning:", err?.message || err);
   }

@@ -225,19 +225,28 @@ export const InstallApkPage: React.FC<{
     setLoading(true);
     setError(null);
 
-    const targetUrl = slug
-      ? `${API_BASE_URL}/customer/apk-meta/${encodeURIComponent(slug)}`
-      : `${API_BASE_URL}/customer/apk-meta`;
+    const loadMeta = async () => {
+      try {
+        const primaryUrl = slug
+          ? `${API_BASE_URL}/customer/apk-meta/${encodeURIComponent(slug)}`
+          : `${API_BASE_URL}/customer/apk-meta`;
 
-    fetch(targetUrl)
-      .then(async (res) => {
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
+        let res = await fetch(primaryUrl).catch(() => null);
+
+        // محاولة بديلة عبر الرابط النسبي المباشر في حال واجه متصفح الهاتف صعوبة مؤقتة
+        if (!res || !res.ok) {
+          const fallbackUrl = slug
+            ? `/api/customer/apk-meta/${encodeURIComponent(slug)}`
+            : `/api/customer/apk-meta`;
+          res = await fetch(fallbackUrl).catch(() => null);
+        }
+
+        if (!res || !res.ok) {
+          const errData = res ? await res.json().catch(() => ({})) : {};
           throw new Error(errData.error || 'تعذر جلب بيانات تطبيق المطعم');
         }
-        return res.json();
-      })
-      .then((data: ApkMeta) => {
+
+        const data: ApkMeta = await res.json();
         setMeta(data);
 
         if (data.isBranch && (data.slug || data.branchId)) {
@@ -254,21 +263,22 @@ export const InstallApkPage: React.FC<{
         if (data.logoUrl) {
           const fullLogo = getFullImageUrl(data.logoUrl);
 
-          // تحديث Favicon
-          const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
-          if (favicon) {
-            favicon.href = fullLogo;
-          }
+          // حماية المتصفح من إرسال طلبات Favicon ضخمة إذا كانت الصورة ما زالت Base64
+          if (!fullLogo.startsWith('data:')) {
+            const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+            if (favicon) {
+              favicon.href = fullLogo;
+            }
 
-          // تحديث Apple Touch Icon (المسؤول الأول عن أيقونة تطبيق الشاشة الرئيسية في iOS وبعض أجهزة أندرويد)
-          let appleIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
-          if (appleIcon) {
-            appleIcon.href = fullLogo;
-          } else {
-            appleIcon = document.createElement('link');
-            appleIcon.rel = 'apple-touch-icon';
-            appleIcon.href = fullLogo;
-            document.head.appendChild(appleIcon);
+            let appleIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
+            if (appleIcon) {
+              appleIcon.href = fullLogo;
+            } else {
+              appleIcon = document.createElement('link');
+              appleIcon.rel = 'apple-touch-icon';
+              appleIcon.href = fullLogo;
+              document.head.appendChild(appleIcon);
+            }
           }
         }
 
@@ -286,13 +296,14 @@ export const InstallApkPage: React.FC<{
             document.head.appendChild(manifestLink);
           }
         }
-      })
-      .catch((err) => {
+      } catch (err: any) {
         setError(err.message || 'المطعم غير متاح حالياً');
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    loadMeta();
   }, [slug]);
 
   // الرابط المباشر للمطعم في المتصفح أو التطبيق
