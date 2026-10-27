@@ -148,11 +148,14 @@ app.get("/manifest.json", async (req, res) => {
 
   if (branchParam) {
     try {
+      const cleanParam = decodeURIComponent(branchParam).trim();
       const branch = await prisma.branch.findFirst({
         where: {
           OR: [
-            { slug: branchParam.trim().toLowerCase() },
-            { id: branchParam.trim() },
+            { slug: cleanParam.toLowerCase() },
+            { id: cleanParam },
+            { slug: { contains: cleanParam.toLowerCase() } },
+            { name: { contains: cleanParam, mode: "insensitive" } },
           ],
         },
       });
@@ -161,6 +164,10 @@ app.get("/manifest.json", async (req, res) => {
         const logoUrl = branch.logoUrl
           ? (branch.logoUrl.startsWith("http") ? branch.logoUrl : `/uploads/${branch.logoUrl}`)
           : "/logo.png";
+
+        // تحديد نوع الأيقونة بدقة (MIME Type) لتفادي رفض جوجل كروم لأيقونة WebAPK
+        const isJpg = /\.jpe?g($|\?)/i.test(logoUrl);
+        const iconType = isJpg ? "image/jpeg" : "image/png";
 
         const branchManifest = {
           name: `${branch.name} | UniFood`,
@@ -171,6 +178,7 @@ app.get("/manifest.json", async (req, res) => {
           id: `/?r=${encodeURIComponent(branch.slug || branch.id)}`,
           display: "standalone",
           display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+          prefer_related_applications: false,
           handle_links: "preferred",
           launch_handler: {
             client_mode: ["navigate-existing", "auto"],
@@ -184,14 +192,32 @@ app.get("/manifest.json", async (req, res) => {
             {
               src: logoUrl,
               sizes: "192x192",
-              type: "image/png",
-              purpose: "any maskable",
+              type: iconType,
+              purpose: "any",
             },
             {
               src: logoUrl,
               sizes: "512x512",
+              type: iconType,
+              purpose: "any",
+            },
+            {
+              src: logoUrl,
+              sizes: "512x512",
+              type: iconType,
+              purpose: "maskable",
+            },
+            {
+              src: "/logo.png",
+              sizes: "192x192",
               type: "image/png",
-              purpose: "any maskable",
+              purpose: "any",
+            },
+            {
+              src: "/logo.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "maskable",
             },
           ],
         };
@@ -215,9 +241,36 @@ app.get("/manifest.json", async (req, res) => {
   return res.json({
     name: "UniFood | يونيفود - مطاعم الحرم الجامعي",
     short_name: "UniFood",
+    description: "منصة طلب وتوصيل الوجبات داخل الحرم الجامعي وسلة الشلة التشاركية",
     start_url: "/",
     scope: "/",
+    id: "/",
     display: "standalone",
+    prefer_related_applications: false,
+    background_color: "#ffffff",
+    theme_color: "#4f46e5",
+    dir: "rtl",
+    lang: "ar",
+    icons: [
+      {
+        src: "/logo.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/logo.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/logo.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
+    ],
   });
 });
 

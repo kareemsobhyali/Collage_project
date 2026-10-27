@@ -2,14 +2,19 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
 
-export const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? "" : "super-secret-key-campus-delivery-2026");
-if (!process.env.JWT_SECRET) {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("FATAL CONFIGURATION: JWT_SECRET environment variable must be set in production mode!");
-  } else {
-    console.warn("⚠️ [DEV NOTICE]: Using default JWT_SECRET for local development. Make sure to define JWT_SECRET in production.");
+const INSECURE_DEFAULT_SECRET = "super-secret-key-campus-delivery-2026";
+const rawSecret = process.env.JWT_SECRET;
+const isProd = process.env.NODE_ENV === "production";
+
+if (isProd) {
+  if (!rawSecret || rawSecret === INSECURE_DEFAULT_SECRET || rawSecret.length < 32) {
+    throw new Error("FATAL CONFIGURATION: A strong, unique JWT_SECRET (minimum 32 characters) must be set in production mode!");
   }
+} else if (!rawSecret || rawSecret === INSECURE_DEFAULT_SECRET) {
+  console.warn("⚠️ [DEV NOTICE]: Using default JWT_SECRET for local development. Make sure to define a strong JWT_SECRET in production.");
 }
+
+export const JWT_SECRET = rawSecret || INSECURE_DEFAULT_SECRET;
 
 export interface AuthenticatedUserPayload {
   userId: string;

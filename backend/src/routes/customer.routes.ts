@@ -1739,6 +1739,10 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       res.status(409).json({ error: "تم استلام طلبك بالفعل، يرجى الانتظار لحظات" });
       return;
     }
+    if (error?.message === "FLASH_DEAL_EXHAUSTED") {
+      res.status(400).json({ error: "عذراً، نفدت كمية عرض الفلاش المتاحة أثناء معالجة طلبك ⌛" });
+      return;
+    }
     if (error?.message === "INSUFFICIENT_WALLET_BALANCE") {
       res.status(400).json({ error: "رصيد المحفظة الحالي غير كافٍ لإتمام عملية الخصم" });
       return;

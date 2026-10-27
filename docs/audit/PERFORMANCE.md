@@ -51,19 +51,26 @@ model Order {
 
 ## 4. Frontend Bundle Analysis & Code Splitting
 
-### Current Production Bundle Metrics
-| Package | Bundle Target | Raw Size | Gzip Size | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| `customer-app` | `index.js` | 1,324.76 kB | 304.56 kB | Acceptable / Code-splitting recommended |
-| `customer-app` | `index.css` | 124.33 kB | 23.48 kB | Optimal |
-| `desktop-app` | `index.js` | 726.39 kB | 189.92 kB | Optimal for Electron runtime |
-| `desktop-app` | `index.css` | 70.97 kB | 16.31 kB | Optimal |
+### Production Bundle Metrics (Post Code-Splitting Optimization)
 
-### Optimization Opportunities
-1. **Dynamic Import for Admin Portal:**
-   - `AdminPage.tsx` contributes ~45% of the customer-app bundle. Lazy-loading via `React.lazy(() => import('./components/AdminPage'))` will reduce initial customer bundle size to `< 650 kB` raw (`~160 kB` gzip).
-2. **Dynamic Leaflet Map Loading:**
-   - `LocationPickerModal.tsx` imports Leaflet. Splitting the map component so it only loads upon user click on "اختر من الخريطة" will accelerate initial FCP (First Contentful Paint).
+In Phase 3, dynamic code splitting with `React.lazy` and `React.Suspense` was implemented in `customer-app/src/App.tsx` for both `AdminPage` (~11,940 lines) and `DriverPortal` (~1,800 lines).
+
+| Package | Chunk / Asset | Raw Size | Gzip Size | Delivery / Loading Mode |
+| :--- | :--- | :--- | :--- | :--- |
+| `customer-app` | `index-D4qy0oIY.js` | **825.05 kB** | **220.25 kB** | Initial entry chunk (**38% payload reduction** from 1,324 kB) |
+| `customer-app` | `AdminPage-DZoz8UPs.js` | 429.46 kB | 72.03 kB | Dynamic chunk (`React.lazy`, loaded on `/admin` route only) |
+| `customer-app` | `DriverPortal-Cf6sxR-G.js` | 73.28 kB | 16.37 kB | Dynamic chunk (`React.lazy`, loaded on `/driver` route only) |
+| `customer-app` | `index-Xp0LowdS.css` | 124.33 kB | 23.48 kB | Initial stylesheet |
+| `desktop-app` | `index-Bjw3Yq48.js` | 726.39 kB | 189.92 kB | Electron POS desktop renderer |
+| `desktop-app` | `index-B7ZhuvpY.css` | 70.97 kB | 16.31 kB | Electron POS desktop stylesheet |
+
+### Implemented Optimization Results
+1. **Initial Student Mobile Payload Reduction:**
+   - Previous initial JavaScript bundle: `1,324.76 kB` raw (`304.56 kB` gzip).
+   - Optimized initial JavaScript bundle: `825.05 kB` raw (`220.25 kB` gzip).
+   - **Savings:** Over **499.7 kB raw** (~84 kB gzip transferred) eliminated from the critical student checkout and menu browsing path.
+2. **On-Demand Admin & Driver Loading:**
+   - Administrative dashboards and driver portals are now only fetched when authorized staff explicitly authenticate and navigate to those views.
 
 ---
 

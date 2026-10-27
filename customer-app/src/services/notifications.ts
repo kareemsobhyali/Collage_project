@@ -86,7 +86,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 export function isRunningInNativeApk(): boolean {
   if (typeof window === 'undefined') return false;
-  if (Boolean((window as any).AndroidBridge)) return true;
+  if ((window as any).AndroidBridge) return true;
   if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
   if ((window.navigator as any).standalone === true) return true;
   return false;

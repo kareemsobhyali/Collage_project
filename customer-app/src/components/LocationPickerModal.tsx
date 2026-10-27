@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
@@ -10,14 +10,12 @@ import {
   Loader2, 
   Building2, 
   Crosshair, 
-  Compass, 
   Sparkles,
   Map as MapIcon
 } from 'lucide-react';
 import { 
   CAMPUS_LANDMARKS, 
-  DEFAULT_CAMPUS_RESTAURANT_COORDS, 
-  type CampusLandmark 
+  DEFAULT_CAMPUS_RESTAURANT_COORDS
 } from '../services/campusLocations';
 
 export interface LocationPickerResult {

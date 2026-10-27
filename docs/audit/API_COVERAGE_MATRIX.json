@@ -1,0 +1,1381 @@
+{
+  "total": 152,
+  "byRole": {
+    "None": 28,
+    "SUPERADMIN": 64,
+    "CUSTOMER": 14,
+    "BRANCH": 38,
+    "DRIVER": 7,
+    "ANY_AUTHENTICATED": 1
+  },
+  "routes": [
+    {
+      "file": "admin.routes.ts",
+      "line": 43,
+      "method": "POST",
+      "path": "/login",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 116,
+      "method": "GET",
+      "path": "/branches",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 139,
+      "method": "POST",
+      "path": "/branches",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 253,
+      "method": "PUT",
+      "path": "/branches/:id/status",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 279,
+      "method": "PUT",
+      "path": "/branches/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 371,
+      "method": "DELETE",
+      "path": "/branches/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 414,
+      "method": "POST",
+      "path": "/branches/:id/credentials",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 473,
+      "method": "PUT",
+      "path": "/branches/:id/payment-methods",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 516,
+      "method": "GET",
+      "path": "/stats",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 619,
+      "method": "GET",
+      "path": "/orders",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 645,
+      "method": "GET",
+      "path": "/reviews",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 723,
+      "method": "DELETE",
+      "path": "/reviews/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 741,
+      "method": "PUT",
+      "path": "/orders/:id/status",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 863,
+      "method": "GET",
+      "path": "/users",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 892,
+      "method": "PUT",
+      "path": "/users/:id/toggle-verify",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 929,
+      "method": "PUT",
+      "path": "/users/:id/wallet",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 966,
+      "method": "GET",
+      "path": "/banners",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 989,
+      "method": "POST",
+      "path": "/banners",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1024,
+      "method": "PUT",
+      "path": "/banners/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1056,
+      "method": "DELETE",
+      "path": "/banners/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1074,
+      "method": "GET",
+      "path": "/promo-codes",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1086,
+      "method": "POST",
+      "path": "/promo-codes",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1137,
+      "method": "PUT",
+      "path": "/promo-codes/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1200,
+      "method": "DELETE",
+      "path": "/promo-codes/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1218,
+      "method": "GET",
+      "path": "/flash-deals",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1236,
+      "method": "POST",
+      "path": "/flash-deals",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1320,
+      "method": "PUT",
+      "path": "/flash-deals/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1402,
+      "method": "DELETE",
+      "path": "/flash-deals/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1421,
+      "method": "PATCH",
+      "path": "/flash-deals/:id/toggle",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1448,
+      "method": "GET",
+      "path": "/whatsapp/status",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1458,
+      "method": "GET",
+      "path": "/whatsapp/accounts",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1470,
+      "method": "POST",
+      "path": "/whatsapp/accounts",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1494,
+      "method": "PUT",
+      "path": "/whatsapp/accounts/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1507,
+      "method": "POST",
+      "path": "/whatsapp/accounts/:id/disconnect",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1520,
+      "method": "POST",
+      "path": "/whatsapp/accounts/:id/refresh-qr",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1533,
+      "method": "DELETE",
+      "path": "/whatsapp/accounts/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1546,
+      "method": "POST",
+      "path": "/whatsapp/disconnect",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1557,
+      "method": "PUT",
+      "path": "/users/:id/reset-password",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1583,
+      "method": "PUT",
+      "path": "/change-password",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1627,
+      "method": "GET",
+      "path": "/settings/loyalty",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1637,
+      "method": "PUT",
+      "path": "/settings/loyalty",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1659,
+      "method": "GET",
+      "path": "/settings/whatsapp-alerts",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1669,
+      "method": "PUT",
+      "path": "/settings/whatsapp-alerts",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1707,
+      "method": "GET",
+      "path": "/settings/sound",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1718,
+      "method": "PUT",
+      "path": "/settings/sound",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1743,
+      "method": "POST",
+      "path": "/settings/sound/reset",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1760,
+      "method": "GET",
+      "path": "/settings/restaurant-location",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1771,
+      "method": "PUT",
+      "path": "/settings/restaurant-location",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1799,
+      "method": "POST",
+      "path": "/reports/send-shift-report/:branchId",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1818,
+      "method": "POST",
+      "path": "/system/factory-reset",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1896,
+      "method": "GET",
+      "path": "/drivers",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 1942,
+      "method": "POST",
+      "path": "/drivers",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2014,
+      "method": "PUT",
+      "path": "/drivers/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2074,
+      "method": "PATCH",
+      "path": "/drivers/:id/toggle-active",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2095,
+      "method": "DELETE",
+      "path": "/drivers/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2109,
+      "method": "GET",
+      "path": "/finance/report",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2360,
+      "method": "GET",
+      "path": "/finance/export-excel",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2613,
+      "method": "POST",
+      "path": "/seed-mock-data",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2627,
+      "method": "POST",
+      "path": "/seed-divado",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2640,
+      "method": "GET",
+      "path": "/support-tickets",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2665,
+      "method": "PUT",
+      "path": "/support-tickets/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2697,
+      "method": "DELETE",
+      "path": "/support-tickets/:id",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2711,
+      "method": "GET",
+      "path": "/support-settings",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "admin.routes.ts",
+      "line": 2727,
+      "method": "PUT",
+      "path": "/support-settings",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 44,
+      "method": "POST",
+      "path": "/register",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 148,
+      "method": "POST",
+      "path": "/login",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 237,
+      "method": "GET",
+      "path": "/me",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 264,
+      "method": "POST",
+      "path": "/forgot-password",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 343,
+      "method": "POST",
+      "path": "/verify-reset-otp",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 376,
+      "method": "POST",
+      "path": "/reset-password",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 462,
+      "method": "POST",
+      "path": "/verify-phone-code",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 526,
+      "method": "POST",
+      "path": "/verify-phone-link",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 581,
+      "method": "GET",
+      "path": "/verify-phone-link",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "auth.routes.ts",
+      "line": 610,
+      "method": "POST",
+      "path": "/resend-verification-otp",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 24,
+      "method": "POST",
+      "path": "/login",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 74,
+      "method": "GET",
+      "path": "/system-printers",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 99,
+      "method": "GET",
+      "path": "/profile",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 135,
+      "method": "PUT",
+      "path": "/operational-status",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 184,
+      "method": "PUT",
+      "path": "/details",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 219,
+      "method": "GET",
+      "path": "/delivery-zones",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 233,
+      "method": "POST",
+      "path": "/delivery-zones",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 257,
+      "method": "DELETE",
+      "path": "/delivery-zones/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 271,
+      "method": "PUT",
+      "path": "/payment-methods",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 319,
+      "method": "GET",
+      "path": "/menu",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 381,
+      "method": "POST",
+      "path": "/categories",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 406,
+      "method": "PUT",
+      "path": "/categories/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 437,
+      "method": "DELETE",
+      "path": "/categories/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 472,
+      "method": "POST",
+      "path": "/items",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 561,
+      "method": "PUT",
+      "path": "/items/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 637,
+      "method": "PUT",
+      "path": "/items/:id/availability",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 678,
+      "method": "DELETE",
+      "path": "/items/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 709,
+      "method": "POST",
+      "path": "/modifier-groups",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 747,
+      "method": "PUT",
+      "path": "/modifier-groups/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 782,
+      "method": "POST",
+      "path": "/modifier-groups/:groupId/options",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 819,
+      "method": "PUT",
+      "path": "/modifier-options/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 852,
+      "method": "DELETE",
+      "path": "/modifier-options/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 880,
+      "method": "DELETE",
+      "path": "/modifier-groups/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 901,
+      "method": "POST",
+      "path": "/items/:id/link-modifiers",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 966,
+      "method": "GET",
+      "path": "/orders",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1012,
+      "method": "PUT",
+      "path": "/customers/:userId/crm",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1073,
+      "method": "PUT",
+      "path": "/orders/:id/status",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1282,
+      "method": "GET",
+      "path": "/drivers",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1359,
+      "method": "POST",
+      "path": "/drivers",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1409,
+      "method": "PUT",
+      "path": "/drivers/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1450,
+      "method": "DELETE",
+      "path": "/drivers/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1483,
+      "method": "PUT",
+      "path": "/orders/:id/assign-driver",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1597,
+      "method": "PUT",
+      "path": "/settings/schedule-lead",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1615,
+      "method": "PUT",
+      "path": "/settings/working-hours",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1647,
+      "method": "PUT",
+      "path": "/quick-toggle-stock",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1715,
+      "method": "GET",
+      "path": "/orders/:id/return-pin",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1759,
+      "method": "POST",
+      "path": "/orders/:id/confirm-return-from-driver",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1812,
+      "method": "GET",
+      "path": "/support-tickets",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "branch.routes.ts",
+      "line": 1888,
+      "method": "PUT",
+      "path": "/support-tickets/:id",
+      "authRequired": true,
+      "role": "BRANCH",
+      "ownershipCheck": "branchId === req.branch.branchId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 20,
+      "method": "GET",
+      "path": "/public/restaurant-location",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 30,
+      "method": "GET",
+      "path": "/public/support-contact",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 55,
+      "method": "GET",
+      "path": "/manifest",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 249,
+      "method": "GET",
+      "path": "/apk-meta",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 250,
+      "method": "GET",
+      "path": "/apk-meta/:slug",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 253,
+      "method": "GET",
+      "path": "/banners",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 266,
+      "method": "POST",
+      "path": "/promo-codes/validate",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 436,
+      "method": "GET",
+      "path": "/flash-deals",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 504,
+      "method": "GET",
+      "path": "/branches",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 584,
+      "method": "GET",
+      "path": "/branches/:id/menu",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 792,
+      "method": "POST",
+      "path": "/group-cart/create",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 833,
+      "method": "GET",
+      "path": "/group-cart/:code",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 878,
+      "method": "POST",
+      "path": "/group-cart/:code/items",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 1007,
+      "method": "DELETE",
+      "path": "/group-cart/:code/items/:itemId",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 1060,
+      "method": "POST",
+      "path": "/group-cart/:code/close",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 1096,
+      "method": "POST",
+      "path": "/orders",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 1764,
+      "method": "GET",
+      "path": "/orders/:id",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 1797,
+      "method": "GET",
+      "path": "/my-orders",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 1827,
+      "method": "PUT",
+      "path": "/orders/:id/cancel",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 1922,
+      "method": "POST",
+      "path": "/orders/:id/rate",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 1961,
+      "method": "GET",
+      "path": "/addresses",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 1975,
+      "method": "POST",
+      "path": "/addresses",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 2007,
+      "method": "DELETE",
+      "path": "/addresses/:id",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 2021,
+      "method": "PUT",
+      "path": "/profile",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 2043,
+      "method": "GET",
+      "path": "/wallet",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 2094,
+      "method": "POST",
+      "path": "/wallet/convert-points",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 2171,
+      "method": "DELETE",
+      "path": "/account",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "customer.routes.ts",
+      "line": 2233,
+      "method": "POST",
+      "path": "/support-ticket",
+      "authRequired": true,
+      "role": "CUSTOMER",
+      "ownershipCheck": "userId === req.user.userId"
+    },
+    {
+      "file": "driver.routes.ts",
+      "line": 20,
+      "method": "POST",
+      "path": "/login",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "driver.routes.ts",
+      "line": 96,
+      "method": "GET",
+      "path": "/me",
+      "authRequired": true,
+      "role": "DRIVER",
+      "ownershipCheck": "driverId === req.driver.driverId"
+    },
+    {
+      "file": "driver.routes.ts",
+      "line": 137,
+      "method": "GET",
+      "path": "/orders",
+      "authRequired": true,
+      "role": "DRIVER",
+      "ownershipCheck": "driverId === req.driver.driverId"
+    },
+    {
+      "file": "driver.routes.ts",
+      "line": 176,
+      "method": "PUT",
+      "path": "/orders/:id/accept",
+      "authRequired": true,
+      "role": "DRIVER",
+      "ownershipCheck": "driverId === req.driver.driverId"
+    },
+    {
+      "file": "driver.routes.ts",
+      "line": 222,
+      "method": "PUT",
+      "path": "/orders/:id/reject",
+      "authRequired": true,
+      "role": "DRIVER",
+      "ownershipCheck": "driverId === req.driver.driverId"
+    },
+    {
+      "file": "driver.routes.ts",
+      "line": 266,
+      "method": "POST",
+      "path": "/orders/:id/return-to-branch",
+      "authRequired": true,
+      "role": "DRIVER",
+      "ownershipCheck": "driverId === req.driver.driverId"
+    },
+    {
+      "file": "driver.routes.ts",
+      "line": 349,
+      "method": "PUT",
+      "path": "/orders/:id/pickup",
+      "authRequired": true,
+      "role": "DRIVER",
+      "ownershipCheck": "driverId === req.driver.driverId"
+    },
+    {
+      "file": "driver.routes.ts",
+      "line": 407,
+      "method": "PUT",
+      "path": "/orders/:id/deliver",
+      "authRequired": true,
+      "role": "DRIVER",
+      "ownershipCheck": "driverId === req.driver.driverId"
+    },
+    {
+      "file": "notifications.routes.ts",
+      "line": 28,
+      "method": "GET",
+      "path": "/poll",
+      "authRequired": false,
+      "role": "None",
+      "ownershipCheck": "Public"
+    },
+    {
+      "file": "upload.routes.ts",
+      "line": 73,
+      "method": "POST",
+      "path": "/",
+      "authRequired": true,
+      "role": "ANY_AUTHENTICATED",
+      "ownershipCheck": "Any Valid JWT Identity"
+    },
+    {
+      "file": "upload.routes.ts",
+      "line": 153,
+      "method": "POST",
+      "path": "/audio",
+      "authRequired": true,
+      "role": "SUPERADMIN",
+      "ownershipCheck": "Global Platform SuperAdmin"
+    }
+  ]
+}

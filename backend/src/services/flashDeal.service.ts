@@ -122,12 +122,27 @@ export async function recordFlashDealsConsumption(
       const deal = await findActiveFlashDealForItem(item.menuItemId, now, db);
 
       if (deal) {
-        await db.flashDeal.update({
-          where: { id: deal.id },
-          data: {
-            soldQuantity: { increment: quantity },
-          },
-        });
+        if (!deal.isUnlimited && deal.maxQuantity != null && deal.maxQuantity > 0) {
+          const claim = await db.flashDeal.updateMany({
+            where: {
+              id: deal.id,
+              soldQuantity: { lte: deal.maxQuantity - quantity },
+            },
+            data: {
+              soldQuantity: { increment: quantity },
+            },
+          });
+          if (claim.count === 0) {
+            throw new Error("FLASH_DEAL_EXHAUSTED");
+          }
+        } else {
+          await db.flashDeal.update({
+            where: { id: deal.id },
+            data: {
+              soldQuantity: { increment: quantity },
+            },
+          });
+        }
         anyUpdated = true;
       }
     }
@@ -144,12 +159,27 @@ export async function recordFlashDealsConsumption(
       const promoDeal = promoDeals.find((d: any) => isFlashDealCurrentlyActive(d, now));
 
       if (promoDeal) {
-        await db.flashDeal.update({
-          where: { id: promoDeal.id },
-          data: {
-            soldQuantity: { increment: 1 },
-          },
-        });
+        if (!promoDeal.isUnlimited && promoDeal.maxQuantity != null && promoDeal.maxQuantity > 0) {
+          const claim = await db.flashDeal.updateMany({
+            where: {
+              id: promoDeal.id,
+              soldQuantity: { lte: promoDeal.maxQuantity - 1 },
+            },
+            data: {
+              soldQuantity: { increment: 1 },
+            },
+          });
+          if (claim.count === 0) {
+            throw new Error("FLASH_DEAL_EXHAUSTED");
+          }
+        } else {
+          await db.flashDeal.update({
+            where: { id: promoDeal.id },
+            data: {
+              soldQuantity: { increment: 1 },
+            },
+          });
+        }
         anyUpdated = true;
       }
     }
@@ -161,6 +191,9 @@ export async function recordFlashDealsConsumption(
       }
     }
   } catch (error) {
+    if ((error as any)?.message === "FLASH_DEAL_EXHAUSTED") {
+      throw error;
+    }
     console.error("Failed to record flash deal consumption:", error);
   }
 }

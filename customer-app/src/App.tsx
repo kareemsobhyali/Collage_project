@@ -1,18 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { 
-  Store, 
   User, 
   ShoppingBag, 
   Clock, 
   LogOut, 
-  ArrowRight,
-  GraduationCap,
-  ShieldCheck,
-  Truck,
   Users,
-  Wallet,
-  Sparkles,
   Smartphone,
   X,
   CheckCircle2
@@ -27,8 +20,8 @@ import { CartCheckoutModal } from './components/CartCheckoutModal';
 import { OrderTrackingModal } from './components/OrderTrackingModal';
 import { MyOrdersModal } from './components/MyOrdersModal';
 import { ProfileModal } from './components/ProfileModal';
-import { AdminPage } from './components/AdminPage';
-import { DriverPortal } from './components/DriverPortal';
+const AdminPage = React.lazy(() => import('./components/AdminPage').then(m => ({ default: m.AdminPage })));
+const DriverPortal = React.lazy(() => import('./components/DriverPortal').then(m => ({ default: m.DriverPortal })));
 import { GroupCartModal } from './components/GroupCartModal';
 import { Logo } from './components/Logo';
 import { SplashScreen } from './components/SplashScreen';
@@ -573,7 +566,7 @@ export function App() {
     socket.on('branch_status_updated', (data: any) => {
       setBranches(prev => prev.map(b => {
         if (b.id === data.branchId) {
-          const { branchId, ...rest } = data;
+          const { branchId: _branchId, ...rest } = data;
           return {
             ...b,
             ...rest,
@@ -588,7 +581,7 @@ export function App() {
           if (data.isDeleted) {
             return null;
           }
-          const { branchId, ...rest } = data;
+          const { branchId: _branchId, ...rest } = data;
           return {
             ...prev,
             ...rest,
@@ -620,7 +613,7 @@ export function App() {
 
     // 4. تغيير فوري لحالة توفر الأصناف والإضافات (تفعيل / نفاد فوري من الكاشير)
     socket.on('menu_item_availability_changed', (data: any) => {
-      const { branchId, type, id, isAvailable, unavailableUntil } = data;
+      const { branchId: _branchId, type, id, isAvailable, unavailableUntil } = data;
       setBranchCategories((prevCategories: any[]) => {
         if (!Array.isArray(prevCategories)) return prevCategories;
         if (type === 'ITEM') {
@@ -753,12 +746,16 @@ export function App() {
   }, [user?.id]);
 
   if (isAdminRoute) {
-    return <AdminPage />;
+    return (
+      <React.Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-bold" dir="rtl">جاري تحميل لوحة التحكم...</div>}>
+        <AdminPage />
+      </React.Suspense>
+    );
   }
 
   if (showDriverPortal) {
     return (
-      <>
+      <React.Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-bold" dir="rtl">جاري تحميل بوابة كابتن التوصيل...</div>}>
         <DriverPortal onClose={() => setShowDriverPortal(false)} />
         {showSplash && (
           <SplashScreen
@@ -767,7 +764,7 @@ export function App() {
             onFinish={() => setShowSplash(false)}
           />
         )}
-      </>
+      </React.Suspense>
     );
   }
 

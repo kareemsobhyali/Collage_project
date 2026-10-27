@@ -46,6 +46,11 @@
             window.dispatchEvent(new CustomEvent('pwa_prompt_available', { detail: e }));
           } catch (_err) {}
         });
+
+        // 3. تسجيل Service Worker فوراً لضمان جاهزية متصفح كروم لتثبيت PWA وتوليد WebAPK
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function() {});
+        }
       })();
     </script>
   </head>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   X,
   Trash2,
@@ -123,10 +123,13 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     branch.closingTime,
     branch.isWithinWorkingHours
   );
-  const isBranchBusy =
-    branch.operationalStatus === 'BUSY' &&
-    branch.closedUntil &&
-    new Date() < new Date(branch.closedUntil);
+  const isBranchBusy = useMemo(() => {
+    return (
+      branch.operationalStatus === 'BUSY' &&
+      !!branch.closedUntil &&
+      Date.now() < new Date(branch.closedUntil).getTime()
+    );
+  }, [branch.operationalStatus, branch.closedUntil]);
   const isBranchFullyClosed = branch.operationalStatus === 'CLOSED';
   const isBranchClosed = isBranchFullyClosed || isBranchBusy || isBranchClosedByHours;
 
@@ -526,7 +529,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         })
         .catch(() => {});
     }
-  }, [subtotal, branch?.id]);
+  }, [subtotal, branch?.id, appliedPromo]);
 
   // Upload Payment Proof Screenshot
   const handleProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

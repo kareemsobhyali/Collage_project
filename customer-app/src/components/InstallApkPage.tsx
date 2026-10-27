@@ -23,7 +23,7 @@ import {
   Compass
 } from 'lucide-react';
 import { api, API_BASE_URL, getFullImageUrl } from '../services/api';
-import { isRunningInNativeApk, getDeferredInstallPrompt, setDeferredInstallPrompt, triggerInstallApp } from '../services/notifications';
+import { isRunningInNativeApk, getDeferredInstallPrompt, setDeferredInstallPrompt, triggerInstallApp, registerServiceWorker } from '../services/notifications';
 
 interface ApkMeta {
   isBranch: boolean;
@@ -183,6 +183,9 @@ export const InstallApkPage: React.FC<{
 
   // 1. التقاط ومزامنة حدث التثبيت للـ PWA مع المتصفح
   useEffect(() => {
+    // تسجيل Service Worker فوراً لضمان جاهزية متصفح كروم لتثبيت PWA وتوليد WebAPK
+    registerServiceWorker();
+
     const syncPrompt = (e?: any) => {
       const p = e?.detail || getDeferredInstallPrompt();
       if (p) {
@@ -278,34 +281,66 @@ export const InstallApkPage: React.FC<{
 
   // معالجة الضغط على زر التثبيت
   const handleInstallClick = async () => {
-    // 1. إذا كان التطبيق مثبتاً بالفعل
+    // 1. إذا كان التطبيق مثبتاً بالفعل على الهاتف
     if (isInstalled) {
       window.location.href = webTargetUrl;
       return;
     }
 
-    // 2. إذا كنا على آيفون / آيباد (iOS Safari)
+    // 2. إذا كنا داخل متصفح وسائط مدمج مثل واتساب أو فيسبوك، نفتح كروم مباشرة لدعم التثبيت
+    if (isInAppBrowser) {
+      handleOpenInChrome();
+      return;
+    }
+
+    // 3. إذا كنا على آيفون / آيباد (iOS Safari)
     if (isIos) {
       setShowIosGuide(true);
       return;
     }
 
-    // 3. فحص حدث قبل التثبيت المباشر في أندرويد وكروم (One-Click Native System Prompt)
-    const promptObj = installPrompt || getDeferredInstallPrompt();
-    if (promptObj) {
-      setIsInstalling(true);
-      try {
+    setIsInstalling(true);
+
+    try {
+      // 4. الحصول على كائن التثبيت الأصلي لمتصفح كروم / أندرويد
+      let promptObj = installPrompt || getDeferredInstallPrompt();
+
+      // إذا لم يكن جاهزاً في تلك اللحظة (مثلاً تم النقر فور فتح الصفحة)، ننتظر حتى 2.5 ثانية لوصول الحدث
+      if (!promptObj) {
+        promptObj = await new Promise<any>((resolve) => {
+          let resolved = false;
+          const handler = (e: any) => {
+            if (!resolved) {
+              resolved = true;
+              cleanup();
+              resolve(e?.detail || e || getDeferredInstallPrompt());
+            }
+          };
+          const timer = setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              cleanup();
+              resolve(getDeferredInstallPrompt());
+            }
+          }, 2500);
+
+          function cleanup() {
+            clearTimeout(timer);
+            window.removeEventListener('beforeinstallprompt', handler);
+            window.removeEventListener('pwa_prompt_available', handler);
+          }
+
+          window.addEventListener('beforeinstallprompt', handler, { once: true });
+          window.addEventListener('pwa_prompt_available', handler, { once: true });
+        });
+      }
+
+      if (promptObj && typeof promptObj.prompt === 'function') {
+        // إظهار نافذة التثبيت الرسمية للنظام مباشرة بدون أي شاشة تعليمات مزعجة
         await promptObj.prompt();
 
-        // حماية بمؤقت زمني لعدم تعليق الزر إذا لم يظهر المتصفح النافذة فوراً
-        const timeoutPromise = new Promise<{ outcome: string }>((resolve) =>
-          setTimeout(() => resolve({ outcome: 'timeout' }), 3500)
-        );
-
-        const choice = await Promise.race([
-          promptObj.userChoice as Promise<{ outcome: string }>,
-          timeoutPromise
-        ]);
+        // انتظار قرار المستخدم براحة تامة بدون مؤقت سباق زمني
+        const choice = await promptObj.userChoice;
 
         if (choice?.outcome === 'accepted') {
           setIsInstalled(true);
@@ -314,22 +349,23 @@ export const InstallApkPage: React.FC<{
           setShowInstallBanner(false);
           setTimeout(() => {
             window.location.href = webTargetUrl;
-          }, 1200);
-        } else if (choice?.outcome === 'timeout') {
-          // المتصفح لم يعرض النافذة بعد
+          }, 1000);
+        }
+      } else {
+        // إذا كان النظام يعمل بالفعل كتطبيق
+        if (isRunningInNativeApk()) {
+          setIsInstalled(true);
+          window.location.href = webTargetUrl;
+        } else {
+          // المتصفح لا يدعم التثبيت التلقائي بنقرة واحدة (مثلاً متصفح قديم)
           setShowInstallHelpModal(true);
         }
-      } catch (err) {
-        console.warn('Install prompt error:', err);
-        setShowInstallHelpModal(true);
-      } finally {
-        setIsInstalling(false);
       }
-      return;
+    } catch (err) {
+      console.warn('Install prompt error:', err);
+    } finally {
+      setIsInstalling(false);
     }
-
-    // 4. إذا لم يكن متصفح أندرويد قد جهز الـ Prompt بعد (أو متصفح واتساب / فيسبوك)
-    setShowInstallHelpModal(true);
   };
 
   // نسخ رابط الصفحة
@@ -548,6 +584,18 @@ export const InstallApkPage: React.FC<{
             <span>أو تصفح منيو المطعم عبر المتصفح بدون تثبيت</span>
             <ArrowLeft className="w-3.5 h-3.5" />
           </a>
+
+          {/* Voluntary Help Link for Users Facing Issues */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowInstallHelpModal(true)}
+              className="text-[11px] text-slate-400 hover:text-slate-200 transition-colors inline-flex items-center gap-1 cursor-pointer"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+              <span>تواجه مشكلة في التثبيت التلقائي؟ اضغط هنا للتعليمات</span>
+            </button>
+          </div>
         </div>
 
         {/* Feature Highlights Grid */}

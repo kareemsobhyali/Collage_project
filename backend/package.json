@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "test": "tsx --test test/*.test.ts",
     "start": "node --max-old-space-size=384 dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
