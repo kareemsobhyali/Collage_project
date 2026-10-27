@@ -69,9 +69,20 @@ router.get("/manifest", async (req: Request, res: Response) => {
       });
 
       if (branch) {
-        const logoUrl = branch.logoUrl
-          ? (branch.logoUrl.startsWith("http") ? branch.logoUrl : `/uploads/${branch.logoUrl}`)
-          : "/logo.png";
+        let logoUrl = branch.logoUrl || "/logo.png";
+        if (logoUrl.startsWith("http")) {
+          try {
+            const parsed = new URL(logoUrl);
+            if (parsed.pathname.startsWith("/uploads/")) {
+              logoUrl = parsed.pathname;
+            }
+          } catch (_e) {}
+        } else if (!logoUrl.startsWith("/")) {
+          logoUrl = `/uploads/${logoUrl}`;
+        }
+
+        const isJpg = /\.jpe?g($|\?)/i.test(logoUrl);
+        const iconType = isJpg ? "image/jpeg" : "image/png";
 
         const manifest = {
           name: `${branch.name} | UniFood`,
@@ -82,6 +93,7 @@ router.get("/manifest", async (req: Request, res: Response) => {
           id: `/?r=${encodeURIComponent(branch.slug || branch.id)}`,
           display: "standalone",
           display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+          prefer_related_applications: false,
           handle_links: "preferred",
           launch_handler: {
             client_mode: ["navigate-existing", "auto"]
@@ -95,14 +107,38 @@ router.get("/manifest", async (req: Request, res: Response) => {
             {
               src: logoUrl,
               sizes: "192x192",
-              type: "image/png",
-              purpose: "any maskable"
+              type: iconType,
+              purpose: "any"
             },
             {
               src: logoUrl,
               sizes: "512x512",
+              type: iconType,
+              purpose: "any"
+            },
+            {
+              src: logoUrl,
+              sizes: "192x192",
+              type: iconType,
+              purpose: "maskable"
+            },
+            {
+              src: logoUrl,
+              sizes: "512x512",
+              type: iconType,
+              purpose: "maskable"
+            },
+            {
+              src: "/logo.png",
+              sizes: "192x192",
               type: "image/png",
-              purpose: "any maskable"
+              purpose: "any"
+            },
+            {
+              src: "/logo.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "maskable"
             }
           ]
         };

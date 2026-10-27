@@ -187,7 +187,7 @@ export const InstallApkPage: React.FC<{
     registerServiceWorker();
 
     const syncPrompt = (e?: any) => {
-      const p = e?.detail || getDeferredInstallPrompt();
+      const p = e?.detail || getDeferredInstallPrompt() || (typeof window !== 'undefined' ? (window as any).deferredInstallPrompt : null);
       if (p) {
         setInstallPrompt(p);
       }
@@ -332,7 +332,7 @@ export const InstallApkPage: React.FC<{
 
     try {
       // 4. الحصول على كائن التثبيت الأصلي لمتصفح كروم / أندرويد
-      let promptObj = installPrompt || getDeferredInstallPrompt();
+      let promptObj = installPrompt || getDeferredInstallPrompt() || (typeof window !== 'undefined' ? (window as any).deferredInstallPrompt : null);
 
       // إذا لم يكن جاهزاً في تلك اللحظة (مثلاً تم النقر فور فتح الصفحة)، ننتظر حتى 2.5 ثانية لوصول الحدث
       if (!promptObj) {
@@ -342,14 +342,14 @@ export const InstallApkPage: React.FC<{
             if (!resolved) {
               resolved = true;
               cleanup();
-              resolve(e?.detail || e || getDeferredInstallPrompt());
+              resolve(e?.detail || e || getDeferredInstallPrompt() || (typeof window !== 'undefined' ? (window as any).deferredInstallPrompt : null));
             }
           };
           const timer = setTimeout(() => {
             if (!resolved) {
               resolved = true;
               cleanup();
-              resolve(getDeferredInstallPrompt());
+              resolve(getDeferredInstallPrompt() || (typeof window !== 'undefined' ? (window as any).deferredInstallPrompt : null));
             }
           }, 2500);
 
@@ -389,12 +389,12 @@ export const InstallApkPage: React.FC<{
           return;
         }
 
-        // إذا كان المتصفح لا يدعم التثبيت المباشر بنقرة واحدة
-        setShowInstallHelpModal(true);
+        // لا نفتح شاشة التعليمات اليدوية إطلاقاً عند النقر على التثبيت
+        // نوجه المستخدم بلطف لفتح المنيو بالمتصفح أو التثبيت من شريط المتصفح
+        console.info('Deferred install prompt not yet fired by browser engine.');
       }
     } catch (err) {
       console.warn('Install prompt error:', err);
-      setShowInstallHelpModal(true);
     } finally {
       setIsInstalling(false);
     }

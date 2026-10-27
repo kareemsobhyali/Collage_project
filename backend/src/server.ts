@@ -123,6 +123,17 @@ app.get("/uploads/:filename", async (req, res, next) => {
     console.error("[Uploads Fallback] Error retrieving file from DB:", err);
   }
 
+  const defaultLogoPath = resolvePath(
+    "customer-app/public/logo.png",
+    "public/logo.png",
+    "../customer-app/public/logo.png"
+  );
+  if (fs.existsSync(defaultLogoPath)) {
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.sendFile(defaultLogoPath);
+  }
+
   return res.status(404).json({ error: "Image not found" });
 });
 
@@ -165,7 +176,9 @@ app.get("/manifest.json", async (req, res) => {
         if (logoUrl.startsWith("http")) {
           try {
             const parsed = new URL(logoUrl);
-            logoUrl = parsed.pathname;
+            if (parsed.pathname.startsWith("/uploads/")) {
+              logoUrl = parsed.pathname;
+            }
           } catch (_e) {}
         } else if (!logoUrl.startsWith("/")) {
           logoUrl = `/uploads/${logoUrl}`;
@@ -174,10 +187,6 @@ app.get("/manifest.json", async (req, res) => {
         // تحديد نوع الأيقونة بدقة (MIME Type) لتفادي رفض جوجل كروم لأيقونة WebAPK
         const isJpg = /\.jpe?g($|\?)/i.test(logoUrl);
         const iconType = isJpg ? "image/jpeg" : "image/png";
-
-        // إذا كان للفرع شعار مخصص، نستخدمه حصرياً لجميع أحجام الأيقونات (any و maskable)
-        // ولا نضع شعار المنصة العام /logo.png إطلاقاً حتى لا يختاره متصفح كروم وأندرويد بدلاً من شعار المطعم
-        const hasCustomLogo = logoUrl !== "/logo.png";
 
         const branchIcons = [
           {
@@ -204,24 +213,19 @@ app.get("/manifest.json", async (req, res) => {
             type: iconType,
             purpose: "maskable",
           },
+          {
+            src: "/logo.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/logo.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
         ];
-
-        if (!hasCustomLogo) {
-          branchIcons.push(
-            {
-              src: "/logo.png",
-              sizes: "192x192",
-              type: "image/png",
-              purpose: "any",
-            },
-            {
-              src: "/logo.png",
-              sizes: "512x512",
-              type: "image/png",
-              purpose: "maskable",
-            }
-          );
-        }
 
         const branchManifest = {
           name: `${branch.name} | UniFood`,
