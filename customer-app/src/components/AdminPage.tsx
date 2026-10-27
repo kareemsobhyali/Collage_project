@@ -84,7 +84,7 @@ const QUICK_ADMIN_CANCEL_REASONS = [
   'نفاد الكمية في المطعم',
   'العميل طلب إلغاء الطلب',
   'عدم توفر كابتن توصيل متاح',
-  'العنوان غير مدعوم أو خارج نطاق الحرم',
+  'العنوان غير مدعوم أو خارج نطاق التوصيل',
   'تأخر تحضير الطلب في المطعم',
 ];
 
@@ -2227,7 +2227,7 @@ export const AdminPage: React.FC = () => {
         setEditingStudentWallet(null);
       }
     } catch (err: any) {
-      alert(err.message || 'فشل تحديث بيانات الطالب');
+      alert(err.message || 'فشل تحديث بيانات العميل');
     } finally {
       setSavingStudentWallet(false);
     }
@@ -2671,7 +2671,7 @@ export const AdminPage: React.FC = () => {
               className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors"
             >
               <ArrowRight className="w-4 h-4" />
-              <span>العودة لشاشة متجر الطلاب</span>
+              <span>العودة لتطبيق العملاء</span>
             </button>
             <span className="text-[11px] text-slate-600 font-mono">UniFood v1.0</span>
           </div>
@@ -2712,14 +2712,14 @@ export const AdminPage: React.FC = () => {
               <span className="hidden sm:inline">تحديث</span>
             </button>
 
-            {/* زر العودة المباشر لمتجر الطلاب */}
+            {/* زر العودة المباشر لتطبيق العملاء */}
             <button
               onClick={handleReturnToStudentStore}
               className="h-8 sm:h-9 flex items-center gap-1.5 px-3 sm:px-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/30 transition-all active:scale-95 whitespace-nowrap shrink-0"
-              title="إغلاق والرجوع لشاشة الطلاب"
+              title="إغلاق والرجوع لتطبيق العملاء"
             >
               <Store className="w-4 h-4 text-white shrink-0" />
-              <span className="hidden sm:inline">متجر الطلاب</span>
+              <span className="hidden sm:inline">تطبيق العملاء</span>
             </button>
 
             <button
@@ -2776,7 +2776,7 @@ export const AdminPage: React.FC = () => {
 
             <div className="col-span-2 sm:col-span-1 p-3 sm:p-4 bg-white border border-slate-200 rounded-xl sm:rounded-2xl flex flex-col justify-between">
               <div className="flex items-center justify-between gap-1 text-slate-500 mb-1">
-                <span className="text-[11px] font-bold">الطلاب المسجلين</span>
+                <span className="text-[11px] font-bold">العملاء المسجلين</span>
                 <Users className="w-3.5 h-3.5 text-sky-400/80 shrink-0" />
               </div>
               <span className="text-xl sm:text-2xl font-black text-sky-400">{stats.totalStudents ?? students.length}</span>
@@ -2825,7 +2825,7 @@ export const AdminPage: React.FC = () => {
                 }`}
               >
                 <ShoppingBag className="w-4 h-4 shrink-0" />
-                <span>مراقبة طلبات الحرم</span>
+                <span>مراقبة طلبات التوصيل</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'ORDERS' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {orders.length}
                 </span>
@@ -2885,7 +2885,7 @@ export const AdminPage: React.FC = () => {
                 }`}
               >
                 <Users className="w-4 h-4 shrink-0" />
-                <span>دليل الطلاب</span>
+                <span>دليل العملاء</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'STUDENTS' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {students.length}
                 </span>
@@ -3013,7 +3013,7 @@ export const AdminPage: React.FC = () => {
                 <Search className="w-4 h-4 text-slate-500 absolute right-3.5 top-3" />
                 <input
                   type="text"
-                  placeholder="ابحث باسم المطعم أو موقعه بالجامعة..."
+                  placeholder="ابحث باسم المطعم أو موقعه..."
                   value={branchSearch}
                   onChange={e => setBranchSearch(e.target.value)}
                   className="w-full pr-10 pl-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -3103,7 +3103,7 @@ export const AdminPage: React.FC = () => {
                               {branch.address && (
                                 <span className="flex items-center gap-1 min-w-0">
                                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                  <span className="truncate max-w-[170px]">{getDisplayAddress(branch.address, 'داخل الحرم')}</span>
+                                  <span className="truncate max-w-[170px]">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>
                                 </span>
                               )}
                               {branch.phone && (
@@ -3298,7 +3298,7 @@ export const AdminPage: React.FC = () => {
                     <Store className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                     <span className="truncate">
                       {orderBranchFilter === 'ALL'
-                        ? 'جميع فروع الجامعة'
+                        ? 'كافة فروع المنصة'
                         : branches.find(b => b.id === orderBranchFilter)?.name || 'الفرع المحدد'}
                     </span>
                   </div>
@@ -3854,7 +3854,7 @@ export const AdminPage: React.FC = () => {
                           <span className="text-xs font-bold text-indigo-400 mr-1.5">ج.م</span>
                         </div>
                         <div className="text-[11px] text-slate-500 mt-2 flex items-center justify-between">
-                          <span>مستحقات خدمة دليفري الحرم</span>
+                          <span>مستحقات خدمة التوصيل</span>
                         </div>
                       </div>
 
@@ -4467,7 +4467,7 @@ export const AdminPage: React.FC = () => {
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500">
-                    متابعة آراء وملاحظات الطلاب على الطلبات والوجبات، والتعامل السريع مع ملاحظات الفروع
+                    متابعة آراء وملاحظات العملاء على الطلبات والوجبات، والتعامل السريع مع ملاحظات الفروع
                   </p>
                 </div>
               </div>
@@ -4526,7 +4526,7 @@ export const AdminPage: React.FC = () => {
                   {reviewsStats.totalReviews || reviews.length}
                 </div>
                 <span className="text-[11px] text-slate-500 mt-2 block">
-                  طلب تم تقييمه من قِبل الطلاب
+                  طلب تم تقييمه من قِبل العملاء
                 </span>
               </div>
 
@@ -4718,7 +4718,7 @@ export const AdminPage: React.FC = () => {
                 {filteredReviews.map((review: any) => {
                   const ratingNum = review.rating || 5;
                   const isExpanded = expandedReviewOrderId === review.id;
-                  const customerName = review.customerName || review.user?.name || 'طالب';
+                  const customerName = review.customerName || review.user?.name || 'عميل';
                   const customerPhone = review.customerPhone || review.user?.phone || '';
                   const branchName = review.branch?.name || 'المطعم';
 
@@ -4843,7 +4843,7 @@ export const AdminPage: React.FC = () => {
                                 <span className="text-xs font-black text-slate-900">{branchName}</span>
                               </div>
                               <span className="text-[10px] text-slate-500">
-                                {review.orderType === 'DELIVERY' ? '🛵 توصيل للحرم' : '🛍️ استلام من الفرع'}
+                                {review.orderType === 'DELIVERY' ? '🛵 توصيل للعنوان' : '🛍️ استلام من الفرع'}
                                 {review.deliveryZoneName ? ` • ${review.deliveryZoneName}` : ''}
                               </span>
                             </div>
@@ -4925,7 +4925,7 @@ export const AdminPage: React.FC = () => {
                           {/* WhatsApp Customer Button */}
                           <a
                             href={`https://wa.me/20${customerPhone.replace(/^0+/, '')}?text=${encodeURIComponent(
-                              `مرحباً أستاذ ${customerName}، تتواصل معك إدارة منصة طلبات الحرم بخصوص تقييمك (${ratingNum}/5 نجوم) للطلب رقم #${review.orderNumber} من مطعم ${branchName}...`
+                              `مرحباً أستاذ ${customerName}، تتواصل معك إدارة منصة UniFood للتوصيل بخصوص تقييمك (${ratingNum}/5 نجوم) للطلب رقم #${review.orderNumber} من مطعم ${branchName}...`
                             )}`}
                             target="_blank"
                             rel="noreferrer"
@@ -4962,7 +4962,7 @@ export const AdminPage: React.FC = () => {
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-900/60 text-purple-700 border border-purple-200/40 rounded-xl text-xs font-bold transition-all"
                           >
                             <User className="w-3.5 h-3.5 text-purple-400" />
-                            <span>ملف الطالب</span>
+                            <span>ملف العميل</span>
                           </button>
                         </div>
 
@@ -5279,7 +5279,7 @@ export const AdminPage: React.FC = () => {
               <Search className="w-4 h-4 text-slate-500 absolute right-3.5 top-3" />
               <input
                 type="text"
-                placeholder="ابحث باسم الطالب أو رقم الهاتف..."
+                placeholder="ابحث باسم العميل أو رقم الهاتف..."
                 value={studentSearch}
                 onChange={e => setStudentSearch(e.target.value)}
                 className="w-full pr-10 pl-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -5369,7 +5369,7 @@ export const AdminPage: React.FC = () => {
               <div>
                 <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  <span>التقارير المالية ومؤشرات الحرم الجامعي</span>
+                  <span>التقارير المالية ومؤشرات الأداء العام</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   إحصائيات تفصيلية لحجم المبيعات وطرق الدفع وسرعة توصيل المطاعم
@@ -5413,7 +5413,7 @@ export const AdminPage: React.FC = () => {
                   <Timer className="w-4 h-4 text-amber-400" />
                   <span>مؤشرات سرعة إنجاز الطلبات والمطابخ (Kitchen & Delivery SLAs)</span>
                 </h4>
-                <span className="text-[10px] text-slate-500 font-mono">متوسطات الأداء في الحرم الجامعي</span>
+                <span className="text-[10px] text-slate-500 font-mono">متوسطات الأداء التشغيلي</span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -5459,7 +5459,7 @@ export const AdminPage: React.FC = () => {
                     </span>
                     <span className="text-[11px] text-slate-500">دقيقة</span>
                   </div>
-                  <p className="text-[10px] text-slate-500">متوسط وقت التوصيل لمباني الجامعة</p>
+                  <p className="text-[10px] text-slate-500">متوسط وقت التوصيل</p>
                 </div>
 
                 {/* إجمالي دورة الطلب */}
@@ -5474,7 +5474,7 @@ export const AdminPage: React.FC = () => {
                     </span>
                     <span className="text-[11px] text-slate-500">دقيقة</span>
                   </div>
-                  <p className="text-[10px] text-slate-500">من إرسال الطالب حتى الاستلام</p>
+                  <p className="text-[10px] text-slate-500">من إرسال العميل حتى الاستلام</p>
                 </div>
               </div>
             </div>
@@ -5517,7 +5517,7 @@ export const AdminPage: React.FC = () => {
               <div className="p-5 bg-white border border-slate-200 rounded-2xl">
                 <h4 className="font-black text-sm text-slate-900 mb-4 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  <span>الفروع الأكثر طلباً في الحرم الجامعي</span>
+                  <span>الفروع الأكثر طلباً على المنصة</span>
                 </h4>
                 <div className="space-y-3">
                   {stats?.branchPerformance && stats.branchPerformance.length > 0 ? (
@@ -5549,7 +5549,7 @@ export const AdminPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-black text-slate-900">الإعلانات والبانرات الترويجية</h3>
-                <p className="text-xs text-slate-500">تظهر في الصفحة الرئيسية لمتجر الطلاب للترويج للعروض والشراكات</p>
+                <p className="text-xs text-slate-500">تظهر في الصفحة الرئيسية لتطبيق العملاء للترويج للعروض والشراكات</p>
               </div>
 
               <button
@@ -5565,7 +5565,7 @@ export const AdminPage: React.FC = () => {
               <div className="p-12 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
                 <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-30 text-purple-400" />
                 <p className="text-xs font-bold text-slate-600">لا توجد إعلانات نشطة حالياً</p>
-                <p className="text-[11px] text-slate-500 mt-1">اضغط على زر إضافة بانر لإنشاء أول إعلان يظهر للطلاب</p>
+                <p className="text-[11px] text-slate-500 mt-1">اضغط على زر إضافة بانر لإنشاء أول إعلان يظهر للعملاء</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -5616,7 +5616,7 @@ export const AdminPage: React.FC = () => {
                             : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
                         }`}
                       >
-                        {b.isActive ? 'مفعل ويظهر للطلاب' : 'معطل ومخفي'}
+                        {b.isActive ? 'مفعل ويظهر للعملاء' : 'معطل ومخفي'}
                       </button>
 
                       <div className="flex items-center gap-1">
@@ -5665,7 +5665,7 @@ export const AdminPage: React.FC = () => {
               <div className="p-12 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
                 <Tag className="w-12 h-12 mx-auto mb-2 opacity-30 text-purple-400" />
                 <p className="text-xs font-bold text-slate-600">لا توجد كوبونات خصم حالياً</p>
-                <p className="text-[11px] text-slate-500 mt-1">اضغط على زر إنشاء كوبون جديد لإنشاء كود خصم للطلاب</p>
+                <p className="text-[11px] text-slate-500 mt-1">اضغط على زر إنشاء كوبون جديد لإنشاء كود خصم للعملاء</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -5690,7 +5690,7 @@ export const AdminPage: React.FC = () => {
                           </button>
                           {p.oncePerUser && (
                             <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full font-bold">
-                              مرة واحدة للطالب
+                              مرة واحدة للعميل
                             </span>
                           )}
                         </div>
@@ -5772,7 +5772,7 @@ export const AdminPage: React.FC = () => {
                   </div>
                   <h3 className="text-xl sm:text-2xl font-black text-slate-900">إدارة عروض الفلاش (Flash Deals)</h3>
                   <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
-                    أنشئ عروضاً مؤقتة مع عداد تنازلي مباشر يظهر لجميع الطلاب أعلى واجهة التطبيق. يمكنك ربط العرض بفرع وصنف معين أو كود خصم، وتحديد عدد الوجبات ووقت الانتهاء.
+                    أنشئ عروضاً مؤقتة مع عداد تنازلي مباشر يظهر لجميع العملاء أعلى واجهة التطبيق. يمكنك ربط العرض بفرع وصنف معين أو كود خصم، وتحديد عدد الوجبات ووقت الانتهاء.
                   </p>
                 </div>
 
@@ -5832,7 +5832,7 @@ export const AdminPage: React.FC = () => {
                 <div>
                   <h4 className="text-base font-black text-slate-900">لا توجد عروض فلاش مضافة حتى الآن</h4>
                   <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                    أنشئ أول عرض فلاش موقوت مع عد تنازلي لجذب الطلاب وزيادة مبيعات وجبات البريك والعروض الخاصة!
+                    أنشئ أول عرض فلاش موقوت مع عد تنازلي لجذب العملاء وزيادة المبيعات والعروض الخاصة!
                   </p>
                 </div>
                 <button
@@ -6021,7 +6021,7 @@ export const AdminPage: React.FC = () => {
                   </div>
                   <h3 className="text-xl sm:text-2xl font-black text-slate-900">إدارة وتخصيص أرقام الواتساب 📱</h3>
                   <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-3xl leading-relaxed">
-                    يمكنك ربط أكثر من شريحة/رقم واتساب في نفس الوقت، وتخصيص كل رقم لمهمة معينة: إرسال أكواد تفعيل الطلاب (OTP)، تنبيهات وتقارير الإدارة، أو تخصيص رقم واتساب مستقل لمطعم معين يرسل طلباته وتقاريره تلقائياً!
+                    يمكنك ربط أكثر من شريحة/رقم واتساب في نفس الوقت، وتخصيص كل رقم لمهمة معينة: إرسال أكواد تفعيل العملاء (OTP)، تنبيهات وتقارير الإدارة، أو تخصيص رقم واتساب مستقل لمطعم معين يرسل طلباته وتقاريره تلقائياً!
                   </p>
                 </div>
 
@@ -6081,7 +6081,7 @@ export const AdminPage: React.FC = () => {
                   <div>
                     <h4 className="text-base font-black text-slate-900">لا توجد أرقام واتساب مضافة حالياً</h4>
                     <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                      ابدأ بربط أول شريحة واتساب لتفعيل إرسال أكواد الـ OTP للطلاب وتنبيهات المطاعم مجاناً!
+                      ابدأ بربط أول شريحة واتساب لتفعيل إرسال أكواد الـ OTP للعملاء وتنبيهات المطاعم مجاناً!
                     </p>
                   </div>
                   <button
@@ -6280,7 +6280,7 @@ export const AdminPage: React.FC = () => {
                         </div>
                         <div>
                           <h4 className="text-xs font-black text-slate-800">إشعار عند كنسلة/إلغاء الطلب من المطعم</h4>
-                          <span className="text-[10px] text-slate-500">تنبيه فوري عند رفض أي مطعم لطلب طالب</span>
+                          <span className="text-[10px] text-slate-500">تنبيه فوري عند رفض أي مطعم لطلب عميل</span>
                         </div>
                       </div>
 
@@ -6575,9 +6575,9 @@ export const AdminPage: React.FC = () => {
                   {/* Master Toggle */}
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-black text-slate-800 block">تشغيل نظام النقاط للطلاب</span>
+                      <span className="text-xs font-black text-slate-800 block">تشغيل نظام النقاط والمكافآت</span>
                       <span className="text-[11px] text-slate-500 block mt-0.5">
-                        عند الإلغاء، لن يتمكن الطلاب من جمع أو استبدال أي نقاط في التطبيق
+                        عند الإلغاء، لن يتمكن العملاء من جمع أو استبدال أي نقاط في التطبيق
                       </span>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -6613,7 +6613,7 @@ export const AdminPage: React.FC = () => {
                       <div className="mt-2 p-2.5 bg-purple-50 border border-purple-200/40 rounded-xl text-[11px] text-purple-700 flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
                         <span>
-                          مثال عملي: كل <strong>100 نقطة</strong> تعادل حالياً <strong>{(100 * loyaltySettings.pointsRedemptionRate).toFixed(1)} جنيه</strong> في محفظة الطالب.
+                          مثال عملي: كل <strong>100 نقطة</strong> تعادل حالياً <strong>{(100 * loyaltySettings.pointsRedemptionRate).toFixed(1)} جنيه</strong> في محفظة العميل.
                         </span>
                       </div>
                     </div>
@@ -6633,7 +6633,7 @@ export const AdminPage: React.FC = () => {
                         required
                       />
                       <span className="text-[10px] text-slate-500 block mt-1">
-                        أقل رصيد نقاط يجب أن يمتلكه الطالب حتى يتاح له زر تحويل النقاط لرصيد بالمحفظة (مثلاً 50 أو 100).
+                        أقل رصيد نقاط يجب أن يمتلكه العميل حتى يتاح له زر تحويل النقاط لرصيد بالمحفظة (مثلاً 50 أو 100).
                       </span>
                     </div>
 
@@ -6653,7 +6653,7 @@ export const AdminPage: React.FC = () => {
                           required
                         />
                         <span className="text-[10px] text-slate-500 block mt-1">
-                          كم نقطة يكسب الطالب عن كل 1 جنيه يدفعه بالطلب.
+                          كم نقطة يكسب العميل عن كل 1 جنيه يدفعه بالطلب.
                         </span>
                       </div>
 
@@ -6672,7 +6672,7 @@ export const AdminPage: React.FC = () => {
                           required
                         />
                         <span className="text-[10px] text-slate-500 block mt-1">
-                          هدية ترحيبية فورية في حساب الطالب الجديد (0 لإلغائها).
+                          هدية ترحيبية فورية في حساب العميل الجديد (0 لإلغائها).
                         </span>
                       </div>
                     </div>
@@ -6682,7 +6682,7 @@ export const AdminPage: React.FC = () => {
                   <div className="p-3 bg-emerald-50 border border-emerald-200/40 rounded-xl flex items-start gap-2.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <p className="text-[11px] text-emerald-700/90 leading-relaxed">
-                      <strong>أمان النقاط مفعل برمجياً:</strong> يتم احتساب وإضافة النقاط إلى حساب الطالب فقط وفور تحويل حالة الطلب إلى <strong>(تم التسليم بنجاح / COMPLETED)</strong>، مما يمنع نهائياً أي تحايل عبر إنشاء طلبات وهمية أو ملغاة.
+                      <strong>أمان النقاط مفعل برمجياً:</strong> يتم احتساب وإضافة النقاط إلى حساب العميل فقط وفور تحويل حالة الطلب إلى <strong>(تم التسليم بنجاح / COMPLETED)</strong>، مما يمنع نهائياً أي تحايل عبر إنشاء طلبات وهمية أو ملغاة.
                     </p>
                   </div>
 
@@ -7134,7 +7134,7 @@ export const AdminPage: React.FC = () => {
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      حذف كافة الطلبات التجريبية وحسابات وسلات الطلاب لبدء التشغيل الفعلي من نقطة الصفر
+                      حذف كافة الطلبات التجريبية وحسابات وسلات العملاء لبدء التشغيل الفعلي من نقطة الصفر
                     </p>
                   </div>
                 </div>
@@ -7159,8 +7159,8 @@ export const AdminPage: React.FC = () => {
                   <span className="font-bold text-rose-700 block">🗑️ البيانات التي سيتم حذفها وتصفيرها:</span>
                   <ul className="text-[11px] text-slate-500 space-y-1 list-disc list-inside">
                     <li>كافة الطلبات المسجلة بجميع حالاتها وعناصرها وسجلاتها.</li>
-                    <li>كافة السلات الجماعية (سلة الشلة) المشتركة.</li>
-                    <li>حسابات الطلاب التجريبية مع أرصدة المحافظ ونقاط الولاء والعناوين.</li>
+                    <li>كافة السلات الجماعية المشتركة.</li>
+                    <li>حسابات العملاء التجريبية مع أرصدة المحافظ ونقاط الولاء والعناوين.</li>
                     <li>تصفير عداد استخدام كوبونات الخصم لتبدأ من 0.</li>
                   </ul>
                 </div>
@@ -7190,7 +7190,7 @@ export const AdminPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                    <span>مركز الدعم الفني وبلاغات الطلاب</span>
+                    <span>مركز الدعم الفني وبلاغات العملاء</span>
                     {supportTickets.filter((t: any) => t.status === 'OPEN').length > 0 && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-rose-500 text-white font-black animate-pulse">
                         {supportTickets.filter((t: any) => t.status === 'OPEN').length} جديد
@@ -7198,7 +7198,7 @@ export const AdminPage: React.FC = () => {
                     )}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    متابعة بلاغات وشكاوى واقتراحات الطلاب والتواصل الفوري معهم عبر الواتساب أو الهاتف
+                    متابعة بلاغات وشكاوى واقتراحات العملاء والتواصل الفوري معهم عبر الواتساب أو الهاتف
                   </p>
                 </div>
               </div>
@@ -7262,13 +7262,13 @@ export const AdminPage: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                      <span>رقم واتساب استقبال بلاغات ودعم الطلاب</span>
+                      <span>رقم واتساب استقبال بلاغات ودعم العملاء</span>
                       <span className="text-[10px] bg-emerald-500/20 text-emerald-700 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
-                        تحديث فوري للطلاب ⚡
+                        تحديث فوري للتطبيق ⚡
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      الرقم الذي يتم توجيه الطلاب إليه عند النقر على (محادثة واتساب مباشرة للدعم) في صفحة حسابي بالتطبيق
+                      الرقم الذي يتم توجيه العملاء إليه عند النقر على (محادثة واتساب مباشرة للدعم) في صفحة حسابي بالتطبيق
                     </p>
                   </div>
                 </div>
@@ -7316,7 +7316,7 @@ export const AdminPage: React.FC = () => {
               {supportWhatsappSaveSuccess && (
                 <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
                   <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>✓ تم تحديث رقم واتساب الدعم بنجاح وتفعيله لجميع الطلاب بالتطبيق فوراً.</span>
+                  <span>✓ تم تحديث رقم واتساب الدعم بنجاح وتفعيله لجميع العملاء بالتطبيق فوراً.</span>
                 </div>
               )}
             </div>
@@ -7331,7 +7331,7 @@ export const AdminPage: React.FC = () => {
                 <LifeBuoy className="w-12 h-12 text-slate-600 mx-auto" />
                 <h4 className="text-slate-900 font-black text-sm">لا توجد أي بلاغات دعم فني مسجلة حتى الآن</h4>
                 <p className="text-xs text-slate-500">
-                  عندما يرسل أي طالب بلاغاً أو مشكلة من صفحة حسابي بالتطبيق ستظهر هنا فوراً.
+                  عندما يرسل أي عميل بلاغاً أو مشكلة من صفحة حسابي بالتطبيق ستظهر هنا فوراً.
                 </p>
               </div>
             ) : (
@@ -7394,7 +7394,7 @@ export const AdminPage: React.FC = () => {
                           <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-200">
                             <div className="space-y-0.5">
                               <span className="font-bold text-slate-800 block text-xs">
-                                👤 {ticket.userName || 'طالب جامعي'}
+                                👤 {ticket.userName || 'عميل'}
                               </span>
                               <span className="text-[11px] font-mono text-slate-600 block" dir="ltr">
                                 📞 {ticket.userPhone}
@@ -7548,7 +7548,7 @@ export const AdminPage: React.FC = () => {
                 </span>
               )}
             </div>
-            <span className="text-[10px] leading-tight">الطلاب</span>
+            <span className="text-[10px] leading-tight">العملاء</span>
             {activeTab === 'STUDENTS' && !showMobileMoreMenu && (
               <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
             )}
@@ -7728,7 +7728,7 @@ export const AdminPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-xs font-black block text-slate-900">البانرات والإعلانات</span>
-                  <span className="text-[10px] text-slate-500 block">واجهة متجر الطلاب</span>
+                  <span className="text-[10px] text-slate-500 block">واجهة تطبيق العملاء</span>
                 </div>
               </button>
 
@@ -7862,7 +7862,7 @@ export const AdminPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-xs font-black block text-slate-900">الدعم الفني والشكاوى</span>
-                  <span className="text-[10px] text-slate-500 block">رسائل وبلاغات الطلاب والمشاكل</span>
+                  <span className="text-[10px] text-slate-500 block">رسائل وبلاغات العملاء والمشاكل</span>
                 </div>
               </button>
             </div>
@@ -7913,7 +7913,7 @@ export const AdminPage: React.FC = () => {
                 className="flex-1 py-2.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/30"
               >
                 <Store className="w-4 h-4" />
-                <span>متجر الطلاب</span>
+                <span>تطبيق العملاء</span>
               </button>
 
               <button
@@ -7936,7 +7936,7 @@ export const AdminPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
-              <h3 className="font-black text-base text-slate-900">إضافة فرع مطعم جديد بالجامعة</h3>
+              <h3 className="font-black text-base text-slate-900">إضافة فرع مطعم جديد</h3>
               <button 
                 onClick={() => setShowAddBranchModal(false)} 
                 className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
@@ -7964,7 +7964,7 @@ export const AdminPage: React.FC = () => {
                   )}
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">لوجو المطعم</span>
-                    <span className="text-[10px] text-slate-500">صورة واضحة تظهر للطلاب في القائمة</span>
+                    <span className="text-[10px] text-slate-500">صورة واضحة تظهر للعملاء في القائمة</span>
                   </div>
                 </div>
 
@@ -7988,7 +7988,7 @@ export const AdminPage: React.FC = () => {
                   required
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
-                  placeholder="مثال: شاورما الجامعة"
+                  placeholder="مثال: شاورما ومشاوي الأصيل"
                   className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                 />
               </div>
@@ -8013,14 +8013,14 @@ export const AdminPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">موقع المبنى بالجامعة</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">عنوان أو موقع الفرع</label>
                   <div className="relative">
                     <MapPin className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={newAddress}
                       onChange={e => setNewAddress(e.target.value)}
-                      placeholder="مثال: مجمع الكليات النظرية"
+                      placeholder="مثال: شارع النصر، الشيخ زايد"
                       className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
@@ -8126,7 +8126,7 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">رسوم التوصيل لمباني الكليات (ج.م)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">رسوم التوصيل المحددة (ج.م)</label>
                 <div className="relative">
                   <Coins className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
@@ -8264,14 +8264,14 @@ export const AdminPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">موقع المبنى بالحرم الجامعي</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">عنوان أو موقع الفرع بالتحديد</label>
                   <div className="relative">
                     <MapPin className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={editAddress}
                       onChange={e => setEditAddress(e.target.value)}
-                      placeholder="مثال: مجمع الكليات النظرية"
+                      placeholder="مثال: شارع النصر، الشيخ زايد"
                       className="w-full pr-9 pl-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
@@ -8384,7 +8384,7 @@ export const AdminPage: React.FC = () => {
                     <span>نطاق وزون التوصيل والطلب للعملاء 🎯</span>
                   </span>
                   <span className="text-[10px] text-slate-500">
-                    يحدد نطاق ظهور المطعم للطلاب
+                    يحدد نطاق ظهور المطعم للعملاء
                   </span>
                 </div>
 
@@ -8417,7 +8417,7 @@ export const AdminPage: React.FC = () => {
                       className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="FIXED">رسوم موحدة لنطاق المسافة ({editDeliveryFee} ج.م)</option>
-                      <option value="ZONES">تخصيص مناطق ومباني محددة بالحرم</option>
+                      <option value="ZONES">تخصيص مناطق وأحياء محددة</option>
                     </select>
                   </div>
                 </div>
@@ -8427,7 +8427,7 @@ export const AdminPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder="اسم المنطقة (مثال: كلية الهندسة)"
+                        placeholder="اسم المنطقة (مثال: الشيخ زايد، حي النصر)"
                         value={newZoneName}
                         onChange={e => setNewZoneName(e.target.value)}
                         className="flex-1 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900"
@@ -8471,7 +8471,7 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">رسوم التوصيل لمباني الجامعة (ج.م)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">رسوم التوصيل للمنطقة (ج.م)</label>
                 <div className="relative">
                   <Coins className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
@@ -8643,8 +8643,8 @@ export const AdminPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Truck className={`w-4 h-4 ${editAllowDelivery ? 'text-purple-600' : 'text-slate-500'}`} />
                     <div>
-                      <span className="text-xs font-bold text-slate-900 block">إتاحة التوصيل للجامعة</span>
-                      <span className="text-[10px] text-slate-500">توصيل الطلبات للكليات والمباني</span>
+                      <span className="text-xs font-bold text-slate-900 block">إتاحة خدمة التوصيل</span>
+                      <span className="text-[10px] text-slate-500">توصيل الطلبات للعنوان المحدد</span>
                     </div>
                   </div>
                 </label>
@@ -8712,7 +8712,7 @@ export const AdminPage: React.FC = () => {
               <div className="p-3 bg-slate-100 rounded-xl flex items-center justify-between">
                 <div>
                   <span className="font-bold text-xs text-slate-900 block">الدفع كاش عند الاستلام</span>
-                  <span className="text-[11px] text-slate-500">يقوم الطالب بالدفع نقداً لمندوب المطعم أو الكاشير</span>
+                  <span className="text-[11px] text-slate-500">يقوم العميل بالدفع نقداً لمندوب المطعم أو الكاشير</span>
                 </div>
                 <input
                   type="checkbox"
@@ -8913,7 +8913,7 @@ export const AdminPage: React.FC = () => {
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md">
-                          🛵 توصيل للحرم
+                          🛵 توصيل للعنوان
                         </span>
                       )}
                     </div>
@@ -8977,7 +8977,7 @@ export const AdminPage: React.FC = () => {
                       <div className="flex items-start gap-1.5 min-w-0">
                         <MapPin className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
                         <div>
-                          <span className="text-slate-500 text-[10px] block">المكان بالجامعة:</span>
+                          <span className="text-slate-500 text-[10px] block">عنوان التوصيل:</span>
                           <span className="font-bold text-slate-800 leading-snug">
                             {cleanAddressText(selectedOrderDetails.addressText)}
                           </span>
@@ -9268,7 +9268,7 @@ export const AdminPage: React.FC = () => {
                         <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
                         <div>
                           <span className="font-bold block">خصم استبدال النقاط والمحفظة:</span>
-                          <span className="text-[10px] text-amber-700 block">تم خصم الرصيد من محفظة الطالب</span>
+                          <span className="text-[10px] text-amber-700 block">تم خصم الرصيد من محفظة العميل</span>
                         </div>
                       </div>
                       <span className="font-mono font-black text-amber-700 text-sm">
@@ -9408,7 +9408,7 @@ export const AdminPage: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-600 mb-1">الوصف الفرعي (اختياري)</label>
                 <input
                   type="text"
-                  placeholder="مثال: اطلب الآن واستلم في أقل من 15 دقيقة داخل كليتك"
+                  placeholder="مثال: اطلب الآن واستلم في أقل من 15 دقيقة"
                   value={newBannerSubtitle}
                   onChange={e => setNewBannerSubtitle(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
@@ -9600,7 +9600,7 @@ export const AdminPage: React.FC = () => {
                   onChange={e => setEditBannerActive(e.target.checked)}
                   className="rounded text-purple-600 focus:ring-0"
                 />
-                <span className="text-xs font-bold text-slate-800">مفعل ويظهر للطلاب في الصفحة الرئيسية</span>
+                <span className="text-xs font-bold text-slate-800">مفعل ويظهر للعملاء في الصفحة الرئيسية</span>
               </label>
               </div>
 
@@ -9716,8 +9716,8 @@ export const AdminPage: React.FC = () => {
                     className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
                   />
                   <div>
-                    <span className="text-xs font-bold text-slate-800 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
-                    <span className="text-[10px] text-slate-500">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
+                    <span className="text-xs font-bold text-slate-800 block">متاح للاستخدام مرة واحدة فقط لكل عميل</span>
+                    <span className="text-[10px] text-slate-500">يمنع نفس العميل من استخدام الكوبون أكثر من مرة</span>
                   </div>
                 </label>
 
@@ -9910,8 +9910,8 @@ export const AdminPage: React.FC = () => {
                     className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
                   />
                   <div>
-                    <span className="text-xs font-bold text-slate-800 block">متاح للاستخدام مرة واحدة فقط لكل طالب</span>
-                    <span className="text-[10px] text-slate-500">يمنع نفس الطالب من استخدام الكوبون أكثر من مرة</span>
+                    <span className="text-xs font-bold text-slate-800 block">متاح للاستخدام مرة واحدة فقط لكل عميل</span>
+                    <span className="text-[10px] text-slate-500">يمنع نفس العميل من استخدام الكوبون أكثر من مرة</span>
                   </div>
                 </label>
 
@@ -9922,7 +9922,7 @@ export const AdminPage: React.FC = () => {
                     onChange={e => setEditPromoActive(e.target.checked)}
                     className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
                   />
-                  <span className="text-xs font-bold text-slate-800">تفعيل الكوبون للطلاب</span>
+                  <span className="text-xs font-bold text-slate-800">تفعيل الكوبون للعملاء</span>
                 </label>
 
                 {/* Branch Applicability Scope */}
@@ -10258,7 +10258,7 @@ export const AdminPage: React.FC = () => {
                   {Boolean(dealOriginalPrice && dealDiscountPrice && parseFloat(dealOriginalPrice) > parseFloat(dealDiscountPrice)) && (
                     <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-50 border border-emerald-200/40 text-[11px]">
                       <span className="text-emerald-400 font-bold">
-                        🎉 نسبة التوفير للطالب:
+                        🎉 نسبة التوفير للعميل:
                       </span>
                       <span className="text-emerald-700 font-black font-mono">
                         وفر {(parseFloat(dealOriginalPrice) - parseFloat(dealDiscountPrice)).toFixed(1)} ج.م (
@@ -10360,7 +10360,7 @@ export const AdminPage: React.FC = () => {
 
                     <div>
                       <label className="block text-xs font-bold text-rose-700 mb-1">
-                        الحد الأقصى لكل طالب/حساب 👤
+                        الحد الأقصى لكل عميل/حساب 👤
                       </label>
                       <input
                         type="number"
@@ -10481,7 +10481,7 @@ export const AdminPage: React.FC = () => {
                       onChange={e => setDealIsActive(e.target.checked)}
                       className="rounded text-rose-600 focus:ring-0 w-4 h-4 accent-rose-600 cursor-pointer"
                     />
-                    <span className="text-xs font-bold text-slate-800">العرض نشط ويظهر للطلاب فوراً</span>
+                    <span className="text-xs font-bold text-slate-800">العرض نشط ويظهر للعملاء فوراً</span>
                   </label>
                 </div>
 
@@ -10702,7 +10702,7 @@ export const AdminPage: React.FC = () => {
                   <div>
                     <span className="text-xs font-black text-slate-900 block">🔐 إرسال أكواد التحقق (OTP) وتفعيل الحسابات</span>
                     <span className="text-[11px] text-slate-500 block mt-0.5">
-                      إرسال كود الـ OTP واستعادة كلمة المرور وروابط التفعيل السريع للطلاب عند التسجيل.
+                      إرسال كود الـ OTP واستعادة كلمة المرور وروابط التفعيل السريع للعملاء عند التسجيل.
                     </span>
                   </div>
                 </label>
@@ -10805,7 +10805,7 @@ export const AdminPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-emerald-400" />
                 <div>
-                  <h3 className="font-black text-sm text-slate-900">شحن محفظة الطالب: {editingStudentWallet.name}</h3>
+                  <h3 className="font-black text-sm text-slate-900">شحن محفظة العميل: {editingStudentWallet.name}</h3>
                   <span className="text-[11px] text-slate-500 font-mono block">{editingStudentWallet.phone}</span>
                 </div>
               </div>
@@ -10851,7 +10851,7 @@ export const AdminPage: React.FC = () => {
 
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-black text-amber-800">نقاط الولاء الجامعية (★ نقطة)</label>
+                  <label className="text-xs font-black text-amber-800">نقاط الولاء الترحيبية (★ نقطة)</label>
                   <span className="text-[10px] text-slate-500">كل 1 نقطة = 1 ج.م</span>
                 </div>
                 <input
@@ -10880,11 +10880,11 @@ export const AdminPage: React.FC = () => {
 
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                 <label className="block text-xs font-black text-purple-700">
-                  📌 ملاحظات مسجلة على رقم الطالب (تظهر للكاشير عند الطلب)
+                  📌 ملاحظات مسجلة على رقم العميل (تظهر للكاشير عند الطلب)
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="أضف ملاحظة حول الطالب أو سجل طلباته السابقة..."
+                  placeholder="أضف ملاحظة حول العميل أو سجل طلباته السابقة..."
                   value={editStudentNotes}
                   onChange={e => setEditStudentNotes(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500"
@@ -10894,7 +10894,7 @@ export const AdminPage: React.FC = () => {
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-purple-700">
-                    🔑 تعيين كلمة مرور جديدة للطالب (اختياري)
+                    🔑 تعيين كلمة مرور جديدة للعميل (اختياري)
                   </label>
                   <span className="text-[10px] text-slate-500">في حال نسيان الباسورد</span>
                 </div>
@@ -10923,8 +10923,8 @@ export const AdminPage: React.FC = () => {
                   </div>
                   <span className="text-[10px] text-slate-500 block mt-0.5">
                     {editingStudentWallet.isVerified
-                      ? 'يمكن للطالب تسجيل الدخول وإجراء الطلبات مباشرة'
-                      : 'في حال لم يصل كود الواتساب للطالب، يمكنك تفعيل حسابه يدوياً فوراً'}
+                      ? 'يمكن للعميل تسجيل الدخول وإجراء الطلبات مباشرة'
+                      : 'في حال لم يصل كود الواتساب للعميل، يمكنك تفعيل حسابه يدوياً فوراً'}
                   </span>
                 </div>
                 <button
@@ -11021,7 +11021,7 @@ export const AdminPage: React.FC = () => {
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl space-y-2 text-xs">
                   <p className="text-rose-700 leading-relaxed font-semibold">
-                    ⚠️ سيتم حذف جميع الطلبات التجريبية وسلات الشلة وحسابات الطلاب.
+                    ⚠️ سيتم حذف جميع الطلبات التجريبية والسلات الجماعية وحسابات العملاء التجريبية.
                   </p>
                   <p className="text-slate-600 text-[11px] leading-relaxed">
                     ستبقى فروع المطاعم والمنيو وأسعار الوجبات وحساب الإدارة الرئيسية محفوظاً بالكامل دون أي مساس.
@@ -11213,7 +11213,7 @@ export const AdminPage: React.FC = () => {
                           🌐 استقبال طلبات جميع المطاعم والفروع (طيار عام للمنظومة)
                         </span>
                         <span className="text-[11px] text-slate-500 block mt-0.5 leading-relaxed">
-                          يستقبل الطلبات من كافة مطاعم الحرم الجامعي، ويظهر اسمه في قائمة التعيين لدى جميع كاشيرات الفروع ونقاط البيع.
+                          يستقبل الطلبات من كافة مطاعم وفروع المنصة، ويظهر اسمه في قائمة التعيين لدى جميع كاشيرات الفروع ونقاط البيع.
                         </span>
                       </div>
                     </div>
@@ -11677,7 +11677,7 @@ export const AdminPage: React.FC = () => {
                     <Store className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="font-black text-xs sm:text-sm block">جميع فروع الجامعة</span>
+                    <span className="font-black text-xs sm:text-sm block">كافة فروع المنصة</span>
                     <span className="text-[10px] text-slate-500">عرض الطلبات من كافة المطاعم ({branches.length} فروع)</span>
                   </div>
                 </div>
@@ -11791,7 +11791,7 @@ export const AdminPage: React.FC = () => {
                   </div>
                   <div>
                     <span className="font-black text-xs sm:text-sm block">جميع الفروع والمطاعم</span>
-                    <span className="text-[10px] text-slate-500">حسابات مجمعة لكافة فروع الحرم ({branches.length} فروع)</span>
+                    <span className="text-[10px] text-slate-500">حسابات مجمعة لكافة الفروع ({branches.length} فروع)</span>
                   </div>
                 </div>
                 {financeBranchFilter === 'ALL' && (

@@ -85,7 +85,7 @@ export const OrderDriverLiveMap: React.FC<OrderDriverLiveMapProps> = ({
   const customerCoords = useMemo(() => {
     const fromAddr = extractCoordinatesFromAddress(order?.addressText);
     if (fromAddr) return fromAddr;
-    // إحداثيات افتراضية قريبة بالحرم الجامعي
+    // إحداثيات افتراضية قريبة
     return { lat: restaurantCoords.lat + 0.0035, lng: restaurantCoords.lng + 0.0025 };
   }, [order?.addressText, restaurantCoords]);
 
@@ -459,7 +459,7 @@ export const OrderDriverLiveMap: React.FC<OrderDriverLiveMapProps> = ({
         <div className="flex items-center gap-2 text-slate-700 min-w-0">
           <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
           <span className="truncate">
-            <strong>عنوان العميل:</strong> {getDisplayAddress(order?.addressText, 'داخل الحرم الجامعي')}
+            <strong>عنوان العميل:</strong> {getDisplayAddress(order?.addressText, 'عنوان العميل')}
           </span>
         </div>
 

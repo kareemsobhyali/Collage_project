@@ -2,7 +2,7 @@
   "id": "/driver",
   "name": "UniFood Driver | كابتن التوصيل",
   "short_name": "UniFood Driver",
-  "description": "بوابة كباتن التوصيل والطيارين - منصة يونيفود الجامعية",
+  "description": "بوابة كباتن التوصيل والطيارين - منصة يونيفود",
   "start_url": "/driver",
   "scope": "/",
   "display": "standalone",

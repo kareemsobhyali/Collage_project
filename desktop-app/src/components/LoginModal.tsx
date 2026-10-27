@@ -37,7 +37,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
           <div className="flex justify-center mb-3">
             <Logo size="lg" />
           </div>
-          <p className="text-xs text-slate-500 mt-2">منظومة توصيل طلبات مطاعم الحرم الجامعي</p>
+          <p className="text-xs text-slate-500 mt-2">منظومة إدارة وتوصيل طلبات المطاعم</p>
         </div>
 
         {error && (

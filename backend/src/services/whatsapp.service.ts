@@ -682,7 +682,7 @@ class WhatsAppService {
 
   public async sendOtp(phone: string, otp: string): Promise<{ success: boolean; simulated?: boolean }> {
     const text = 
-`🎓 *UniFood - رمز تأكيد الحساب* 🔐
+`🍔 *UniFood - رمز تأكيد الحساب* 🔐
 
 كود استعادة كلمة المرور الخاص بك هو:
 👉 *${otp}* 👈
@@ -716,10 +716,10 @@ class WhatsAppService {
     phone: string, 
     code: string, 
     magicLink: string, 
-    studentName: string = 'عزيزي الطالب'
+    studentName: string = 'عزيزي العميل'
   ): Promise<{ success: boolean; simulated?: boolean }> {
     const text = 
-`🎓 *UniFood - تفعيل حسابك الجامعي* 🚀
+`🍔 *UniFood - تفعيل حسابك في UniFood* 🚀
 
 أهلاً بك يا *${studentName}*!
 كود تفعيل رقم هاتفك هو:

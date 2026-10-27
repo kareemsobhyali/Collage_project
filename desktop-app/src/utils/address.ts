@@ -15,7 +15,7 @@ export function cleanAddressText(addressText?: string | null): string {
 /**
  * إرجاع نص العنوان بصيغة بشرية مقروءة مع منع ظهور أي إحداثيات أو أرقام مجردة
  */
-export function getDisplayAddress(addressText?: string | null, fallback: string = 'داخل الحرم الجامعي'): string {
+export function getDisplayAddress(addressText?: string | null, fallback: string = 'عنوان التوصيل'): string {
   if (!addressText) return fallback;
   const clean = cleanAddressText(addressText);
   if (!clean || /^[0-9.,\s\-_:;()]+$/.test(clean)) {
@@ -61,7 +61,7 @@ export function calculateDistanceMeters(lat1: number, lon1: number, lat2: number
  */
 export function calculateEtaMinutes(distanceMeters: number): number {
   if (distanceMeters <= 0) return 1;
-  const speedMetersPerMin = 360; // متوسط سرعة سكوتر التوصيل بالحرم الجامعي والشوارع
+  const speedMetersPerMin = 360; // متوسط سرعة سكوتر التوصيل والشوارع
   const travelMins = Math.ceil(distanceMeters / speedMetersPerMin);
   return Math.max(1, travelMins + 1);
 }

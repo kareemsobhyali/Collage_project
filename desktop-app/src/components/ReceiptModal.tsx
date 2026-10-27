@@ -45,10 +45,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, branchName, o
             <div className="flex items-center justify-center gap-1.5 mb-1 text-slate-500">
               <span className="text-xs font-black tracking-wider uppercase text-indigo-700">UniFood</span>
               <span className="text-[10px]">•</span>
-              <span className="text-[11px] font-bold">يونيفود للجامعات</span>
+              <span className="text-[11px] font-bold">منصة يونيفود للتوصيل</span>
             </div>
             <h2 className="text-xl font-black mb-1">{branchName}</h2>
-            <p className="text-xs text-slate-500 mb-2">منظومة توصيل طلبات الحرم الجامعي</p>
+            <p className="text-xs text-slate-500 mb-2">منظومة طلب وتوصيل وجبات المطاعم</p>
             <div className="border-b border-dashed border-slate-300 my-2"></div>
 
             <div className="flex justify-between items-center text-xs mb-1">
@@ -88,7 +88,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, branchName, o
               <div><span className="font-bold">العميل:</span> {order.customerName}</div>
               <div><span className="font-bold">الهاتف:</span> {order.customerPhone}</div>
               {order.orderType === 'DELIVERY' && (
-                <div><span className="font-bold">العنوان الجامعي:</span> {getDisplayAddress(order.addressText, 'مقر العميل بالحرم')}</div>
+                <div><span className="font-bold">عنوان التوصيل:</span> {getDisplayAddress(order.addressText, 'مقر العميل')}</div>
               )}
               {order.notes && (
                 <div><span className="font-bold text-amber-700">ملاحظات:</span> {order.notes}</div>

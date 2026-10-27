@@ -110,9 +110,9 @@ router.get("/manifest", async (req: Request, res: Response) => {
     }
 
     const defaultManifest = {
-      name: "UniFood | يونيفود - مطاعم الحرم الجامعي",
+      name: "UniFood | يونيفود - منصة طلب وتوصيل الطعام",
       short_name: "UniFood",
-      description: "منصة طلب وتوصيل الوجبات داخل الحرم الجامعي وسلة الشلة التشاركية",
+      description: "منصة طلب وتوصيل الوجبات السريعة وخدمة الطلب الجماعي",
       start_url: "/?installed=1",
       scope: "/",
       id: "/",
@@ -166,8 +166,8 @@ const getApkMetaHandler = async (req: Request, res: Response) => {
       return res.json({
         isBranch: false,
         name: "UniFood",
-        title: "تطبيق UniFood لطلاب الجامعة",
-        subtitle: "جميع مطاعم وكافيهات الجامعة في جيبك - اطلب واستلم فوراً بدون طوابير",
+        title: "تطبيق UniFood لطلب وتوصيل الوجبات",
+        subtitle: "أشهى المطاعم والوجبات السريعة بين يديك - اطلب واستلم فوراً",
         logoUrl: "/logo.png",
         totalBranches,
         appFeatures: [
@@ -225,7 +225,7 @@ const getApkMetaHandler = async (req: Request, res: Response) => {
       slug: branch.slug || branch.id,
       name: branch.name,
       title: `تطبيق ${branch.name}`,
-      subtitle: `التطبيق الرسمي المباشر لمطعم ${branch.name} بالحرم الجامعي`,
+      subtitle: `التطبيق الرسمي المباشر لمطعم ${branch.name}`,
       logoUrl: branch.logoUrl,
       address: branch.address,
       deliveryFee: branch.deliveryFee,
@@ -323,7 +323,7 @@ router.post("/promo-codes/validate", async (req: Request, res: Response) => {
             },
           });
           if (previousUses > 0) {
-            res.status(400).json({ error: "لقد قمت باستخدام كود الخصم هذا مسبقاً (متاح لمرة واحدة لكل طالب)" });
+            res.status(400).json({ error: "لقد قمت باستخدام كود الخصم هذا مسبقاً (متاح لمرة واحدة لكل عميل)" });
             return;
           }
         }
@@ -771,7 +771,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       categories: formattedCategories,
       reviews: recentReviews.map((r) => ({
         id: r.id,
-        customerName: r.customerName || "طالب جامعي",
+        customerName: r.customerName || "عميل",
         rating: r.rating || 5,
         review: r.review || "",
         createdAt: r.createdAt,
@@ -1035,7 +1035,7 @@ router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Respo
 
     // التحقق الإلزامي من الصلاحية: صاحب الصنف فقط أو منشئ السلة هو المخول بالحذف
     if (!studentName || (studentName !== item.studentName && studentName !== cart.hostName)) {
-      res.status(403).json({ error: "لا يمكنك حذف أصناف طالب آخر! يمكنك فقط حذف أو تعديل أصنافك الخاصة." });
+      res.status(403).json({ error: "لا يمكنك حذف أصناف شخص آخر! يمكنك فقط حذف أو تعديل أصنافك الخاصة." });
       return;
     }
 
@@ -1123,7 +1123,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     }
 
     if (orderType === "DELIVERY" && (!addressText || !addressText.trim())) {
-      res.status(400).json({ error: "يرجى كتابة عنوان التوصيل داخل الجامعة (المبنى / الدور / القاعة)" });
+      res.status(400).json({ error: "يرجى كتابة عنوان التوصيل بالتفصيل (الشارع / العمارة / الشقة)" });
       return;
     }
 
@@ -1313,7 +1313,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         if (activeItemDeal.maxPerUser && activeItemDeal.maxPerUser > 0) {
           if (reqQty > activeItemDeal.maxPerUser) {
             res.status(400).json({
-              error: `الحد الأقصى المسموح به لكل طالب من عرض "${activeItemDeal.title}" هو ${activeItemDeal.maxPerUser} فقط (طلبت: ${reqQty})`,
+              error: `الحد الأقصى المسموح به لكل عميل من عرض "${activeItemDeal.title}" هو ${activeItemDeal.maxPerUser} فقط (طلبت: ${reqQty})`,
             });
             return;
           }
@@ -2156,7 +2156,7 @@ router.post("/wallet/convert-points", async (req: AuthRequest, res: Response) =>
 
     res.json({
       success: true,
-      message: `تم تحويل ${pointsToConvert} نقطة ولاء بنجاح إلى ${cashAdded} ج.م في محفظتك الجامعية! 🎉`,
+      message: `تم تحويل ${pointsToConvert} نقطة ولاء بنجاح إلى ${cashAdded} ج.م في محفظتك! 🎉`,
       convertedPoints: pointsToConvert,
       cashAdded,
       user: updatedUser,

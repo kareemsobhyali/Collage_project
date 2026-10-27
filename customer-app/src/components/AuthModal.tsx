@@ -207,7 +207,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
         {/* Header Icon & Title */}
         <div className="text-center mb-6">
           <div className="w-14 h-14 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center font-black text-xl mb-3">
-            {mode === 'LOGIN' && '🎓'}
+            {mode === 'LOGIN' && '🍔'}
             {mode === 'REGISTER' && '✨'}
             {mode === 'FORGOT_PHONE' && '📲'}
             {mode === 'FORGOT_OTP' && '🔐'}
@@ -215,7 +215,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
           </div>
           <h2 className="text-xl font-black text-slate-900">
             {mode === 'LOGIN' && 'تسجيل الدخول'}
-            {mode === 'REGISTER' && 'حساب طالب جديد'}
+            {mode === 'REGISTER' && 'إنشاء حساب جديد'}
             {mode === 'FORGOT_PHONE' && 'استعادة كلمة المرور'}
             {mode === 'FORGOT_OTP' && 'تأكيد كود الواتساب'}
             {mode === 'VERIFY_PHONE' && 'تفعيل رقم الهاتف'}

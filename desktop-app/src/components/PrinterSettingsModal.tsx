@@ -326,7 +326,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({ bran
                     onClick={e => e.stopPropagation()}
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">يطبع لحظة طلب الطالب مباشرة قبل مراجعة الكاشير</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">يطبع لحظة طلب العميل مباشرة قبل مراجعة الكاشير</p>
               </div>
 
               {/* Silent Printing Mode */}

@@ -711,7 +711,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                       🍟 عروض الكومبو والمكملات المقترحة عند طلب الصنف (اختياري)
                     </label>
                     <span className="text-[11px] text-slate-500">
-                      تحكم في العروض التي تظهر للطالب داخل نافذة طلب هذا الصنف (إذا تركتها فارغة لن يظهر أي عرض)
+                      تحكم في العروض التي تظهر للعميل داخل نافذة طلب هذا الصنف (إذا تركتها فارغة لن يظهر أي عرض)
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -722,7 +722,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                           ...itemCombos,
                           {
                             id: `combo-${Date.now()}`,
-                            title: '🍟 + 🥤 عرض كومبو التوفير الجامعي',
+                            title: '🍟 + 🥤 عرض كومبو التوفير',
                             description: 'أضف بطاطس مقلية ذهبية وكانز بيبسي مثلج مع وجبتك',
                             price: '25',
                             badge: 'توفير 20%',

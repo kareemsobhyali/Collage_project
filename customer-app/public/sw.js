@@ -27,7 +27,7 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   let payload = {
     title: 'UniFood | يونيفود',
-    body: 'لديك تحديث جديد في طلبك الجامعي!',
+    body: 'لديك تحديث جديد في طلبك!',
     url: '/',
   };
 

@@ -64,7 +64,7 @@ export async function seedMockDatabase() {
 
   // أ) مطعم 1: برجر فاكتوري
   const burgerBranch = await upsertBranch("burger-campus", {
-    name: "برجر فاكتوري الجامعي 🍔",
+    name: "برجر فاكتوري 🍔",
     phone: "01011112222",
     logoUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80",
     address: "مجمع الخدمات - أمام بوابة كلية التجارة",
@@ -120,7 +120,7 @@ export async function seedMockDatabase() {
     await prisma.branchDeliveryZone.createMany({
       data: [
         { branchId: burgerBranch.id, name: "كليات الهندسة والعلوم والحاسبات", fee: 10.0 },
-        { branchId: burgerBranch.id, name: "سكن الطلاب والملاعب الرياضية", fee: 15.0 },
+        { branchId: burgerBranch.id, name: "المنطقة السكنية والملاعب", fee: 15.0 },
         { branchId: burgerBranch.id, name: "المبنى الإداري والعيادات المركزية", fee: 12.0 },
       ],
     });
@@ -128,7 +128,7 @@ export async function seedMockDatabase() {
 
   // ب) مطعم 2: شاورما ومشويات الحرم
   const shawarmaBranch = await upsertBranch("shawarma-campus", {
-    name: "شاورما ومشويات الحرم 🌯",
+    name: "شاورما ومشويات الأصيل 🌯",
     phone: "01033334444",
     logoUrl: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=500&q=80",
     address: "مول مجمع الكليات الطبية - الدور الأرضي",
@@ -237,7 +237,7 @@ export async function seedMockDatabase() {
     name: "رويال بيتزا & كريب 🍕",
     phone: "01077778888",
     logoUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80",
-    address: "صالة الأنشطة الطلابية - البوابة الشرقية",
+    address: "شارع النصر - البوابة الشرقية",
     isActive: true,
     operationalStatus: "OPEN",
     openingTime: "10:00",
@@ -307,7 +307,7 @@ export async function seedMockDatabase() {
   }
 
   // ==========================================
-  // مطعم 1: برجر فاكتوري الجامعي 🍔 (Burger Factory)
+  // مطعم 1: برجر فاكتوري 🍔 (Burger Factory)
   // ==========================================
   const burgerCatBeef = await prisma.menuCategory.create({
     data: { branchId: burgerBranch.id, name: "سندوتشات البرجر البقري المشوي", displayOrder: 1 },
@@ -347,7 +347,7 @@ export async function seedMockDatabase() {
     {
       id: "burger-combo-fries-drink",
       title: "ترقية لكومبو بطاطس فريش + كانز بيبسي مثلج 🍟🥤",
-      description: "وفر 20 ج.م مع العرض الطلابي المفضل",
+      description: "وفر 20 ج.م مع العرض المفضل",
       price: 30.0,
       badge: "وفر 20 ج.م 🔥",
     },
@@ -507,7 +507,7 @@ export async function seedMockDatabase() {
   });
 
   // ==========================================
-  // مطعم 2: شاورما ومشويات الحرم 🌯 (Shawarma & Grill)
+  // مطعم 2: شاورما ومشويات الأصيل 🌯 (Shawarma & Grill)
   // ==========================================
   const shawarmaCatChicken = await prisma.menuCategory.create({
     data: { branchId: shawarmaBranch.id, name: "شاورما دجاج سوري صاج", displayOrder: 1 },
@@ -938,23 +938,23 @@ export async function seedMockDatabase() {
     {
       id: "pizza-combo-garlic-bread",
       title: "خبز بالثوم والجبنة الموتزاريلا (4 قطع) 🥖🧀",
-      description: "وفر 15 ج.م مع كل أوردر بيتزا للشلة",
+      description: "وفر 15 ج.م مع كل أوردر بيتزا عائلي",
       price: 35.0,
       badge: "عرض التوفير 🔥",
     },
     {
       id: "pizza-combo-sweet-crepe",
       title: "ميني كريب نيوتيلا بالموز تحلية 🍫🍌",
-      description: "حلي قعدتك بعد البيتزا بنصف السعر للطلاب",
+      description: "حلي قعدتك بعد البيتزا بنصف السعر",
       price: 40.0,
-      badge: "حلو الشلة 🍰",
+      badge: "حلو الكومبو 🍰",
     },
     {
       id: "pizza-combo-pepsi-family",
       title: "لتر بيبسي عائلي مثلج 🥤",
-      description: "يكفي 3-4 طلاب مع لِمة الأكل",
+      description: "يكفي 3-4 أفراد مع لِمة الأكل",
       price: 30.0,
-      badge: "للشلة ⭐",
+      badge: "للمجموعات ⭐",
     },
   ]);
 
@@ -1108,7 +1108,7 @@ export async function seedMockDatabase() {
     await prisma.banner.createMany({
       data: [
         {
-          title: "عروض كومبو الطلاب الأقوى 🔥",
+          title: "عروض الكومبو الأقوى 🔥",
           subtitle: "خصم 20% على وجبات البرجر والكومبو المميزة من برجر فاكتوري",
           badgeText: "خصم حصري 🍔",
           imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80",
@@ -1117,8 +1117,8 @@ export async function seedMockDatabase() {
           isActive: true,
         },
         {
-          title: "شاورما وسناكس الحرم الجامعي 🌯",
-          subtitle: "سهران في المذاكرة؟ خدمة التوصيل مستمرة حتى الفجر لسكن الطلاب والمستشفى!",
+          title: "شاورما وسناكس الأصيل 🌯",
+          subtitle: "خدمة التوصيل مستمرة حتى الفجر لتصلك أينما كنت!",
           badgeText: "توصيل سريع ⚡",
           imageUrl: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=800&q=80",
           linkUrl: `?branch=shawarma-campus&offer=${chickenShawarmaSyrian.id}`,
@@ -1128,15 +1128,15 @@ export async function seedMockDatabase() {
         {
           title: "قهوة الصباح والمحاضرات ☕",
           subtitle: "ابدأ يومك بنشاط مع أفضل قهوة مختصة وكرواسون فرنسي طازج",
-          badgeText: "كافيه الطلاب ✨",
+          badgeText: "كافيه متميز ✨",
           imageUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&q=80",
           linkUrl: `?branch=specialty-cafe&offer=${spanishLatte.id}`,
           displayOrder: 3,
           isActive: true,
         },
         {
-          title: "بيتزا تشيكن رانش ولّمت الشلة 🍕",
-          subtitle: "اطلب الآن مع أصحابك واستمتع بأشهى بيتزا وكريب في الجامعة مع عروض التوفير",
+          title: "بيتزا تشيكن رانش العائلية 🍕",
+          subtitle: "اطلب الآن مع أصحابك واستمتع بأشهى بيتزا وكريب مع عروض التوفير",
           badgeText: "الأكثر طلباً ⭐",
           imageUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80",
           linkUrl: `?branch=royal-pizza&offer=${ranchPizza.id}`,
@@ -1304,21 +1304,21 @@ export async function seedMockDatabase() {
 
   try {
     student1 = await upsertStudent("01012345678", {
-      name: "عمر خالد (طالب هندسة)",
+      name: "عمر خالد",
       password: commonPassword,
       walletBalance: 250.0,
       loyaltyPoints: 120,
     });
 
     student2 = await upsertStudent("01087654321", {
-      name: "سارة محمود (طالبة صيدلة)",
+      name: "سارة محمود",
       password: commonPassword,
       walletBalance: 180.0,
       loyaltyPoints: 85,
     });
 
     student3 = await upsertStudent("01098765432", {
-      name: "يوسف إبراهيم (طالب تجارة)",
+      name: "يوسف إبراهيم",
       password: commonPassword,
       walletBalance: 95.0,
       loyaltyPoints: 40,
@@ -1327,8 +1327,8 @@ export async function seedMockDatabase() {
     await prisma.userAddress.deleteMany({ where: { userId: { in: [student1.id, student2.id, student3.id] } } });
     await prisma.userAddress.createMany({
       data: [
-        { userId: student1.id, title: "كلية الهندسة", details: "مبنى عمارة - الدور الثالث - مدرج 302", isDefault: true },
-        { userId: student2.id, title: "سكن الطالبات", details: "مبنى ج - الدور الثاني - غرفة 214", isDefault: true },
+        { userId: student1.id, title: "كلية الهندسة", details: "شارع السلام - عمارة 4 - الدور الثالث", isDefault: true },
+        { userId: student2.id, title: "المنزل", details: "عمارة 8 - الدور الثاني - شقة 4", isDefault: true },
         { userId: student3.id, title: "المكتبة العامة", details: "صالة القراءة الهادئة - الطابق الأول", isDefault: true },
       ],
     });
@@ -1354,7 +1354,7 @@ export async function seedMockDatabase() {
           customerPhone: student1.phone,
           orderType: "DELIVERY",
           paymentMethod: "CASH",
-          addressText: "كلية الهندسة - مدرج 302",
+          addressText: "شارع السلام - عمارة 4",
           deliveryZoneName: "كليات الهندسة والعلوم والحاسبات",
           status: "COMPLETED",
           subtotal: 165.0,
@@ -1406,7 +1406,7 @@ export async function seedMockDatabase() {
           paymentMethod: "INSTAPAY",
           paymentSenderPhone: "01087654321",
           paymentProofUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400&q=80",
-          addressText: "المدينة الجامعية طالبات - مبنى ج",
+          addressText: "الحي السكني - عمارة 15 - الدور الثاني",
           status: "COMPLETED",
           promoCode: "SHAWARMA10",
           subtotal: 145.0,
@@ -1501,7 +1501,7 @@ export async function seedMockDatabase() {
           customerPhone: student1.phone,
           orderType: "DELIVERY",
           paymentMethod: "CASH",
-          addressText: "كلية التجارة - مدرج ب",
+          addressText: "الشيخ زايد - عمارة 8",
           status: "COMPLETED",
           subtotal: 210.0,
           deliveryFee: 15.0,
@@ -1587,7 +1587,7 @@ export async function seedMockDatabase() {
           customerPhone: student3.phone,
           orderType: "DELIVERY",
           paymentMethod: "CASH",
-          addressText: "سكن الطلاب - مبنى د - الدور الثاني",
+          addressText: "شارع النصر - عمارة 12 - الدور الثاني",
           status: "PENDING",
           subtotal: 125.0,
           deliveryFee: 10.0,

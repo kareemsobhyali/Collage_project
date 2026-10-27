@@ -246,15 +246,44 @@ export const InstallApkPage: React.FC<{
           } catch (_e) {}
         }
 
-        // 3. تحديث العنوان والأيقونة ديناميكياً ليناسب المطعم بدون كسر جلسة تثبيت المتصفح
-        const appTitle = data.isBranch ? `تثبيت تطبيق ${data.name} | UniFood` : 'تثبيت تطبيق UniFood | الحرم الجامعي';
+        // 3. تحديث العنوان والأيقونة والمانيفست ديناميكياً ليناسب المطعم وشعاره
+        const appTitle = data.isBranch ? `تثبيت تطبيق ${data.name} | UniFood` : 'تثبيت تطبيق UniFood | اطلب وجبتك أونلاين';
         document.title = appTitle;
 
-        // تحديث الفافيكون
+        // تحديث أيقونة الموقع وأيقونة تطبيق الهاتف لشاشة أندرويد و iOS
         if (data.logoUrl) {
-          let favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+          const fullLogo = getFullImageUrl(data.logoUrl);
+
+          // تحديث Favicon
+          const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
           if (favicon) {
-            favicon.href = getFullImageUrl(data.logoUrl);
+            favicon.href = fullLogo;
+          }
+
+          // تحديث Apple Touch Icon (المسؤول الأول عن أيقونة تطبيق الشاشة الرئيسية في iOS وبعض أجهزة أندرويد)
+          let appleIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
+          if (appleIcon) {
+            appleIcon.href = fullLogo;
+          } else {
+            appleIcon = document.createElement('link');
+            appleIcon.rel = 'apple-touch-icon';
+            appleIcon.href = fullLogo;
+            document.head.appendChild(appleIcon);
+          }
+        }
+
+        // تحديث رابط الـ Manifest لفرع المطعم المحدد لضمان تحميل بيانات وشعار المطعم في الـ WebAPK
+        const branchKey = (data.slug || data.branchId || slug || '').trim().toLowerCase();
+        if (branchKey) {
+          const branchManifestUrl = `/manifest.json?branch=${encodeURIComponent(branchKey)}`;
+          let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+          if (manifestLink) {
+            manifestLink.href = branchManifestUrl;
+          } else {
+            manifestLink = document.createElement('link');
+            manifestLink.rel = 'manifest';
+            manifestLink.href = branchManifestUrl;
+            document.head.appendChild(manifestLink);
           }
         }
       })
@@ -419,7 +448,7 @@ export const InstallApkPage: React.FC<{
         </div>
         <h3 className="text-lg font-black text-white">{error || 'تعذر العثور على التطبيق المطلوب'}</h3>
         <p className="text-xs text-slate-400 mt-1 max-w-sm">
-          تأكد من صحة الرابط أو تصفح باقي مطاعم الحرم الجامعي المتاحة للطلب الآن
+          تأكد من صحة الرابط أو تصفح باقي المطاعم المتاحة للطلب الآن
         </p>
         <div className="flex items-center gap-3 mt-6">
           <button
@@ -456,7 +485,7 @@ export const InstallApkPage: React.FC<{
       <header className="relative z-10 p-4 sm:p-5 flex items-center justify-between border-b border-slate-800/60 max-w-3xl mx-auto w-full">
         <div className="flex items-center gap-2.5">
           <img src="/logo.png" alt="UniFood" className="w-7 h-7 rounded-lg object-contain bg-slate-900 border border-slate-800" />
-          <span className="text-xs font-black text-slate-300 tracking-wide">UniFood الحرم الجامعي</span>
+          <span className="text-xs font-black text-slate-300 tracking-wide">UniFood</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -482,7 +511,7 @@ export const InstallApkPage: React.FC<{
         {/* Restaurant / App Badge */}
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-black mb-4 shadow-sm backdrop-blur-md">
           <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-          <span>{meta.isBranch ? 'التطبيق الرسمي المعتمد للمطعم 🎓' : 'تطبيق طلب الوجبات المعتمد للطلاب 🎓'}</span>
+          <span>{meta.isBranch ? 'التطبيق الرسمي المعتمد للمطعم 🌟' : 'تطبيق طلب وتوصيل الطعام السريع 🚀'}</span>
         </div>
 
         {/* Big Branded App Icon with Glow */}
@@ -534,7 +563,7 @@ export const InstallApkPage: React.FC<{
 
             <span className="px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
               <Truck className="w-3.5 h-3.5" />
-              <span>توصيل للمدرجات والكليات</span>
+              <span>توصيل سريع حتى باب بيتك</span>
             </span>
           </div>
         )}
@@ -676,7 +705,7 @@ export const InstallApkPage: React.FC<{
 
       {/* Footer */}
       <footer className="relative z-10 p-4 border-t border-slate-900 text-center text-[11px] text-slate-500 max-w-3xl mx-auto w-full mb-16 sm:mb-0">
-        <span>UniFood منصة مطاعم وكافيهات الحرم الجامعي © {new Date().getFullYear()}</span>
+        <span>UniFood منصة طلب وتوصيل الطعام أونلاين © {new Date().getFullYear()}</span>
       </footer>
 
       {/* Floating Notification / Install Action Toast (او يجي ليه اشعار ويدوس علي كلمة تثبيت) */}

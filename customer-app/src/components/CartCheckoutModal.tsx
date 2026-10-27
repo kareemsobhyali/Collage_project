@@ -223,7 +223,6 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               const nextDetails =
                 overwriteWrittenText ||
                 !cleanPrev ||
-                cleanPrev === 'موقعي الحالي بالحرم الجامعي' ||
                 cleanPrev === 'موقعي الحالي'
                   ? place.details || place.title
                   : cleanPrev;
@@ -1348,7 +1347,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               <div className="space-y-2.5">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    اسم المكان أو المنطقة (مثال: هايبر، كلية الهندسة، سكن الطلبة):
+                    اسم المكان أو المنطقة (مثال: الشيخ زايد، شارع النصر، عمارة 4):
                   </label>
                   <input
                     type="text"
@@ -1367,7 +1366,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-bold text-slate-700">
-                      تفاصيل العنوان المكتوب للكابتن (المبنى / الدور / المدرج / الشقة) *:
+                      تفاصيل العنوان المكتوب للكابتن (الشارع / العمارة / الدور / الشقة) *:
                     </label>
                     <span className="text-[10px] text-emerald-700 font-bold">
                       يرتبط تلقائياً بالـ GPS
@@ -1375,7 +1374,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   </div>
                   <textarea
                     rows={2}
-                    placeholder="اكتب تفاصيل مكانك (مثال: مبنى ب - الدور الثالث - مدرج 5 أو رقم العمارة والشقة)..."
+                    placeholder="اكتب تفاصيل مكانك (مثال: الشارع - رقم العمارة والشقة أو تفاصيل إضافية)..."
                     value={cleanWrittenDetails}
                     onFocus={() => {
                       if (!capturedCoords && !detectingGps) {
@@ -1444,7 +1443,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   <User className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
                   <input
                     type="text"
-                    placeholder="اسم الطالب أو المستلم"
+                    placeholder="اسم العميل أو المستلم"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     className="w-full pr-8 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
@@ -1812,7 +1811,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                     </div>
                     <div>
                       <div className="text-xs font-black text-slate-900">
-                        المحفظة ونقاط الولاء الجامعية
+                        المحفظة ونقاط الولاء
                       </div>
                       <div className="text-[11px] text-slate-600">
                         رصيدك: <strong className="text-indigo-700">{walletBalance.toFixed(0)} ج.م</strong> •
@@ -1915,7 +1914,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               )}
               {walletDiscount > 0 && (
                 <div className="flex justify-between text-indigo-600 font-bold">
-                  <span>خصم المحفظة الجامعية:</span>
+                  <span>خصم المحفظة:</span>
                   <span className="font-mono">-{walletDiscount} ج.م</span>
                 </div>
               )}
@@ -1933,7 +1932,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900 font-bold">
               <div className="flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>يرجى تسجيل الدخول كطالب لتأكيد ومتابعة الطلب</span>
+                <span>يرجى تسجيل الدخول لتأكيد ومتابعة الطلب</span>
               </div>
               <button
                 type="button"

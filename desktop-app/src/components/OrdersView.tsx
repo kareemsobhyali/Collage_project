@@ -208,7 +208,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     const existingBlocked = Boolean(order.user?.isBlocked);
     setEditingCustomerCRM({
       userId,
-      customerName: order.customerName || order.user?.name || 'طالب',
+      customerName: order.customerName || order.user?.name || 'عميل',
       customerPhone: order.customerPhone || order.user?.phone || '',
       restaurantNotes: existingNotes,
       isBlocked: existingBlocked,
@@ -530,7 +530,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   </div>
                   <div className="min-w-0">
                     <span className="block font-black text-slate-900 text-xs sm:text-sm leading-tight truncate">
-                      {dOrder.customerName || 'طالب'}
+                      {dOrder.customerName || 'عميل'}
                     </span>
                     <span className="text-[11px] font-mono font-bold text-slate-500 mt-0.5 block" dir="ltr">
                       {customerPhone || 'بدون رقم هاتف'}
@@ -578,7 +578,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                   <span className="font-bold truncate">
                     {dOrder.deliveryZoneName ? `${dOrder.deliveryZoneName} • ` : ''}
-                    {getDisplayAddress(dOrder.deliveryLocation || dOrder.addressText, 'موقع العميل بالحرم')}
+                    {getDisplayAddress(dOrder.deliveryLocation || dOrder.addressText, 'موقع العميل')}
                   </span>
                 </div>
               )}
@@ -896,7 +896,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     <div className="p-4 rounded-3xl bg-purple-50 border border-purple-200 space-y-3 text-xs">
                       <div className="flex items-center gap-2 font-black text-purple-900">
                         <Users className="w-5 h-5 text-purple-700" />
-                        <span>تقسيم أكياس وحقائب سلة الشلة ({details.length} طلاب):</span>
+                        <span>تقسيم أكياس وحقائب الطلب الجماعي ({details.length} أفراد):</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {details.map((group: any, gIdx: number) => (
@@ -1214,7 +1214,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 <BellRing className="w-6 h-6 sm:w-7 sm:h-7 animate-bounce shrink-0" />
                 <div>
                   <h3 className="text-sm sm:text-base font-black">يوجد {pendingOrders.length} طلب جديد بانتظار استجابتك!</h3>
-                  <p className="text-xs opacity-90">يرجى قبول الطلبات وتحديد وقت التجهيز للطلاب</p>
+                  <p className="text-xs opacity-90">يرجى قبول الطلبات وتحديد وقت التجهيز للعملاء</p>
                 </div>
               </div>
               <button
@@ -1367,7 +1367,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   ? 'رائع! لا توجد طلبات جديدة معلقة. جميع الطلبات تم قبولها أو تحضيرها.'
                   : selectedTab === 'PREPARING'
                   ? 'لا توجد طلبات قيد التحضير في المطبخ حالياً.'
-                  : 'ستظهر الطلبات الجديدة هنا فور قيام الطلاب بالطلب.'}
+                  : 'ستظهر الطلبات الجديدة هنا فور قيام العملاء بالطلب.'}
               </p>
 
               {orders.length > 0 && selectedTab !== 'ALL' && (
@@ -1461,7 +1461,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     {/* 2. Customer and Time */}
                     <div className="flex items-center justify-between text-xs text-slate-600">
                       <span className="font-bold truncate max-w-[150px]">
-                        👤 {order.customerName || 'طالب'}
+                        👤 {order.customerName || 'عميل'}
                       </span>
                       <span className="text-[11px] font-mono text-slate-400">
                         {new Date(order.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
@@ -1622,7 +1622,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 <div>
                   <h4 className="font-black text-slate-900 text-sm">تحديد وقت التجهيز والطيار</h4>
                   <span className="text-[11px] font-bold text-slate-400">
-                    طلب الطالب #{acceptingOrder.orderNumber} ({acceptingOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'})
+                    طلب العميل #{acceptingOrder.orderNumber} ({acceptingOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'})
                   </span>
                 </div>
               </div>
@@ -1936,7 +1936,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
                 <div>
                   <h4 className="font-black text-slate-800 text-sm">رفض الطلب #{rejectingOrder.orderNumber}</h4>
-                  <p className="text-[11px] text-slate-400">يرجى توضيح سبب الرفض لإشعار الطالب والسيستم</p>
+                  <p className="text-[11px] text-slate-400">يرجى توضيح سبب الرفض لإشعار العميل والسيستم</p>
                 </div>
               </div>
               <button 
@@ -1994,7 +1994,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 onClick={handleConfirmReject}
                 className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-rose-600/20 transition-all active:scale-95"
               >
-                {updatingId === rejectingOrder.id ? 'جارٍ الإلغاء...' : 'تأكيد رفض الطلب وإشعار الطالب'}
+                {updatingId === rejectingOrder.id ? 'جارٍ الإلغاء...' : 'تأكيد رفض الطلب وإشعار العميل'}
               </button>
               <button
                 type="button"
@@ -2015,7 +2015,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-rose-600" />
-                <h4 className="font-black text-slate-800 text-sm">إيصال تحويل الطالب</h4>
+                <h4 className="font-black text-slate-800 text-sm">إيصال تحويل العميل</h4>
               </div>
               <button onClick={() => setViewingProofUrl(null)} className="p-1 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />

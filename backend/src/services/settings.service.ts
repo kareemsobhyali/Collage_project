@@ -319,7 +319,7 @@ export async function checkAndSendDriverUnacceptedOrdersAlerts(): Promise<void> 
       const cleanAddr = order.addressText
         ? order.addressText.replace(/\[GPS:[0-9.-]+,[0-9.-]+\]/g, '').replace(/\|\|\s*GPS:.*$/i, '').replace(/GPS:\s*[0-9.-]+[,\s]+[0-9.-]+/i, '').trim()
         : '';
-      const addressDisplay = [order.deliveryZoneName, cleanAddr].filter(Boolean).join(" - ") || "الحرم الجامعي";
+      const addressDisplay = [order.deliveryZoneName, cleanAddr].filter(Boolean).join(" - ") || "عنوان التوصيل";
       const paymentDisplay = order.paymentMethod === "CASH" ? "💵 تحصيل كاش" : "💳 مدفوع إلكترونياً (أونلاين)";
 
       const message =
@@ -470,7 +470,7 @@ export async function generateBranchShiftReport(branchId: string): Promise<{
 💰 إجمالي المبيعات المحققة: *${totalRevenue.toFixed(1)} ج.م*
 🍲 صافي مبيعات الوجبات: *${foodNetSum.toFixed(1)} ج.م*
 🛵 إجمالي رسوم التوصيل: *${deliveryFeesSum.toFixed(1)} ج.م*
-👛 خصومات المحفظة الجامعية: *${walletDiscountsSum.toFixed(1)} ج.م*
+👛 خصومات المحفظة: *${walletDiscountsSum.toFixed(1)} ج.م*
 
 📦 إجمالي الطلبات المسجلة: *${totalOrders} طلب*
 ✅ طلبات ناجحة ومكتملة: *${completedOrders.length} طلب*
@@ -489,7 +489,7 @@ export async function generateBranchShiftReport(branchId: string): Promise<{
 ${topItemsText}
 
 ━━━━━━━━━━━━━━━━━━━━━
-✨ *نظام UniFood لإدارة مطاعم الحرم الجامعي.*`;
+✨ *نظام UniFood لإدارة وتوصيل طلبات المطاعم.*`;
 
   return {
     branchName: branch.name,
@@ -613,7 +613,7 @@ export async function generateAllBranchesShiftReport(): Promise<{
 🏪 *إجمالي الفروع النشطة:* ${branches.length} مطعم
 
 ━━━━━━━━━━━━━━━━━━━━━
-📈 *إجمالي مبيعات وإيرادات الحرم الجامعي:*
+📈 *إجمالي مبيعات وإيرادات المنصة:*
 💰 إجمالي المبيعات المحققة: *${totalRevenue.toFixed(1)} ج.م*
 🍲 صافي مبيعات الوجبات: *${foodNetSum.toFixed(1)} ج.م*
 🛵 إجمالي رسوم التوصيل: *${deliveryFeesSum.toFixed(1)} ج.م*
@@ -636,14 +636,14 @@ ${branchSummaryLines || "  لا توجد فروع مسجلة."}
 💳 فيزا / بطاقات: *${cardTotal.toFixed(1)} ج.م* (${cardCount} طلب)
 
 ━━━━━━━━━━━━━━━━━━━━━
-🍽️ *أكثر الوجبات طلباً على مستوى الجامعة:*
+🍽️ *أكثر الوجبات طلباً على مستوى الفروع:*
 ${topItemsText}
 
 ━━━━━━━━━━━━━━━━━━━━━
-✨ *نظام UniFood لإدارة وتوصيل مطاعم الحرم الجامعي.*`;
+✨ *نظام UniFood لإدارة وتوصيل طلبات المطاعم.*`;
 
   return {
-    branchName: "جميع فروع الجامعة",
+    branchName: "كافة الفروع",
     message,
     totalOrders,
     completedOrders: completedOrders.length,
@@ -893,8 +893,8 @@ export interface RestaurantLocationSettings {
 }
 
 export const DEFAULT_RESTAURANT_LOCATION: RestaurantLocationSettings = {
-  name: "مطعم ومطبخ الجامعة المركزي",
-  address: "الحرم الجامعي - مجمع الأنشطة الطلابية والخدمات",
+  name: "الفرع الرئيسي للمنصة",
+  address: "الشارع التجاري الرئيسي",
   lat: 30.0262,
   lng: 31.2088,
   isCustom: false,

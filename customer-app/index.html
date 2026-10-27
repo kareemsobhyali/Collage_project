@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#0B0F19" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>UniFood | يونيفود - مطاعم الحرم الجامعي</title>
+    <title>UniFood | يونيفود - اطلب وجبتك المفضلة أونلاين</title>
     <script>
       (function() {
         // 1. تحديد المطعم المستهدف من مسار الصفحة الحالية لتهيئة المانيفست المخصص
@@ -22,6 +22,20 @@
           } else {
             var params = new URLSearchParams(window.location.search);
             branch = params.get('branch') || params.get('r') || params.get('slug') || '';
+          }
+          if (!branch && window.location.hash && window.location.hash.length > 1) {
+            var hashClean = window.location.hash.replace(/^#+/, '').replace(/\?.*$/, '');
+            var hSegs = hashClean.split('/').filter(Boolean);
+            if (hSegs.length >= 2 && ['apk', 'download', 'install'].indexOf(hSegs[hSegs.length - 1].toLowerCase()) !== -1) {
+              branch = hSegs[0] === 'r' ? hSegs[1] : hSegs[0];
+            } else if (hSegs.length >= 1 && hSegs[0] !== 'admin' && hSegs[0] !== 'driver') {
+              branch = hSegs[0] === 'r' ? hSegs[1] : hSegs[0];
+            }
+          }
+          if (!branch) {
+            try {
+              branch = localStorage.getItem('pwa_installed_branch') || '';
+            } catch(_err) {}
           }
           if (branch && branch !== 'admin' && branch !== 'driver' && branch !== 'api') {
             try { localStorage.setItem('pwa_installed_branch', decodeURIComponent(branch).toLowerCase()); } catch(e) {}
@@ -68,7 +82,7 @@
             <span>Uni</span><span style="color:#fbbf24;">Food</span>
           </h1>
           <p style="font-size:12px;color:#a5b4fc;margin-top:6px;font-weight:700;">
-            مطاعم الحرم الجامعي بين يديك 🎓🍔
+            أشهى الوجبات والمطاعم بين يديك 🍔🚀
           </p>
         </div>
         <div style="margin-top:32px;width:140px;height:4px;background:rgba(255,255,255,0.15);border-radius:999px;overflow:hidden;">

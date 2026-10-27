@@ -10,7 +10,7 @@ import {
   X,
   CheckCircle2
 } from 'lucide-react';
-import { api, API_BASE_URL } from './services/api';
+import { api, API_BASE_URL, getFullImageUrl } from './services/api';
 import { registerServiceWorker, isRunningInNativeApk, triggerInstallApp, registerNativeBackgroundSession, clearNativeBackgroundSession } from './services/notifications';
 import { BranchList } from './components/BranchList';
 import { BranchMenu } from './components/BranchMenu';
@@ -104,7 +104,7 @@ export function App() {
       const saved = localStorage.getItem('customer_user');
       if (!saved) return null;
       const parsed = JSON.parse(saved);
-      // منع تسرب حساب المدير العام (SUPERADMIN) إلى واجهة الطلاب نهائياً
+      // منع تسرب حساب المدير العام (SUPERADMIN) إلى واجهة العملاء نهائياً
       if (parsed.role === 'SUPERADMIN' || parsed.phone === 'admin') {
         localStorage.removeItem('customer_user');
         localStorage.removeItem('customer_token');
@@ -367,7 +367,7 @@ export function App() {
     return () => clearTimeout(t);
   }, [activationToast]);
 
-  // إذا دخل الطالب برابط دعوة لسلة الشلة: يفتح السلة إن كان مسجلاً، أو يطلب تسجيل الدخول أولاً
+  // إذا دخل العميل برابط دعوة للسلة الجماعية: يفتح السلة إن كان مسجلاً، أو يطلب تسجيل الدخول أولاً
   useEffect(() => {
     if (pendingOpenGroupCart && !isAdminRoute && !showDriverPortal) {
       if (user) {
@@ -501,6 +501,40 @@ export function App() {
       setLoading(false);
     }
   };
+
+  // مزامنة المانيفست وأيقونة التطبيق لشاشة الهاتف مع الفرع المختار
+  useEffect(() => {
+    if (isAdminRoute || showDriverPortal) return;
+    if (selectedBranch && (selectedBranch.slug || selectedBranch.id)) {
+      const branchSlug = (selectedBranch.slug || selectedBranch.id).toLowerCase();
+      try {
+        localStorage.setItem('pwa_installed_branch', branchSlug);
+      } catch (_e) {}
+
+      // تحديث رابط الـ Manifest المخصص للفرع
+      const manifestUrl = `/manifest.json?branch=${encodeURIComponent(branchSlug)}`;
+      const mLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+      if (mLink) {
+        mLink.href = manifestUrl;
+      }
+
+      // تحديث أيقونة الموقع وأيقونة الهاتف للشاشة الرئيسية
+      if (selectedBranch.logoUrl) {
+        const fullLogo = getFullImageUrl(selectedBranch.logoUrl);
+        const fav = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+        if (fav) fav.href = fullLogo;
+        let apple = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
+        if (apple) {
+          apple.href = fullLogo;
+        } else {
+          apple = document.createElement('link');
+          apple.rel = 'apple-touch-icon';
+          apple.href = fullLogo;
+          document.head.appendChild(apple);
+        }
+      }
+    }
+  }, [selectedBranch, isAdminRoute, showDriverPortal]);
 
   useEffect(() => {
     if (isAdminRoute) return;
@@ -674,7 +708,7 @@ export function App() {
       window.dispatchEvent(new CustomEvent('banners_updated'));
     });
 
-    // 5.1 تحديث عروض الفلاش والكميات المستهلكة/المتبقية لحظياً لجميع الطلاب
+    // 5.1 تحديث عروض الفلاش والكميات المستهلكة/المتبقية لحظياً لجميع العملاء
     socket.on('flash_deals_updated', () => {
       window.dispatchEvent(new CustomEvent('flash_deals_updated'));
       setSelectedBranch((currBranch: any) => {
@@ -689,13 +723,13 @@ export function App() {
       });
     });
 
-    // 5.2 تحديث سلة الشلة المشتركة فور إغلاقها من المنشئ
+    // 5.2 تحديث السلة الجماعية المشتركة فور إغلاقها من المنشئ
     socket.on('group_cart_updated', (data: any) => {
       if (data?.isClosed) {
         setGroupCartCode((currentCode) => {
           if (currentCode === data.shareCode) {
             localStorage.removeItem('active_group_cart_code');
-            alert('تم إغلاق سلة الشلة من قِبل المنشئ وتوقيف رابط المشاركة.');
+            alert('تم إغلاق السلة الجماعية من قِبل المنشئ وتوقيف رابط المشاركة.');
             setShowGroupCartModal(false);
             return null;
           }
@@ -704,7 +738,7 @@ export function App() {
       }
     });
 
-    // 6. تحديث رصيد المحفظة ونقاط الولاء أو حظر الحساب للطالب فورياً
+    // 6. تحديث رصيد المحفظة ونقاط الولاء أو حظر الحساب للعميل فورياً
     socket.on('user_profile_updated', (data: any) => {
       setUser((prevUser: any) => {
         if (!prevUser) return prevUser;
@@ -838,7 +872,7 @@ export function App() {
   };
 
   const handleAddToCart = async (itemToAdd: any) => {
-    // إذا كان الطالب مشتركاً حالياً في "سلة الشلة"، نضيف الصنف مباشرة لكيسه في سلة الشلة!
+    // إذا كان العميل مشتركاً حالياً في "السلة الجماعية"، نضيف الصنف مباشرة لحسابه في السلة الجماعية!
     if (groupCartCode && user) {
       try {
         await api.addGroupCartItem(groupCartCode, {
@@ -854,7 +888,7 @@ export function App() {
         setShowGroupCartModal(true);
         return;
       } catch (err: any) {
-        alert(err.message || 'فشل إضافة الصنف لسلة الشلة');
+        alert(err.message || 'فشل إضافة الصنف للسلة الجماعية');
       }
     }
     setCart([...cart, { ...itemToAdd, branchId: selectedBranch.id }]);
@@ -910,7 +944,7 @@ export function App() {
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-100 flex flex-col font-sans">
-      {/* إشعار التفعيل السريع لحساب الطالب */}
+      {/* إشعار التفعيل السريع لحساب العميل */}
       {activationToast && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[100] w-11/12 max-w-md bg-emerald-600 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3 animate-bounce border border-emerald-400">
           <div className="flex items-center gap-2.5 text-xs font-black">
@@ -945,7 +979,7 @@ export function App() {
                 type="button"
                 onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk')}
                 className="h-9 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                title="تثبيت تطبيق الطلاب للأندرويد"
+                title="تثبيت تطبيق العملاء للأندرويد"
               >
                 <Smartphone className="w-4 h-4 shrink-0" />
                 <span className="hidden md:inline">تثبيت التطبيق</span>
@@ -960,10 +994,10 @@ export function App() {
                   ? 'bg-purple-600 text-white shadow-sm'
                   : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100'
               }`}
-              title="مشاركة سلة جماعية مع أصحابك (سلة الشلة)"
+              title="مشاركة سلة جماعية مع أصدقائك"
             >
               <Users className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">سلة الشلة</span>
+              <span className="hidden sm:inline">طلب جماعي</span>
               {groupCartCode && (
                 <span className="w-2 h-2 rounded-full bg-amber-300 animate-pulse shrink-0" />
               )}
@@ -1003,7 +1037,7 @@ export function App() {
                 <button
                   onClick={() => setShowProfileModal(true)}
                   className="h-9 w-9 sm:w-auto px-0 sm:px-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200/80 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                  title="حسابي والمحفظة الجامعية ونقاط الولاء"
+                  title="حسابي والمحفظة ونقاط الولاء"
                 >
                   <User className="w-4 h-4 text-indigo-600 shrink-0" />
                   <span className="hidden sm:inline max-w-[80px] truncate">{user.name.split(' ')[0]}</span>
@@ -1040,7 +1074,7 @@ export function App() {
             <div className="flex items-center gap-2 font-bold">
               <Users className="w-4 h-4 text-amber-300 shrink-0" />
               <span>
-                أنت الآن في <strong>سلة الشلة ({groupCartCode})</strong> — أي وجبة تضيفها من المنيو ستنزل في كيسك!
+                أنت الآن في <strong>السلة الجماعية ({groupCartCode})</strong> — أي وجبة تضيفها من المنيو ستنزل في طلبك!
               </span>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -1124,7 +1158,7 @@ export function App() {
       {showGroupCartModal && user && (
         <GroupCartModal
           branchId={selectedBranch?.id || branches[0]?.id || ''}
-          branchName={selectedBranch?.name || branches[0]?.name || 'مطعم الجامعة'}
+          branchName={selectedBranch?.name || branches[0]?.name || 'المطعم'}
           branches={branches}
           user={user}
           initialCode={groupCartCode}

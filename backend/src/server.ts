@@ -161,13 +161,67 @@ app.get("/manifest.json", async (req, res) => {
       });
 
       if (branch) {
-        const logoUrl = branch.logoUrl
-          ? (branch.logoUrl.startsWith("http") ? branch.logoUrl : `/uploads/${branch.logoUrl}`)
-          : "/logo.png";
+        let logoUrl = branch.logoUrl || "/logo.png";
+        if (logoUrl.startsWith("http")) {
+          try {
+            const parsed = new URL(logoUrl);
+            logoUrl = parsed.pathname;
+          } catch (_e) {}
+        } else if (!logoUrl.startsWith("/")) {
+          logoUrl = `/uploads/${logoUrl}`;
+        }
 
         // تحديد نوع الأيقونة بدقة (MIME Type) لتفادي رفض جوجل كروم لأيقونة WebAPK
         const isJpg = /\.jpe?g($|\?)/i.test(logoUrl);
         const iconType = isJpg ? "image/jpeg" : "image/png";
+
+        // إذا كان للفرع شعار مخصص، نستخدمه حصرياً لجميع أحجام الأيقونات (any و maskable)
+        // ولا نضع شعار المنصة العام /logo.png إطلاقاً حتى لا يختاره متصفح كروم وأندرويد بدلاً من شعار المطعم
+        const hasCustomLogo = logoUrl !== "/logo.png";
+
+        const branchIcons = [
+          {
+            src: logoUrl,
+            sizes: "192x192",
+            type: iconType,
+            purpose: "any",
+          },
+          {
+            src: logoUrl,
+            sizes: "512x512",
+            type: iconType,
+            purpose: "any",
+          },
+          {
+            src: logoUrl,
+            sizes: "192x192",
+            type: iconType,
+            purpose: "maskable",
+          },
+          {
+            src: logoUrl,
+            sizes: "512x512",
+            type: iconType,
+            purpose: "maskable",
+          },
+        ];
+
+        if (!hasCustomLogo) {
+          branchIcons.push(
+            {
+              src: "/logo.png",
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "any",
+            },
+            {
+              src: "/logo.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "maskable",
+            }
+          );
+        }
 
         const branchManifest = {
           name: `${branch.name} | UniFood`,
@@ -188,38 +242,7 @@ app.get("/manifest.json", async (req, res) => {
           orientation: "portrait",
           dir: "rtl",
           lang: "ar",
-          icons: [
-            {
-              src: logoUrl,
-              sizes: "192x192",
-              type: iconType,
-              purpose: "any",
-            },
-            {
-              src: logoUrl,
-              sizes: "512x512",
-              type: iconType,
-              purpose: "any",
-            },
-            {
-              src: logoUrl,
-              sizes: "512x512",
-              type: iconType,
-              purpose: "maskable",
-            },
-            {
-              src: "/logo.png",
-              sizes: "192x192",
-              type: "image/png",
-              purpose: "any",
-            },
-            {
-              src: "/logo.png",
-              sizes: "512x512",
-              type: "image/png",
-              purpose: "maskable",
-            },
-          ],
+          icons: branchIcons,
         };
 
         res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
@@ -241,7 +264,7 @@ app.get("/manifest.json", async (req, res) => {
   return res.json({
     name: "UniFood | يونيفود - مطاعم الحرم الجامعي",
     short_name: "UniFood",
-    description: "منصة طلب وتوصيل الوجبات داخل الحرم الجامعي وسلة الشلة التشاركية",
+    description: "منصة طلب وتوصيل الوجبات السريعة وخدمة الطلب الجماعي",
     start_url: "/",
     scope: "/",
     id: "/",
@@ -334,7 +357,7 @@ if (fs.existsSync(customerDistPath)) {
   app.use(express.static(customerDistPath));
 
   // توجيه كل المسارات الأخرى مثل:
-  // / (تطبيق الطلاب)
+  // / (تطبيق العملاء)
   // /admin (لوحة تحكم الإدارة)
   // /delivery أو /driver أو /elviery (شاشة الطيارين)
   // إلى index.html الخاص بـ customer-app (Single Page App Fallback)

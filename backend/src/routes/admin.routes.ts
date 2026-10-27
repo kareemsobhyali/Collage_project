@@ -916,12 +916,12 @@ router.put("/users/:id/toggle-verify", async (req: AuthRequest, res: Response) =
 
     res.json({
       success: true,
-      message: updated.isVerified ? "تم تفعيل وتأكيد حساب الطالب بنجاح" : "تم إلغاء تفعيل حساب الطالب",
+      message: updated.isVerified ? "تم تفعيل وتأكيد حساب العميل بنجاح" : "تم إلغاء تفعيل حساب العميل",
       user: updated,
     });
   } catch (error) {
     console.error("Toggle user verify error:", error);
-    res.status(500).json({ error: "فشل تعديل حالة تفعيل الطالب" });
+    res.status(500).json({ error: "فشل تعديل حالة تفعيل العميل" });
   }
 });
 
@@ -954,7 +954,7 @@ router.put("/users/:id/wallet", async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, user: updated });
   } catch (error) {
-    res.status(500).json({ error: "فشل تحديث بيانات ومحفظة الطالب" });
+    res.status(500).json({ error: "فشل تحديث بيانات ومحفظة العميل" });
   }
 });
 
@@ -1572,10 +1572,10 @@ router.put("/users/:id/reset-password", async (req: AuthRequest, res: Response) 
       data: { password: hashedPassword },
     });
 
-    res.json({ success: true, message: `تم تعيين كلمة المرور الجديدة للطالب (${user.name}) بنجاح` });
+    res.json({ success: true, message: `تم تعيين كلمة المرور الجديدة للعميل (${user.name}) بنجاح` });
   } catch (error) {
     console.error("Admin reset user password error:", error);
-    res.status(500).json({ error: "فشل تعيين كلمة المرور للطالب" });
+    res.status(500).json({ error: "فشل تعيين كلمة المرور للعميل" });
   }
 });
 

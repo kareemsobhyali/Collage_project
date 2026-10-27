@@ -112,7 +112,7 @@ export const BranchStatusModal: React.FC<BranchStatusModalProps> = ({
                   </div>
                   <div className="min-w-0">
                     <span className="font-black text-xs sm:text-sm text-slate-900 block">🟢 مفتوح (استقبال الطلبات)</span>
-                    <span className="text-[11px] sm:text-xs text-slate-500 block leading-tight">المطعم متاح للطلاب والطلبات تصلك مباشرة مع التنبيه الصوتي</span>
+                    <span className="text-[11px] sm:text-xs text-slate-500 block leading-tight">المطعم متاح للعملاء والطلبات تصلك مباشرة مع التنبيه الصوتي</span>
                   </div>
                 </div>
                 <input
@@ -237,7 +237,7 @@ export const BranchStatusModal: React.FC<BranchStatusModalProps> = ({
             {(selectedStatus === 'BUSY' || selectedStatus === 'CLOSED') && (
               <div className="space-y-1.5 pt-1">
                 <label className="block text-xs font-bold text-slate-700">
-                  سبب الإغلاق (يظهر للطلاب كرسالة توضيحية - اختياري):
+                  سبب الإغلاق (يظهر للعملاء كرسالة توضيحية - اختياري):
                 </label>
                 <textarea
                   rows={2}

@@ -249,7 +249,7 @@ export async function seedDivadoBranchAndMenu() {
     name: "ديفادو وافل اند كريب 🧇",
     slug: "divado-campus",
     phone: "01023231926",
-    address: "الحرم الجامعي - أمام مدخل 2 (الشيخ زايد - هايبر وان)",
+    address: "أمام مدخل 2 (الشيخ زايد - هايبر وان)",
     logoUrl: "https://collage-project-5zby.onrender.com/uploads/1791832225692-750953839.jpg",
     isActive: true,
     operationalStatus: "OPEN",

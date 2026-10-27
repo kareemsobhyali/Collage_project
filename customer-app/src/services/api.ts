@@ -257,7 +257,7 @@ export const api = {
     return data;
   },
 
-  // 8. سجل طلبات الطالب
+  // 8. سجل طلبات العميل
   async getMyOrders() {
     const res = await fetch(`${API_BASE_URL}/customer/my-orders`, {
       headers: getHeaders(),
@@ -571,11 +571,11 @@ export const api = {
       body: JSON.stringify(walletData),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل تحديث محفظة أو بيانات الطالب');
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث محفظة أو بيانات العميل');
     return data;
   },
 
-  // 12.5 المحفظة الجامعية ونقاط الولاء (Student Wallet & Loyalty Points)
+  // 12.5 المحفظة ونقاط الولاء (Customer Wallet & Loyalty Points)
   async getWallet() {
     const res = await fetch(`${API_BASE_URL}/customer/wallet`, {
       headers: getHeaders(),
@@ -596,7 +596,7 @@ export const api = {
     return data;
   },
 
-  // 13. السلة الجماعية التشاركية (سلة الشلة)
+  // 13. السلة الجماعية التشاركية (الطلب الجماعي)
   async createGroupCart(branchId: string, hostName: string) {
     const res = await fetch(`${API_BASE_URL}/customer/group-cart/create`, {
       method: 'POST',
@@ -604,14 +604,14 @@ export const api = {
       body: JSON.stringify({ branchId, hostName }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل إنشاء سلة الشلة');
+    if (!res.ok) throw new Error(data.error || 'فشل إنشاء السلة الجماعية');
     return data;
   },
 
   async getGroupCart(code: string) {
     const res = await fetch(`${API_BASE_URL}/customer/group-cart/${code}`);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل استرجاع سلة الشلة');
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع السلة الجماعية');
     return data;
   },
 
@@ -622,7 +622,7 @@ export const api = {
       body: JSON.stringify(itemData),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل إضافة الصنف لسلة الشلة');
+    if (!res.ok) throw new Error(data.error || 'فشل إضافة الصنف للسلة الجماعية');
     return data;
   },
 
@@ -633,7 +633,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل حذف الصنف من سلة الشلة');
+    if (!res.ok) throw new Error(data.error || 'فشل حذف الصنف من السلة الجماعية');
     return data;
   },
 
@@ -643,7 +643,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل إغلاق سلة الشلة');
+    if (!res.ok) throw new Error(data.error || 'فشل إغلاق السلة الجماعية');
     return data;
   },
 
@@ -893,7 +893,7 @@ export const api = {
       },
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'فشل تعديل حالة تفعيل حساب الطالب');
+    if (!res.ok) throw new Error(data.error || 'فشل تعديل حالة تفعيل حساب العميل');
     return data;
   },
 

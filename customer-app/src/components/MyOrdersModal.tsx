@@ -195,7 +195,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ onSelectOrderToTra
               <div className="space-y-1">
                 <h4 className="text-sm font-bold text-slate-700">لا توجد طلبات سابقة حتى الآن</h4>
                 <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                  استكشف مطاعم وكافيهات الحرم واطلب وجبتك المفضلة لتصلك أينما كنت!
+                  استكشف أفضل المطاعم والكافيهات واطلب وجبتك المفضلة لتصلك أينما كنت!
                 </p>
               </div>
               <button
@@ -203,7 +203,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ onSelectOrderToTra
                 onClick={onClose}
                 className="mt-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 active:scale-95 transition-all inline-flex items-center gap-1.5"
               >
-                <span>تصفح مطاعم الجامعة</span>
+                <span>تصفح المطاعم الآن</span>
                 <ArrowRight className="w-3.5 h-3.5 rotate-180" />
               </button>
             </div>
@@ -234,7 +234,7 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ onSelectOrderToTra
                       </div>
                       <div className="min-w-0">
                         <h4 className="font-black text-xs sm:text-sm text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
-                          {order.branch?.name || 'مطعم الجامعة'}
+                          {order.branch?.name || 'المطعم'}
                         </h4>
                         <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
                           <span className="font-mono font-bold text-slate-700">#{order.orderNumber}</span>

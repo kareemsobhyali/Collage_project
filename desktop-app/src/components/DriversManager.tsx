@@ -107,7 +107,7 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onClose }) => {
 
   const handleToggleActive = async (driver: any) => {
     if (driver.isGeneralDriver) {
-      setFormError('لا يمكن تعديل حالة الطيار العام من فرع منفرد (تتم إدارته عبر لوحة الجامعة)');
+      setFormError('لا يمكن تعديل حالة الطيار العام من فرع منفرد (تتم إدارته عبر لوحة الإدارة العامة)');
       return;
     }
     try {
@@ -156,7 +156,7 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onClose }) => {
           </div>
           <div className="min-w-0">
             <h2 className="text-lg sm:text-xl font-black text-slate-800 truncate">فريق كباتن التوصيل (الطيارين)</h2>
-            <p className="text-xs text-slate-500">إدارة حسابات الطيارين وإسناد طلبات التوصيل الجامعية لهم</p>
+            <p className="text-xs text-slate-500">إدارة حسابات الطيارين وإسناد طلبات التوصيل لهم</p>
           </div>
         </div>
 
@@ -319,7 +319,7 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onClose }) => {
           <Truck className="w-12 h-12 text-slate-300 mx-auto" />
           <h4 className="font-bold text-slate-700 text-sm">لم تقم بإضافة أي طيارين بعد</h4>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            أضف طياري الدليفري الخاصين بمطعمك لتمكينهم من تسجيل الدخول واستلام ومتابعة طلبات التوصيل الجامعية.
+            أضف طياري الدليفري الخاصين بمطعمك لتمكينهم من تسجيل الدخول واستلام ومتابعة طلبات التوصيل.
           </p>
         </div>
       ) : (
@@ -367,9 +367,9 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onClose }) => {
                 </div>
 
                 {driver.isGeneralDriver ? (
-                  <div className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-200 flex items-center gap-1 shrink-0" title="كابتن توصيل معتمد من الجامعة مشترك بين المطاعم ويتم التحكم في حسابه من لوحة تحكم الجامعة">
+                  <div className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-200 flex items-center gap-1 shrink-0" title="كابتن توصيل معتمد مشترك بين المطاعم ويتم التحكم في حسابه من لوحة تحكم الإدارة">
                     <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                    <span>معتمد من الجامعة</span>
+                    <span>كابتن معتمد</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1 shrink-0">

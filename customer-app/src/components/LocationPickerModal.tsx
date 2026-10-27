@@ -210,7 +210,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         ).map(lm => ({
           id: `campus-${lm.id}`,
           name: lm.name,
-          secondary: 'معلم رئيسي بالحرم الجامعي',
+          secondary: 'معلم رئيسي معروف',
           lat: lm.lat,
           lng: lm.lng,
           isCampus: true,
@@ -386,7 +386,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                 if (suggestions.length > 0) setShowSuggestions(true);
               }}
               dir="rtl"
-              placeholder="ابحث عن مكان، كلية، شارع، أو عنوان بالاسم (مع اقتراحات تلقائية)..."
+              placeholder="ابحث عن مكان، منطقة، شارع، أو عنوان بالاسم (مع اقتراحات تلقائية)..."
               className="w-full pr-10 pl-10 py-2.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 rounded-2xl text-xs font-bold text-slate-800 placeholder-slate-400 transition-all outline-none text-right"
             />
             {isSearching ? (
@@ -437,7 +437,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                       </span>
                       {sugg.isCampus && (
                         <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
-                          معلم جامعي
+                          معلم رئيسي
                         </span>
                       )}
                     </div>
@@ -480,11 +480,11 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             <button
               type="button"
               onClick={handleCenterCampus}
-              title="العودة لمركز الحرم الجامعي"
+              title="العودة لمركز المدينة"
               className="p-2.5 bg-white hover:bg-slate-50 active:scale-95 text-slate-700 hover:text-purple-600 rounded-2xl shadow-lg border border-slate-200 transition-all flex items-center gap-1.5 text-xs font-bold shrink-0"
             >
               <Building2 className="w-4 h-4 text-purple-600" />
-              <span className="hidden sm:inline">الحرم الجامعي</span>
+              <span className="hidden sm:inline">مركز المدينة</span>
             </button>
           </div>
 

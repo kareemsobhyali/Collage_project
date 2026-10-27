@@ -71,7 +71,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // مركز الخريطة بين موقع الطالب وموقع الطيار/المطعم
+    // مركز الخريطة بين موقع العميل وموقع الطيار/المطعم
     const midLat = (studentCoords.lat + currentDriverPos.lat) / 2;
     const midLng = (studentCoords.lng + currentDriverPos.lng) / 2;
 
@@ -107,7 +107,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
       iconAnchor: [18, 18],
     });
 
-    // أيقونة الطالب / نقطة التسليم
+    // أيقونة العميل / نقطة التسليم
     const studentIcon = L.divIcon({
       className: 'custom-student-icon',
       html: `
@@ -154,7 +154,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
     studentMarkerRef.current = L.marker([studentCoords.lat, studentCoords.lng], { icon: studentIcon }).addTo(map);
     driverMarkerRef.current = L.marker([currentDriverPos.lat, currentDriverPos.lng], { icon: driverIcon }).addTo(map);
 
-    // خط المسار بين الطيار وموقع الطالب
+    // خط المسار بين الطيار وموقع العميل
     polylineRef.current = L.polyline(
       [
         [currentDriverPos.lat, currentDriverPos.lng],
@@ -207,7 +207,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
     }
   }, [liveDriverCoords?.lat, liveDriverCoords?.lng, studentCoords.lat, studentCoords.lng]);
 
-  // 3. تحديث موقع الطالب الفعلي في حال قراءة الـ GPS اللحظي لجهازه
+  // 3. تحديث موقع العميل الفعلي في حال قراءة الـ GPS اللحظي لجهازه
   useEffect(() => {
     if (studentMarkerRef.current && studentCoords) {
       studentMarkerRef.current.setLatLng([studentCoords.lat, studentCoords.lng]);
@@ -348,7 +348,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
                   <span>اتصال</span>
                 </a>
                 <a
-                  href={`https://wa.me/2${driverPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('السلام عليكم، بخصوص طلب UniFood الجامعي')}`}
+                  href={`https://wa.me/2${driverPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('السلام عليكم، بخصوص طلب UniFood للتوصيل')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-500/30 active:scale-95"

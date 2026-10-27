@@ -209,7 +209,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       lng,
       orderId: activeOrder?.id,
     });
-    showToast('تم بث وتحديث موقعك على خريطة الطالب بنجاح 🛰️', 'success');
+    showToast('تم بث وتحديث موقعك على خريطة العميل بنجاح 🛰️', 'success');
   };
   const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -578,7 +578,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       setOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
       sendWebNotification(
         `🛵 طلب توصيل جديد مسند لك #${order.orderNumber || ''}!`,
-        `العميل: ${order.customerName || 'طالب'} • العنوان: ${order.addressText || ''}`,
+        `العميل: ${order.customerName || 'عميل'} • العنوان: ${order.addressText || ''}`,
         '/delivery',
         `order_${order.orderNumber || order.id}`
       );
@@ -618,11 +618,11 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
           [msg.orderId]: [...list, msg],
         };
       });
-      if (msg.senderRole === 'STUDENT') {
+      if (msg.senderRole === 'STUDENT' || msg.senderRole === 'CUSTOMER') {
         playAlertSound();
-        showToast(`💬 رسالة من الطالب (${msg.senderName}): ${msg.text}`, 'info');
+        showToast(`💬 رسالة من العميل (${msg.senderName}): ${msg.text}`, 'info');
         sendWebNotification(
-          `💬 رسالة سريعة من الطالب (${msg.senderName})`,
+          `💬 رسالة سريعة من العميل (${msg.senderName})`,
           msg.text,
           '/delivery',
           `chat_${msg.orderNumber || msg.orderId}`
@@ -845,7 +845,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       setDriverConfirmDialog({
         isOpen: true,
         title: 'استلام الطلب قبل اكتمال التحضير',
-        message: `تنبيه: الأوردر #${order.orderNumber} ما زال قيد التجهيز في مطبخ "${branchName}" ولم يحدد المطعم بعد أنه جاهز للاستلام.\nهل استلمت الوجبة بالفعل من الفرع وتريد بدء التوصيل للطالب الآن؟`,
+        message: `تنبيه: الأوردر #${order.orderNumber} ما زال قيد التجهيز في مطبخ "${branchName}" ولم يحدد المطعم بعد أنه جاهز للاستلام.\nهل استلمت الوجبة بالفعل من الفرع وتريد بدء التوصيل للعميل الآن؟`,
         confirmText: 'نعم، استلمت وبدء التوصيل',
         cancelText: 'انتظار اكتمال التحضير',
         isDanger: false,
@@ -894,7 +894,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       setInputPin('');
       loadDriverData();
     } catch (err: any) {
-      setPinError(err.message || 'رمز PIN غير مطابق! تأكد من الطالب.');
+      setPinError(err.message || 'رمز PIN غير مطابق! تأكد من العميل.');
     } finally {
       setDeliveringLoading(false);
     }
@@ -941,7 +941,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
               <Truck className="w-8 h-8" />
             </div>
             <h2 className="text-xl font-black text-slate-800">بوابة كباتن التوصيل (الطيارين)</h2>
-            <p className="text-xs text-slate-500">سجل دخولك لمتابعة واستلام وتوصيل طلبات الحرم الجامعي</p>
+            <p className="text-xs text-slate-500">سجل دخولك لمتابعة واستلام وتوصيل طلبات المطاعم</p>
           </div>
 
           {loginError && (
@@ -1002,7 +1002,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
               onClick={onClose}
               className="w-full py-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold text-center block"
             >
-              العودة لتطبيق الطلاب
+              العودة لتطبيق العملاء
             </button>
           )}
         </div>
@@ -1134,7 +1134,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     {driverLocationName || 'متصل بدقة عبر الـ GPS 🛰️'}
                   </span>
                 ) : (
-                  'يتم تحديد موقعك وبثه لحظياً للفرع والطالب على الخريطة'
+                  'يتم تحديد موقعك وبثه لحظياً للفرع والعميل على الخريطة'
                 )}
               </p>
             </div>
@@ -1165,7 +1165,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 </span>
                 <span className="text-[11px] font-normal text-slate-500 truncate block">
                   {driver.isAllBranches
-                    ? 'مؤهل لتوصيل الطلبات من كافة مطاعم الحرم الجامعي'
+                    ? 'مؤهل لتوصيل الطلبات من كافة المطاعم والفروع'
                     : (driver.servedBranchNames?.length ? driver.servedBranchNames.join(' • ') : (driver.branch?.name || 'الفرع الأساسي'))}
                 </span>
               </div>
@@ -1364,7 +1364,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                           <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs shrink-0">
                             👤
                           </span>
-                          <span className="truncate">{order.customerName || 'طالب'}</span>
+                          <span className="truncate">{order.customerName || 'عميل'}</span>
                         </div>
                       </div>
 
@@ -1440,7 +1440,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
               </div>
               <h3 className="font-black text-base text-slate-800">تأكيد التسليم بأمان</h3>
               <p className="text-xs text-slate-500">
-                اطلب رمز الأمان (PIN) المكون من 4 أرقام من الطالب {deliveringOrder.customerName} عند تسليمه الطلب
+                اطلب رمز الأمان (PIN) المكون من 4 أرقام من العميل {deliveringOrder.customerName} عند تسليمه الطلب
               </p>
             </div>
 
@@ -1620,7 +1620,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   targetSubtitle={
                     selectedOrder.driverPickedUpAt
                       ? `${selectedOrder.deliveryZoneName ? `${selectedOrder.deliveryZoneName} • ` : ''}${getDisplayAddress(selectedOrder.addressText, 'موقع العميل')}`
-                      : getDisplayAddress(selectedOrder.branch?.address, 'موقع المطعم بالحرم الجامعي')
+                      : getDisplayAddress(selectedOrder.branch?.address, 'موقع المطعم')
                   }
                   driverName={driver?.name}
                   hasLiveGps={Boolean(currentCoords)}
@@ -1668,7 +1668,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   {selectedOrder.deliveryZoneName && (
                     <div className="flex items-center gap-1.5 text-xs font-black text-indigo-700 bg-indigo-50/80 px-2.5 py-1.5 rounded-xl border border-indigo-100">
                       <Building2 className="w-4 h-4 shrink-0 text-indigo-600" />
-                      <span>المنطقة الجامعية: {selectedOrder.deliveryZoneName}</span>
+                      <span>منطقة التوصيل: {selectedOrder.deliveryZoneName}</span>
                     </div>
                   )}
 
@@ -1676,12 +1676,12 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     <div className="flex items-start gap-1.5">
                       <span className="font-bold text-slate-500 shrink-0">العنوان:</span>
                       <span className="font-bold text-slate-800 leading-relaxed">
-                        {getDisplayAddress(selectedOrder.addressText, 'موقع العميل بالحرم الجامعي')}
+                        {getDisplayAddress(selectedOrder.addressText, 'موقع العميل')}
                       </span>
                     </div>
                     {selectedOrder.notes && (
                       <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] font-bold">
-                        <span>ملاحظات الطالب: </span>
+                        <span>ملاحظات العميل: </span>
                         <span>{selectedOrder.notes}</span>
                       </div>
                     )}
@@ -1704,7 +1704,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                       {selectedOrder.branch?.address && (
                         <p className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-1">
                           <MapPin className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                          <span>{getDisplayAddress(selectedOrder.branch.address, 'موقع المطعم بالحرم الجامعي')}</span>
+                          <span>{getDisplayAddress(selectedOrder.branch.address, 'موقع المطعم')}</span>
                         </p>
                       )}
                     </div>
@@ -1753,7 +1753,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 <>
                   <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-slate-500 font-bold block">بيانات العميل (الطالب):</span>
+                      <span className="text-[10px] text-slate-500 font-bold block">بيانات العميل:</span>
                       <span className="text-sm font-black text-slate-800">{selectedOrder.customerName}</span>
                       <span className="text-xs font-mono text-slate-600 block">{selectedOrder.customerPhone}</span>
                     </div>
@@ -1789,13 +1789,13 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     <div className="flex items-start gap-2 text-slate-700">
                       <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                       <div className="w-full">
-                        <span className="font-black text-slate-800">العنوان الجامعي المحدد: </span>
-                        <span className="text-slate-600">{getDisplayAddress(selectedOrder.addressText, 'موقع العميل بالحرم الجامعي')}</span>
+                        <span className="font-black text-slate-800">عنوان التوصيل المحدد: </span>
+                        <span className="text-slate-600">{getDisplayAddress(selectedOrder.addressText, 'موقع العميل')}</span>
                       </div>
                     </div>
                     {selectedOrder.notes && (
                       <div className="mt-2 p-2 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] font-bold">
-                        <span>ملاحظات الطالب: </span>
+                        <span>ملاحظات العميل: </span>
                         <span>{selectedOrder.notes}</span>
                       </div>
                     )}
@@ -1814,7 +1814,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     <div className="min-w-0">
                       <span className="text-xs font-black text-slate-900 block">بث الـ GPS الحي للعميل مفعل 🛰️</span>
                       <span className="text-[10px] text-emerald-700 block truncate font-medium">
-                        {currentCoords ? (driverLocationName ? `موقعك: ${driverLocationName}` : 'موقعك محدد بدقة عبر الـ GPS 🛰️') : 'جاري بث تحركاتك للطالب على الخريطة'}
+                        {currentCoords ? (driverLocationName ? `موقعك: ${driverLocationName}` : 'موقعك محدد بدقة عبر الـ GPS 🛰️') : 'جاري بث تحركاتك للعميل على الخريطة'}
                       </span>
                     </div>
                   </div>
@@ -1836,7 +1836,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   <div className="flex items-center justify-between">
                     <span className="font-black text-slate-900 flex items-center gap-1.5 text-xs">
                       <span>💬</span>
-                      <span>رسائل سريعة لحظية مع الطالب داخل التطبيق</span>
+                      <span>رسائل سريعة لحظية مع العميل داخل التطبيق</span>
                     </span>
                     <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
                       فوري ⚡
@@ -1858,7 +1858,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2 text-[9px] opacity-80 font-bold mb-0.5">
-                              <span>{isMe ? 'أنت (الكابتن)' : `👤 الطالب (${msg.senderName})`}</span>
+                              <span>{isMe ? 'أنت (الكابتن)' : `👤 العميل (${msg.senderName})`}</span>
                               <span className="font-mono">
                                 {new Date(msg.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                               </span>
@@ -1902,7 +1902,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                         }
                       }}
                       maxLength={140}
-                      placeholder="اكتب رسالة سريعة للطالب..."
+                      placeholder="اكتب رسالة سريعة للعميل..."
                       className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
                     />
                     <button
@@ -1926,10 +1926,10 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                   if (Array.isArray(bags) && bags.length > 0) {
                     return (
                       <div className="p-3 bg-purple-50 rounded-2xl border border-purple-200 space-y-1.5">
-                        <span className="font-black text-purple-900 block">🛍️ الطلب مقسم أكياس منفصلة للطلاب:</span>
+                        <span className="font-black text-purple-900 block">🛍️ الطلب مقسم أكياس منفصلة للمشتركين:</span>
                         {bags.map((b: any, bIdx: number) => (
                           <div key={bIdx} className="bg-white p-2 rounded-xl text-[11px] font-bold text-slate-700 flex justify-between border border-purple-100">
-                            <span>كيس: {b.label || `طالب ${bIdx + 1}`}</span>
+                            <span>كيس: {b.label || `شخص ${bIdx + 1}`}</span>
                             <span className="font-mono text-purple-700">{b.totalAmount || b.subtotal || ''} ج.م</span>
                           </div>
                         ))}
@@ -1962,7 +1962,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
               {/* Financial Breakdown */}
               <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] text-emerald-800 font-bold block">المبلغ المطلوب تحصيله من الطالب:</span>
+                  <span className="text-[10px] text-emerald-800 font-bold block">المبلغ المطلوب تحصيله من العميل:</span>
                   <span className="text-xl font-black text-emerald-700 font-mono">
                     {selectedOrder.paymentMethod === 'CASH' ? `${selectedOrder.total} ج.م` : '0.00 ج.م (مدفوع أونلاين)'}
                   </span>
@@ -2040,7 +2040,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                     className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs sm:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     <KeyRound className="w-4 h-4" />
-                    <span>تأكيد التسليم للطالب (PIN)</span>
+                    <span>تأكيد التسليم للعميل (PIN)</span>
                   </button>
                   <button
                     type="button"

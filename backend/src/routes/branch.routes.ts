@@ -1456,7 +1456,7 @@ router.delete("/drivers/:id", async (req: AuthRequest, res: Response) => {
       where: { id, branchId },
     });
     if (!driver) {
-      res.status(404).json({ error: "كابتن التوصيل غير موجود أو لا يتبع هذا الفرع (الطيار العام تتم إدارته عبر لوحة الجامعة)" });
+      res.status(404).json({ error: "كابتن التوصيل غير موجود أو لا يتبع هذا الفرع (الطيار العام تتم إدارته عبر لوحة الإدارة العامة)" });
       return;
     }
 

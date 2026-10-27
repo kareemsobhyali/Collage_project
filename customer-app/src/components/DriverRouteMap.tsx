@@ -253,7 +253,7 @@ export const DriverRouteMap: React.FC<DriverRouteMapProps> = ({
             </span>
             {targetSubtitle && (
               <span className="text-[10px] text-white/85 block truncate">
-                {getDisplayAddress(targetSubtitle, isToRestaurant ? 'موقع المطعم بالحرم الجامعي' : 'موقع العميل')}
+                {getDisplayAddress(targetSubtitle, isToRestaurant ? 'موقع المطعم' : 'موقع العميل')}
               </span>
             )}
           </div>

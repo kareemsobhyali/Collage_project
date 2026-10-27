@@ -475,7 +475,7 @@ export const QuickStockModal: React.FC<QuickStockModalProps> = ({
         {/* Footer */}
         <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 text-xs shrink-0">
           <span className="text-[11px] text-slate-400 leading-tight">
-            التغييرات تنعكس فوراً ومباشرة على شاشات طلب الطلاب.
+            التغييرات تنعكس فوراً ومباشرة على شاشات طلب العملاء.
           </span>
           <button
             type="button"

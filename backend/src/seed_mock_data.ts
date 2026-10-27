@@ -31,7 +31,7 @@ async function seedMockData() {
   const burgerBranch = await prisma.branch.upsert({
     where: { slug: "burger-campus" },
     update: {
-      name: "برجر فاكتوري الجامعي 🍔",
+      name: "برجر فاكتوري 🍔",
       phone: "01011112222",
       logoUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80",
       address: "مجمع الخدمات - أمام بوابة كلية التجارة",
@@ -45,7 +45,7 @@ async function seedMockData() {
       deliveryType: "ZONES",
     },
     create: {
-      name: "برجر فاكتوري الجامعي 🍔",
+      name: "برجر فاكتوري 🍔",
       slug: "burger-campus",
       phone: "01011112222",
       logoUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80",
@@ -105,7 +105,7 @@ async function seedMockData() {
   const shawarmaBranch = await prisma.branch.upsert({
     where: { slug: "shawarma-campus" },
     update: {
-      name: "شاورما ومشويات الحرم 🌯",
+      name: "شاورما ومشويات الأصيل 🌯",
       phone: "01033334444",
       logoUrl: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=500&q=80",
       address: "مول مجمع الكليات الطبية - الدور الأرضي",
@@ -119,7 +119,7 @@ async function seedMockData() {
       deliveryType: "FIXED",
     },
     create: {
-      name: "شاورما ومشويات الحرم 🌯",
+      name: "شاورما ومشويات الأصيل 🌯",
       slug: "shawarma-campus",
       phone: "01033334444",
       logoUrl: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=500&q=80",

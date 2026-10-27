@@ -189,7 +189,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         if (user) {
           const orders = await api.getMyOrders();
           if (isMounted && Array.isArray(orders) && orders.length > 0) {
-            // البحث عن أكثر وجبة/مطعم تكرر طلبه من الطالب أو آخر طلب ناجح له
+            // البحث عن أكثر وجبة/مطعم تكرر طلبه من العميل أو آخر طلب ناجح له
             const validOrders = orders.filter((o: any) => o.status !== 'REJECTED' && Array.isArray(o.items) && o.items.length > 0);
             if (validOrders.length > 0) {
               const freqMap = new Map<string, { count: number; order: any }>();
@@ -650,7 +650,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     ];
 
     const branch = branches.find((b) => b.id === order.branchId) || order.branch;
-    const branchName = branch?.name || order.branch?.name || 'مطعم الجامعة';
+    const branchName = branch?.name || order.branch?.name || 'المطعم';
     const branchLogo = branch?.logoUrl || order.branch?.logoUrl;
 
     const itemsSummary = (order.items || [])
@@ -991,7 +991,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     const totalQuota = deal.maxUses ?? 50;
     const remainingPercent = isUnlimited ? 100 : (totalQuota > 0 ? Math.min(100, Math.max(0, Math.round((remainingCount / totalQuota) * 100))) : 0);
     const isSoldOut = !isUnlimited && remainingCount <= 0;
-    const targetBranchName = deal.targetBranch?.name || branches.find(b => b.id === deal.branchId)?.name || 'مطعم الجامعة';
+    const targetBranchName = deal.targetBranch?.name || branches.find(b => b.id === deal.branchId)?.name || 'المطعم';
 
     return (
       <div
@@ -1018,7 +1018,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           <div className="absolute top-2 right-2 z-10">
             <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-600 text-white shadow-md flex items-center gap-1 backdrop-blur-md">
               <Flame className="w-3 h-3 text-amber-300 fill-amber-300" />
-              <span>{deal.badgeText || (isPromo ? 'كوبون فلاش ⚡' : 'عرض البريك 🔥')}</span>
+              <span>{deal.badgeText || (isPromo ? 'كوبون فلاش ⚡' : 'عرض خاص 🔥')}</span>
             </span>
           </div>
 
@@ -1057,10 +1057,10 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             </p>
           )}
 
-          {/* Max Quota Per Student Badge (طلب 1) */}
+          {/* Max Quota Per User Badge */}
           {deal.maxPerUser && deal.maxPerUser > 0 && (
             <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100/80 rounded-lg px-2 py-0.5 w-fit">
-              <span>🔒 حد أقصى {deal.maxPerUser} لكل طالب</span>
+              <span>🔒 حد أقصى {deal.maxPerUser} لكل عميل</span>
             </div>
           )}
 
@@ -1406,10 +1406,10 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 text-white px-2.5 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-amber-300" />
-                <span>UniFood الحرم الجامعي</span>
+                <span>UniFood توصيل سريع</span>
               </span>
               <span className="text-[10px] font-bold text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full">
-                ⚡ توصيل مباشر للمدرجات
+                ⚡ توصيل فوري لموقعك
               </span>
             </div>
 
@@ -1417,13 +1417,13 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               وجبتك السخنة لحد عندك في ثواني! 🍔
             </h2>
             <p className="text-xs text-indigo-200 max-w-md">
-              اطلب من كافيهات ومطاعم الجامعة بسهولة، أو اطلب واستلم فوراً بدون وقفة في الطوابير
+              اطلب من أفضل المطاعم والكافيهات بسهولة، مع توصيل سريع حتى باب بيتك أو استلام فوراً بدون انتظار
             </p>
           </div>
 
           {/* Decorative Watermark */}
           <div className="absolute left-3 -bottom-4 text-7xl opacity-15 select-none pointer-events-none">
-            🎓🍔
+            🍔🍕
           </div>
         </div>
       )}
@@ -1562,14 +1562,14 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
-              <span>مطاعم وكافيهات الحرم الجامعي</span>
+              <span>أفضل المطاعم والكافيهات</span>
               <span className="text-xs font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
                 {sortedFilteredBranches.length}
               </span>
             </h3>
           </div>
           <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">
-            ⚡ توصيل مباشر للمدرجات والمباني
+            ⚡ توصيل سريع حتى باب بيتك
           </span>
         </div>
 
@@ -1587,7 +1587,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               {activeFilter === 'FAVORITES'
                 ? 'اضغط على علامة القلب ❤️ أعلى أي مطعم لحفظه في مفضلتك للوصول السريع'
                 : clientCoords && branches.length > 0 && !search
-                ? 'أنت خارج نطاق التوصيل المحدد للمطاعم المتاحة، أو يمكنك تحديث موقعك إذا كنت متواجداً بالحرم'
+                ? 'أنت خارج نطاق التوصيل المحدد للمطاعم المتاحة، يرجى اختيار موقع آخر أو تحديث موقعك الحالي'
                 : 'جرب البحث بكلمة أخرى أو تغيير الفلتر'}
             </p>
           </div>
@@ -1713,7 +1713,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                           <h4 className="font-black text-base text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
                             {branch.name}
                           </h4>
-                          <span title="فرع موثق بالحرم الجامعي">
+                          <span title="فرع موثق ومعتمد">
                             <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
                           </span>
                         </div>
@@ -1722,7 +1722,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                         <div className="flex items-center justify-between gap-1 text-xs text-slate-500 mt-0.5">
                           <div className="flex items-center gap-1 min-w-0">
                             <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span className="line-clamp-1">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
+                            <span className="line-clamp-1">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>
                           </div>
                           {branchDistKm !== null && (
                             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded-md shrink-0">
@@ -1863,7 +1863,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                     </span>
                   </div>
                   <p className="text-xs text-slate-300 font-medium mt-0.5">
-                    خصومات حصرية وكومبوهات توفيرية خاصة بطلاب الجامعة تنتهي قريباً
+                    خصومات حصرية وعروض توفيرية مميزة تنتهي قريباً
                   </p>
                 </div>
               </div>
@@ -1931,14 +1931,14 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                   </div>
                   <h4 className="text-base font-black text-slate-900">لا توجد عروض في هذا التصنيف حالياً</h4>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    تابع هذا القسم وقت البريك والفسحة بين المحاضرات لاقتناص خصومات وتخفيضات خاصة لطلاب الحرم الجامعي!
+                    تابع هذا القسم يومياً لاقتناص أقوى العروض والتخفيضات الحصرية قبل نفاد الكمية!
                   </p>
                   <button
                     type="button"
                     onClick={() => setMainTab('RESTAURANTS')}
                     className="px-5 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-md hover:bg-indigo-700 transition-all inline-flex items-center gap-1.5"
                   >
-                    <span>تصفح مطاعم الجامعة</span>
+                    <span>تصفح كافة المطاعم</span>
                     <ArrowLeft className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -1978,7 +1978,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                   )}
                 </div>
                 <p className="text-xs text-slate-300 font-medium mt-0.5">
-                  تتبع حي لمراحل تجهيز الوجبة وخط سير كابتن التوصيل للمدرجات
+                  تتبع حي لمراحل تجهيز الوجبة وخط سير كابتن التوصيل لموقعك
                 </p>
               </div>
             </div>
@@ -1991,7 +1991,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               </div>
               <h4 className="text-base font-black text-slate-900">لا توجد طلبات جارية حالياً</h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                عند إتمام أي طلب من مطاعم الحرم الجامعي، ستتمكن من متابعة مراحله وموقع الكابتن هنا فوراً حتى وصول وجبتك.
+                عند إتمام أي طلب، ستتمكن من متابعة مراحله وموقع الكابتن هنا فوراً حتى وصول وجبتك.
               </p>
               <button
                 type="button"

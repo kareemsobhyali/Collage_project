@@ -1,5 +1,5 @@
 /**
- * خدمات ومعالم الحرم الجامعي وحساب المسافات الجغرافية مجاناً 100%
+ * خدمات ومعالم الخريطة وحساب المسافات الجغرافية مجاناً 100%
  */
 
 export interface CampusLandmark {
@@ -11,23 +11,23 @@ export interface CampusLandmark {
   lng: number;
 }
 
-// المعالم الرئيسية المعتمدة داخل الحرم الجامعي
+// المعالم الرئيسية المعتمدة على الخريطة
 export const CAMPUS_LANDMARKS: CampusLandmark[] = [
-  { id: 'gate_main', name: 'البوابة الرئيسية للجامعة', code: 'GATE-1', category: 'GATE', lat: 30.0268, lng: 31.2085 },
-  { id: 'eng_college', name: 'مبنى كلية الهندسة', code: 'ENG', category: 'COLLEGE', lat: 30.0275, lng: 31.2110 },
-  { id: 'comp_college', name: 'كلية الحاسبات والذكاء الاصطناعي', code: 'FCI', category: 'COLLEGE', lat: 30.0282, lng: 31.2092 },
-  { id: 'comm_college', name: 'كلية التجارة - مدرج الفردوس', code: 'COMM', category: 'COLLEGE', lat: 30.0255, lng: 31.2070 },
-  { id: 'arts_complex', name: 'مجمع الكليات النظرية (مبنى ب)', code: 'ARTS', category: 'COLLEGE', lat: 30.0260, lng: 31.2062 },
-  { id: 'med_college', name: 'مبنى كلية الطب والعلوم الصحية', code: 'MED', category: 'COLLEGE', lat: 30.0290, lng: 31.2125 },
-  { id: 'pharm_college', name: 'كلية الصيدلة وطب الأسنان', code: 'PHARM', category: 'COLLEGE', lat: 30.0285, lng: 31.2135 },
-  { id: 'central_library', name: 'المكتبة المركزية وقاعة المؤتمرات', code: 'LIB', category: 'FACILITY', lat: 30.0265, lng: 31.2095 },
-  { id: 'dorm_male_a', name: 'سكن الطلاب المغتربين (مبنى أ)', code: 'DORM-A', category: 'DORM', lat: 30.0242, lng: 31.2045 },
-  { id: 'dorm_male_b', name: 'سكن الطلاب المغتربين (مبنى ب)', code: 'DORM-B', category: 'DORM', lat: 30.0238, lng: 31.2052 },
-  { id: 'dorm_female', name: 'مدينة الطالبات السكنية', code: 'DORM-G', category: 'DORM', lat: 30.0248, lng: 31.2035 },
-  { id: 'sports_stadium', name: 'الملاعب الرياضية والمسبح الأولمبي', code: 'SPORT', category: 'FACILITY', lat: 30.0250, lng: 31.2105 },
+  { id: 'gate_main', name: 'الميدان والمدخل الرئيسي للمدينة', code: 'GATE-1', category: 'GATE', lat: 30.0268, lng: 31.2085 },
+  { id: 'eng_college', name: 'مول ومركز تسوق المدينة', code: 'ENG', category: 'COLLEGE', lat: 30.0275, lng: 31.2110 },
+  { id: 'comp_college', name: 'مجمع الشركات ومقرات الأعمال', code: 'FCI', category: 'COLLEGE', lat: 30.0282, lng: 31.2092 },
+  { id: 'comm_college', name: 'شارع الخدمات والمطاعم المركزي', code: 'COMM', category: 'COLLEGE', lat: 30.0255, lng: 31.2070 },
+  { id: 'arts_complex', name: 'المنطقة السكنية (قطاع ب)', code: 'ARTS', category: 'COLLEGE', lat: 30.0260, lng: 31.2062 },
+  { id: 'med_college', name: 'المجمع الطبي والمستشفى العام', code: 'MED', category: 'COLLEGE', lat: 30.0290, lng: 31.2125 },
+  { id: 'pharm_college', name: 'مجمع العيادات والصيدليات المركزية', code: 'PHARM', category: 'COLLEGE', lat: 30.0285, lng: 31.2135 },
+  { id: 'central_library', name: 'المركز الثقافي وقاعة الفعاليات', code: 'LIB', category: 'FACILITY', lat: 30.0265, lng: 31.2095 },
+  { id: 'dorm_male_a', name: 'الحي السكني الراقي (مجمع أ)', code: 'DORM-A', category: 'DORM', lat: 30.0242, lng: 31.2045 },
+  { id: 'dorm_male_b', name: 'الحي السكني الراقي (مجمع ب)', code: 'DORM-B', category: 'DORM', lat: 30.0238, lng: 31.2052 },
+  { id: 'dorm_female', name: 'كمبوند الهدوء السكني', code: 'DORM-G', category: 'DORM', lat: 30.0248, lng: 31.2035 },
+  { id: 'sports_stadium', name: 'النادي الرياضي والملاعب المفتوحة', code: 'SPORT', category: 'FACILITY', lat: 30.0250, lng: 31.2105 },
 ];
 
-// موقع افتراضي لمطاعم الجامعة إذا لم يكن للفرع إحداثيات
+// موقع افتراضي للمطعم إذا لم يكن للفرع إحداثيات
 export const DEFAULT_CAMPUS_RESTAURANT_COORDS = { lat: 30.0262, lng: 31.2088 };
 
 export function getStoredRestaurantCoords(): { lat: number; lng: number } {
@@ -143,7 +143,7 @@ export function cleanAddressText(addressText?: string | null): string {
 /**
  * إرجاع نص العنوان بصيغة بشرية مقروءة مع منع ظهور أي إحداثيات أو أرقام مجردة
  */
-export function getDisplayAddress(addressText?: string | null, fallback: string = 'داخل الحرم الجامعي'): string {
+export function getDisplayAddress(addressText?: string | null, fallback: string = 'عنوان التوصيل'): string {
   if (!addressText) return fallback;
   const clean = cleanAddressText(addressText);
   // إذا كان النص فارغاً أو عبارة عن أرقام إحداثيات مجردة وفواصل
@@ -155,7 +155,7 @@ export function getDisplayAddress(addressText?: string | null, fallback: string 
 
 
 /**
- * البحث عن أقرب معلم جامعي أو جلب اسم المكان جغرافياً تلقائياً
+ * البحث عن أقرب معلم أو جلب اسم المكان جغرافياً تلقائياً
  */
 export async function getNearestLocationName(lat: number, lng: number): Promise<{
   title: string;
@@ -163,7 +163,7 @@ export async function getNearestLocationName(lat: number, lng: number): Promise<
   distanceMeters: number;
   landmarkName?: string;
 }> {
-  // 1. فحص أقرب معلم من معالم الحرم الجامعي
+  // 1. فحص أقرب معلم من المعالم المسجلة
   let nearestLandmark: CampusLandmark | null = null;
   let minDistance = Infinity;
 
@@ -175,7 +175,7 @@ export async function getNearestLocationName(lat: number, lng: number): Promise<
     }
   }
 
-  // إذا كان داخل الحرم أو قريباً من معلم (حتى 350 متر)
+  // إذا كان قريباً من معلم (حتى 350 متر)
   if (nearestLandmark && minDistance <= 350) {
     const title = minDistance <= 60 
       ? nearestLandmark.name 
@@ -191,7 +191,7 @@ export async function getNearestLocationName(lat: number, lng: number): Promise<
     };
   }
 
-  // 2. إذا كان الموقع خارج الحرم (مثلاً في هايبر وان أو منطقة سكنية خارجية)، نحاول جلب الاسم الجغرافي الحقيقي عبر OpenStreetMap
+  // 2. محاولة جلب الاسم الجغرافي الحقيقي للمكان عبر OpenStreetMap
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3500);
@@ -236,11 +236,11 @@ export async function getNearestLocationName(lat: number, lng: number): Promise<
     // نتراجع للبديل المحلي في حال بطء الشبكة أو انقطاعها
   }
 
-  // 3. التراجع لأقرب معلم جامعي فقط إذا كانت المسافة قريبة (أقل من 1500م)
+  // 3. التراجع لأقرب معلم فقط إذا كانت المسافة قريبة (أقل من 1500م)
   if (nearestLandmark && minDistance <= 1500) {
     return {
       title: `بالقرب من ${nearestLandmark.name}`,
-      details: `موقعي الحالي بالحرم الجامعي (يبعد ${formatDistance(minDistance)} عن ${nearestLandmark.name})`,
+      details: `موقعي الحالي (يبعد ${formatDistance(minDistance)} عن ${nearestLandmark.name})`,
       distanceMeters: minDistance,
       landmarkName: nearestLandmark.name,
     };

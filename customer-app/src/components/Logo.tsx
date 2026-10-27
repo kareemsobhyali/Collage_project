@@ -44,7 +44,7 @@ export const Logo: React.FC<LogoProps> = ({
         </div>
         {showSubtitle && (
           <span className={`hidden sm:block text-[10px] font-bold mt-0.5 leading-tight whitespace-nowrap ${lightText ? 'text-indigo-200' : 'text-slate-400'}`}>
-            يونيفود • مطاعم الحرم الجامعي
+            يونيفود • توصيل الوجبات السريعة
           </span>
         )}
       </div>

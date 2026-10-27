@@ -7,7 +7,7 @@ import {
   Check, 
   X, 
   Phone, 
-  GraduationCap, 
+  CheckCircle2, 
   AlertCircle,
   Edit2,
   Wallet,
@@ -449,7 +449,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <User className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-sm sm:text-base">حسابي والمحفظة الجامعية</h3>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">حسابي والمحفظة</h3>
               <p className="text-[11px] text-slate-400 font-medium">نقاط الولاء، رصيد المحفظة، وعناوين التوصيل</p>
             </div>
           </div>
@@ -629,8 +629,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
 
               <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-bold border border-indigo-100/80 flex items-center gap-1 shrink-0">
-                <GraduationCap className="w-3.5 h-3.5" />
-                <span>طالب جامعي</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>عميل موثق</span>
               </span>
             </div>
 
@@ -667,7 +667,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
                 <div>
                   <h4 className="text-xs sm:text-sm font-black text-slate-900">
-                    عناويني الجامعية المحفوظة ({addresses.length})
+                    عناويني المحفوظة ({addresses.length})
                   </h4>
                   <p className="text-[10px] text-slate-400">حدد أماكن تواجدك المتكررة للطلب السريع</p>
                 </div>
@@ -711,11 +711,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    تسمية العنوان (اسم أقرب مكان أو كليتك)
+                    تسمية العنوان (اسم المكان أو المنطقة)
                   </label>
                   <input
                     type="text"
-                    placeholder="مثال: سكن المغتربين، كلية الهندسة، مبنى ب..."
+                    placeholder="مثال: المنزل، مقر العمل، الشيخ زايد، عمارة 4..."
                     value={newTitle}
                     onChange={e => {
                       setNewTitle(e.target.value);
@@ -739,7 +739,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                   <textarea
                     rows={2}
-                    placeholder="المبنى، الدور، رقم الغرفة أو تفاصيل إضافية (مثال: مبنى ب - الدور الثالث - مدرج 302)"
+                    placeholder="الشارع، رقم العمارة، الدور، رقم الشقة أو تفاصيل إضافية (مثال: عمارة 12 - الدور الثالث - شقة 5)"
                     value={cleanAddressText(newDetails) || newDetails}
                     onFocus={() => {
                       if (!capturedGps && !detectingGps) {
@@ -801,7 +801,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <div className="p-6 text-center bg-slate-50/70 border border-dashed border-slate-200 rounded-3xl space-y-2">
                 <MapPin className="w-8 h-8 text-slate-300 mx-auto" />
                 <p className="text-xs text-slate-600 font-bold">لا توجد عناوين محفوظة حتى الآن</p>
-                <p className="text-[11px] text-slate-400">أضف مكان وجودك في الكلية أو السكن لتحديده بنقرة واحدة عند الطلب</p>
+                <p className="text-[11px] text-slate-400">أضف عنوان منزلك أو عملك لتحديده بنقرة واحدة عند الطلب</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1149,7 +1149,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                         طلب #{selectedOrder.orderNumber}
                                       </span>
                                       <span className="text-[10px] font-bold text-slate-500 truncate">
-                                        • {selectedOrder.branch?.name || 'مطعم جامعي'}
+                                        • {selectedOrder.branch?.name || 'المطعم'}
                                       </span>
                                     </div>
                                     <div className="text-[10px] text-indigo-700 font-bold truncate mt-0.5">
@@ -1253,7 +1253,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                       </div>
                                       <div className="min-w-0 text-right">
                                         <div className="text-xs font-black text-slate-900 truncate">
-                                          {order.branch?.name || 'مطعم جامعي'}
+                                          {order.branch?.name || 'المطعم'}
                                           <span className="text-[10px] font-normal text-slate-400 mr-2">
                                             {orderDate}
                                           </span>

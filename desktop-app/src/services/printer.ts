@@ -250,9 +250,9 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
       </head>
       <body>
         <div class="center">
-          <div style="font-size: 11px; font-weight: 900; letter-spacing: 0.5px;">UNIFOOD • يونيفود للجامعات</div>
+          <div style="font-size: 11px; font-weight: 900; letter-spacing: 0.5px;">UNIFOOD • منصة طلب وتوصيل الوجبات</div>
           <div style="font-size: ${titleSize}; font-weight: 900; margin: 2px 0;">${safeBranchName}</div>
-          <div style="font-size: 11px; font-weight: 800;">منظومة توصيل طلبات الحرم الجامعي</div>
+          <div style="font-size: 11px; font-weight: 800;">منظومة طلب وتوصيل وجبات المطاعم</div>
           <div class="dashed"></div>
 
           <div class="row">
@@ -265,7 +265,7 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
           </div>
           <div class="row">
             <span>نوع الطلب:</span>
-            <span class="font-bold">${order.orderType === 'DELIVERY' ? 'توصيل داخل الجامعة' : 'استلام من الفرع'}</span>
+            <span class="font-bold">${order.orderType === 'DELIVERY' ? 'توصيل للعنوان' : 'استلام من الفرع'}</span>
           </div>
           <div class="row">
             <span>طريقة الدفع:</span>
@@ -278,10 +278,10 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
           </div>` : ''}
 
           <div class="customer-card">
-            <div><strong>العميل:</strong> ${escapeHtml(order.customerName || 'طالب')}</div>
+            <div><strong>العميل:</strong> ${escapeHtml(order.customerName || 'عميل')}</div>
             <div><strong>الهاتف:</strong> ${escapeHtml(order.customerPhone || '—')}</div>
             ${order.orderType === 'DELIVERY' && order.deliveryZoneName ? `<div><strong>منطقة التوصيل:</strong> ${escapeHtml(order.deliveryZoneName)}</div>` : ''}
-            ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${escapeHtml(getDisplayAddress(order.addressText, 'مقر العميل بالحرم'))}</div>` : ''}
+            ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${escapeHtml(getDisplayAddress(order.addressText, 'مقر العميل'))}</div>` : ''}
             ${order.paymentSenderPhone ? `<div><strong>رقم المحول منه:</strong> ${escapeHtml(order.paymentSenderPhone)}</div>` : ''}
             ${order.notes ? `<div style="font-weight: 900; margin-top: 2px;"><strong>ملاحظات:</strong> ${escapeHtml(order.notes)}</div>` : ''}
           </div>
@@ -326,7 +326,7 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
 
           <div class="dashed"></div>
           <div style="font-size: 11px; font-weight: 800; margin-top: 4px;">
-            شكراً لطلبكم عبر UniFood • وجبتك لحد عندك 🎓
+            شكراً لطلبكم عبر UniFood • وجبتك لحد عندك 🚀
           </div>
         </div>
       </body>
@@ -434,9 +434,9 @@ export const printTestReceipt = (branchName: string): Promise<boolean> => {
     orderType: 'DELIVERY',
     deliveryZoneName: 'مبنى كلية الهندسة (تجربة)',
     paymentMethod: 'CASH',
-    customerName: 'طالب تجريبي',
+    customerName: 'عميل تجريبي',
     customerPhone: '01012345678',
-    addressText: 'الدور الثاني - مدرج 3',
+    addressText: 'شارع النصر - عمارة 4 - الدور الثاني',
     notes: 'بون فحص وتجربة الطابعة الحرارية الصامتة',
     items: [
       {

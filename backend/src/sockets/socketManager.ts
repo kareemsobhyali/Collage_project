@@ -298,7 +298,7 @@ export function initSocket(server: any): SocketIOServer {
           const senderName =
             role === "DRIVER"
               ? (order.driver?.name || data.senderName || "كابتن التوصيل").replace(/\s*\(طيار عام\)\s*/g, "").trim()
-              : (order.customerName || data.senderName || "الطالب");
+              : (order.customerName || data.senderName || "العميل");
 
           const msg = recordAndBroadcastOrderQuickMessage({
             orderId: order.id,

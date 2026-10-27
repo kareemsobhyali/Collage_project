@@ -577,12 +577,12 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       (branch?.operationalStatus === 'BUSY' && secondsLeft <= 0)) &&
     isWithinWorkingHours;
 
-  // إخفاء أي قسم فارغ لا يحتوي على أصناف متاحة للطلاب
+  // إخفاء أي قسم فارغ لا يحتوي على أصناف متاحة للعملاء
   const nonEmptyCategories = (categories || []).filter(
     (cat) => Array.isArray(cat.items) && cat.items.length > 0
   );
 
-  // استخراج الوجبات المفضلة للطالب داخل هذا المطعم
+  // استخراج الوجبات المفضلة للعميل داخل هذا المطعم
   const favoriteItemsInBranch: any[] = [];
   for (const cat of nonEmptyCategories) {
     for (const it of cat.items || []) {
@@ -791,10 +791,10 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
               {branch.name}
             </h2>
 
-            {/* Campus Location */}
+            {/* Location */}
             <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
               <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-              <span className="truncate">{getDisplayAddress(branch.address, 'داخل الحرم الجامعي')}</span>
+              <span className="truncate">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>
             </div>
 
             {/* Phone contact if available */}
@@ -819,14 +819,14 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             type="button"
             onClick={() => setShowReviewsModal(true)}
             className="p-2 sm:p-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100/70 border border-amber-200/80 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-2xs"
-            title="انقر لعرض آراء وتقييمات الطلاب"
+            title="انقر لعرض آراء وتقييمات العملاء"
           >
             <div className="text-amber-500 text-sm font-black flex items-center justify-center gap-1">
               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
               <span>{avgRating > 0 ? avgRating : 'جديد'}</span>
             </div>
             <span className="text-[10px] text-amber-800 font-bold block mt-0.5 whitespace-nowrap">
-              {ratingsCount > 0 ? `${ratingsCount} تقييم موثق` : 'تقييم الطلاب'}
+              {ratingsCount > 0 ? `${ratingsCount} تقييم موثق` : 'تقييمات العملاء'}
             </span>
           </button>
 
@@ -1033,7 +1033,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         </div>
       ) : (
         <div id="menu-categories-top" className="space-y-6">
-          {/* قسم الوجبات المفضلة للطالب داخل هذا المطعم */}
+          {/* قسم الوجبات المفضلة للعميل داخل هذا المطعم */}
           {favoriteItemsInBranch.length > 0 && (
             <div
               id="category-section-FAV"
@@ -1081,7 +1081,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                   <Star className="w-5 h-5 fill-slate-950" />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm">تقييمات ومراجعات الطلاب ⭐</h3>
+                  <h3 className="font-black text-sm">تقييمات ومراجعات العملاء ⭐</h3>
                   <span className="text-[11px] text-slate-300">{branch.name}</span>
                 </div>
               </div>
@@ -1106,7 +1106,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                     <span className="text-xs font-bold text-amber-700">من 5 نجوم</span>
                   </div>
                   <span className="text-[11px] text-slate-500 block mt-1">
-                    بناءً على {ratingsCount} طلب وتقييم فعلي من طلاب الجامعة
+                    بناءً على {ratingsCount} طلب وتقييم فعلي من العملاء
                   </span>
                 </div>
                 <div className="flex items-center gap-0.5 text-amber-400">
@@ -1125,7 +1125,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                   <Star className="w-12 h-12 mx-auto text-amber-300 opacity-60" />
                   <h4 className="font-bold text-slate-700 text-sm">لا توجد تعليقات مكتوبة بعد</h4>
                   <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    كن أول من يطلب من {branch.name} ويشارك تجربته وتقييمه مع زملائه في الجامعة!
+                    كن أول من يطلب من {branch.name} ويشارك تجربته وتقييمه مع الآخرين!
                   </p>
                 </div>
               ) : (
@@ -1138,12 +1138,12 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center">
-                            {(rev.customerName || 'ط').charAt(0)}
+                            {(rev.customerName || 'ع').charAt(0)}
                           </div>
                           <div>
                             <div className="flex items-center gap-1">
                               <span className="text-xs font-black text-slate-900">
-                                {rev.customerName || 'طالب جامعي'}
+                                {rev.customerName || 'عميل موثق'}
                               </span>
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                             </div>

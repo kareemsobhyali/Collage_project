@@ -131,7 +131,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
 
   const [liveDriverCoords, setLiveDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // رسائل سريعة لحظية بين الطالب والطيار داخل التطبيق
+  // رسائل سريعة لحظية بين العميل والكابتن داخل التطبيق
   const [quickMessages, setQuickMessages] = useState<any[]>([]);
   const [customQuickText, setCustomQuickText] = useState<string>('');
   const [sendingQuickMsg, setSendingQuickMsg] = useState<boolean>(false);
@@ -165,7 +165,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
         orderId: order.id,
         text: clean,
         senderRole: 'CUSTOMER',
-        senderName: order.customerName || 'الطالب',
+        senderName: order.customerName || 'العميل',
       },
       (res: any) => {
         setSendingQuickMsg(false);
@@ -187,7 +187,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
     return getStoredRestaurantCoords();
   });
 
-  // موقع الطالب الفعلي (من إحداثيات الطلب أو قراءة GPS الجهاز اللحظي في حال عدم وجود إحداثيات سابقة)
+  // موقع العميل الفعلي (من إحداثيات الطلب أو قراءة GPS الجهاز اللحظي في حال عدم وجود إحداثيات سابقة)
   const [studentCoords, setStudentCoords] = useState<{ lat: number; lng: number }>(() => {
     const extracted = extractCoordinatesFromAddress(order.addressText);
     if (extracted) return extracted;
@@ -206,7 +206,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
       .catch(() => {});
   }, []);
 
-  // في حال كان الطلب قديماً أو مسجلاً بدون إحداثيات GPS، نقرأ موقع جهاز الطالب الفعلي لوضعه على الخريطة
+  // في حال كان الطلب قديماً أو مسجلاً بدون إحداثيات GPS، نقرأ موقع جهاز العميل الفعلي لوضعه على الخريطة
   useEffect(() => {
     const hasExistingCoords = extractCoordinatesFromAddress(order.addressText);
     if (!hasExistingCoords && typeof navigator !== 'undefined' && 'geolocation' in navigator) {
@@ -480,7 +480,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
             : `الوجبة جاهزة للاستلام بالفرع (منذ ${formatDuration(deliveryMins)})`)
         : completedAt
         ? `تم التسليم للعميل (استغرق ${formatDuration(deliveryMins)})`
-        : (order.orderType === 'DELIVERY' ? 'طلبك في الطريق لمبنى كليتك' : 'يمكنك التوجه للفرع واستلام طلبك'),
+        : (order.orderType === 'DELIVERY' ? 'طلبك في الطريق لموقعك' : 'يمكنك التوجه للفرع واستلام طلبك'),
       timeText: formatTimeOnly(readyAt),
       icon: order.orderType === 'DELIVERY' ? Truck : ShoppingBag,
       isActive: status === 'READY',
@@ -521,7 +521,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
               )}
             </div>
             <span className="text-[11px] text-slate-400">
-              {order.branch?.name || 'مطعم الجامعة'}
+              {order.branch?.name || 'المطعم'}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -674,7 +674,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2 text-[9px] opacity-80 font-bold mb-0.5">
-                          <span>{isMe ? 'أنت (الطالب)' : `🛵 كابتن ${msg.senderName}`}</span>
+                          <span>{isMe ? 'أنت' : `🛵 كابتن ${msg.senderName}`}</span>
                           <span className="font-mono">
                             {new Date(msg.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                           </span>
@@ -689,10 +689,10 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
               {/* 1-Tap Quick Preset Chips */}
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  '👋 أنا واقف عند البوابة الآن',
+                  '👋 أنا بانتظارك في العنوان المحدد',
                   '⏱️ نازل حالا في الطريق ليك',
                   '📍 أنا موجود عند نقطة التسليم المحددة',
-                  '🤫 من فضلك رن عليا لما توصل عشان في المحاضرة',
+                  '🤫 من فضلك رن عليا أول ما توصل',
                 ].map((preset) => (
                   <button
                     key={preset}
@@ -753,7 +753,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 orderId={order.id}
                 driverName={assignedDriverCleanName || order.driver.name}
                 driverPhone={order.driver.phone}
-                restaurantName={order.branch?.name || 'مطعم الجامعة'}
+                restaurantName={order.branch?.name || 'المطعم'}
                 orderStatus={status}
                 restaurantCoords={restaurantCoords}
                 studentCoords={studentCoords}
@@ -778,7 +778,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 </p>
                 {order.walletDiscount > 0 && (
                   <p className="text-[11px] font-black text-emerald-700 bg-emerald-50 py-1.5 px-3 rounded-xl border border-emerald-200">
-                    ✓ تم استرداد {order.walletDiscount} ج.م إلى رصيد محفظتك الجامعية بنجاح.
+                    ✓ تم استرداد {order.walletDiscount} ج.م إلى رصيد محفظتك بنجاح.
                   </p>
                 )}
               </div>
@@ -800,7 +800,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 )}
                 {order.walletDiscount > 0 && (
                   <p className="text-[11px] font-black text-emerald-700 bg-emerald-50 py-1.5 px-3 rounded-xl border border-emerald-200">
-                    ✓ تم استرداد {order.walletDiscount} ج.م إلى رصيد محفظتك الجامعية بنجاح.
+                    ✓ تم استرداد {order.walletDiscount} ج.م إلى رصيد محفظتك بنجاح.
                   </p>
                 )}
               </div>
@@ -879,15 +879,15 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-slate-800">العنوان الجامعي: </span>
-                    <span className="text-slate-600">{getDisplayAddress(order.addressText, 'موقعي الحالي بالحرم الجامعي')}</span>
+                    <span className="font-bold text-slate-800">عنوان التوصيل: </span>
+                    <span className="text-slate-600">{getDisplayAddress(order.addressText, 'موقعي الحالي')}</span>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-indigo-700 font-bold">
                 <ShoppingBag className="w-4 h-4" />
-                <span>الاستلام من مقر الفرع بالجامعة فور جاهزيته</span>
+                <span>الاستلام من مقر الفرع فور جاهزيته</span>
               </div>
             )}
 

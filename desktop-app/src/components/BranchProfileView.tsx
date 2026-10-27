@@ -258,7 +258,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     setPaymentSuccess(false);
 
     if (vodafoneCashEnabled && !vodafoneCashNumber.trim()) {
-      setPaymentError('يرجى إدخال رقم محفظة فودافون كاش ليستقبل عليه الطلاب التحويلات');
+      setPaymentError('يرجى إدخال رقم محفظة فودافون كاش ليستقبل عليه العملاء التحويلات');
       return;
     }
 
@@ -349,7 +349,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
               <MapPin className="w-3.5 h-3.5 text-rose-500" />
-              <span>{getDisplayAddress(branch?.address, 'داخل الحرم الجامعي')}</span>
+              <span>{getDisplayAddress(branch?.address, 'عنوان الفرع')}</span>
             </div>
           </div>
         </div>
@@ -440,7 +440,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                   )}
                   <div>
                     <span className="block text-xs font-black text-slate-900">لوجو المطعم</span>
-                    <span className="text-[11px] text-slate-500">يظهر للطلاب كشعار رسمي لفرعك</span>
+                    <span className="text-[11px] text-slate-500">يظهر للعملاء كشعار رسمي لفرعك</span>
                   </div>
                 </div>
 
@@ -471,7 +471,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">موقع الفرع في الحرم الجامعي</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">موقع الفرع بالتحديد</label>
                 <div className="relative">
                   <MapPin className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
                   <input
@@ -500,7 +500,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
 
                 {/* Delivery Mode Choice */}
                 <div className="space-y-3 pt-1">
-                  <label className="block text-xs font-bold text-slate-700">نظام تسعير التوصيل للطلاب</label>
+                  <label className="block text-xs font-bold text-slate-700">نظام تسعير التوصيل للعملاء</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -543,7 +543,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                   ) : (
                     <div className="space-y-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-black text-slate-800">مناطق الحرم الجامعي وأسعارها ({deliveryZones.length})</span>
+                        <span className="text-xs font-black text-slate-800">مناطق وأحياء التوصيل وأسعارها ({deliveryZones.length})</span>
                       </div>
 
                       {/* Existing Zones List */}
@@ -687,7 +687,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                     <span className="text-xl shrink-0">💵</span>
                     <div className="min-w-0 flex-1">
                       <span className="font-bold text-xs text-slate-900 block truncate">الدفع نقداً (كاش عند الاستلام)</span>
-                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">يدفع الطالب للكاشير أو المندوب عند استلام الوجبة</span>
+                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">يدفع العميل للكاشير أو المندوب عند استلام الوجبة</span>
                     </div>
                   </div>
                   <button
@@ -744,7 +744,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                 {vodafoneCashEnabled && (
                   <div className="pt-1 animate-fadeIn">
                     <label className="block text-[11px] font-bold text-rose-900 mb-1">
-                      رقم محفظة كاش الخاصة بالمطعم (يظهر للطلاب أثناء الطلب):
+                      رقم محفظة كاش الخاصة بالمطعم (يظهر للعملاء أثناء الطلب):
                     </label>
                     <input
                       type="tel"
@@ -949,7 +949,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900">مواعيد العمل الرسمية والطلب المسبق (بريك المحاضرات)</h3>
-              <p className="text-xs text-slate-400">تحديد أوقات عمل الفرع التي تظهر للطلاب ومهلة تجهيز الطلبات المحجوزة</p>
+              <p className="text-xs text-slate-400">تحديد أوقات عمل الفرع التي تظهر للعملاء ومهلة تجهيز الطلبات المحجوزة</p>
             </div>
           </div>
         </div>
