@@ -1024,8 +1024,8 @@ export function App() {
 
           {/* Left: User & Orders Tools (All h-9 shrink-0 so nothing ever overlaps) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Direct Student App Install / APK Button (hidden inside APK) */}
-            {!isRunningInNativeApk() && (
+            {/* Direct Student App Install / APK Button (hidden inside APK and on home landing page) */}
+            {selectedBranch && !isRunningInNativeApk() && (
               <button
                 type="button"
                 onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk')}

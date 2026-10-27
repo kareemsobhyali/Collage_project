@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Store,
   Sparkles,
   Users,
-  Smartphone,
   MapPin,
   Clock,
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   Check,
   ShoppingBag,
@@ -14,15 +15,11 @@ import {
   Wallet,
   Printer,
   MessageCircle,
-  Download,
   Star,
-  Search,
-  CheckCircle2,
-  ExternalLink
+  CheckCircle2
 } from 'lucide-react';
 import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress } from '../services/campusLocations';
-import { triggerInstallApp, isRunningInNativeApk } from '../services/notifications';
 
 interface LandingPageProps {
   branches: any[];
@@ -41,34 +38,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenMyOrders,
   onOpenProfile,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'ALL' | 'OPEN' | 'DELIVERY'>('ALL');
   const [copiedBranchId, setCopiedBranchId] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // تصفية المطاعم حسب البحث والحالة
-  const filteredBranches = useMemo(() => {
-    return branches.filter((branch) => {
-      const q = searchQuery.trim().toLowerCase();
-      const matchesSearch =
-        !q ||
-        (branch.name && branch.name.toLowerCase().includes(q)) ||
-        (branch.address && branch.address.toLowerCase().includes(q));
-
-      if (!matchesSearch) return false;
-
-      if (filterType === 'OPEN') {
-        return (
-          branch.isActive !== false &&
-          branch.operationalStatus !== 'CLOSED' &&
-          isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours)
-        );
-      }
-      if (filterType === 'DELIVERY') {
-        return branch.allowDelivery === true;
-      }
-      return true;
-    });
-  }, [branches, searchQuery, filterType]);
+  const scrollHorizontally = (direction: 'next' | 'prev') => {
+    if (!scrollContainerRef.current) return;
+    const amount = 340;
+    // In RTL, next moves left (-amount), prev moves right (+amount)
+    const scrollAmount = direction === 'next' ? -amount : amount;
+    scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  };
 
   const handleCopyBranchLink = (e: React.MouseEvent, branch: any) => {
     e.stopPropagation();
@@ -134,17 +113,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span>استكشف المطاعم واطلب وجبتك</span>
               <ArrowLeft className="w-4 h-4" />
             </button>
-
-            {!isRunningInNativeApk() && (
-              <button
-                type="button"
-                onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk')}
-                className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white border border-white/20 active:scale-95 text-xs sm:text-sm font-bold backdrop-blur-sm transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <Download className="w-4 h-4 text-emerald-300" />
-                <span>تحميل تطبيق الأندرويد</span>
-              </button>
-            )}
 
             {user ? (
               <div className="flex items-center gap-2">
@@ -280,81 +248,63 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 3. PARTNER RESTAURANTS SECTION: قائمة المطاعم الشريكة والروابط المباشرة */}
+      {/* 3. PARTNER RESTAURANTS SECTION: قائمة المطاعم الشريكة بسكرول أفقي أنيق */}
       <section id="partner-restaurants-section" className="space-y-4 pt-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
           <div>
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
-              <Store className="w-5 h-5 text-indigo-600" />
-              <span>المطاعم الشريكة المسجلة في المنظومة</span>
-            </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              اختر مطعمك المفضل لفتح واجهته ومنيوه الخاص، أو انسخ رابطه المباشر لمشاركته.
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+                <Store className="w-4 h-4" />
+              </div>
+              <h2 className="text-lg sm:text-xl font-black text-slate-900">
+                المطاعم الشريكة بالمنظومة
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-xs font-black">
+                {branches.length}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              تصفح المطاعم المتوفرة واطلب مباشرة من المنيو المخصص لكل مطعم
             </p>
           </div>
 
-          {/* Search Input */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث عن مطعم أو وجبة..."
-              className="w-full h-9 pr-9 pl-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
-            />
-          </div>
+          {/* Previous / Next buttons for horizontal scrolling on desktop */}
+          {branches.length > 0 && (
+            <div className="hidden sm:flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => scrollHorizontally('prev')}
+                className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer"
+                title="المطاعم السابقة"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollHorizontally('next')}
+                className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer"
+                title="المطاعم التالية"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <button
-            type="button"
-            onClick={() => setFilterType('ALL')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filterType === 'ALL'
-                ? 'bg-indigo-600 text-white shadow-2xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            جميع المطاعم ({branches.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterType('OPEN')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filterType === 'OPEN'
-                ? 'bg-emerald-600 text-white shadow-2xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            المفتوحة الآن للطلب
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterType('DELIVERY')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filterType === 'DELIVERY'
-                ? 'bg-purple-600 text-white shadow-2xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            التوصيل متاح
-          </button>
-        </div>
-
-        {/* Restaurants Grid */}
-        {filteredBranches.length === 0 ? (
+        {/* Horizontal Scroll Slider for Restaurants */}
+        {branches.length === 0 ? (
           <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 space-y-2">
             <Store className="w-10 h-10 text-slate-300 mx-auto" />
-            <p className="text-sm font-black text-slate-700">لم يتم العثور على مطاعم تطابق بحثك</p>
-            <p className="text-xs text-slate-500">جرّب تغيير كلمات البحث أو استعراض جميع المطاعم.</p>
+            <p className="text-sm font-black text-slate-700">لا توجد مطاعم مسجلة حالياً</p>
+            <p className="text-xs text-slate-500">سيتم إضافة مطاعم جديدة في المنظومة قريباً.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {filteredBranches.map((branch) => {
+          <div
+            ref={scrollContainerRef}
+            className="flex items-stretch gap-4 overflow-x-auto pb-4 pt-1 px-1 scroll-smooth snap-x snap-mandatory"
+            style={{ scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch' }}
+          >
+            {branches.map((branch) => {
               const isOpen =
                 branch.isActive !== false &&
                 branch.operationalStatus !== 'CLOSED' &&
@@ -371,80 +321,104 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div
                   key={branch.id}
                   onClick={() => onSelectBranch(branch)}
-                  className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group space-y-3"
+                  className="w-[280px] sm:w-[320px] shrink-0 snap-start bg-white rounded-3xl border border-slate-200/90 hover:border-indigo-300 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden group cursor-pointer"
                 >
+                  {/* Top Banner with Badges */}
                   <div>
-                    {/* Top row: Logo, Name, Rating */}
-                    <div className="flex items-start gap-3">
+                    <div className="h-24 sm:h-28 relative bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 flex items-start justify-between p-3 overflow-hidden">
+                      {/* Ambient background glow */}
+                      <div className="absolute -top-10 -right-10 w-28 h-28 bg-indigo-500/20 rounded-full blur-xl pointer-events-none" />
+                      <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-amber-500/15 rounded-full blur-xl pointer-events-none" />
+
+                      {/* Status Badge */}
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black backdrop-blur-md shadow-xs z-10 ${
+                          isOpen
+                            ? 'bg-emerald-500/90 text-white'
+                            : 'bg-slate-900/80 text-rose-300 border border-rose-500/30'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isOpen ? 'bg-white animate-pulse' : 'bg-rose-400'
+                          }`}
+                        />
+                        <span>{isOpen ? 'مفتوح للطلب' : 'مغلق حالياً'}</span>
+                      </span>
+
+                      {/* Rating Badge */}
+                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-md text-slate-800 text-xs font-black shadow-xs z-10">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                        <span className="font-mono">{rating}</span>
+                      </div>
+                    </div>
+
+                    {/* Logo & Info */}
+                    <div className="px-4 -mt-7 relative z-10">
                       {branch.logoUrl ? (
                         <img
                           src={getFullImageUrl(branch.logoUrl)}
                           alt={branch.name}
-                          className="w-12 h-12 rounded-2xl object-cover border border-slate-200 shrink-0 bg-white p-0.5 shadow-2xs"
+                          className="w-14 h-14 rounded-2xl object-cover bg-white border-2 border-white shadow-md p-0.5 shrink-0"
                         />
                       ) : (
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-                          <Store className="w-6 h-6" />
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-50 border-2 border-white shadow-md flex items-center justify-center text-indigo-600 font-bold shrink-0">
+                          <Store className="w-7 h-7" />
                         </div>
                       )}
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <h3 className="font-black text-sm text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
-                            {branch.name}
-                          </h3>
-                          <div className="flex items-center gap-0.5 text-xs font-black text-amber-500 shrink-0">
-                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                            <span>{rating}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium mt-1 truncate">
-                          <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+                      <div className="mt-2.5">
+                        <h3 className="font-black text-base text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+                          {branch.name}
+                        </h3>
+                        <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
+                          <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                           <span className="truncate">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Operational Status & Prep time */}
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
-                          }`}
-                        />
-                        <span className={isOpen ? 'text-emerald-700' : 'text-rose-600'}>
-                          {isOpen ? 'مفتوح للطلب الآن' : 'مغلق حالياً'}
-                        </span>
-                      </div>
-
-                      <div className="text-slate-500 font-mono text-[10px]">
-                        {branch.estimatedPrepMins ? `~${branch.estimatedPrepMins}` : '~15-25 د'}
+                      {/* Info Chips (Prep Time & Delivery) */}
+                      <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-[11px] font-bold text-slate-600">
+                        <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-100 truncate">
+                          <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                          <span className="truncate">
+                            {branch.estimatedPrepMins ? `~${branch.estimatedPrepMins} د` : '~15-25 د'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-100 truncate">
+                          <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">
+                            {branch.allowDelivery
+                              ? (typeof branch.deliveryFee === 'number' && branch.deliveryFee > 0
+                                  ? `${branch.deliveryFee} ج.م`
+                                  : 'توصيل متاح')
+                              : 'استلام فقط'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Actions: Direct Menu Button + Copy Direct Link Button */}
-                  <div className="pt-1 flex items-center gap-1.5">
+                  {/* Footer Actions */}
+                  <div className="p-4 pt-3 flex items-center gap-2 border-t border-slate-100 mt-3">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectBranch(branch);
                       }}
-                      className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+                      className="flex-1 py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs group-hover:shadow-md cursor-pointer"
                     >
                       <ShoppingBag className="w-3.5 h-3.5" />
                       <span>دخول لمنيو المطعم</span>
-                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
                     </button>
 
                     <button
                       type="button"
                       onClick={(e) => handleCopyBranchLink(e, branch)}
                       title="نسخ الرابط المباشر لهذا المطعم"
-                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-90 transition-all border border-slate-200/80 shrink-0"
+                      className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-90 transition-all border border-slate-200/80 shrink-0 cursor-pointer"
                     >
                       {copiedBranchId === branch.id ? (
                         <Check className="w-4 h-4 text-emerald-600" />
@@ -504,87 +478,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 5. DOWNLOAD MOBILE & DESKTOP APPS: تحميل التطبيقات */}
-      <section className="bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 text-white rounded-3xl p-6 sm:p-8 border border-indigo-800/80 shadow-xl space-y-6">
-        <div className="text-center space-y-1.5 max-w-xl mx-auto">
-          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-300 bg-white/10 px-3 py-1 rounded-full">
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>تطبيقات UniFood المخصصة</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black">
-            حمّل تطبيقات المنظومة على هاتفك وحاسوبك
-          </h2>
-          <p className="text-xs text-slate-300 leading-relaxed font-medium">
-            تطبيقات خفيفة وسريعة للأندرويد وسطح المكتب تضمن أعلى درجات التفاعل والتكامل.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          {/* Customer APK Card */}
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 flex flex-col justify-between space-y-3">
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 mb-2.5">
-                <Smartphone className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-black text-white">تطبيق العملاء (APK)</h3>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                طلب الوجبات السريع، السلة التشاركية، المحفظة الرقمية، وتتبع خط سير الكابتن لحظياً.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk')}
-              className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-            >
-              <Download className="w-4 h-4" />
-              <span>تحميل تطبيق العميل</span>
-            </button>
-          </div>
-
-          {/* Driver APK Card */}
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 flex flex-col justify-between space-y-3">
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-400 mb-2.5">
-                <Truck className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-black text-white">تطبيق الكابتن (Driver APK)</h3>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                استلام مهام التوصيل، الملاحة الذكية، وتأكيد التسليم برمز الـ PIN بأمان تام.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Driver.apk')}
-              className="w-full py-2 px-3 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-            >
-              <Download className="w-4 h-4" />
-              <span>تحميل تطبيق الكابتن</span>
-            </button>
-          </div>
-
-          {/* Desktop POS Card */}
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 flex flex-col justify-between space-y-3">
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300 mb-2.5">
-                <Printer className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-black text-white">برنامج الكاشير (Desktop App)</h3>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                إدارة طلبات المطعم الفورية وشاشات المطبخ والربط التلقائي بطابعات الفواتير الحرارية.
-              </p>
-            </div>
-            <a
-              href="/admin"
-              className="w-full py-2 px-3 bg-white/15 hover:bg-white/20 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer border border-white/20"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>لوحة تحكم المطاعم</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. FOOTER: الحقوق والتواصل */}
+      {/* 5. FOOTER: الحقوق والتواصل */}
       <footer className="text-center pt-6 border-t border-slate-200/80 space-y-2">
         <p className="text-xs font-bold text-slate-600">
           منظومة UniFood لخدمات الطعام والتوصيل الذكي © 2026 — جميع الحقوق محفوظة
