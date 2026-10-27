@@ -353,15 +353,15 @@ if (fs.existsSync(desktopDistPath)) {
 // مسارات تطبيق الطلاب والإدارة والدليفري (customer-app)
 const customerDistPath = resolvePath("../customer-app/dist", "customer-app/dist");
 if (fs.existsSync(customerDistPath)) {
-  // خدمة الملفات الثابتة للموقع الرئيسي
-  app.use(express.static(customerDistPath));
+  // خدمة الملفات الثابتة فقط بدون اعتراض طلبات الصفحة الرئيسية HTML
+  app.use(express.static(customerDistPath, { index: false }));
 
   // توجيه كل المسارات الأخرى مثل:
-  // / (تطبيق العملاء)
+  // / (تطبيق العملاء أو المطعم المباشر)
   // /admin (لوحة تحكم الإدارة)
   // /delivery أو /driver أو /elviery (شاشة الطيارين)
-  // إلى index.html الخاص بـ customer-app (Single Page App Fallback)
-  app.get("{*splat}", (req, res, next) => {
+  // إلى index.html الخاص بـ customer-app مع معالجة ذكية لهوية المطعم والمانيفست
+  app.get("{*splat}", async (req, res, next) => {
     if (
       req.path.startsWith("/api") ||
       req.path.startsWith("/uploads") ||
@@ -372,28 +372,73 @@ if (fs.existsSync(customerDistPath)) {
       return next();
     }
 
-    // إذا كان الرابط مخصصاً لتثبيت تطبيق مطعم معين، نُعدل رابط المانيفست في الـ HTML ليحمل هوية المطعم مباشرة
+    const indexPath = path.join(customerDistPath, "index.html");
+    if (!fs.existsSync(indexPath)) {
+      return res.status(404).send("Application not built yet");
+    }
+
+    // استخراج معرّف المطعم إن وجد (من الباراميترات أو المسار المباشر)
     const cleanPath = decodeURIComponent(req.path).replace(/^\/+|\/+$/g, '');
     const segments = cleanPath.split('/').filter(Boolean);
     let targetBranchSlug: string | null = null;
-    if (segments.length >= 2 && ['apk', 'download', 'install'].includes(segments[segments.length - 1].toLowerCase())) {
+
+    if (req.query.branch || req.query.r || req.query.b || req.query.slug) {
+      targetBranchSlug = String(req.query.branch || req.query.r || req.query.b || req.query.slug).trim();
+    } else if (segments.length >= 2 && ['apk', 'download', 'install'].includes(segments[segments.length - 1].toLowerCase())) {
       targetBranchSlug = segments[0] === 'r' ? segments[1] : segments[0];
-    } else if (req.query.branch || req.query.r) {
-      targetBranchSlug = (req.query.branch || req.query.r) as string;
+    } else if (segments.length === 2 && (segments[0] === 'r' || segments[0] === 'branch' || segments[0] === 'b')) {
+      targetBranchSlug = segments[1];
+    } else if (segments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'pos', 'api', 'socket.io', 'uploads', 'manifest.json', 'favicon.ico', 'sw.js', 'robots.txt'].includes(segments[0].toLowerCase())) {
+      targetBranchSlug = segments[0];
     }
+
+    let html = fs.readFileSync(indexPath, "utf8");
 
     if (targetBranchSlug && !['admin', 'driver', 'delivery', 'api'].includes(targetBranchSlug.toLowerCase())) {
       try {
-        const indexPath = path.join(customerDistPath, "index.html");
-        let html = fs.readFileSync(indexPath, "utf8");
-        const customManifestTag = `<link rel="manifest" href="/manifest.json?branch=${encodeURIComponent(targetBranchSlug)}" />`;
-        html = html.replace(/<link\s+rel="manifest"[^>]*>/i, customManifestTag);
-        res.setHeader("Content-Type", "text/html; charset=utf-8");
-        return res.send(html);
+        const cleanSlug = targetBranchSlug.trim();
+        const branch = await prisma.branch.findFirst({
+          where: {
+            OR: [
+              { slug: { equals: cleanSlug, mode: "insensitive" } },
+              { id: cleanSlug },
+              { name: { equals: cleanSlug, mode: "insensitive" } },
+              { name: { contains: cleanSlug, mode: "insensitive" } },
+            ],
+          },
+        });
+
+        if (branch) {
+          const branchKey = branch.slug || branch.id;
+          let logoUrl = branch.logoUrl || "/logo.png";
+          if (logoUrl.startsWith("http")) {
+            try {
+              logoUrl = new URL(logoUrl).pathname;
+            } catch (_e) {}
+          } else if (!logoUrl.startsWith("/")) {
+            logoUrl = `/uploads/${logoUrl}`;
+          }
+
+          // 1. استبدال رابط المانيفست بالمانيفست المخصص لهذا المطعم
+          const customManifestTag = `<link rel="manifest" href="/manifest.json?branch=${encodeURIComponent(branchKey)}" />`;
+          html = html.replace(/<link\s+rel="manifest"[^>]*>/i, customManifestTag);
+
+          // 2. تحديث العنوان ليحمل اسم المطعم مباشرة
+          html = html.replace(/<title>.*?<\/title>/i, `<title>${branch.name} | طلب وتوصيل وجبات أونلاين</title>`);
+
+          // 3. تحديث أيقونة الموقع والأيقونة التي يعتمدها iOS وأندرويد للشاشة
+          html = html.replace(/<link[^>]*rel="icon"[^>]*>/i, `<link rel="icon" type="image/png" href="${logoUrl}" />`);
+          html = html.replace(/<link[^>]*rel="apple-touch-icon"[^>]*>/i, `<link rel="apple-touch-icon" href="${logoUrl}" />`);
+
+          // 4. حقن سكريبت بالهيدر لحفظ معرف المطعم المثبت مسبقاً
+          const preInjectScript = `<script>try{localStorage.setItem('pwa_installed_branch','${encodeURIComponent(branchKey).toLowerCase()}');}catch(e){}</script>`;
+          html = html.replace("</head>", `${preInjectScript}</head>`);
+        }
       } catch (_e) {}
     }
 
-    res.sendFile(path.join(customerDistPath, "index.html"));
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(html);
   });
 }
 

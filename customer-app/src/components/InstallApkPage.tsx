@@ -23,9 +23,7 @@ import {
   Compass
 } from 'lucide-react';
 import { api, API_BASE_URL, getFullImageUrl } from '../services/api';
-import { isRunningInNativeApk, getDeferredInstallPrompt, setDeferredInstallPrompt, triggerInstallApp, registerServiceWorker } from '../services/notifications';
-
-const APK_DOWNLOAD_URL = 'https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk';
+import { isRunningInNativeApk, getDeferredInstallPrompt, setDeferredInstallPrompt, registerServiceWorker } from '../services/notifications';
 
 interface ApkMeta {
   isBranch: boolean;
@@ -391,20 +389,12 @@ export const InstallApkPage: React.FC<{
           return;
         }
 
-        // الحل الجذري: لا نفتح شاشة التعليمات اليدوية التي تعطل العميل، بل نبدأ فوراً بتحميل الـ APK المباشر للأندرويد
-        const a = document.createElement('a');
-        a.href = APK_DOWNLOAD_URL;
-        a.download = `UniFood-${meta?.name || 'Restaurant'}.apk`;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        // إذا كان المتصفح لا يدعم التثبيت المباشر بنقرة واحدة
+        setShowInstallHelpModal(true);
       }
     } catch (err) {
       console.warn('Install prompt error:', err);
-      // Fallback: تحميل الـ APK فوراً
-      window.location.href = APK_DOWNLOAD_URL;
+      setShowInstallHelpModal(true);
     } finally {
       setIsInstalling(false);
     }
@@ -612,16 +602,6 @@ export const InstallApkPage: React.FC<{
               </>
             )}
           </button>
-
-          {/* Direct APK Download Button (Permanent for Android users) */}
-          <a
-            href={APK_DOWNLOAD_URL}
-            download={`UniFood-${meta?.name || 'Restaurant'}.apk`}
-            className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500/40 text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 active:scale-98"
-          >
-            <Download className="w-4 h-4 text-emerald-200" />
-            <span>تحميل ملف APK مباشرة لأجهزة أندرويد (تثبيت مباشر)</span>
-          </a>
 
           <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
