@@ -14,11 +14,19 @@ import {
   UtensilsCrossed,
   Heart,
   Star,
-  MessageSquare,
   X,
-  CheckCircle2
+  CheckCircle2,
+  Copy,
+  Check,
+  Flame,
+  Zap,
+  Truck,
+  ChefHat,
+  RotateCcw,
+  Sparkles,
+  ArrowLeft
 } from 'lucide-react';
-import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
+import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress, getStoredClientCoords, isBranchInDeliveryZone } from '../services/campusLocations';
 import { getItemFallbackImage } from '../utils/foodImages';
 
@@ -26,9 +34,13 @@ interface BranchMenuProps {
   branch: any;
   categories: any[];
   cart: any[];
+  user?: any | null;
   onBack: () => void;
   onSelectItem: (item: any) => void;
   onOpenCart: () => void;
+  onTrackOrder?: (order: any) => void;
+  onQuickReorder?: (order: any) => void;
+  onRequireAuth?: () => void;
 }
 
 const DAY_NAMES_AR: Record<string, string> = {
@@ -148,10 +160,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
 
       if (Math.abs(diff) > 2) {
         isNormalizing.current = true;
-        container.scrollBy({
-          left: diff,
-          behavior: 'instant' as ScrollBehavior,
-        });
+        container.scrollLeft += diff;
         setActiveIndex(targetCardIdx);
         requestAnimationFrame(() => {
           isNormalizing.current = false;
@@ -160,76 +169,60 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
     }
   };
 
-  const centerCardInContainer = (index: number, smooth: boolean) => {
-    const container = scrollRef.current;
-    if (!container || displayCards.length === 0) return;
-    const bounded = Math.max(0, Math.min(index, displayCards.length - 1));
-    const cards = container.querySelectorAll('[data-carousel-card="true"]');
-    const target = cards[bounded] as HTMLElement | undefined;
-    if (target) {
-      isProgrammaticScroll.current = true;
-      if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
-
-      const cRect = container.getBoundingClientRect();
-      const tRect = target.getBoundingClientRect();
-      const diff = (tRect.left + tRect.width / 2) - (cRect.left + cRect.width / 2);
-      if (Math.abs(diff) > 2) {
-        container.scrollBy({
-          left: diff,
-          behavior: smooth ? 'smooth' : ('instant' as ScrollBehavior),
-        });
-      }
-      setActiveIndex(bounded);
-      programmaticScrollTimer.current = setTimeout(() => {
-        isProgrammaticScroll.current = false;
-        if (items.length > 1) {
-          normalizeToMiddleSet(bounded);
-        }
-      }, smooth ? 350 : 50);
-    }
+  const scheduleNormalization = (fromIndex?: number) => {
+    if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
+    normalizeTimer.current = setTimeout(() => {
+      normalizeToMiddleSet(fromIndex);
+    }, 450);
   };
 
-  const isInitializedRef = useRef<boolean>(false);
-
+  // تهيئة المسار إلى المجموعة المركزية فور التحميل
   useEffect(() => {
+    if (items.length <= 1) return;
     const container = scrollRef.current;
-    if (!container || displayCards.length === 0) {
-      setActiveIndex(0);
-      return;
-    }
-    // نقوم بالتوسيط على بداية المجموعات فقط لأول مرة عند بناء الكاروسيل لمنع إعادة التمرير للأول عند العودة من شاشة الصنف
-    if (!isInitializedRef.current) {
-      isInitializedRef.current = true;
-      setActiveIndex(middleSetStartIndex);
-      const timer = setTimeout(() => {
-        centerCardInContainer(middleSetStartIndex, false);
-      }, 60);
-      return () => {
-        clearTimeout(timer);
-        if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
-        if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
-      };
-    }
-  }, [category.id, items.length, middleSetStartIndex]);
+    if (!container) return;
 
+    const initPos = () => {
+      const cards = container.querySelectorAll('[data-carousel-card="true"]');
+      const targetCard = cards[middleSetStartIndex] as HTMLElement | undefined;
+      if (targetCard) {
+        const containerWidth = container.clientWidth;
+        const cardWidth = targetCard.offsetWidth;
+        const targetLeft = targetCard.offsetLeft - (containerWidth / 2 - cardWidth / 2);
+        isNormalizing.current = true;
+        container.scrollLeft = targetLeft;
+        setActiveIndex(middleSetStartIndex);
+        setTimeout(() => {
+          isNormalizing.current = false;
+        }, 100);
+      }
+    };
+
+    const timer = setTimeout(initPos, 80);
+    return () => clearTimeout(timer);
+  }, [items.length, middleSetStartIndex]);
+
+  // مراقبة السكرول وتحديث البطاقة النشطة بدقة
   const handleScroll = () => {
     if (isNormalizing.current || isProgrammaticScroll.current) return;
     const container = scrollRef.current;
-    if (!container || displayCards.length <= 1) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const containerCenter = containerRect.left + containerRect.width / 2;
+    if (!container) return;
 
     const cards = container.querySelectorAll('[data-carousel-card="true"]');
-    let closestIdx = 0;
-    let minDistance = Infinity;
+    if (cards.length === 0) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const centerX = containerRect.left + containerRect.width / 2;
+
+    let closestIdx = activeIndex;
+    let closestDist = Infinity;
 
     cards.forEach((card, idx) => {
-      const rect = card.getBoundingClientRect();
-      const cardCenter = rect.left + rect.width / 2;
-      const dist = Math.abs(containerCenter - cardCenter);
-      if (dist < minDistance) {
-        minDistance = dist;
+      const cardRect = card.getBoundingClientRect();
+      const cardCenter = cardRect.left + cardRect.width / 2;
+      const dist = Math.abs(centerX - cardCenter);
+      if (dist < closestDist) {
+        closestDist = dist;
         closestIdx = idx;
       }
     });
@@ -238,64 +231,80 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
       setActiveIndex(closestIdx);
     }
 
-    if (items.length > 1) {
-      if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
-      normalizeTimer.current = setTimeout(() => {
-        if (!isTouching.current && !isProgrammaticScroll.current) {
-          normalizeToMiddleSet(closestIdx);
-        }
-      }, 150);
+    if (!isTouching.current) {
+      scheduleNormalization(closestIdx);
     }
   };
 
-  const scrollToCard = (index: number) => {
-    centerCardInContainer(index, true);
+  const scrollToIndex = (index: number) => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const cards = container.querySelectorAll('[data-carousel-card="true"]');
+    const targetCard = cards[index] as HTMLElement | undefined;
+    if (!targetCard) return;
+
+    const containerWidth = container.clientWidth;
+    const cardWidth = targetCard.offsetWidth;
+    const targetLeft = targetCard.offsetLeft - (containerWidth / 2 - cardWidth / 2);
+
+    isProgrammaticScroll.current = true;
+    container.scrollTo({ left: targetLeft, behavior: 'smooth' });
+    setActiveIndex(index);
+
+    if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
+    programmaticScrollTimer.current = setTimeout(() => {
+      isProgrammaticScroll.current = false;
+      scheduleNormalization(index);
+    }, 450);
   };
 
-  const handleTouchStart = () => {
-    isTouching.current = true;
-    if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
+  const handleNext = () => {
+    if (items.length <= 1) return;
+    const nextIdx = Math.min(displayCards.length - 1, activeIndex + 1);
+    scrollToIndex(nextIdx);
   };
 
-  const handleTouchEnd = () => {
-    isTouching.current = false;
-    if (items.length > 1) {
-      if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
-      normalizeTimer.current = setTimeout(() => {
-        if (!isTouching.current && !isProgrammaticScroll.current) {
-          normalizeToMiddleSet();
-        }
-      }, 180);
-    }
+  const handlePrev = () => {
+    if (items.length <= 1) return;
+    const prevIdx = Math.max(0, activeIndex - 1);
+    scrollToIndex(prevIdx);
   };
+
+  if (items.length === 0) return null;
 
   return (
-    <div className="space-y-2.5">
-      {/* Category Title + Swipe Controls */}
+    <div
+      id={`category-section-${category.id}`}
+      data-category-id={category.id}
+      className="space-y-2.5 scroll-mt-24 sm:scroll-mt-28"
+    >
+      {/* Category Header */}
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-sm sm:text-base font-black text-slate-800 flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 shadow-sm shadow-indigo-600/40" />
-          <span>{category.name}</span>
-          <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-            {items.length}
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-4.5 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-full" />
+          <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
+            {category.name}
+          </h3>
+          <span className="text-[11px] font-bold text-slate-400 font-mono">
+            ({items.length})
           </span>
-        </h3>
+        </div>
 
         {items.length > 1 && (
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-slate-400 ml-1">اسحب للجانبين</span>
             <button
               type="button"
-              onClick={() => scrollToCard(activeIndex - 1)}
-              className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-90"
+              onClick={handlePrev}
+              className="w-7 h-7 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all active:scale-90"
               title="السابق"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
             <button
               type="button"
-              onClick={() => scrollToCard(activeIndex + 1)}
-              className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-90"
+              onClick={handleNext}
+              className="w-7 h-7 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all active:scale-90"
               title="التالي"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -304,180 +313,107 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
         )}
       </div>
 
-      {/* Horizontal Peek Carousel (Endless continuous track) */}
+      {/* Infinite Horizontal Carousel */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        className={`flex items-stretch overflow-x-auto snap-x snap-mandatory no-scrollbar py-2 -mx-3 sm:-mx-4 ${
-          items.length === 1
-            ? 'justify-center px-6'
-            : 'gap-3 px-[16%] sm:px-[22%]'
-        }`}
+        onTouchStart={() => {
+          isTouching.current = true;
+          if (normalizeTimer.current) clearTimeout(normalizeTimer.current);
+        }}
+        onTouchEnd={() => {
+          isTouching.current = false;
+          scheduleNormalization();
+        }}
+        className="flex items-stretch gap-3 overflow-x-auto no-scrollbar py-2 px-1 scroll-smooth snap-x snap-mandatory"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {displayCards.map((cardData, idx: number) => {
-          const item = cardData.item;
-          const isCenter = displayCards.length === 1 || idx === activeIndex;
-          const isItemAvailable = item.isAvailable !== false && (!item.unavailableUntil || new Date() >= new Date(item.unavailableUntil));
-          const isFavItem = favItemIds.includes(item.id);
-          const fallbackImg = getItemFallbackImage(item.name, category?.name, branchName);
-          const displayImg = item.imageUrl ? getFullImageUrl(item.imageUrl) : fallbackImg;
+        {displayCards.map(({ item, uniqueKey }, idx) => {
+          const isItemActive = idx === activeIndex;
+          const isFav = favItemIds.includes(item.id);
 
           return (
             <div
-              key={cardData.uniqueKey}
-              id={`menu-item-card-${item.id}`}
+              key={uniqueKey}
               data-carousel-card="true"
-              onClick={() => {
-                if (!isCenter && displayCards.length > 1) {
-                  scrollToCard(idx);
-                  return;
-                }
-                if (!isItemAvailable) {
-                  alert(`عذراً، صنف "${item.name}" غير متوفر حالياً بالمطعم.`);
-                  return;
-                }
-                if (typeof window !== 'undefined') {
-                  const currentY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
-                  sessionStorage.setItem('unifood_last_item_scroll_y', String(currentY));
-                  sessionStorage.setItem('unifood_last_item_id', item.id);
-                }
-                onItemClick(item);
-              }}
-              className={`w-[68vw] max-w-[250px] sm:w-[240px] shrink-0 snap-center bg-white rounded-3xl border p-3 flex flex-col justify-between cursor-pointer select-none transition-all duration-300 ${
-                isCenter
-                  ? 'scale-100 opacity-100 shadow-lg border-indigo-200 ring-2 ring-indigo-500/15 z-10'
-                  : 'scale-[0.92] opacity-75 shadow-sm border-slate-200/80 hover:opacity-95'
-              } ${(!isBranchOpen || !isItemAvailable) ? 'grayscale-[20%] opacity-75' : ''}`}
+              id={`menu-item-card-${item.id}`}
+              onClick={() => onItemClick(item)}
+              className={`snap-center shrink-0 w-[240px] sm:w-[260px] bg-white rounded-3xl p-3 border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none group relative ${
+                isItemActive
+                  ? 'border-indigo-400 shadow-md ring-2 ring-indigo-500/10 scale-[1.01]'
+                  : 'border-slate-200/90 shadow-2xs hover:shadow-sm'
+              }`}
             >
               <div>
-                {/* Card Top Image with smart categorized fallback */}
-                <div className="relative h-36 w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 mb-3">
+                {/* Image Container with Badges */}
+                <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 mb-2.5">
                   <img
-                    src={displayImg}
+                    src={item.imageUrl ? getFullImageUrl(item.imageUrl) : getItemFallbackImage(item.name, category.name, branchName)}
                     alt={item.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      if (target.src !== fallbackImg) {
-                        target.src = fallbackImg;
-                      }
-                    }}
-                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                   />
 
-                  {/* Favorite Heart Button on Meal Card */}
+                  {/* Favorite Button */}
                   <button
                     type="button"
                     onClick={(e) => onToggleFavItem(e, item.id)}
-                    title={isFavItem ? 'إزالة من وجباتي المفضلة' : 'حفظ في وجباتي المفضلة'}
-                    className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-md border transition-all active:scale-90 ${
-                      isFavItem
-                        ? 'bg-rose-500 text-white border-rose-300 shadow-md'
-                        : 'bg-black/40 text-white hover:bg-black/60 border-white/25'
-                    }`}
+                    className="absolute top-2 left-2 p-1.5 rounded-xl bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-all active:scale-90"
+                    title={isFav ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
                   >
-                    <Heart className={`w-3.5 h-3.5 ${isFavItem ? 'fill-white' : ''}`} />
+                    <Heart
+                      className={`w-4 h-4 ${
+                        isFav ? 'fill-rose-500 text-rose-500' : 'text-white'
+                      }`}
+                    />
                   </button>
 
-                  {/* Unavailable / Sold Out Badge */}
-                  {!isItemAvailable ? (
-                    <div className="absolute top-2 right-2 bg-rose-600/95 backdrop-blur-md text-white px-2.5 py-0.5 rounded-xl text-[10px] font-black shadow-md border border-white/20">
-                      غير متوفر الآن
-                    </div>
-                  ) : item.flashDeal ? (
-                    <div className="absolute top-2 right-2 bg-gradient-to-r from-rose-600 to-amber-500 text-white px-2 py-0.5 rounded-xl text-[10px] font-black shadow-md border border-white/30 flex items-center gap-1 animate-pulse">
-                      <span>🔥</span>
-                      <span>{item.flashDeal.badgeText || 'عرض فلاش'}</span>
-                    </div>
-                  ) : null}
-
-                  {/* Price Badge Floating on Image */}
-                  <div className="absolute bottom-2 right-2 bg-slate-900/85 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-xs font-black shadow-md border border-white/15 flex items-center gap-1.5">
-                    {item.originalBasePrice && item.originalBasePrice > item.basePrice ? (
-                      <>
-                        <span className="text-rose-400 font-black">{item.basePrice} ج.م</span>
-                        <span className="line-through text-slate-400 text-[10px] font-normal">{item.originalBasePrice} ج.م</span>
-                      </>
-                    ) : (
-                      <span>{item.basePrice} ج.م</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Item Title & Description */}
-                <div className="px-0.5">
-                  <div className="flex items-center justify-between gap-1">
-                    <h4 className="font-black text-sm text-slate-900 line-clamp-1">
-                      {item.name}
-                    </h4>
-                    {item.originalBasePrice && item.originalBasePrice > item.basePrice && (
-                      <span className="shrink-0 text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-200/80 px-1.5 py-0.5 rounded-md">
-                        وفر {Math.round(item.originalBasePrice - item.basePrice)} ج.م
-                      </span>
-                    )}
-                  </div>
-                  {item.description ? (
-                    <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-relaxed min-h-[2.25rem]">
-                      {item.description}
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-slate-400 mt-1 min-h-[2.25rem]">
-                      وجبة طازجة من مطبخ {category.name}
-                    </p>
+                  {/* Customization Badge */}
+                  {Array.isArray(item.customizations) && item.customizations.length > 0 && (
+                    <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-lg bg-black/60 backdrop-blur-md text-white text-[10px] font-bold">
+                      خيارات متعددة
+                    </span>
                   )}
                 </div>
+
+                {/* Item Details */}
+                <h4 className="font-black text-xs sm:text-sm text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1 leading-snug">
+                  {item.name}
+                </h4>
+
+                {item.description && (
+                  <p className="text-[11px] text-slate-500 font-medium line-clamp-2 mt-1 leading-relaxed">
+                    {item.description}
+                  </p>
+                )}
               </div>
 
-              {/* Action Button */}
-              <button
-                type="button"
-                disabled={!isItemAvailable}
-                className={`mt-3 w-full py-2 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm ${
-                  !isItemAvailable
-                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                    : isCenter
-                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20'
-                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-                }`}
-              >
-                {isItemAvailable ? (
-                  <>
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>اختيار الصنف</span>
-                  </>
-                ) : (
-                  <span>نفد مؤقتاً</span>
-                )}
-              </button>
+              {/* Price & Add Action */}
+              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-sm sm:text-base font-black text-indigo-700 font-mono">
+                    {item.price}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500">ج.م</span>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!isBranchOpen}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 active:scale-95 ${
+                    isBranchOpen
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
+                      : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>إضافة</span>
+                </button>
+              </div>
             </div>
           );
         })}
       </div>
-
-      {/* Carousel Dots Indicator */}
-      {items.length > 1 && (
-        <div className="flex items-center justify-center gap-1.5 pt-0.5">
-          {items.map((item: any, idx: number) => {
-            const activeRealIndex = ((activeIndex % items.length) + items.length) % items.length;
-            const isActive = idx === activeRealIndex;
-            return (
-              <button
-                key={`dot-${item.id || idx}`}
-                type="button"
-                onClick={() => scrollToCard(middleSetStartIndex + idx)}
-                className={`h-1.5 rounded-full transition-all ${
-                  isActive
-                    ? 'w-5 bg-indigo-600'
-                    : 'w-1.5 bg-slate-300 hover:bg-slate-400'
-                }`}
-                aria-label={`انتقال إلى ${item.name}`}
-              />
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 };
@@ -486,16 +422,30 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   branch,
   categories,
   cart,
+  user,
   onBack,
   onSelectItem,
   onOpenCart,
+  onTrackOrder,
+  onQuickReorder,
+  onRequireAuth,
 }) => {
+  // الـ 3 زراير الرئيسية للفرع: [المطعم] [الطلبات] [العروض]
+  const [branchTab, setBranchTab] = useState<'RESTAURANT' | 'ORDERS' | 'DEALS'>('RESTAURANT');
   const [activeCategoryId, setActiveCategoryId] = useState<string>('ALL');
   const [showReviewsModal, setShowReviewsModal] = useState<boolean>(false);
+  const [copiedDirectLink, setCopiedDirectLink] = useState(false);
+
+  // العروض والصفقات الخاطفة التابعة للفرع
+  const [flashDeals, setFlashDeals] = useState<any[]>([]);
+  const [copiedPromoCode, setCopiedPromoCode] = useState<string | null>(null);
+
+  // الطلبات الجارية للعميل
+  const [activeOrders, setActiveOrders] = useState<any[]>([]);
 
   const lastOpenedBranchId = useRef<string | null>(null);
 
-  // إعادة التمرير لأعلى الصفحة فقط عند فتح مطعم جديد لأول مرة، وليس عند العودة من شاشات الأصناف
+  // إعادة التمرير لأعلى الصفحة فقط عند فتح مطعم جديد لأول مرة
   useEffect(() => {
     if (typeof window !== 'undefined' && branch?.id && lastOpenedBranchId.current !== branch.id) {
       lastOpenedBranchId.current = branch.id;
@@ -504,6 +454,90 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       document.body.scrollTop = 0;
     }
   }, [branch?.id]);
+
+  // نسخ الرابط المباشر للمطعم
+  const handleCopyDirectLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const branchKey = branch?.slug || branch?.id;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const link = `${origin}/?branch=${encodeURIComponent(branchKey)}`;
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(link);
+      setCopiedDirectLink(true);
+      setTimeout(() => setCopiedDirectLink(false), 2500);
+    }
+  };
+
+  // جلب العروض والصفقات الخاطفة
+  useEffect(() => {
+    let isMounted = true;
+    api.getFlashDeals()
+      .then((res) => {
+        if (!isMounted || !res) return;
+        const allDeals = [
+          ...(Array.isArray(res.deals) ? res.deals : []),
+          ...(Array.isArray(res.promoDeals) ? res.promoDeals : []),
+          ...(Array.isArray(res.comboDeals) ? res.comboDeals : []),
+        ];
+        // تصفية العروض الخاصة بهذا المطعم أو العروض العامة
+        const relevant = allDeals.filter(
+          (d: any) =>
+            !d.branchId ||
+            d.branchId === branch?.id ||
+            d.targetBranch?.id === branch?.id
+        );
+        setFlashDeals(relevant.length > 0 ? relevant : allDeals);
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [branch?.id]);
+
+  // جلب ومتابعة الطلبات الحالية للعميل لحظياً
+  useEffect(() => {
+    let isMounted = true;
+    const fetchActiveOrders = async () => {
+      if (!user) {
+        if (isMounted) setActiveOrders([]);
+        return;
+      }
+      try {
+        const orders = await api.getMyOrders();
+        if (!isMounted || !Array.isArray(orders)) return;
+
+        const active = orders.filter((o: any) => {
+          if (!o || o.status === 'REJECTED' || o.status === 'CANCELLED') return false;
+          return ['PENDING', 'PREPARING', 'ACCEPTED', 'READY', 'COMPLETED'].includes(o.status);
+        });
+
+        // ترتيب الطلبات: طلبات هذا المطعم أولاً
+        const sorted = active.sort((a: any, b: any) => {
+          if (a.branchId === branch?.id && b.branchId !== branch?.id) return -1;
+          if (a.branchId !== branch?.id && b.branchId === branch?.id) return 1;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
+        setActiveOrders(sorted);
+      } catch (_err) {}
+    };
+
+    fetchActiveOrders();
+    const interval = setInterval(fetchActiveOrders, 8000);
+
+    const handleUpdate = () => fetchActiveOrders();
+    window.addEventListener('order_status_updated', handleUpdate);
+    window.addEventListener('order_created', handleUpdate);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('order_status_updated', handleUpdate);
+      window.removeEventListener('order_created', handleUpdate);
+    };
+  }, [user, branch?.id]);
 
   // Favorite Meals stored in localStorage
   const [favItemIds, setFavItemIds] = useState<string[]>(() => {
@@ -592,7 +626,6 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     }
   }
 
-  // عرض كافة الأقسام دائماً في الصفحة دون إخفاء أي قسم
   const displayedCategories = nonEmptyCategories;
 
   const isManualScrolling = useRef<boolean>(false);
@@ -616,7 +649,6 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     }
   };
 
-  // التمرير السلس إلى القسم المطلوب عند الضغط عليه دون إخفاء باقي الأقسام
   const handleCategoryClick = (catId: string) => {
     setActiveCategoryId(catId);
     activeCategoryRef.current = catId;
@@ -641,9 +673,9 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     }, 850);
   };
 
-  // مراقبة السكرول بالاتجاهين (لأعلى ولأسفل) لتحديد القسم المعروض أمام المستخدم حالياً
+  // مراقبة السكرول لتحديد القسم المعروض أمام المستخدم حالياً
   useEffect(() => {
-    if (nonEmptyCategories.length === 0) return;
+    if (nonEmptyCategories.length === 0 || branchTab !== 'RESTAURANT') return;
 
     let ticking = false;
 
@@ -656,10 +688,9 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             return;
           }
 
-          const anchorY = 170; // نقطة استشعار القسم الحالي على الشاشة (أسفل الهيدر)
+          const anchorY = 170;
           const firstCatEl = document.getElementById(`category-section-${nonEmptyCategories[0]?.id}`);
 
-          // إذا صعد المستخدم لأعلى فوق الأقسام، ننشط زر "كافة الأقسام"
           if (firstCatEl) {
             const firstRect = firstCatEl.getBoundingClientRect();
             if (firstRect.top > anchorY) {
@@ -673,7 +704,6 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             }
           }
 
-          // فحص القسم الذي يغطي نقطة الاستشعار سواء أثناء التمرير لأعلى أو لأسفل
           let currentCatId: string | null = null;
           for (let i = 0; i < nonEmptyCategories.length; i++) {
             const cat = nonEmptyCategories[i];
@@ -686,7 +716,6 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             }
           }
 
-          // عند الوصول لنهاية الصفحة ننشط آخر قسم
           if (!currentCatId && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 60) {
             currentCatId = nonEmptyCategories[nonEmptyCategories.length - 1]?.id;
           }
@@ -705,12 +734,12 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [nonEmptyCategories]);
+  }, [nonEmptyCategories, branchTab]);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // فحص نطاق التوصيل الجغرافي للمطعم بناءً على لوكيشن العميل الحالي (طلب المستخدم)
+  // فحص نطاق التوصيل الجغرافي للمطعم
   const clientCoords = useMemo(() => getStoredClientCoords(), []);
   const zoneCheck = useMemo(() => isBranchInDeliveryZone(branch, clientCoords), [branch, clientCoords]);
   const isOutOfDeliveryZone = !zoneCheck.inZone;
@@ -744,359 +773,794 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   const branchReviews: any[] = Array.isArray(branch?.reviews) ? branch.reviews : [];
   const avgRating = branch?.avgRating || (branchReviews.length > 0
     ? Number((branchReviews.reduce((acc, r) => acc + (r.rating || 5), 0) / branchReviews.length).toFixed(1))
-    : 0);
+    : 5.0);
   const ratingsCount = branch?.ratingsCount || branchReviews.length;
   const crowdLevel = branch?.crowdLevel || 'LOW';
   const estimatedPrepMins = branch?.estimatedPrepMins || '15-25 د';
 
   return (
-    <div className="space-y-5 pb-36 w-full max-w-full overflow-x-clip">
-      {/* Top Navigation & Branch Info Card (Design 3: 3-Stat Geometric Grid) */}
-      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-3.5">
-        {/* Row 1: Back Button & Context Title */}
-        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200/90 text-slate-700 text-xs font-bold transition-all active:scale-95 group shadow-2xs"
-            title="العودة لقائمة المطاعم"
-          >
-            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform shrink-0" />
-            <span>المطاعم</span>
-          </button>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 hidden sm:inline">
-              قائمة المنيو
-            </span>
-          </div>
+    <div className="space-y-4 pb-36 w-full max-w-full overflow-x-clip select-none animate-fadeIn">
+      {/* Toast الإشعار بنسخ الرابط المباشر */}
+      {copiedDirectLink && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 text-xs font-black animate-bounce border border-emerald-400">
+          <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+          <span>تم نسخ رابط المطعم المباشر بنجاح! يمكنك مشاركته مع زبائنك 📋✨</span>
         </div>
+      )}
 
-        {/* Row 2: Restaurant Identity */}
-        <div className="flex items-center gap-3.5 sm:gap-4">
-          {branch.logoUrl ? (
-            <img
-              src={getFullImageUrl(branch.logoUrl)}
-              alt={branch.name}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-200/80 shadow-xs shrink-0 bg-white p-0.5"
-            />
-          ) : (
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-              <Store className="w-7 h-7" />
-            </div>
+      {/* ========================================================================= */}
+      {/* 0. الـ 3 زراير الرئيسية للفرع: [المطعم] [الطلبات] [العروض]                 */}
+      {/* ========================================================================= */}
+      <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-lg grid grid-cols-3 gap-1 sm:gap-1.5 select-none sticky top-14 z-20">
+        {/* زر المطعم */}
+        <button
+          type="button"
+          onClick={() => setBranchTab('RESTAURANT')}
+          className={`py-2 px-1 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            branchTab === 'RESTAURANT'
+              ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span>🍔</span>
+          <span>المطعم</span>
+        </button>
+
+        {/* زر الطلبات */}
+        <button
+          type="button"
+          onClick={() => setBranchTab('ORDERS')}
+          className={`py-2 px-1 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 whitespace-nowrap relative cursor-pointer ${
+            branchTab === 'ORDERS'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md shadow-emerald-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span>🛵</span>
+          <span>الطلبات</span>
+          {activeOrders.length > 0 && (
+            <span className="relative flex items-center gap-1 shrink-0">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              </span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black ${
+                branchTab === 'ORDERS' ? 'bg-black/30 text-white' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              }`}>
+                {activeOrders.length}
+              </span>
+            </span>
           )}
+        </button>
 
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug truncate">
-              {branch.name}
-            </h2>
-
-            {/* Location */}
-            <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
-              <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-              <span className="truncate">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>
-            </div>
-
-            {/* Phone contact if available */}
-            {branch.phone && (
-              <div className="mt-1">
-                <a
-                  href={`tel:${branch.phone}`}
-                  className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-                >
-                  <Phone className="w-3 h-3 text-indigo-500 shrink-0" />
-                  <span>{branch.phone}</span>
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Row 3: The 3 Equal Geometric Metric Badges (Zero Clutter, Rating appears ONLY in Card 1) */}
-        <div className="grid grid-cols-3 gap-2 pt-1 text-center select-none">
-          {/* Card 1: Verified Rating (The ONLY Place - Clickable to open reviews) */}
-          <button
-            type="button"
-            onClick={() => setShowReviewsModal(true)}
-            className="p-2 sm:p-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100/70 border border-amber-200/80 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-2xs"
-            title="انقر لعرض آراء وتقييمات العملاء"
-          >
-            <div className="text-amber-500 text-sm font-black flex items-center justify-center gap-1">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
-              <span>{avgRating > 0 ? avgRating : 'جديد'}</span>
-            </div>
-            <span className="text-[10px] text-amber-800 font-bold block mt-0.5 whitespace-nowrap">
-              {ratingsCount > 0 ? `${ratingsCount} تقييم موثق` : 'تقييمات العملاء'}
+        {/* زر العروض */}
+        <button
+          type="button"
+          onClick={() => setBranchTab('DEALS')}
+          className={`py-2 px-1 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            branchTab === 'DEALS'
+              ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md shadow-rose-600/30'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span className="text-amber-400">🔥</span>
+          <span>العروض</span>
+          {flashDeals.length > 0 && (
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black shrink-0 ${
+              branchTab === 'DEALS' ? 'bg-black/30 text-amber-200' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+            }`}>
+              {flashDeals.length}
             </span>
-          </button>
+          )}
+        </button>
+      </div>
 
-          {/* Card 2: Kitchen Speed & Crowd Indicator */}
-          <div
-            className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center ${
-              crowdLevel === 'HIGH'
-                ? 'bg-rose-50 border-rose-200/80 text-rose-900'
-                : crowdLevel === 'MEDIUM'
-                ? 'bg-amber-50 border-amber-200/80 text-amber-900'
-                : 'bg-emerald-50 border-emerald-200/80 text-emerald-900'
-            }`}
-          >
-            <div className="text-sm font-black flex items-center justify-center gap-1 font-mono">
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  crowdLevel === 'HIGH'
-                    ? 'bg-rose-500 animate-ping'
-                    : crowdLevel === 'MEDIUM'
-                    ? 'bg-amber-500 animate-pulse'
-                    : 'bg-emerald-500'
-                }`}
-              />
-              <span>~{estimatedPrepMins}</span>
-            </div>
-            <span className="text-[10px] font-bold block mt-0.5 whitespace-nowrap truncate max-w-full">
-              {crowdLevel === 'HIGH'
-                ? 'ضغط عالي 🔴'
-                : crowdLevel === 'MEDIUM'
-                ? 'مطبخ متوسط 🟡'
-                : 'مطبخ هادئ 🟢'}
-            </span>
-          </div>
-
-          {/* Card 3: Operational Status & Working Hours */}
-          <div
-            className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center ${
-              !isBranchOpen
-                ? 'bg-rose-50 border-rose-200/80 text-rose-900'
-                : branch.operationalStatus === 'BUSY' && secondsLeft > 0
-                ? 'bg-amber-50 border-amber-200/80 text-amber-900 animate-pulse'
-                : 'bg-indigo-50/70 border-indigo-100 text-indigo-950'
-            }`}
-          >
-            <div className="text-xs sm:text-sm font-black whitespace-nowrap">
-              {branch?.isActive === false
-                ? 'موقوف'
-                : branch.operationalStatus === 'CLOSED'
-                ? 'مغلق'
-                : branch.operationalStatus === 'BUSY' && secondsLeft > 0
-                ? 'استراحة'
-                : !isWithinWorkingHours
-                ? 'خارج المواعيد'
-                : 'مفتوح للطلب'}
-            </div>
-            <span className="text-[10px] font-bold text-slate-500 block mt-0.5 whitespace-nowrap">
-              {branch.operationalStatus === 'BUSY' && secondsLeft > 0
-                ? formatCountdown(secondsLeft)
-                : branch.closingTime
-                ? `حتى ${branch.closingTime}`
-                : 'متاح الآن'}
-            </span>
-          </div>
-        </div>
-
-        {/* Row 4: Category Tabs with Modern Smooth Pills */}
-        {nonEmptyCategories.length > 0 && (
-          <div ref={categoryPillsRef} className="flex items-center gap-1.5 overflow-x-auto pt-3 border-t border-slate-100 no-scrollbar select-none">
-            <button
-              id="pill-ALL"
-              onClick={() => handleCategoryClick('ALL')}
-              className={`px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 ${
-                activeCategoryId === 'ALL'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
-              }`}
-            >
-              <span>كافة الأقسام</span>
-            </button>
-
-            {favoriteItemsInBranch.length > 0 && (
+      {/* ========================================================================= */}
+      {/* TAB 1: المطعم (RESTAURANT) - تفاصيل المطعم والمنيو                        */}
+      {/* ========================================================================= */}
+      {branchTab === 'RESTAURANT' && (
+        <div className="space-y-4 animate-fadeIn">
+          {/* بطاقة هوية المطعم والشعار والبيانات */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-3.5">
+            {/* الصف 1: زر العودة للرئيسية وزر نسخ رابط المطعم */}
+            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
               <button
-                id="pill-FAV"
-                onClick={() => handleCategoryClick('FAV')}
-                className={`px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 ${
-                  activeCategoryId === 'FAV'
-                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20 scale-[1.02]'
-                    : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
-                }`}
+                type="button"
+                onClick={onBack}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all active:scale-95 group shadow-2xs cursor-pointer"
+                title="العودة للصفحة الرئيسية للسيستم"
               >
-                <Heart className={`w-3.5 h-3.5 ${activeCategoryId === 'FAV' ? 'fill-white' : 'fill-rose-500 text-rose-500'}`} />
-                <span>مفضلتي</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                  activeCategoryId === 'FAV' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-800'
-                }`}>
-                  {favoriteItemsInBranch.length}
+                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform shrink-0" />
+                <span>الرئيسية</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyDirectLink}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all active:scale-95 border border-indigo-100 shadow-2xs cursor-pointer"
+                title="نسخ الرابط المباشر لهذا المطعم"
+              >
+                {copiedDirectLink ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">تم نسخ الرابط ✓</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>نسخ رابط المطعم</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* الصف 2: الشعار والاسم والعنوان والتليفون */}
+            <div className="flex items-center gap-3.5 sm:gap-4">
+              {branch.logoUrl ? (
+                <img
+                  src={getFullImageUrl(branch.logoUrl)}
+                  alt={branch.name}
+                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-200/80 shadow-xs shrink-0 bg-white p-0.5"
+                />
+              ) : (
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+                  <Store className="w-7 h-7" />
+                </div>
+              )}
+
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug truncate">
+                  {branch.name}
+                </h2>
+
+                {/* العنوان */}
+                <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
+                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <span className="truncate">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>
+                </div>
+
+                {/* التليفون */}
+                {branch.phone && (
+                  <div className="mt-1">
+                    <a
+                      href={`tel:${branch.phone}`}
+                      className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                    >
+                      <Phone className="w-3 h-3 text-indigo-500 shrink-0" />
+                      <span>{branch.phone}</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* الصف 3: البطاقات الثلاث (التقييم، سرعة المطبخ، الحالة التشغيلية) */}
+            <div className="grid grid-cols-3 gap-2 pt-1 text-center select-none">
+              {/* بطاقة التقييم الموثق */}
+              <button
+                type="button"
+                onClick={() => setShowReviewsModal(true)}
+                className="p-2 sm:p-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100/70 border border-amber-200/80 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-2xs"
+                title="انقر لعرض آراء وتقييمات العملاء"
+              >
+                <div className="text-amber-500 text-sm font-black flex items-center justify-center gap-1">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                  <span>{avgRating > 0 ? avgRating : '5.0'}</span>
+                </div>
+                <span className="text-[10px] text-amber-800 font-bold block mt-0.5 whitespace-nowrap">
+                  {ratingsCount > 0 ? `${ratingsCount} تقييم موثق` : 'تقييمات العملاء'}
                 </span>
               </button>
-            )}
 
-            {nonEmptyCategories.map((cat) => {
-              const isActive = activeCategoryId === cat.id;
-              return (
+              {/* بطاقة ضغط وسرعة المطبخ */}
+              <div
+                className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center ${
+                  crowdLevel === 'HIGH'
+                    ? 'bg-rose-50 border-rose-200/80 text-rose-900'
+                    : crowdLevel === 'MEDIUM'
+                    ? 'bg-amber-50 border-amber-200/80 text-amber-900'
+                    : 'bg-emerald-50 border-emerald-200/80 text-emerald-900'
+                }`}
+              >
+                <div className="text-sm font-black flex items-center justify-center gap-1 font-mono">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      crowdLevel === 'HIGH'
+                        ? 'bg-rose-500 animate-ping'
+                        : crowdLevel === 'MEDIUM'
+                        ? 'bg-amber-500 animate-pulse'
+                        : 'bg-emerald-500'
+                    }`}
+                  />
+                  <span>~{estimatedPrepMins}</span>
+                </div>
+                <span className="text-[10px] font-bold block mt-0.5 whitespace-nowrap truncate max-w-full">
+                  {crowdLevel === 'HIGH'
+                    ? 'ضغط عالي 🔴'
+                    : crowdLevel === 'MEDIUM'
+                    ? 'مطبخ متوسط 🟡'
+                    : 'مطبخ هادئ 🟢'}
+                </span>
+              </div>
+
+              {/* بطاقة الحالة التشغيلية ومواعيد العمل */}
+              <div
+                className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center ${
+                  !isBranchOpen
+                    ? 'bg-rose-50 border-rose-200/80 text-rose-900'
+                    : branch.operationalStatus === 'BUSY' && secondsLeft > 0
+                    ? 'bg-amber-50 border-amber-200/80 text-amber-900 animate-pulse'
+                    : 'bg-indigo-50/70 border-indigo-100 text-indigo-950'
+                }`}
+              >
+                <div className="text-xs sm:text-sm font-black whitespace-nowrap">
+                  {branch?.isActive === false
+                    ? 'موقوف'
+                    : branch.operationalStatus === 'CLOSED'
+                    ? 'مغلق'
+                    : branch.operationalStatus === 'BUSY' && secondsLeft > 0
+                    ? 'استراحة'
+                    : !isWithinWorkingHours
+                    ? 'خارج المواعيد'
+                    : 'مفتوح للطلب'}
+                </div>
+                <span className="text-[10px] font-bold text-slate-500 block mt-0.5 whitespace-nowrap">
+                  {branch.operationalStatus === 'BUSY' && secondsLeft > 0
+                    ? formatCountdown(secondsLeft)
+                    : branch.closingTime
+                    ? `حتى ${branch.closingTime}`
+                    : 'متاح الآن'}
+                </span>
+              </div>
+            </div>
+
+            {/* الصف 4: أقسام المنيو السلسة (Category Tabs Pills) */}
+            {nonEmptyCategories.length > 0 && (
+              <div
+                ref={categoryPillsRef}
+                className="flex items-center gap-1.5 overflow-x-auto pt-3 border-t border-slate-100 no-scrollbar select-none"
+              >
                 <button
-                  key={cat.id}
-                  id={`pill-${cat.id}`}
-                  onClick={() => handleCategoryClick(cat.id)}
-                  className={`px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 ${
-                    isActive
+                  id="pill-ALL"
+                  onClick={() => handleCategoryClick('ALL')}
+                  className={`px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                    activeCategoryId === 'ALL'
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
                   }`}
                 >
-                  <span>{cat.name}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-600'
-                  }`}>
-                    {cat.items.length}
-                  </span>
+                  <span>كافة الأقسام</span>
                 </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
-      {/* Out of Delivery Zone Warning Banner 📍 (طلب المستخدم: لا يمكن الطلب إذا كان المطعم خارج الزون) */}
-      {isOutOfDeliveryZone && (
-        <div className="bg-rose-50 border-2 border-rose-200 text-rose-900 p-4 rounded-3xl shadow-sm flex items-start sm:items-center gap-3 animate-fadeIn">
-          <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center shrink-0 text-rose-600 mt-0.5 sm:mt-0">
-            <MapPinOff className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-black text-xs sm:text-sm text-rose-700">المطعم خارج نطاق التوصيل لموقعك الحالي 📍</span>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-800">
-                المسافة: {zoneCheck.distKm.toFixed(1)} كم / أقصى نطاق: {zoneCheck.radiusKm} كم
-              </span>
-            </div>
-            <p className="text-[11px] text-rose-600 mt-1 leading-relaxed">
-              أنت تتصفح قائمة الطعام للاطلاع فقط؛ لا يمكن إضافة أصناف للسلة أو إرسال طلبات لهذا المطعم لأنك خارج نطاق التغطية الجغرافي.
-            </p>
-          </div>
-        </div>
-      )}
+                {favoriteItemsInBranch.length > 0 && (
+                  <button
+                    id="pill-FAV"
+                    onClick={() => handleCategoryClick('FAV')}
+                    className={`px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                      activeCategoryId === 'FAV'
+                        ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20 scale-[1.02]'
+                        : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                    }`}
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${activeCategoryId === 'FAV' ? 'fill-white' : 'fill-rose-500 text-rose-500'}`} />
+                    <span>مفضلتي</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      activeCategoryId === 'FAV' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      {favoriteItemsInBranch.length}
+                    </span>
+                  </button>
+                )}
 
-      {/* Operational Live Countdown Banner */}
-      {branch.operationalStatus === 'BUSY' && secondsLeft > 0 && (
-        <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white p-4 rounded-3xl shadow-lg flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
-              <Clock className="w-5 h-5 text-amber-200 animate-spin" />
-            </div>
-            <div className="min-w-0">
-              <span className="font-black text-xs sm:text-sm block">
-                المطعم في فترة إغلاق مؤقتة ({branch.closingReason || 'ضغط طلبات وتجهيز المطبخ'})
-              </span>
-              <span className="text-[11px] text-amber-100 block mt-0.5">
-                يمكنك استعراض المنيو، وسيعاد استقبال الطلبات تلقائياً فور انتهاء العداد
-              </span>
-            </div>
+                {nonEmptyCategories.map((cat) => {
+                  const isActive = activeCategoryId === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      id={`pill-${cat.id}`}
+                      onClick={() => handleCategoryClick(cat.id)}
+                      className={`px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>{cat.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                        isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {cat.items.length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div className="text-center shrink-0 bg-black/25 px-3 py-1.5 rounded-2xl border border-amber-300/30 font-mono">
-            <span className="text-[10px] text-amber-200 block font-sans">يعود بعد</span>
-            <span className="text-sm sm:text-base font-black tracking-wider text-white">{formatCountdown(secondsLeft)}</span>
-          </div>
-        </div>
-      )}
 
-      {branch.operationalStatus === 'CLOSED' && (
-        <div className="bg-rose-600 text-white p-4 rounded-3xl shadow-lg flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
-            <PowerOff className="w-5 h-5 text-rose-200" />
-          </div>
-          <div>
-            <span className="font-black text-xs sm:text-sm block">المطعم مغلق حالياً حتى إشعار آخر</span>
-            <span className="text-[11px] text-rose-100">لا يستقبل هذا الفرع طلبات جديدة في الوقت الحالي</span>
-          </div>
-        </div>
-      )}
-
-      {branch.operationalStatus !== 'CLOSED' && !(branch.operationalStatus === 'BUSY' && secondsLeft > 0) && !isWithinWorkingHours && (
-        <div className="bg-rose-600 text-white p-4 rounded-3xl shadow-lg flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-rose-200" />
-          </div>
-          <div className="min-w-0">
-            <span className="font-black text-xs sm:text-sm block">
-              المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية ({branch.openingTime || '08:00'} - {branch.closingTime || '22:00'})
-            </span>
-            <span className="text-[11px] text-rose-100 block mt-0.5">
-              يعود المطعم لاستقبال الطلبات في أوقات العمل المحددة ({formatWorkingDaysArabic(branch.workingDays)})
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Menu Categories and Horizontal Card Carousels */}
-      {displayedCategories.length === 0 ? (
-        <div className="bg-white rounded-3xl p-10 text-center text-slate-400 border border-slate-200 shadow-sm">
-          <UtensilsCrossed className="w-12 h-12 mx-auto mb-2 opacity-30 text-indigo-600" />
-          <h4 className="text-sm font-bold text-slate-700">لا توجد أصناف متاحة حالياً في هذا القسم</h4>
-          <p className="text-xs text-slate-500 mt-1">سيتم عرض الأصناف هنا فور إضافتها من إدارة المطعم</p>
-        </div>
-      ) : (
-        <div id="menu-categories-top" className="space-y-6">
-          {/* قسم الوجبات المفضلة للعميل داخل هذا المطعم */}
-          {favoriteItemsInBranch.length > 0 && (
-            <div
-              id="category-section-FAV"
-              data-category-id="FAV"
-              className="scroll-mt-24 sm:scroll-mt-28 bg-rose-50/50 p-3 rounded-3xl border border-rose-100"
-            >
-              <CategoryCarousel
-                category={{ id: 'FAV', name: '❤️ وجباتي المفضلة في المطعم', items: favoriteItemsInBranch }}
-                isBranchOpen={isBranchOpen}
-                onItemClick={handleItemSelection}
-                favItemIds={favItemIds}
-                onToggleFavItem={handleToggleFavItem}
-                branchName={branch?.name}
-              />
+          {/* تنبيه إذا كان المطعم خارج نطاق التوصيل الجغرافي */}
+          {isOutOfDeliveryZone && (
+            <div className="bg-rose-50 border-2 border-rose-200 text-rose-900 p-4 rounded-3xl shadow-sm flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center shrink-0 text-rose-600 mt-0.5 sm:mt-0">
+                <MapPinOff className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-xs sm:text-sm text-rose-700">المطعم خارج نطاق التوصيل لموقعك الحالي 📍</span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-800">
+                    المسافة: {zoneCheck.distKm.toFixed(1)} كم / أقصى نطاق: {zoneCheck.radiusKm} كم
+                  </span>
+                </div>
+                <p className="text-[11px] text-rose-600 mt-1 leading-relaxed">
+                  أنت تتصفح قائمة الطعام للاطلاع فقط؛ لا يمكن إضافة أصناف للسلة أو إرسال طلبات لهذا المطعم لأنك خارج نطاق التغطية.
+                </p>
+              </div>
             </div>
           )}
 
-          {displayedCategories.map((cat) => (
-            <div
-              key={cat.id}
-              id={`category-section-${cat.id}`}
-              data-category-id={cat.id}
-              className="scroll-mt-24 sm:scroll-mt-28"
-            >
-              <CategoryCarousel
-                category={cat}
-                isBranchOpen={isBranchOpen}
-                onItemClick={handleItemSelection}
-                favItemIds={favItemIds}
-                onToggleFavItem={handleToggleFavItem}
-                branchName={branch?.name}
-              />
+          {/* بانر الإغلاق المؤقت بالعداد التنازلي الحي */}
+          {branch.operationalStatus === 'BUSY' && secondsLeft > 0 && (
+            <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white p-4 rounded-3xl shadow-lg flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5 text-amber-200 animate-spin" />
+                </div>
+                <div className="min-w-0">
+                  <span className="font-black text-xs sm:text-sm block">
+                    المطعم في فترة إغلاق مؤقتة ({branch.closingReason || 'ضغط طلبات وتجهيز المطبخ'})
+                  </span>
+                  <span className="text-[11px] text-amber-100 block mt-0.5">
+                    يمكنك استعراض المنيو، وسيعاد استقبال الطلبات تلقائياً فور انتهاء العداد
+                  </span>
+                </div>
+              </div>
+              <div className="text-center shrink-0 bg-black/25 px-3 py-1.5 rounded-2xl border border-amber-300/30 font-mono">
+                <span className="text-[10px] text-amber-200 block font-sans">يعود بعد</span>
+                <span className="text-sm sm:text-base font-black tracking-wider text-white">{formatCountdown(secondsLeft)}</span>
+              </div>
             </div>
-          ))}
+          )}
+
+          {/* بانر الإغلاق العام */}
+          {branch.operationalStatus === 'CLOSED' && (
+            <div className="bg-rose-600 text-white p-4 rounded-3xl shadow-lg flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
+                <PowerOff className="w-5 h-5 text-rose-200" />
+              </div>
+              <div>
+                <span className="font-black text-xs sm:text-sm block">المطعم مغلق حالياً حتى إشعار آخر</span>
+                <span className="text-[11px] text-rose-100">لا يستقبل هذا الفرع طلبات جديدة في الوقت الحالي</span>
+              </div>
+            </div>
+          )}
+
+          {/* بانر انتهاء مواعيد العمل */}
+          {branch.operationalStatus !== 'CLOSED' && !(branch.operationalStatus === 'BUSY' && secondsLeft > 0) && !isWithinWorkingHours && (
+            <div className="bg-rose-600 text-white p-4 rounded-3xl shadow-lg flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5 text-rose-200" />
+              </div>
+              <div className="min-w-0">
+                <span className="font-black text-xs sm:text-sm block">
+                  المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية ({branch.openingTime || '08:00'} - {branch.closingTime || '22:00'})
+                </span>
+                <span className="text-[11px] text-rose-100 block mt-0.5">
+                  يعود المطعم لاستقبال الطلبات في أوقات العمل المحددة ({formatWorkingDaysArabic(branch.workingDays)})
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* أقسام المنيو وقوائم الأصناف والوجبات */}
+          {displayedCategories.length === 0 ? (
+            <div className="bg-white rounded-3xl p-10 text-center text-slate-400 border border-slate-200 shadow-sm">
+              <UtensilsCrossed className="w-12 h-12 mx-auto mb-2 opacity-30 text-indigo-600" />
+              <h4 className="text-sm font-bold text-slate-700">لا توجد أصناف متاحة حالياً في هذا القسم</h4>
+              <p className="text-xs text-slate-500 mt-1">سيتم عرض الأصناف هنا فور إضافتها من إدارة المطعم</p>
+            </div>
+          ) : (
+            <div id="menu-categories-top" className="space-y-6">
+              {favoriteItemsInBranch.length > 0 && (
+                <div
+                  id="category-section-FAV"
+                  data-category-id="FAV"
+                  className="scroll-mt-24 sm:scroll-mt-28 bg-rose-50/50 p-3 rounded-3xl border border-rose-100"
+                >
+                  <CategoryCarousel
+                    category={{ id: 'FAV', name: '❤️ وجباتي المفضلة في المطعم', items: favoriteItemsInBranch }}
+                    isBranchOpen={isBranchOpen}
+                    onItemClick={handleItemSelection}
+                    favItemIds={favItemIds}
+                    onToggleFavItem={handleToggleFavItem}
+                    branchName={branch?.name}
+                  />
+                </div>
+              )}
+
+              {displayedCategories.map((category) => (
+                <CategoryCarousel
+                  key={category.id}
+                  category={category}
+                  isBranchOpen={isBranchOpen}
+                  onItemClick={handleItemSelection}
+                  favItemIds={favItemIds}
+                  onToggleFavItem={handleToggleFavItem}
+                  branchName={branch?.name}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Verified Student Reviews Modal ⭐ */}
+      {/* ========================================================================= */}
+      {/* TAB 2: الطلبات (ORDERS) - متابعة الطلبات الجارية والسابقة                   */}
+      {/* ========================================================================= */}
+      {branchTab === 'ORDERS' && (
+        <div className="space-y-4 animate-fadeIn">
+          {!user ? (
+            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 space-y-3">
+              <Clock className="w-12 h-12 text-indigo-400 mx-auto" />
+              <h3 className="text-base font-black text-slate-900">سجّل دخولك لمتابعة طلباتك</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                قم بتسجيل الدخول للاطلاع على حالة طلباتك الحالية وتتبع خط سير الكابتن وإعادة الطلب بلمسة واحدة.
+              </p>
+              <button
+                type="button"
+                onClick={onRequireAuth}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition-all inline-flex items-center gap-1.5"
+              >
+                <span>تسجيل الدخول الآن</span>
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            </div>
+          ) : activeOrders.length === 0 ? (
+            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 space-y-3">
+              <ShoppingBag className="w-12 h-12 text-slate-300 mx-auto" />
+              <h3 className="text-base font-black text-slate-900">لا توجد طلبات جارية حالياً</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                اختر وجبتك المفضلة من منيو المطعم واطلبها الآن لتتابع مراحل التجهيز والتوصيل مباشرة!
+              </p>
+              <button
+                type="button"
+                onClick={() => setBranchTab('RESTAURANT')}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition-all inline-flex items-center gap-1.5"
+              >
+                <span>تصفح المنيو واطلب الآن</span>
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-indigo-600" />
+                  <span>طلباتك الحالية والمباشرة ({activeOrders.length})</span>
+                </h3>
+              </div>
+
+              {activeOrders.map((order: any) => {
+                const isDelivery = order.orderType === 'DELIVERY';
+                const status = order.status;
+
+                let currentStep = 0;
+                if (status === 'PREPARING' || status === 'ACCEPTED') currentStep = 1;
+                else if (status === 'READY') currentStep = 2;
+                else if (status === 'COMPLETED') currentStep = 3;
+
+                const steps = [
+                  { label: 'في انتظار القبول', icon: Clock },
+                  { label: 'جاري التجهيز', icon: ChefHat },
+                  { label: isDelivery ? 'في التوصيل' : 'جاهز للاستلام', icon: isDelivery ? Truck : ShoppingBag },
+                  { label: 'مكتمل', icon: CheckCircle2 },
+                ];
+
+                const itemsSummary = (order.items || [])
+                  .map((it: any) => `${it.quantity}× ${it.itemName || it.name}`)
+                  .join(' ، ');
+
+                return (
+                  <div
+                    key={order.id}
+                    onClick={() => onTrackOrder?.(order)}
+                    className="bg-white rounded-3xl p-4 sm:p-5 border border-indigo-100 shadow-md hover:shadow-lg transition-all cursor-pointer relative overflow-hidden select-none space-y-3"
+                  >
+                    {/* خط ملون يحدد الحالة في أعلى البطاقة */}
+                    <div
+                      className={`absolute top-0 left-0 right-0 h-1.5 ${
+                        status === 'COMPLETED'
+                          ? 'bg-emerald-500'
+                          : status === 'READY'
+                          ? 'bg-sky-500'
+                          : status === 'PREPARING' || status === 'ACCEPTED'
+                          ? 'bg-indigo-600'
+                          : 'bg-amber-500'
+                      }`}
+                    />
+
+                    {/* تفاصيل رأس الطلب */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                          #{order.orderNumber}
+                        </span>
+                        <span className="text-xs font-bold text-slate-700">
+                          {isDelivery ? '🛵 توصيل مباشر' : '🛍️ استلام من الفرع'}
+                        </span>
+                      </div>
+
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                        <span>مباشر</span>
+                      </span>
+                    </div>
+
+                    {/* شريط المراحل الأربعة (Progress Stepper) */}
+                    <div className="py-2">
+                      <div className="relative flex items-center justify-between">
+                        <div className="absolute top-4 right-7 left-7 h-1 bg-slate-200 z-0 rounded-full" />
+                        <div
+                          className="absolute top-4 right-7 h-1 bg-gradient-to-l from-indigo-600 to-emerald-500 z-0 rounded-full transition-all duration-700"
+                          style={{
+                            width: `${(currentStep / 3) * 100}%`,
+                            maxWidth: 'calc(100% - 56px)',
+                          }}
+                        />
+
+                        {steps.map((st, idx) => {
+                          const Icon = st.icon;
+                          const isDone = idx < currentStep;
+                          const isActive = idx === currentStep;
+
+                          return (
+                            <div key={idx} className="flex flex-col items-center relative z-10 text-center w-1/4">
+                              <div
+                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                  isDone
+                                    ? 'bg-emerald-500 text-white shadow-xs'
+                                    : isActive
+                                    ? 'bg-indigo-600 text-white shadow-md ring-4 ring-indigo-100 scale-110'
+                                    : 'bg-slate-100 text-slate-400 border border-slate-200'
+                                }`}
+                              >
+                                <Icon className="w-4 h-4" />
+                              </div>
+                              <span
+                                className={`text-[10px] mt-1.5 whitespace-nowrap ${
+                                  isActive
+                                    ? 'font-black text-indigo-700'
+                                    : isDone
+                                    ? 'font-bold text-emerald-700'
+                                    : 'font-medium text-slate-400'
+                                }`}
+                              >
+                                {st.label}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* ملخص الوجبات والإجراءات */}
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-500 font-medium truncate" title={itemsSummary}>
+                          🍱 {itemsSummary || 'وجبة'}
+                        </p>
+                        <span className="text-xs font-mono font-black text-slate-900">
+                          {order.total} ج.م
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {onQuickReorder && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onQuickReorder(order);
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>إعادة الطلب</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTrackOrder?.(order);
+                          }}
+                          className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 active:scale-95 text-white rounded-xl text-xs font-black shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>تتبع الطلب</span>
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: العروض (DEALS) - صفقات الفلاش وكوبونات الخصم والكومبو              */}
+      {/* ========================================================================= */}
+      {branchTab === 'DEALS' && (
+        <div className="space-y-4 animate-fadeIn">
+          {flashDeals.length === 0 ? (
+            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 space-y-3">
+              <Flame className="w-12 h-12 text-amber-400 mx-auto" />
+              <h3 className="text-base font-black text-slate-900">لا توجد عروض نشطة حالياً لهذا المطعم</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                يتم تحديث العروض والصفقات الخاطفة باستمرار؛ تصفح قائمة الطعام للاستمتاع بأشهى الوجبات!
+              </p>
+              <button
+                type="button"
+                onClick={() => setBranchTab('RESTAURANT')}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition-all inline-flex items-center gap-1.5"
+              >
+                <span>تصفح المنيو الآن</span>
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  <Flame className="w-4 h-4 text-rose-500" />
+                  <span>عروض وتخفيضات خاصة بالمطعم ({flashDeals.length})</span>
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {flashDeals.map((deal: any, dIdx: number) => {
+                  const isPromo = deal.type === 'PROMO' || Boolean(deal.promoCode || deal.code);
+                  const isCopied = copiedPromoCode === (deal.promoCode || deal.code);
+
+                  return (
+                    <div
+                      key={deal.id || `deal-${dIdx}`}
+                      className="bg-white rounded-3xl p-4 border border-rose-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3 select-none"
+                    >
+                      <div>
+                        {/* Header: Deal Badge */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-rose-500" />
+                            <span>{deal.badgeText || (isPromo ? 'كوبون خصم' : 'صفقة خاطفة 🔥')}</span>
+                          </span>
+
+                          {deal.expiresAt && (
+                            <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>مؤقت</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Deal Image if available */}
+                        {deal.imageUrl && (
+                          <div className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 mb-2.5">
+                            <img
+                              src={getFullImageUrl(deal.imageUrl)}
+                              alt={deal.title}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+
+                        <h4 className="font-black text-sm text-slate-900 leading-snug">
+                          {deal.title}
+                        </h4>
+
+                        {deal.subtitle && (
+                          <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
+                            {deal.subtitle}
+                          </p>
+                        )}
+
+                        {/* Price Details */}
+                        {deal.discountPrice && (
+                          <div className="flex items-baseline gap-2 mt-2 pt-2 border-t border-slate-100">
+                            <span className="text-base font-black text-rose-600 font-mono">
+                              {deal.discountPrice} ج.م
+                            </span>
+                            {deal.originalPrice && (
+                              <span className="text-xs text-slate-400 line-through font-mono">
+                                {deal.originalPrice} ج.م
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="pt-1">
+                        {isPromo ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const code = deal.promoCode || deal.code;
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(code);
+                                try {
+                                  localStorage.setItem('unifood_auto_promo', code);
+                                } catch {}
+                                setCopiedPromoCode(code);
+                                setTimeout(() => setCopiedPromoCode(null), 2500);
+                              }
+                            }}
+                            className="w-full py-2 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
+                          >
+                            {isCopied ? (
+                              <>
+                                <Check className="w-4 h-4 text-emerald-300" />
+                                <span>{`تم نسخ الكود (${deal.promoCode || deal.code}) ✓`}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-4 h-4" />
+                                <span>{`نسخ كود الخصم (${deal.promoCode || deal.code})`}</span>
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (deal.item) {
+                                handleItemSelection(deal.item);
+                              } else {
+                                setBranchTab('RESTAURANT');
+                              }
+                            }}
+                            className="w-full py-2 px-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-md shadow-rose-600/20 cursor-pointer"
+                          >
+                            <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                            <span>اطلب العرض الآن</span>
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* نافذة تقييمات وآراء العملاء */}
       {showReviewsModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-fadeIn">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black">
-                  <Star className="w-5 h-5 fill-slate-950" />
-                </div>
-                <div>
-                  <h3 className="font-black text-sm">تقييمات ومراجعات العملاء ⭐</h3>
-                  <span className="text-[11px] text-slate-300">{branch.name}</span>
-                </div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
+                <h3 className="font-black text-sm text-slate-900">تقييمات عملاء {branch.name}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowReviewsModal(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
-              {/* Summary Score Card */}
-              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-center justify-between">
+            {/* Content */}
+            <div className="p-4 overflow-y-auto space-y-4">
+              {/* Average summary */}
+              <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200/80 flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-amber-900 block">متوسط التقييم العام</span>
                   <div className="flex items-baseline gap-2 mt-0.5">
@@ -1199,7 +1663,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
               }
               onOpenCart();
             }}
-            className={`w-full text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl flex items-center justify-between transition-all active:scale-95 border backdrop-blur-md ${
+            className={`w-full text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl flex items-center justify-between transition-all active:scale-95 border backdrop-blur-md cursor-pointer ${
               isOutOfDeliveryZone
                 ? 'bg-rose-950/95 border-rose-800/80 hover:bg-rose-900/95 shadow-rose-950/30'
                 : isBranchOpen

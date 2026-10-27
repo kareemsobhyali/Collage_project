@@ -14,6 +14,7 @@ import { api, API_BASE_URL, getFullImageUrl } from './services/api';
 import { registerServiceWorker, isRunningInNativeApk, triggerInstallApp, registerNativeBackgroundSession, clearNativeBackgroundSession } from './services/notifications';
 import { BranchList } from './components/BranchList';
 import { BranchMenu } from './components/BranchMenu';
+import { LandingPage } from './components/LandingPage';
 import { AuthModal } from './components/AuthModal';
 import { ItemCustomizeModal } from './components/ItemCustomizeModal';
 import { CartCheckoutModal } from './components/CartCheckoutModal';
@@ -120,7 +121,20 @@ export function App() {
     if (typeof window === 'undefined') return null;
     try {
       const params = new URLSearchParams(window.location.search);
-      let bParam = params.get('branch') || params.get('r');
+      let bParam = params.get('branch') || params.get('r') || params.get('b');
+      if (!bParam && window.location.hash) {
+        const hash = window.location.hash.replace(/^#+/, '');
+        const hashMatch = hash.match(/(?:branch|r|b)[\/=]([^&?\/]+)/i);
+        if (hashMatch) bParam = hashMatch[1];
+      }
+      if (!bParam && window.location.pathname.length > 1) {
+        const parts = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+        if (parts[0] === 'branch' || parts[0] === 'r' || parts[0] === 'b') {
+          bParam = parts[1];
+        } else if (!['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(parts[0].toLowerCase())) {
+          bParam = parts[0];
+        }
+      }
       if (!bParam) {
         const isStandalone = isRunningInNativeApk() || params.get('installed') === '1';
         if (isStandalone) {
@@ -266,7 +280,7 @@ export function App() {
       }
       // ثالثاً: إذا كان المستخدم داخل منيو فرع، الرجوع لشاشة الفروع الرئيسية
       else if (selectedBranch) {
-        setSelectedBranch(null);
+        handleReturnHome();
       }
       // رابعاً: إذا كان في الشاشة الرئيسية ولا توجد أي شاشة فرعية -> إظهار تأكيد الخروج
       else {
@@ -379,6 +393,22 @@ export function App() {
     }
   }, [pendingOpenGroupCart, user, isAdminRoute, showDriverPortal]);
 
+  const handleReturnHome = () => {
+    setSelectedBranch(null);
+    if (typeof window !== 'undefined') {
+      try {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('branch');
+        newUrl.searchParams.delete('r');
+        newUrl.searchParams.delete('b');
+        if (newUrl.pathname.startsWith('/branch') || newUrl.pathname.startsWith('/r/') || newUrl.pathname.startsWith('/b/')) {
+          newUrl.pathname = '/';
+        }
+        window.history.pushState({}, '', newUrl.toString());
+      } catch (_e) {}
+    }
+  };
+
   // عند اختيار فرع، جلب المنيو الخاص به مع إمكانية فتح صنف/عرض محدد تلقائياً
   const handleSelectBranch = async (branch: any, autoOpenItemId?: string | null) => {
     try {
@@ -388,6 +418,11 @@ export function App() {
       setBranchCategories(data.categories || []);
       if (typeof window !== 'undefined') {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        try {
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.set('branch', branch.slug || branch.id);
+          window.history.pushState({ branchId: branch.id }, '', newUrl.toString());
+        } catch (_e) {}
       }
       // إفراغ السلة إذا كانت تخص فرعاً آخر
       if (cart.length > 0 && cart[0].branchId !== branch.id) {
@@ -440,11 +475,16 @@ export function App() {
         }
 
         const params = new URLSearchParams(window.location.search);
-        let branchParam = params.get('branch') || params.get('r');
+        let branchParam = params.get('branch') || params.get('r') || params.get('b');
+        if (!branchParam && window.location.hash) {
+          const hash = window.location.hash.replace(/^#+/, '');
+          const hashMatch = hash.match(/(?:branch|r|b)[\/=]([^&?\/]+)/i);
+          if (hashMatch) branchParam = hashMatch[1];
+        }
         if (!branchParam && window.location.pathname.length > 1) {
           const firstSeg = pathSegments[0]?.toLowerCase();
-          if (firstSeg && firstSeg !== 'admin' && firstSeg !== 'driver' && firstSeg !== 'delivery' && firstSeg !== 'apk' && firstSeg !== 'download' && firstSeg !== 'install') {
-            branchParam = (firstSeg === 'r' && pathSegments[1]) ? pathSegments[1] : firstSeg;
+          if (firstSeg && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(firstSeg)) {
+            branchParam = (firstSeg === 'r' || firstSeg === 'branch' || firstSeg === 'b') && pathSegments[1] ? pathSegments[1] : firstSeg;
           }
         }
 
@@ -965,8 +1005,9 @@ export function App() {
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">
           {/* Right: Logo */}
           <div
-            onClick={() => setSelectedBranch(null)}
+            onClick={handleReturnHome}
             className="cursor-pointer shrink-0"
+            title="الرئيسية — منصة UniFood"
           >
             <Logo size="sm" />
           </div>
@@ -1027,21 +1068,21 @@ export function App() {
               <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <button
                   onClick={() => setShowMyOrdersModal(true)}
-                  className="h-9 w-9 sm:w-auto px-0 sm:px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                  className="h-9 px-2 sm:px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-colors shrink-0 cursor-pointer"
                   title="طلباتي السابقة والحالية"
                 >
                   <Clock className="w-4 h-4 shrink-0" />
-                  <span className="hidden sm:inline">طلباتي</span>
+                  <span>طلباتي</span>
                 </button>
 
                 <button
                   onClick={() => setShowProfileModal(true)}
-                  className="h-9 w-9 sm:w-auto px-0 sm:px-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200/80 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                  className="h-9 px-2 sm:px-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200/80 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
                   title="حسابي والمحفظة ونقاط الولاء"
                 >
                   <User className="w-4 h-4 text-indigo-600 shrink-0" />
                   <span className="hidden sm:inline max-w-[80px] truncate">{user.name.split(' ')[0]}</span>
-                  <span className="hidden sm:flex bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-lg text-[10px] font-black items-center gap-0.5 leading-none shrink-0">
+                  <span className="flex bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-lg text-[10px] font-black items-center gap-0.5 leading-none shrink-0">
                     <span>★</span>
                     <span>{user.loyaltyPoints ?? 0}</span>
                   </span>
@@ -1049,16 +1090,17 @@ export function App() {
 
                 <button
                   onClick={handleLogout}
-                  className="h-9 w-9 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200/80 rounded-xl flex items-center justify-center transition-colors shrink-0"
+                  className="h-9 px-2 sm:px-2.5 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200/80 rounded-xl flex items-center justify-center gap-1 text-xs font-bold transition-colors shrink-0 cursor-pointer"
                   title="تسجيل الخروج"
                 >
                   <LogOut className="w-4 h-4 shrink-0" />
+                  <span className="hidden md:inline">خروج</span>
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="h-9 px-2.5 sm:px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center transition-all shrink-0"
+                className="h-9 px-2.5 sm:px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center transition-all shrink-0 cursor-pointer"
               >
                 دخول / حساب
               </button>
@@ -1102,17 +1144,22 @@ export function App() {
             branch={selectedBranch}
             categories={branchCategories}
             cart={cart}
-            onBack={() => setSelectedBranch(null)}
+            user={user}
+            onBack={handleReturnHome}
             onSelectItem={(item) => setCustomizingItem(item)}
             onOpenCart={() => setShowCartModal(true)}
+            onTrackOrder={(order) => setTrackingOrder(order)}
+            onQuickReorder={handleReorder}
+            onRequireAuth={() => setShowAuthModal(true)}
           />
         ) : (
-          <BranchList
+          <LandingPage
             branches={branches}
             onSelectBranch={handleSelectBranch}
-            onQuickReorder={handleReorder}
-            onTrackOrder={(order) => setTrackingOrder(order)}
             user={user}
+            onOpenAuth={() => setShowAuthModal(true)}
+            onOpenMyOrders={() => setShowMyOrdersModal(true)}
+            onOpenProfile={() => setShowProfileModal(true)}
           />
         )}
       </main>
