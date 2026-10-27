@@ -12,7 +12,7 @@ import {
   X,
   Link2
 } from 'lucide-react';
-import { api, getFullImageUrl } from '../services/api';
+import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
 import { ConfirmModal } from './ConfirmModal';
 import { useLockBodyScroll } from '../utils/scrollLock';
@@ -268,9 +268,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   // نسخ رابط الصنف المباشر
   const handleCopyItemLink = (item: any) => {
     const branchIdentifier = branch?.slug || branch?.id || '';
-    const baseUrl = typeof window !== 'undefined' && window.location.origin.includes('onrender.com')
-      ? window.location.origin
-      : 'https://collage-project-5zby.onrender.com';
+    const baseUrl = getPublicWebUrl();
     const link = `${baseUrl}/?branch=${encodeURIComponent(branchIdentifier)}&item=${encodeURIComponent(item.id)}`;
     navigator.clipboard.writeText(link);
     setCopiedItemId(item.id);

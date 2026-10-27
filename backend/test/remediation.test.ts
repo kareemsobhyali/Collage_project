@@ -107,6 +107,31 @@ describe("Remediation Verification Suite", () => {
       assert.equal(exitCode, 43, "Process must terminate with fatal error when JWT_SECRET is shorter than 32 characters in production");
     });
 
+    it("fails fast in production mode if JWT_SECRET is completely missing (unset)", async () => {
+      const authPath = path.resolve(__dirname, "../dist/middleware/auth.js").replace(/\\/g, "/");
+      const scriptCode = `
+        process.env.NODE_ENV = 'production';
+        delete process.env.JWT_SECRET;
+        try {
+          require('${authPath}');
+          process.exit(0);
+        } catch (err) {
+          if (err.message.includes('FATAL CONFIGURATION: A strong, unique JWT_SECRET')) {
+            process.exit(44);
+          }
+          console.error(err);
+          process.exit(1);
+        }
+      `;
+
+      const child = fork("-e", [scriptCode], { stdio: "pipe" });
+      const exitCode = await new Promise((resolve) => {
+        child.on("exit", (code) => resolve(code));
+      });
+
+      assert.equal(exitCode, 44, "Process must terminate with fatal error when JWT_SECRET is unset in production");
+    });
+
     it("succeeds in production mode when strong JWT_SECRET is provided", async () => {
       const authPath = path.resolve(__dirname, "../dist/middleware/auth.js").replace(/\\/g, "/");
       const scriptCode = `

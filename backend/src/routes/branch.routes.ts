@@ -994,11 +994,32 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
       orderBy: { createdAt: "desc" },
     });
 
+    // جلب سجلات الحظر والملاحظات الخاصة بهذا الفرع لعدم التأثير على باقي فروع المنظومة
+    const branchCrmRecords = await prisma.branchBlockedCustomer.findMany({
+      where: { branchId },
+    });
+    const branchCrmMap = new Map(branchCrmRecords.map((b) => [b.userId, b]));
+
     const enrichedOrders = await Promise.all(
-      orders.map(async (o) => ({
-        ...o,
-        isDriverAccepted: Boolean(o.driverPickedUpAt) || (o.driverId ? await isOrderAcceptedByDriver(o.id) : false),
-      }))
+      orders.map(async (o) => {
+        const branchCrm = branchCrmMap.get(o.userId);
+        const effectiveIsBlocked = branchCrm ? branchCrm.isBlocked : Boolean(o.user?.isBlocked);
+        const effectiveNotes = branchCrm?.notes !== undefined && branchCrm?.notes !== null
+          ? branchCrm.notes
+          : (o.user?.restaurantNotes || null);
+
+        return {
+          ...o,
+          isDriverAccepted: Boolean(o.driverPickedUpAt) || (o.driverId ? await isOrderAcceptedByDriver(o.id) : false),
+          user: o.user
+            ? {
+                ...o.user,
+                isBlocked: effectiveIsBlocked,
+                restaurantNotes: effectiveNotes,
+              }
+            : o.user,
+        };
+      })
     );
 
     res.json(enrichedOrders);
@@ -1008,7 +1029,7 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 16.5 تحديث ملاحظة العميل أو إيقاف/تفعيل حسابه من شاشة المطعم
+// 16.5 تحديث ملاحظة العميل أو إيقاف/تفعيل حسابه على مستوى هذا الفرع فقط (Tenant-Scoped Customer CRM)
 router.put("/customers/:userId/crm", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.params.userId as string;
@@ -1017,7 +1038,7 @@ router.put("/customers/:userId/crm", async (req: AuthRequest, res: Response) => 
 
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true },
+      select: { id: true, name: true, phone: true, role: true, restaurantNotes: true },
     });
 
     if (!targetUser) {
@@ -1039,30 +1060,41 @@ router.put("/customers/:userId/crm", async (req: AuthRequest, res: Response) => 
       return;
     }
 
-    const updateData: any = {};
-    if (restaurantNotes !== undefined) {
-      updateData.restaurantNotes = restaurantNotes ? String(restaurantNotes).trim() : null;
-    }
-    if (isBlocked !== undefined) {
-      updateData.isBlocked = Boolean(isBlocked);
-    }
+    // إدارة الحظر والملاحظات على مستوى هذا الفرع تحديداً دون المساس بحساب العميل العام في باقي المطاعم
+    const existingCrm = await prisma.branchBlockedCustomer.findUnique({
+      where: { branchId_userId: { branchId, userId } },
+    });
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        isBlocked: true,
-        restaurantNotes: true,
-        _count: {
-          select: { orders: true },
-        },
+    const newIsBlocked = isBlocked !== undefined ? Boolean(isBlocked) : (existingCrm ? existingCrm.isBlocked : false);
+    const newNotes = restaurantNotes !== undefined
+      ? (restaurantNotes ? String(restaurantNotes).trim() : null)
+      : (existingCrm?.notes || null);
+
+    const savedCrm = await prisma.branchBlockedCustomer.upsert({
+      where: { branchId_userId: { branchId, userId } },
+      update: {
+        isBlocked: newIsBlocked,
+        notes: newNotes,
+      },
+      create: {
+        branchId,
+        userId,
+        isBlocked: newIsBlocked,
+        notes: newNotes,
       },
     });
 
-    res.json({ success: true, user: updatedUser });
+    res.json({
+      success: true,
+      user: {
+        id: targetUser.id,
+        name: targetUser.name,
+        phone: targetUser.phone,
+        isBlocked: savedCrm.isBlocked,
+        restaurantNotes: savedCrm.notes,
+        _count: { orders: branchOrderCount },
+      },
+    });
   } catch (error) {
     console.error("Update customer CRM error:", error);
     res.status(500).json({ error: "فشل تحديث بيانات وملاحظات العميل" });

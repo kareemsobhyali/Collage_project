@@ -142,6 +142,9 @@ export const GroupCartModal: React.FC<GroupCartModalProps> = ({
       const newCart = await api.createGroupCart(targetBranchId, studentName);
       if (newCart?.shareCode) {
         localStorage.setItem(`group_host_${newCart.shareCode}`, 'true');
+        if (newCart.hostToken) {
+          localStorage.setItem(`group_host_token_${newCart.shareCode}`, newCart.hostToken);
+        }
       }
       setCart(newCart);
       setShareCode(newCart.shareCode);

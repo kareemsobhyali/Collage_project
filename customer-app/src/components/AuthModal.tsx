@@ -59,6 +59,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
         return;
       }
 
+      // إذا كان الحساب كابتن توصيل (Driver)
+      if (res.role === 'DRIVER' || res.driver) {
+        localStorage.setItem('driver_token', res.token);
+        localStorage.setItem('driver_info', JSON.stringify(res.driver));
+        onSuccess(res.driver, res.token);
+        onClose();
+        window.location.href = '/driver';
+        return;
+      }
+
+      // إذا كان الحساب خاص بفرع (Branch POS)
+      if (res.role === 'BRANCH' || res.branch) {
+        localStorage.setItem('branch_token', res.token);
+        localStorage.setItem('branch_info', JSON.stringify(res.branch));
+        onSuccess(res.branch, res.token);
+        onClose();
+        alert('مرحباً بك! تم تسجيل دخول فرع ' + (res.branch?.name || '') + '. يرجى فتح تطبيق الكاشير المكتبي (Branch POS).');
+        return;
+      }
+
+      // إذا كان الحساب مدير عام للمنظومة (SuperAdmin)
+      if (res.user?.role === 'SUPERADMIN' || res.role === 'SUPERADMIN') {
+        localStorage.setItem('admin_token', res.token);
+        localStorage.setItem('admin_user', JSON.stringify(res.user));
+        localStorage.setItem('customer_token', res.token);
+        localStorage.setItem('customer_user', JSON.stringify(res.user));
+        onSuccess(res.user, res.token);
+        onClose();
+        return;
+      }
+
       localStorage.setItem('customer_token', res.token);
       localStorage.setItem('customer_user', JSON.stringify(res.user));
       onSuccess(res.user, res.token);

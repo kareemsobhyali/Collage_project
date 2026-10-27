@@ -20,10 +20,17 @@ function createWindow() {
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
-  const devUrl = 'http://localhost:5173';
-  mainWindow.loadURL(devUrl).catch(() => {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
-  });
+  // حماية من استغلال منفذ التطوير المحلي في بيئة الإنتاج
+  if (!app.isPackaged && process.env.NODE_ENV === 'development') {
+    const devUrl = 'http://localhost:5173';
+    mainWindow.loadURL(devUrl).catch(() => {
+      mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    });
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html')).catch((err) => {
+      console.error('Failed to load local index.html:', err);
+    });
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -55,7 +62,8 @@ ipcMain.handle('print-receipt-silent', async (_event, { html, deviceName }) => {
         show: false,
         webPreferences: {
           nodeIntegration: false,
-          contextIsolation: true
+          contextIsolation: true,
+          javascript: false,
         }
       });
 

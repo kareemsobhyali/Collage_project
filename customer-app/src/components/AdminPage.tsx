@@ -100,12 +100,16 @@ const DAYS_OF_WEEK = [
 
 export const AdminPage: React.FC = () => {
   const [adminUser, setAdminUser] = useState<any | null>(() => {
-    const saved = localStorage.getItem('admin_user');
-    const token = localStorage.getItem('admin_token');
+    const saved = localStorage.getItem('admin_user') || localStorage.getItem('customer_user');
+    const token = localStorage.getItem('admin_token') || localStorage.getItem('customer_token');
     if (saved && token) {
       try {
         const u = JSON.parse(saved);
-        if (u.role === 'SUPERADMIN') return u;
+        if (u.role === 'SUPERADMIN') {
+          localStorage.setItem('admin_token', token);
+          localStorage.setItem('admin_user', saved);
+          return u;
+        }
       } catch (e) {}
     }
     return null;
@@ -662,16 +666,19 @@ export const AdminPage: React.FC = () => {
   const [credUsername, setCredUsername] = useState('');
   const [credPassword, setCredPassword] = useState('');
 
-  const token = localStorage.getItem('admin_token');
-
-  const getAdminHeaders = () => ({
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-  });
+  const getAdminHeaders = () => {
+    const currentToken = localStorage.getItem('admin_token') || localStorage.getItem('customer_token') || '';
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (currentToken) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
+    }
+    return headers;
+  };
 
   // Fetch all dashboard data
   const fetchDashboardData = async () => {
-    if (!token && !adminUser) return;
+    const currentToken = localStorage.getItem('admin_token') || localStorage.getItem('customer_token');
+    if (!currentToken && !adminUser) return;
     try {
       setLoading(true);
       const [statsRes, branchesRes, ordersRes, studentsRes, bannersRes, promosRes, flashDealsRes, reviewsRes, driversRes, supportRes] = await Promise.all([
@@ -686,6 +693,12 @@ export const AdminPage: React.FC = () => {
         fetch(`${API_BASE_URL}/admin/drivers`, { headers: getAdminHeaders() }),
         fetch(`${API_BASE_URL}/admin/support-tickets`, { headers: getAdminHeaders() }).catch(() => null),
       ]);
+
+      if (statsRes.status === 401 || branchesRes.status === 401) {
+        handleLogout();
+        setLoginError('انتهت صلاحية جلسة الدخول، يرجى تسجيل الدخول مجدداً للمتابعة');
+        return;
+      }
 
       if (statsRes.ok) setStats(await statsRes.json());
       if (branchesRes.ok) setBranches(await branchesRes.json());
@@ -2270,6 +2283,8 @@ export const AdminPage: React.FC = () => {
 
       localStorage.setItem('admin_token', data.token);
       localStorage.setItem('admin_user', JSON.stringify(data.user));
+      localStorage.setItem('customer_token', data.token);
+      localStorage.setItem('customer_user', JSON.stringify(data.user));
       setAdminUser(data.user);
     } catch (err: any) {
       setLoginError(err.message || 'بيانات دخول الأدمن غير صحيحة');
@@ -2281,6 +2296,8 @@ export const AdminPage: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_user');
+    localStorage.removeItem('customer_token');
+    localStorage.removeItem('customer_user');
     setAdminUser(null);
   };
 

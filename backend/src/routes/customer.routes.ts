@@ -850,11 +850,15 @@ router.post("/group-cart/create", async (req: Request, res: Response) => {
       shareCode = crypto.randomBytes(4).toString("hex").toUpperCase();
     }
 
+    // توليد رمز تحكم سري خاص بمنشئ السلة لحمايتها من الإغلاق والتخريب من قبل أطراف غير مصرح لها
+    const hostToken = crypto.randomUUID();
+
     const cart = await prisma.groupCart.create({
       data: {
         branchId,
         hostName: String(hostName).trim(),
         shareCode,
+        hostToken,
       },
       include: {
         items: true,
@@ -907,7 +911,14 @@ router.get("/group-cart/:code", async (req: Request, res: Response) => {
       },
     });
 
-    res.json({ ...cart, branch });
+    // تجريد الرموز السرية لعدم تسريبها للمشاركين العاديين
+    const { hostToken: _ht, items, ...safeCart } = cart as any;
+    const safeItems = (items || []).map((it: any) => {
+      const { deleteKey: _dk, ...safeIt } = it;
+      return safeIt;
+    });
+
+    res.json({ ...safeCart, items: safeItems, branch });
   } catch (error) {
     res.status(500).json({ error: "فشل استرجاع بيانات سلة الشلة" });
   }
@@ -1014,10 +1025,14 @@ router.post("/group-cart/:code/items", async (req: Request, res: Response) => {
     const verifiedUnitPrice = realBasePrice + modifiersExtra;
     const totalPrice = verifiedUnitPrice * qty + comboExtra;
 
-    await prisma.groupCartItem.create({
+    // توليد مفتاح أمان فريد لتفويض صاحب الصنف بحذفه لاحقاً
+    const deleteKey = crypto.randomUUID();
+
+    const createdItem = await prisma.groupCartItem.create({
       data: {
         groupCartId: cart.id,
         studentName: String(studentName).trim(),
+        deleteKey,
         menuItemId: dbItem.id,
         itemName: dbItem.name,
         sizeName: sizeName || null,
@@ -1035,19 +1050,21 @@ router.post("/group-cart/:code/items", async (req: Request, res: Response) => {
     });
 
     notifyGroupCartUpdated(code, updatedCart);
-    res.status(201).json(updatedCart);
+    res.status(201).json({ ...updatedCart, addedItemDeleteKey: deleteKey });
   } catch (error) {
     console.error("Add group cart item error:", error);
     res.status(500).json({ error: "فشل إضافة الصنف لسلة الشلة" });
   }
 });
 
-// حذف صنف من سلة الشلة (يسمح فقط لصاحب الصنف أو منشئ السلة)
+// حذف صنف من سلة الشلة (محمي بصلاحية صاحب الصنف أو منشئ السلة حصراً)
 router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Response) => {
   try {
     const code = (req.params.code as string).toUpperCase();
     const itemId = req.params.itemId as string;
     const studentName = (req.query.studentName as string)?.trim();
+    const providedHostToken = (req.headers["x-host-token"] || req.query.hostToken) as string | undefined;
+    const providedDeleteKey = (req.headers["x-delete-key"] || req.query.deleteKey) as string | undefined;
 
     const cart = await prisma.groupCart.findUnique({
       where: { shareCode: code },
@@ -1059,7 +1076,7 @@ router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Respo
     }
 
     if (cart.isClosed) {
-      res.status(410).json({ error: "تم إغلاق سلة الشلة من قِبل المنشئ، ولا يمكن إضافة أصناف جديدة.", isClosed: true });
+      res.status(410).json({ error: "تم إغلاق سلة الشلة من قِبل المنشئ، ولا يمكن تعديل الأصناف.", isClosed: true });
       return;
     }
 
@@ -1072,9 +1089,13 @@ router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Respo
       return;
     }
 
-    // التحقق الإلزامي من الصلاحية: صاحب الصنف فقط أو منشئ السلة هو المخول بالحذف
-    if (!studentName || (studentName !== item.studentName && studentName !== cart.hostName)) {
-      res.status(403).json({ error: "لا يمكنك حذف أصناف شخص آخر! يمكنك فقط حذف أو تعديل أصنافك الخاصة." });
+    // التحقق الصارم من الصلاحية: مفتاح تفويض الصنف أو رمز تحكم منشئ السلة
+    const isHostAuthorized = Boolean(cart.hostToken && providedHostToken && cart.hostToken === providedHostToken);
+    const isItemOwnerAuthorized = Boolean(item.deleteKey && providedDeleteKey && item.deleteKey === providedDeleteKey);
+    const isLegacyAllowed = !cart.hostToken && !item.deleteKey && (studentName === item.studentName || studentName === cart.hostName);
+
+    if (!isHostAuthorized && !isItemOwnerAuthorized && !isLegacyAllowed) {
+      res.status(403).json({ error: "لا يمكنك حذف هذا الصنف، يتطلب رمز تفويض صاحب الصنف أو منشئ السلة" });
       return;
     }
 
@@ -1095,16 +1116,24 @@ router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Respo
   }
 });
 
-// إغلاق سلة الشلة المشتركة من قِبل المنشئ وتوقيف الرابط فوراً
+// إغلاق سلة الشلة المشتركة من قِبل المنشئ وتوقيف الرابط فوراً (محمي برمز تحكم المنشئ)
 router.post("/group-cart/:code/close", async (req: Request, res: Response) => {
   try {
     const code = (req.params.code as string).toUpperCase();
+    const providedHostToken = (req.headers["x-host-token"] || req.query.hostToken || req.body?.hostToken) as string | undefined;
+
     const cart = await prisma.groupCart.findUnique({
       where: { shareCode: code },
     });
 
     if (!cart) {
       res.status(404).json({ error: "سلة الشلة غير موجودة" });
+      return;
+    }
+
+    // التحقق من أن الطلب قادم من منشئ السلة الفعلي
+    if (cart.hostToken && (!providedHostToken || cart.hostToken !== providedHostToken)) {
+      res.status(403).json({ error: "غير مصرح لك بإغلاق السلة، يتطلب رمز تحكم منشئ ومسؤول السلة حصراً" });
       return;
     }
 
@@ -1551,7 +1580,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
 
     const preWalletTotal = Math.max(0, subtotal + calculatedDeliveryFee - discount);
 
-    // التحقق من حالة حساب الطالب وعدم حظره
+    // التحقق من حالة حساب الطالب وعدم حظره من قبل إدارة المنظومة (حظر عام)
     const currentUser = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -1559,6 +1588,20 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     if (!currentUser || currentUser.isBlocked) {
       res.status(403).json({
         error: "عذراً، تم إيقاف هذا الحساب من إرسال طلبات جديدة. يرجى التواصل مع الإدارة.",
+      });
+      return;
+    }
+
+    // التحقق من عدم حظر العميل على مستوى هذا الفرع تحديداً (عزل الحظر على مستوى المطعم)
+    const branchCustomerBlock = await prisma.branchBlockedCustomer.findUnique({
+      where: {
+        branchId_userId: { branchId, userId },
+      },
+    });
+
+    if (branchCustomerBlock && branchCustomerBlock.isBlocked) {
+      res.status(403).json({
+        error: "عذراً، تم إيقاف استقبال طلبات هذا الحساب لدى هذا المطعم تحديداً. يمكنك الطلب من مطاعم أخرى أو التواصل مع إدارة المطعم.",
       });
       return;
     }
@@ -2169,19 +2212,19 @@ router.post("/wallet/convert-points", async (req: AuthRequest, res: Response) =>
     const cashAdded = Math.round(pointsToConvert * loyaltySettings.pointsRedemptionRate * 100) / 100;
 
     const updatedUser = await prisma.$transaction(async (tx) => {
-      const freshUser = await tx.user.findUnique({ where: { id: userId } });
-      if (!freshUser) {
-        throw new Error("المستخدم غير موجود");
-      }
-      if (freshUser.loyaltyPoints < pointsToConvert) {
-        throw new Error("رصيد نقاط الولاء غير كافٍ لإتمام عملية الاستبدال");
-      }
-      return await tx.user.update({
-        where: { id: userId },
+      // حسم ذري مشروط برصيد كافٍ لمنع التكرار بالتزامن واستنزاف النقاط بالسالب
+      const claim = await tx.user.updateMany({
+        where: { id: userId, loyaltyPoints: { gte: pointsToConvert } },
         data: {
           loyaltyPoints: { decrement: pointsToConvert },
           walletBalance: { increment: cashAdded },
         },
+      });
+      if (claim.count === 0) {
+        throw new Error("رصيد نقاط الولاء غير كافٍ لإتمام عملية الاستبدال");
+      }
+      return await tx.user.findUnique({
+        where: { id: userId },
         select: {
           id: true,
           name: true,

@@ -250,7 +250,7 @@ export async function seedDivadoBranchAndMenu() {
     slug: "divado-campus",
     phone: "01023231926",
     address: "أمام مدخل 2 (الشيخ زايد - هايبر وان)",
-    logoUrl: "https://collage-project-5zby.onrender.com/uploads/1791832225692-750953839.jpg",
+    logoUrl: "/uploads/1791832225692-750953839.jpg",
     isActive: true,
     operationalStatus: "OPEN",
     openingTime: "08:00",

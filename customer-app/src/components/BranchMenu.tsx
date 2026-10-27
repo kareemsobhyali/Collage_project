@@ -26,7 +26,10 @@ import {
   Sparkles,
   ArrowLeft,
   Smartphone,
-  Download
+  Download,
+  User,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress, getStoredClientCoords, isBranchInDeliveryZone } from '../services/campusLocations';
@@ -43,6 +46,9 @@ interface BranchMenuProps {
   onTrackOrder?: (order: any) => void;
   onQuickReorder?: (order: any) => void;
   onRequireAuth?: () => void;
+  onLogout?: () => void;
+  onOpenMyOrders?: () => void;
+  onOpenProfile?: () => void;
 }
 
 const DAY_NAMES_AR: Record<string, string> = {
@@ -440,6 +446,9 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   onTrackOrder,
   onQuickReorder,
   onRequireAuth,
+  onLogout,
+  onOpenMyOrders,
+  onOpenProfile,
 }) => {
   // الـ 3 زراير الرئيسية للفرع: [المطعم] [الطلبات] [العروض]
   const [branchTab, setBranchTab] = useState<'RESTAURANT' | 'ORDERS' | 'DEALS'>('RESTAURANT');
@@ -817,6 +826,92 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
           <span>تم نسخ رابط المطعم المباشر بنجاح! يمكنك مشاركته مع زبائنك 📋✨</span>
         </div>
       )}
+
+      {/* شريط حالة تسجيل الدخول والتحكم السريع في المطعم (زرار الأوردرات وتسجيل الخروج) */}
+      <div className="bg-white/95 backdrop-blur-md px-3 py-2 rounded-2xl border border-slate-200/90 shadow-sm flex items-center justify-between gap-2 text-xs">
+        {user ? (
+          <>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 text-indigo-600">
+                <User className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-black text-slate-800 truncate text-xs">{user.name}</span>
+                  {user.role === 'SUPERADMIN' && (
+                    <span className="bg-purple-100 text-purple-700 text-[10px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                      <ShieldCheck className="w-3 h-3 text-purple-600" />
+                      <span>إدارة</span>
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-slate-500 font-bold">
+                  <span className="text-amber-600 flex items-center gap-0.5">★ {user.loyaltyPoints ?? 0} نقطة</span>
+                  {user.walletBalance > 0 && (
+                    <span className="text-emerald-600">محفظة: {user.walletBalance} ج.م</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {user.role === 'SUPERADMIN' && (
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = '/admin'; }}
+                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                  title="لوحة الإدارة"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">لوحة الإدارة</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setBranchTab('ORDERS');
+                  if (onOpenMyOrders) onOpenMyOrders();
+                }}
+                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                title="متابعة طلباتي"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>الطلبات</span>
+                {activeOrders.length > 0 && (
+                  <span className="bg-indigo-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full leading-none">
+                    {activeOrders.length}
+                  </span>
+                )}
+              </button>
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                  title="تسجيل الخروج"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>خروج</span>
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="w-full flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-slate-600 font-bold text-xs truncate">
+              <span>👋</span>
+              <span className="truncate">سجّل دخولك للطلب ومتابعة أوردراتك وتجميع النقاط</span>
+            </div>
+            <button
+              type="button"
+              onClick={onRequireAuth}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl shadow-sm transition-all active:scale-95 shrink-0 cursor-pointer flex items-center gap-1"
+            >
+              <span>دخول / حساب</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* ========================================================================= */}
       {/* 0. الـ 3 زراير الرئيسية للفرع: [المطعم] [الطلبات] [العروض]                 */}

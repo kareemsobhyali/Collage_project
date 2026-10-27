@@ -22,6 +22,7 @@ model User {
   updatedAt       DateTime      @updatedAt
   orders          Order[]
   addresses       UserAddress[]
+  branchBlocks    BranchBlockedCustomer[]
 }
 
 model Branch {
@@ -58,6 +59,7 @@ model Branch {
   orders            Order[]
   flashDeals        FlashDeal[]
   whatsAppAccounts  WhatsAppAccount[]
+  blockedCustomers  BranchBlockedCustomer[]
 
   @@index([isActive])
   @@index([operationalStatus])
@@ -320,6 +322,7 @@ model DeliveryDriver {
 model GroupCart {
   id        String          @id @default(uuid())
   shareCode String          @unique
+  hostToken String?
   branchId  String
   hostName  String
   isClosed  Boolean         @default(false)
@@ -336,6 +339,7 @@ model GroupCartItem {
   groupCartId       String
   groupCart         GroupCart @relation(fields: [groupCartId], references: [id], onDelete: Cascade)
   studentName       String    // اسم الطالب صاحب الصنف
+  deleteKey         String?   // رمز أمان لتفويض صاحب الصنف بحذفه
   menuItemId        String
   itemName          String
   sizeName          String?
@@ -458,6 +462,23 @@ model WhatsAppSessionFile {
   @@unique([accountId, filename])
   @@index([accountId])
 }
+
+model BranchBlockedCustomer {
+  id        String   @id @default(uuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isBlocked Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([branchId, userId])
+  @@index([branchId])
+  @@index([userId])
+}
+
 
 
 

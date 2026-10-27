@@ -490,7 +490,13 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     try {
       setLoadingOrders(true);
       const [driverData, ordersData] = await Promise.all([
-        api.getDriverMe().catch(() => null),
+        api.getDriverMe().catch((e: any) => {
+          if (e?.message && (e.message.includes('401') || e.message.includes('غير مصرح') || e.message.includes('منتهية') || e.message.includes('غير صالح'))) {
+            handleLogout();
+            setLoginError('انتهت صلاحية جلسة كابتن التوصيل، يرجى إعادة تسجيل الدخول');
+          }
+          return null;
+        }),
         api.getDriverOrders().catch(() => []),
       ]);
 

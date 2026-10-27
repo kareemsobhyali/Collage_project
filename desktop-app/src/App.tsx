@@ -21,7 +21,7 @@ import {
   LifeBuoy,
   X
 } from 'lucide-react';
-import { api } from './services/api';
+import { api, syncRemoteServerConfig } from './services/api';
 import { soundNotifier } from './services/audioAlert';
 import { LoginModal } from './components/LoginModal';
 import { OrdersView } from './components/OrdersView';
@@ -74,6 +74,11 @@ export function App() {
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
   const socketRef = useRef<Socket | null>(null);
   const [liveDriverLocations, setLiveDriverLocations] = useState<Record<string, { lat: number; lng: number; orderId?: string; timestamp: number }>>({});
+
+  // مزامنة عنوان السيرفر تلقائياً من GitHub عند بدء التطبيق
+  useEffect(() => {
+    syncRemoteServerConfig();
+  }, []);
 
   // حساب العداد التنازلي وتحديثه كل ثانية عندما يكون الفرع مغلقاً مؤقتاً
   useEffect(() => {

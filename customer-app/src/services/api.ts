@@ -1,8 +1,42 @@
+export const GITHUB_CONFIG_URL =
+  'https://raw.githubusercontent.com/kareemsobhyali/Collage_project/main/server-config.json';
+
+export async function syncRemoteServerConfig(): Promise<{ apiUrl: string; webUrl: string } | null> {
+  if (typeof window === 'undefined') return null;
+  try {
+    const res = await fetch(`${GITHUB_CONFIG_URL}?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.apiUrl) {
+      const cleanApi = data.apiUrl.trim().replace(/\/+$/, '');
+      const cleanWeb = data.webUrl ? data.webUrl.trim().replace(/\/+$/, '') : cleanApi.replace(/\/api\/?$/, '');
+      localStorage.setItem('unifood_remote_api_url', cleanApi);
+      localStorage.setItem('unifood_remote_web_url', cleanWeb);
+      return { apiUrl: cleanApi, webUrl: cleanWeb };
+    }
+  } catch (_e) {}
+  return null;
+}
+
 export const getApiHost = () => (typeof window !== 'undefined' ? window.location.hostname : 'localhost');
 
 export const getApiBaseUrl = () => {
   if (typeof window === 'undefined') return 'http://localhost:5000/api';
+  try {
+    const custom = localStorage.getItem('unifood_custom_api_url') || localStorage.getItem('unifood_remote_api_url');
+    if (custom && custom.trim()) {
+      const clean = custom.trim().replace(/\/+$/, '');
+      return clean.endsWith('/api') ? clean : `${clean}/api`;
+    }
+  } catch {}
+
   if ((import.meta as any).env?.VITE_API_URL) return (import.meta as any).env.VITE_API_URL;
+  if (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null') {
+    return 'https://collage-project-5zby.onrender.com/api';
+  }
   if (window.location.port && window.location.port !== '5000' && window.location.port !== '80' && window.location.port !== '443') {
     return `http://${window.location.hostname}:5000/api`;
   }
@@ -69,7 +103,12 @@ export const isBranchOpenByHours = (
 };
 
 function getHeaders(isFormData: boolean = false): HeadersInit {
-  const token = localStorage.getItem('customer_token');
+  const token =
+    localStorage.getItem('customer_token') ||
+    localStorage.getItem('admin_token') ||
+    localStorage.getItem('driver_token') ||
+    localStorage.getItem('branch_token') ||
+    localStorage.getItem('token');
   const headers: Record<string, string> = {};
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
@@ -81,7 +120,24 @@ function getHeaders(isFormData: boolean = false): HeadersInit {
 }
 
 function getAdminHeaders(isFormData: boolean = false): HeadersInit {
-  const token = localStorage.getItem('admin_token');
+  const token =
+    localStorage.getItem('admin_token') ||
+    localStorage.getItem('customer_token') ||
+    localStorage.getItem('token');
+  const headers: Record<string, string> = {};
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+function getDriverHeaders(isFormData: boolean = false): HeadersInit {
+  const token =
+    localStorage.getItem('driver_token') ||
+    localStorage.getItem('token');
   const headers: Record<string, string> = {};
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
@@ -627,10 +683,16 @@ export const api = {
   },
 
   async removeGroupCartItem(code: string, itemId: string, studentName?: string) {
+    const hostToken = localStorage.getItem(`group_host_token_${code}`) || '';
+    const deleteKey = localStorage.getItem(`group_item_key_${itemId}`) || '';
     const query = studentName ? `?studentName=${encodeURIComponent(studentName)}` : '';
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (hostToken) headers['x-host-token'] = hostToken;
+    if (deleteKey) headers['x-delete-key'] = deleteKey;
+
     const res = await fetch(`${API_BASE_URL}/customer/group-cart/${code}/items/${itemId}${query}`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل حذف الصنف من السلة الجماعية');
@@ -638,9 +700,14 @@ export const api = {
   },
 
   async closeGroupCart(code: string) {
+    const hostToken = localStorage.getItem(`group_host_token_${code}`) || '';
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (hostToken) headers['x-host-token'] = hostToken;
+
     const res = await fetch(`${API_BASE_URL}/customer/group-cart/${code}/close`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
+      body: JSON.stringify({ hostToken }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل إغلاق السلة الجماعية');

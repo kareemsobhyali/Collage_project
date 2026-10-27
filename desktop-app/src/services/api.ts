@@ -1,10 +1,74 @@
+export const GITHUB_CONFIG_URL =
+  'https://raw.githubusercontent.com/kareemsobhyali/Collage_project/main/server-config.json';
+
+export async function syncRemoteServerConfig(): Promise<{ apiUrl: string; webUrl: string } | null> {
+  if (typeof window === 'undefined') return null;
+  try {
+    const res = await fetch(`${GITHUB_CONFIG_URL}?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.apiUrl) {
+      const cleanApi = data.apiUrl.trim().replace(/\/+$/, '');
+      const cleanWeb = data.webUrl ? data.webUrl.trim().replace(/\/+$/, '') : cleanApi.replace(/\/api\/?$/, '');
+      const prevApi = localStorage.getItem('unifood_remote_api_url');
+      localStorage.setItem('unifood_remote_api_url', cleanApi);
+      localStorage.setItem('unifood_remote_web_url', cleanWeb);
+      // إذا تغير الرابط على GitHub أثناء تشغيل التطبيق، إشعار المكونات
+      if (prevApi && prevApi !== cleanApi) {
+        window.dispatchEvent(new CustomEvent('unifood_server_changed', { detail: { apiUrl: cleanApi, webUrl: cleanWeb } }));
+      }
+      return { apiUrl: cleanApi, webUrl: cleanWeb };
+    }
+  } catch (_e) {}
+  return null;
+}
+
+export const getPublicWebUrl = (): string => {
+  if (typeof window === 'undefined') return 'https://collage-project-5zby.onrender.com';
+  try {
+    const custom = localStorage.getItem('unifood_pos_api_url');
+    if (custom && custom.trim()) {
+      return custom.trim().replace(/\/+$/, '').replace(/\/api\/?$/, '');
+    }
+    const remoteWeb = localStorage.getItem('unifood_remote_web_url');
+    if (remoteWeb && remoteWeb.trim()) return remoteWeb.trim();
+    const remoteApi = localStorage.getItem('unifood_remote_api_url');
+    if (remoteApi && remoteApi.trim()) {
+      return remoteApi.trim().replace(/\/+$/, '').replace(/\/api\/?$/, '');
+    }
+  } catch {}
+
+  if (typeof window !== 'undefined' && window.location.origin && window.location.protocol !== 'file:') {
+    return window.location.origin;
+  }
+  return 'https://collage-project-5zby.onrender.com';
+};
+
 export const getApiHost = () => (typeof window !== 'undefined' ? window.location.hostname : 'localhost');
 
 export const getApiBaseUrl = () => {
-  if (typeof window === 'undefined') return 'http://localhost:5000/api';
+  if (typeof window === 'undefined') return 'https://collage-project-5zby.onrender.com/api';
+  try {
+    // 1. رابط يدوي مخصص تم تعيينه في إعدادات التطبيق
+    const custom = localStorage.getItem('unifood_pos_api_url');
+    if (custom && custom.trim()) {
+      const clean = custom.trim().replace(/\/+$/, '');
+      return clean.endsWith('/api') ? clean : `${clean}/api`;
+    }
+    // 2. الرابط المحدث لحظياً من GitHub (server-config.json)
+    const remote = localStorage.getItem('unifood_remote_api_url');
+    if (remote && remote.trim()) {
+      const clean = remote.trim().replace(/\/+$/, '');
+      return clean.endsWith('/api') ? clean : `${clean}/api`;
+    }
+  } catch {}
+
   if ((import.meta as any).env?.VITE_API_URL) return `${(import.meta as any).env.VITE_API_URL}/api`;
   if (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null') {
-    return 'http://localhost:5000/api';
+    return 'https://collage-project-5zby.onrender.com/api';
   }
   if (window.location.port === '5173' || window.location.port === '5174' || window.location.port === '3000') {
     return `http://${window.location.hostname || 'localhost'}:5000/api`;

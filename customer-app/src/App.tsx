@@ -8,9 +8,10 @@ import {
   Users,
   Smartphone,
   X,
-  CheckCircle2
+  CheckCircle2,
+  ShieldCheck
 } from 'lucide-react';
-import { api, API_BASE_URL, getFullImageUrl } from './services/api';
+import { api, API_BASE_URL, getFullImageUrl, syncRemoteServerConfig } from './services/api';
 import { registerServiceWorker, isRunningInNativeApk, triggerInstallApp, registerNativeBackgroundSession, clearNativeBackgroundSession } from './services/notifications';
 import { BranchList } from './components/BranchList';
 import { BranchMenu } from './components/BranchMenu';
@@ -88,6 +89,11 @@ export function App() {
     };
   }, []);
 
+  // مزامنة أحدث عنوان للسيرفر من GitHub تلقائياً عند فتح التطبيق
+  useEffect(() => {
+    syncRemoteServerConfig();
+  }, []);
+
   const [showDriverPortal, setShowDriverPortal] = useState(isDriverRoute);
   const [groupCartCode, setGroupCartCode] = useState<string | null>(() => {
     if (groupParam) {
@@ -102,14 +108,16 @@ export function App() {
 
   const [user, setUser] = useState<any | null>(() => {
     try {
-      const saved = localStorage.getItem('customer_user');
+      const saved = localStorage.getItem('customer_user') || localStorage.getItem('admin_user');
       if (!saved) return null;
       const parsed = JSON.parse(saved);
-      // منع تسرب حساب المدير العام (SUPERADMIN) إلى واجهة العملاء نهائياً
-      if (parsed.role === 'SUPERADMIN' || parsed.phone === 'admin') {
-        localStorage.removeItem('customer_user');
-        localStorage.removeItem('customer_token');
-        return null;
+      // إذا كان الحساب سوبر أدمن، تأكد من مزامنة توكن الإدارة
+      if (parsed.role === 'SUPERADMIN') {
+        const adminTok = localStorage.getItem('admin_token') || localStorage.getItem('customer_token');
+        if (adminTok) {
+          localStorage.setItem('admin_token', adminTok);
+          localStorage.setItem('customer_token', adminTok);
+        }
       }
       return parsed;
     } catch {
@@ -861,6 +869,8 @@ export function App() {
     clearNativeBackgroundSession();
     localStorage.removeItem('customer_token');
     localStorage.removeItem('customer_user');
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
     setUser(null);
   };
 
@@ -1066,6 +1076,19 @@ export function App() {
 
             {user ? (
               <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                {user.role === 'SUPERADMIN' && (
+                  <button
+                    onClick={() => {
+                      window.location.href = '/admin';
+                    }}
+                    className="h-9 px-2 sm:px-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
+                    title="فتح لوحة تحكم إدارة المنظومة"
+                  >
+                    <ShieldCheck className="w-4 h-4 shrink-0 text-amber-300" />
+                    <span className="hidden sm:inline">لوحة الإدارة</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => setShowMyOrdersModal(true)}
                   className="h-9 px-2 sm:px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-colors shrink-0 cursor-pointer"
@@ -1155,6 +1178,9 @@ export function App() {
             onTrackOrder={(order) => setTrackingOrder(order)}
             onQuickReorder={handleReorder}
             onRequireAuth={() => setShowAuthModal(true)}
+            onLogout={handleLogout}
+            onOpenMyOrders={() => setShowMyOrdersModal(true)}
+            onOpenProfile={() => setShowProfileModal(true)}
           />
         ) : (
           <LandingPage

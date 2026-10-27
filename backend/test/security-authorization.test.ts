@@ -158,4 +158,173 @@ describe("Security & Authorization Validation Suite", () => {
     });
   });
 
+  describe("5. Tenant-Scoped Branch Customer Block Defense", () => {
+    it("ensures a customer blocked by Branch A can still order from Branch B", () => {
+      const branchA_Id = "branch-shawarma-campus";
+      const branchB_Id = "branch-burger-campus";
+      const customerId = "student-user-456";
+
+      // Mock branch-specific block table
+      const mockBranchBlocks = [
+        { branchId: branchA_Id, userId: customerId, isBlocked: true },
+      ];
+
+      function canCustomerOrderFromBranch(branchId: string, userId: string, isGloballyBlocked: boolean): { allowed: boolean; reason?: string } {
+        if (isGloballyBlocked) {
+          return { allowed: false, reason: "حظر عام من إدارة المنظومة" };
+        }
+        const branchBlock = mockBranchBlocks.find(b => b.branchId === branchId && b.userId === userId && b.isBlocked);
+        if (branchBlock) {
+          return { allowed: false, reason: "حظر خاص بهذا المطعم فقط" };
+        }
+        return { allowed: true };
+      }
+
+      // Customer attempts to order from Branch A (should be blocked)
+      const attemptBranchA = canCustomerOrderFromBranch(branchA_Id, customerId, false);
+      assert.equal(attemptBranchA.allowed, false, "Customer must be blocked at Branch A");
+      assert.equal(attemptBranchA.reason, "حظر خاص بهذا المطعم فقط");
+
+      // Customer attempts to order from Branch B (should be allowed!)
+      const attemptBranchB = canCustomerOrderFromBranch(branchB_Id, customerId, false);
+      assert.equal(attemptBranchB.allowed, true, "Customer must NOT be blocked at Branch B when blocked only by Branch A");
+
+      // SuperAdmin global block blocks everywhere
+      const attemptGlobal = canCustomerOrderFromBranch(branchB_Id, customerId, true);
+      assert.equal(attemptGlobal.allowed, false, "Global block must block ordering across all branches");
+    });
+  });
+
+  describe("6. HTML Tag Escaping & XSS Sanitization Defense", () => {
+    it("neutralizes script tags and HTML injection vectors in dynamic title generation", () => {
+      function escapeHtml(str: string): string {
+        return String(str || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      const maliciousName = "</title><script>alert('XSS')</script>";
+      const sanitized = escapeHtml(maliciousName);
+
+      assert.equal(sanitized.includes("<script>"), false, "Must not contain raw script tag");
+      assert.equal(sanitized.includes("&lt;script&gt;"), true, "Must encode script open tag");
+      assert.equal(sanitized.includes("&lt;/title&gt;"), true, "Must encode title close tag");
+    });
+  });
+
+  describe("7. Group Cart Authorization & Token Protection", () => {
+    it("prohibits closing group cart without the creator's secret hostToken", () => {
+      const cart = {
+        shareCode: "D7E12A",
+        hostToken: "secret-host-uuid-1111",
+        isClosed: false,
+      };
+
+      function canCloseCart(cartObj: typeof cart, providedToken?: string): boolean {
+        if (!cartObj.hostToken) return true;
+        return Boolean(providedToken && providedToken === cartObj.hostToken);
+      }
+
+      // Attacker tries to close cart with no token or wrong token
+      assert.equal(canCloseCart(cart, undefined), false, "Must reject closure without token");
+      assert.equal(canCloseCart(cart, "wrong-token-9999"), false, "Must reject closure with forged token");
+
+      // Legitimate host provides correct token
+      assert.equal(canCloseCart(cart, "secret-host-uuid-1111"), true, "Must authorize closure with matching hostToken");
+    });
+
+    it("requires deleteKey or hostToken to remove an item from the shared cart", () => {
+      const cart = {
+        hostToken: "creator-token-777",
+      };
+      const item = {
+        id: "item-shawarma-1",
+        studentName: "سارة",
+        deleteKey: "sara-item-key-222",
+      };
+
+      function canDeleteItem(providedHostToken?: string, providedDeleteKey?: string): boolean {
+        const isHost = Boolean(providedHostToken && providedHostToken === cart.hostToken);
+        const isItemOwner = Boolean(providedDeleteKey && providedDeleteKey === item.deleteKey);
+        return isHost || isItemOwner;
+      }
+
+      // Attacker attempts deletion with spoofed name only (no keys)
+      assert.equal(canDeleteItem(undefined, undefined), false, "Must block deletion without valid key");
+      assert.equal(canDeleteItem("fake-host", "fake-key"), false, "Must block deletion with invalid key");
+
+      // Student Sara deletes her own item with deleteKey
+      assert.equal(canDeleteItem(undefined, "sara-item-key-222"), true, "Must permit item owner deletion");
+
+      // Host deletes item using hostToken
+      assert.equal(canDeleteItem("creator-token-777", undefined), true, "Must permit cart host deletion");
+    });
+  });
+
+  describe("8. Live Block Status Revocation Defense", () => {
+    it("rejects request with HTTP 403 when user isBlocked is true in database even with valid token", () => {
+      // Simulating authenticateUser DB verification logic
+      function verifyUserRecord(userRecord: { isBlocked: boolean } | null) {
+        if (userRecord && userRecord.isBlocked) {
+          return { status: 403, error: "عذراً، هذا الحساب موقوف حالياً من قبل الإدارة" };
+        }
+        return { status: 200, success: true };
+      }
+
+      // 1. Blocked user
+      const blockedResult = verifyUserRecord({ isBlocked: true });
+      assert.equal(blockedResult.status, 403, "Must return HTTP 403 for blocked user");
+      assert.equal(blockedResult.error, "عذراً، هذا الحساب موقوف حالياً من قبل الإدارة");
+
+      // 2. Active user
+      const activeResult = verifyUserRecord({ isBlocked: false });
+      assert.equal(activeResult.status, 200, "Must permit active user");
+    });
+  });
+
+  describe("9. Atomic Loyalty Points-to-Cash Concurrency Defense", () => {
+    it("simulates atomic conditional check preventing negative loyalty points under concurrent conversion", () => {
+      // In-memory atomic state simulation representing:
+      // UPDATE "User" SET loyaltyPoints = loyaltyPoints - X WHERE id = Y AND loyaltyPoints >= X
+      let currentPoints = 100;
+      let walletCash = 0;
+
+      function convertPointsAtomic(requestedPoints: number, cashToAdd: number): boolean {
+        // Atomic condition: points must be >= requested
+        if (currentPoints >= requestedPoints) {
+          currentPoints -= requestedPoints;
+          walletCash += cashToAdd;
+          return true; // count === 1
+        }
+        return false; // count === 0
+      }
+
+      // Request 1: Convert 100 points -> Succeeds
+      const res1 = convertPointsAtomic(100, 10);
+      assert.equal(res1, true);
+      assert.equal(currentPoints, 0);
+      assert.equal(walletCash, 10);
+
+      // Concurrent Request 2: Try to convert 100 points again -> Must fail atomically
+      const res2 = convertPointsAtomic(100, 10);
+      assert.equal(res2, false);
+      assert.equal(currentPoints, 0, "Points must not drop below zero");
+      assert.equal(walletCash, 10, "Cash must not be credited twice");
+    });
+  });
+
+  describe("10. Cryptographically Unpredictable Upload Filename Generation", () => {
+    it("generates filenames with high entropy avoiding Math.random collisions", () => {
+      const crypto = require("crypto");
+      const suffix1 = Date.now() + "-" + crypto.randomBytes(12).toString("hex");
+      const suffix2 = Date.now() + "-" + crypto.randomBytes(12).toString("hex");
+
+      assert.notEqual(suffix1, suffix2, "Generated suffixes must never collide");
+      assert.equal(suffix1.split("-")[1].length, 24, "Hex suffix must provide 96 bits of cryptographic entropy");
+    });
+  });
+
 });

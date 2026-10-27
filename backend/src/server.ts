@@ -341,6 +341,23 @@ app.get("/api/public/sound-settings", async (_req, res) => {
   }
 });
 
+// نقطة نهاية عامة لقراءة إعدادات النطاق المركزي (Server Domain Config)
+app.get("/api/public/server-config", (_req, res) => {
+  try {
+    const configPath = resolvePath("server-config.json", "../server-config.json");
+    if (fs.existsSync(configPath)) {
+      const parsed = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      return res.json({ success: true, ...parsed });
+    }
+  } catch (_e) {}
+  res.json({
+    success: true,
+    webUrl: "https://collage-project-5zby.onrender.com",
+    apiUrl: "https://collage-project-5zby.onrender.com/api",
+    githubConfigUrl: "https://raw.githubusercontent.com/kareemsobhyali/Collage_project/main/server-config.json",
+  });
+});
+
 // مسارات شاشة فروع المطاعم والـ POS (desktop-app)
 const desktopDistPath = resolvePath("../desktop-app/dist", "desktop-app/dist");
 if (fs.existsSync(desktopDistPath)) {
@@ -427,8 +444,16 @@ if (fs.existsSync(customerDistPath)) {
           const customManifestTag = `<link rel="manifest" href="/manifest.json?branch=${encodeURIComponent(branchKey)}" />`;
           html = html.replace(/<link\s+rel="manifest"[^>]*>/i, customManifestTag);
 
-          // 2. تحديث العنوان ليحمل اسم المطعم مباشرة
-          html = html.replace(/<title>.*?<\/title>/i, `<title>${branch.name} | طلب وتوصيل وجبات أونلاين</title>`);
+          // تعقيم وتشفير رموز HTML لتفادي هجمات حقن النصوص البرمجية (XSS Defense)
+          const safeBranchName = String(branch.name || "UniFood")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+
+          // 2. تحديث العنوان ليحمل اسم المطعم مباشرة بأمان تام
+          html = html.replace(/<title>.*?<\/title>/i, `<title>${safeBranchName} | طلب وتوصيل وجبات أونلاين</title>`);
 
           // 3. تحديث أيقونة الموقع والأيقونة التي يعتمدها iOS وأندرويد للشاشة
           html = html.replace(/<link[^>]*rel="icon"[^>]*>/i, `<link rel="icon" type="image/png" href="${logoUrl}" />`);
@@ -546,7 +571,23 @@ async function autoSyncDatabaseSchema() {
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
       );`,
       `CREATE UNIQUE INDEX IF NOT EXISTS "WhatsAppSessionFile_account_file_key" ON "WhatsAppSessionFile"("accountId", "filename");`,
-      `CREATE INDEX IF NOT EXISTS "WhatsAppSessionFile_accountId_idx" ON "WhatsAppSessionFile"("accountId");`
+      `CREATE INDEX IF NOT EXISTS "WhatsAppSessionFile_accountId_idx" ON "WhatsAppSessionFile"("accountId");`,
+      `CREATE TABLE IF NOT EXISTS "BranchBlockedCustomer" (
+        "id" TEXT PRIMARY KEY,
+        "branchId" TEXT NOT NULL,
+        "userId" TEXT NOT NULL,
+        "isBlocked" BOOLEAN NOT NULL DEFAULT true,
+        "notes" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+      `ALTER TABLE "BranchBlockedCustomer" ADD COLUMN IF NOT EXISTS "isBlocked" BOOLEAN DEFAULT true;`,
+      `ALTER TABLE "BranchBlockedCustomer" ADD COLUMN IF NOT EXISTS "notes" TEXT;`,
+      `ALTER TABLE "GroupCart" ADD COLUMN IF NOT EXISTS "hostToken" TEXT;`,
+      `ALTER TABLE "GroupCartItem" ADD COLUMN IF NOT EXISTS "deleteKey" TEXT;`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "BranchBlockedCustomer_branchId_userId_key" ON "BranchBlockedCustomer"("branchId", "userId");`,
+      `CREATE INDEX IF NOT EXISTS "BranchBlockedCustomer_branchId_idx" ON "BranchBlockedCustomer"("branchId");`,
+      `CREATE INDEX IF NOT EXISTS "BranchBlockedCustomer_userId_idx" ON "BranchBlockedCustomer"("userId");`
     ];
 
     for (const sql of patches) {

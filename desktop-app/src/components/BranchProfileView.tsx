@@ -27,7 +27,7 @@ import {
   Link2,
   Copy
 } from 'lucide-react';
-import { api, getFullImageUrl } from '../services/api';
+import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
 import { getDisplayAddress } from '../utils/address';
 import { ConfirmModal } from './ConfirmModal';
@@ -368,7 +368,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
             type="button"
             onClick={() => {
               const identifier = branch?.slug || branch?.id || '';
-              const url = `https://collage-project-5zby.onrender.com/?branch=${encodeURIComponent(identifier)}`;
+              const url = `${getPublicWebUrl()}/?branch=${encodeURIComponent(identifier)}`;
               navigator.clipboard.writeText(url);
               setCopiedBranchLink(true);
               setTimeout(() => setCopiedBranchLink(false), 2500);

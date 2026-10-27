@@ -1,42 +1,56 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import prisma from "../prisma.js";
 import { generateToken, authenticateUser, AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
 const EGYPT_PHONE_REGEX = /^01[0125][0-9]{8}$/;
 
-// دالة مساعدة لتحديد عنوان الـ Web App لإرسال الروابط الذكية في الواتساب مع حماية النطاق من التلاعب
+// دالة مساعدة لتحديد عنوان الـ Web App لإرسال الروابط الذكية مع قراءة إعدادات الدومين بأمان تام
 function getAppBaseUrl(req: Request): string {
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
   if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "");
 
-  const origin = req.get("origin") || req.get("referer");
-  if (origin) {
-    try {
-      const parsed = new URL(origin);
-      const hostname = parsed.hostname.toLowerCase();
-      // السماح بالنطاقات المعتمدة فقط (محلياً أو سيرفرات المنصة) لمنع روابط التصيد الاحتيالي
-      if (
-        hostname === "localhost" ||
-        hostname === "127.0.0.1" ||
-        hostname.endsWith(".onrender.com") ||
-        hostname.endsWith(".railway.app") ||
-        hostname.endsWith(".vercel.app")
-      ) {
-        return parsed.origin;
+  // 1. قراءة النطاق المعتمد من ملف server-config.json المركزي في المشروع
+  let configuredWebUrl: string | null = null;
+  try {
+    const candidatePaths = [
+      path.resolve(process.cwd(), "server-config.json"),
+      path.resolve(process.cwd(), "..", "server-config.json"),
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        const data = JSON.parse(fs.readFileSync(p, "utf-8"));
+        if (data && data.webUrl) {
+          configuredWebUrl = data.webUrl.replace(/\/$/, "");
+          break;
+        }
       }
-    } catch (_e) {}
+    }
+  } catch (_e) {}
+
+  // 2. فحص النطاق الوارد والتحقق من أنه يتبع النطاقات المسموح بها لتفادي ثغرة Host Header Poisoning
+  const candidateHost = req.get("host") || "";
+  const candidateOrigin = req.get("origin") || "";
+  const hostToCheck = (candidateHost || candidateOrigin.replace(/^https?:\/\//i, "")).split(":")[0].toLowerCase();
+
+  const isAllowedHost =
+    hostToCheck === "localhost" ||
+    hostToCheck === "127.0.0.1" ||
+    hostToCheck === "::1" ||
+    hostToCheck.endsWith(".onrender.com") ||
+    hostToCheck.endsWith(".railway.app") ||
+    (configuredWebUrl && configuredWebUrl.toLowerCase().includes(hostToCheck));
+
+  if (isAllowedHost && candidateHost) {
+    const protocol = req.protocol === "https" || req.get("x-forwarded-proto") === "https" ? "https" : "http";
+    return `${protocol}://${candidateHost}`;
   }
 
-  const host = req.get("host");
-  const protocol = req.protocol === "https" || req.get("x-forwarded-proto") === "https" ? "https" : "http";
-  if (host && (host.includes("localhost") || host.includes("127.0.0.1") || host.includes("onrender.com"))) {
-    return `${protocol}://${host}`;
-  }
-
-  return "https://collage-project-5zby.onrender.com";
+  return configuredWebUrl || "https://collage-project-5zby.onrender.com";
 }
 
 
@@ -65,7 +79,7 @@ router.post("/register", async (req: Request, res: Response) => {
     if (existing) {
       if (!existing.isVerified) {
         // الحساب موجود ولكنه غير مفعل بعد - إعادة إرسال كود التفعيل ورابط التفعيل السريع
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpCode = crypto.randomInt(100000, 1000000).toString();
         const magicToken = crypto.randomUUID();
 
         await prisma.phoneVerificationToken.create({
@@ -114,7 +128,7 @@ router.post("/register", async (req: Request, res: Response) => {
     });
 
     // توليد كود التفعيل ورابط التفعيل السريع
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
     const magicToken = crypto.randomUUID();
 
     await prisma.phoneVerificationToken.create({
@@ -165,6 +179,101 @@ router.post("/login", async (req: Request, res: Response) => {
     });
 
     if (!user) {
+      // 1. فحص إمكانية تسجيل الدخول ككابتن توصيل (Driver)
+      const driver = await prisma.deliveryDriver.findUnique({
+        where: { username: cleanPhone },
+        include: {
+          branch: {
+            select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+          },
+        },
+      });
+
+      if (driver) {
+        if (!driver.isActive) {
+          res.status(403).json({ error: "حساب الكابتن موقوف حالياً من قِبل إدارة الفرع" });
+          return;
+        }
+
+        const isDriverMatch = await bcrypt.compare(password, driver.password);
+        if (!isDriverMatch) {
+          res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
+          return;
+        }
+
+        const driverToken = generateToken({
+          driverId: driver.id,
+          branchId: driver.branchId,
+          name: driver.name,
+          username: driver.username,
+        });
+
+        const { getDriverBranchConfig } = await import("../services/driver.service.js");
+        const config = await getDriverBranchConfig(driver.id, driver.branchId);
+        let servedBranchNames: string[] = [];
+        if (config.isAllBranches) {
+          servedBranchNames = ["جميع المطاعم والفروع (طيار عام)"];
+        } else {
+          const branches = await prisma.branch.findMany({
+            where: { id: { in: config.branchIds } },
+            select: { name: true },
+          });
+          servedBranchNames = branches.map(b => b.name);
+        }
+
+        res.json({
+          success: true,
+          role: "DRIVER",
+          token: driverToken,
+          driver: {
+            id: driver.id,
+            name: driver.name,
+            phone: driver.phone,
+            username: driver.username,
+            branchId: driver.branchId,
+            branch: driver.branch,
+            isAllBranches: config.isAllBranches,
+            servedBranchNames,
+          },
+          redirect: "/driver",
+        });
+        return;
+      }
+
+      // 2. فحص إمكانية تسجيل الدخول كفرع (Branch POS)
+      const branchUser = await prisma.branchUser.findUnique({
+        where: { username: cleanPhone },
+        include: { branch: true },
+      });
+
+      if (branchUser) {
+        if (!branchUser.branch.isActive) {
+          res.status(403).json({ error: "هذا الفرع موقوف حالياً من قِبل إدارة المنظومة" });
+          return;
+        }
+
+        const isBranchMatch = await bcrypt.compare(password, branchUser.password);
+        if (!isBranchMatch) {
+          res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
+          return;
+        }
+
+        const branchToken = generateToken({
+          branchUserId: branchUser.id,
+          branchId: branchUser.branchId,
+          username: branchUser.username,
+        });
+
+        res.json({
+          success: true,
+          role: "BRANCH",
+          token: branchToken,
+          branch: branchUser.branch,
+          redirect: "/branch-pos",
+        });
+        return;
+      }
+
       res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
       return;
     }
@@ -183,7 +292,7 @@ router.post("/login", async (req: Request, res: Response) => {
     // التحقق من تفعيل رقم الهاتف
     if (!user.isVerified) {
       // توليد كود تفعيل ورابط سريع وإرسالهما فوراً عبر الواتساب
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpCode = crypto.randomInt(100000, 1000000).toString();
       const magicToken = crypto.randomUUID();
 
       await prisma.phoneVerificationToken.create({
@@ -218,6 +327,7 @@ router.post("/login", async (req: Request, res: Response) => {
     res.json({
       success: true,
       token,
+      role: user.role,
       user: {
         id: user.id,
         name: user.name,
@@ -287,7 +397,11 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      res.status(404).json({ error: "عذراً، هذا الرقم غير مسجل في تطبيق UniFood" });
+      // حماية من هجمات استطلاع وتخمين أرقام الهواتف (Phone Number Enumeration Defense)
+      res.json({
+        success: true,
+        message: "إذا كان هذا الرقم مسجلاً لدينا، فسيتم إرسال كود التحقق فوراً إلى رقم الواتساب الخاص به 💬",
+      });
       return;
     }
 
@@ -313,7 +427,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
     }
 
     // توليد كود عشوائي من 6 أرقام
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
 
     // حفظ الكود في قاعدة البيانات بصلاحية 5 دقائق
     await prisma.passwordResetToken.create({
@@ -651,7 +765,7 @@ router.post("/resend-verification-otp", async (req: Request, res: Response) => {
       return;
     }
 
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
     const magicToken = crypto.randomUUID();
 
     await prisma.phoneVerificationToken.create({
