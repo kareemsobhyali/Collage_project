@@ -54,13 +54,15 @@ router.get("/public/support-contact", async (_req: Request, res: Response) => {
 // جلب ملف الـ PWA Manifest المخصص للمطعم أو المنصة
 router.get("/manifest", async (req: Request, res: Response) => {
   try {
-    const branchParam = (req.query.branch || req.query.r || req.query.slug) as string | undefined;
+    const rawBranchParam = (req.query.branch || req.query.r || req.query.slug) as string | undefined;
+    const branchParam = typeof rawBranchParam === 'string' ? rawBranchParam.trim() : '';
     if (branchParam) {
       const branch = await prisma.branch.findFirst({
         where: {
           OR: [
-            { slug: branchParam.trim().toLowerCase() },
-            { id: branchParam.trim() }
+            { slug: { equals: branchParam, mode: "insensitive" } },
+            { id: branchParam },
+            { name: { contains: branchParam, mode: "insensitive" } }
           ],
           isActive: true
         }
@@ -171,10 +173,10 @@ const getApkMetaHandler = async (req: Request, res: Response) => {
         logoUrl: "/logo.png",
         totalBranches,
         appFeatures: [
-          { title: "سلة الشلة التشاركية", desc: "اطلب أكلك أنت وزملائك في سلة واحدة بدون حيرة الفلوس والحسابات" },
-          { title: "توصيل للمدرجات والكليات", desc: "استلم وجبتك عند مبنى كليتك أو مدرجك مع تتبع مباشر للطيار" },
-          { title: "عروض البريك وفلاش ديلز", desc: "خصومات حصرية يومية بين المحاضرات تبدأ من 20% وحتى 50%" },
-          { title: "تنبيهات صوتية فورية", desc: "إشعار عند قبول الطلب، بدء التجهيز، ووصول الطيار لكليتك" }
+          { title: "طلب جماعي تشاركي", desc: "اطلب أكلك أنت وأصدقاؤك أو زملاء العمل في سلة واحدة بدون حيرة الحسابات" },
+          { title: "توصيل سريع ومباشر", desc: "استلم وجبتك عند باب بيتك أو مكان عملك مع تتبع مباشر لكابتن التوصيل" },
+          { title: "عروض يومية وفلاش ديلز", desc: "خصومات حصرية يومية تبدأ من 20% وحتى 50%" },
+          { title: "تنبيهات صوتية فورية", desc: "إشعار عند قبول الطلب، بدء التجهيز، وخروج كابتن التوصيل إليك" }
         ]
       });
     }
@@ -182,9 +184,10 @@ const getApkMetaHandler = async (req: Request, res: Response) => {
     const branch = await prisma.branch.findFirst({
       where: {
         OR: [
-          { slug: slug.toLowerCase() },
-          { slug: slug },
-          { id: slug }
+          { slug: { equals: slug, mode: "insensitive" } },
+          { id: slug },
+          { name: { equals: slug, mode: "insensitive" } },
+          { name: { contains: slug, mode: "insensitive" } }
         ],
         isActive: true
       },
@@ -235,7 +238,7 @@ const getApkMetaHandler = async (req: Request, res: Response) => {
       featuredItems,
       appFeatures: [
         { title: "منيو المطعم كاملاً", desc: `تصفح كل أصناف ${branch.name} وأحجامها وإضافاتها في ثواني` },
-        { title: "طلب مسبق واستلام فوري", desc: "اطلب قبل ما تطلع من المحاضرة واستلم طلبك جاهز وسخن بدون وقفة في الطابور" },
+        { title: "طلب مسبق واستلام فوري", desc: "اطلب واستلم طلبك جاهز وساخن فور وصولك بدون انتظار في الطابور" },
         { title: "عروض وتخفيضات خاصة", desc: `عروض فلاش ديلز وكوبونات حصرية لعملاء تطبيق ${branch.name}` },
         { title: "تثبيت سريع وخفيف", desc: "تطبيق سريع جداً على شاشة هاتفك لا يستهلك باقة ولا مساحة تخزين" }
       ]

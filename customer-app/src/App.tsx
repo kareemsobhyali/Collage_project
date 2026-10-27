@@ -1138,7 +1138,11 @@ export function App() {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 p-3 sm:p-4 max-w-3xl w-full mx-auto overflow-x-hidden">
+      <main className={`flex-1 max-w-3xl w-full mx-auto overflow-x-hidden ${
+        selectedBranch
+          ? 'pt-1.5 px-3 pb-3 sm:pt-2 sm:px-4 sm:pb-4'
+          : 'p-3 sm:p-4'
+      }`}>
         {selectedBranch ? (
           <BranchMenu
             branch={selectedBranch}

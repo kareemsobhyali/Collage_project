@@ -24,7 +24,9 @@ import {
   ChefHat,
   RotateCcw,
   Sparkles,
-  ArrowLeft
+  ArrowLeft,
+  Smartphone,
+  Download
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress, getStoredClientCoords, isBranchInDeliveryZone } from '../services/campusLocations';
@@ -390,12 +392,21 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
 
               {/* Price & Add Action */}
               <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-sm sm:text-base font-black text-indigo-700 font-mono">
-                    {item.price}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-500">ج.م</span>
-                </div>
+                {(() => {
+                  const displayPrice = item.basePrice ?? item.price ?? (Array.isArray(item.sizes) && item.sizes.length > 0 ? item.sizes[0].price : 0);
+                  const hasMultipleSizes = Array.isArray(item.sizes) && item.sizes.length > 1;
+                  return (
+                    <div className="flex items-baseline gap-1">
+                      {hasMultipleSizes && (
+                        <span className="text-[10px] font-bold text-slate-400">من</span>
+                      )}
+                      <span className="text-sm sm:text-base font-black text-indigo-700 font-mono">
+                        {displayPrice}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500">ج.م</span>
+                    </div>
+                  );
+                })()}
 
                 <button
                   type="button"
@@ -778,8 +789,27 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   const crowdLevel = branch?.crowdLevel || 'LOW';
   const estimatedPrepMins = branch?.estimatedPrepMins || '15-25 د';
 
+  // تثبيت تطبيق المطعم أو توجيهه لتحميل الـ APK المباشر
+  const handleInstallBranchApp = () => {
+    const branchKey = branch?.slug || branch?.id;
+    if (branchKey) {
+      try {
+        localStorage.setItem('pwa_installed_branch', branchKey.toLowerCase());
+      } catch {}
+    }
+    const prompt = (window as any).deferredInstallPrompt;
+    if (prompt && typeof prompt.prompt === 'function') {
+      try {
+        prompt.prompt();
+        return;
+      } catch {}
+    }
+    const branchSlug = encodeURIComponent(branchKey || '');
+    window.location.href = `/${branchSlug}/apk`;
+  };
+
   return (
-    <div className="space-y-4 pb-36 w-full max-w-full overflow-x-clip select-none animate-fadeIn">
+    <div className="space-y-2.5 sm:space-y-3 pb-36 w-full max-w-full overflow-x-clip select-none animate-fadeIn">
       {/* Toast الإشعار بنسخ الرابط المباشر */}
       {copiedDirectLink && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 text-xs font-black animate-bounce border border-emerald-400">
@@ -791,7 +821,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       {/* ========================================================================= */}
       {/* 0. الـ 3 زراير الرئيسية للفرع: [المطعم] [الطلبات] [العروض]                 */}
       {/* ========================================================================= */}
-      <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-lg grid grid-cols-3 gap-1 sm:gap-1.5 select-none sticky top-14 z-20">
+      <div className="bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-lg grid grid-cols-3 gap-1 sm:gap-1.5 select-none sticky top-13 z-20 mt-0">
         {/* زر المطعم */}
         <button
           type="button"
@@ -862,36 +892,49 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         <div className="space-y-4 animate-fadeIn">
           {/* بطاقة هوية المطعم والشعار والبيانات */}
           <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-3.5">
-            {/* الصف 1: زر العودة للرئيسية وزر نسخ رابط المطعم */}
-            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+            {/* الصف 1: زر العودة للرئيسية وزر تثبيت التطبيق وزر نسخ رابط المطعم */}
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 pb-2.5 border-b border-slate-100 flex-wrap">
               <button
                 type="button"
                 onClick={onBack}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all active:scale-95 group shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all active:scale-95 group shadow-2xs cursor-pointer shrink-0"
                 title="العودة للصفحة الرئيسية للسيستم"
               >
                 <ArrowRight className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform shrink-0" />
                 <span>الرئيسية</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleCopyDirectLink}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all active:scale-95 border border-indigo-100 shadow-2xs cursor-pointer"
-                title="نسخ الرابط المباشر لهذا المطعم"
-              >
-                {copiedDirectLink ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-700">تم نسخ الرابط ✓</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>نسخ رابط المطعم</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleInstallBranchApp}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-all active:scale-95 border border-emerald-200 shadow-2xs cursor-pointer"
+                  title="تثبيت تطبيق هذا المطعم على هاتفك كأيقونة مستقلة أو تحميل ملف APK"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="hidden xs:inline">تثبيت التطبيق</span>
+                  <span className="xs:hidden">تثبيت</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyDirectLink}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all active:scale-95 border border-indigo-100 shadow-2xs cursor-pointer"
+                  title="نسخ الرابط المباشر لهذا المطعم"
+                >
+                  {copiedDirectLink ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="text-emerald-700">تم نسخ الرابط ✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span>نسخ الرابط</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* الصف 2: الشعار والاسم والعنوان والتليفون */}
