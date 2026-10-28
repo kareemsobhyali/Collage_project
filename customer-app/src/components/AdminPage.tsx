@@ -123,7 +123,7 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'ORDERS' | 'FINANCE' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'FLASH_DEALS' | 'WHATSAPP' | 'SETTINGS' | 'SUPPORT'>('BRANCHES');
+  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'DELIVERY_ZONES' | 'ORDERS' | 'FINANCE' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'FLASH_DEALS' | 'WHATSAPP' | 'SETTINGS' | 'SUPPORT'>('BRANCHES');
   const [supportTickets, setSupportTickets] = useState<any[]>([]);
   const [loadingSupportTickets, setLoadingSupportTickets] = useState(false);
   const [supportFilter, setSupportFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL');
@@ -651,7 +651,7 @@ export const AdminPage: React.FC = () => {
   const [newLat, setNewLat] = useState<number | null>(30.0262);
   const [newLng, setNewLng] = useState<number | null>(31.2088);
   const [detectingNewGps, setDetectingNewGps] = useState(false);
-  const [locationPickerTarget, setLocationPickerTarget] = useState<'NEW_BRANCH' | 'EDIT_BRANCH' | null>(null);
+  const [locationPickerTarget, setLocationPickerTarget] = useState<'NEW_BRANCH' | 'EDIT_BRANCH' | 'BRANCH_ZONE' | 'GLOBAL_ZONE' | null>(null);
   const [newLogoUrl, setNewLogoUrl] = useState('');
   const [uploadingNewLogo, setUploadingNewLogo] = useState(false);
   const [newDeliveryFee, setNewDeliveryFee] = useState('10');
@@ -679,6 +679,47 @@ export const AdminPage: React.FC = () => {
   const [newZoneRadius, setNewZoneRadius] = useState<string>('1500');
   const [showZoneGeoSettings, setShowZoneGeoSettings] = useState<boolean>(false);
   const [zoneGpsLoading, setZoneGpsLoading] = useState<boolean>(false);
+  const [editingZoneIndex, setEditingZoneIndex] = useState<number | null>(null);
+  const [isZonesDropdownOpen, setIsZonesDropdownOpen] = useState<boolean>(true);
+  const [zoneSearchFilter, setZoneSearchFilter] = useState<string>('');
+
+  // Central Delivery Zones Tab State
+  const [globalZoneName, setGlobalZoneName] = useState<string>('');
+  const [globalZoneLat, setGlobalZoneLat] = useState<string>('');
+  const [globalZoneLng, setGlobalZoneLng] = useState<string>('');
+  const [globalZoneRadius, setGlobalZoneRadius] = useState<string>('1500');
+  const [showGlobalZoneGeo, setShowGlobalZoneGeo] = useState<boolean>(false);
+  const [globalZoneTargetType, setGlobalZoneTargetType] = useState<'ALL' | 'SPECIFIC'>('ALL');
+  const [selectedBranchIdsForZone, setSelectedBranchIdsForZone] = useState<string[]>([]);
+  const [globalDefaultFee, setGlobalDefaultFee] = useState<string>('15');
+  const [branchCustomFees, setBranchCustomFees] = useState<Record<string, string>>({});
+  const [savingGlobalZone, setSavingGlobalZone] = useState<boolean>(false);
+  const [globalZoneSuccessMsg, setGlobalZoneSuccessMsg] = useState<string | null>(null);
+  const [editingGlobalZoneKey, setEditingGlobalZoneKey] = useState<string | null>(null);
+  const [globalZoneSearch, setGlobalZoneSearch] = useState<string>('');
+  const [expandedMasterZoneKey, setExpandedMasterZoneKey] = useState<string | null>(null);
+  const [globalZoneGpsLoading, setGlobalZoneGpsLoading] = useState<boolean>(false);
+
+  const handleCaptureGlobalZoneGps = () => {
+    if (!navigator.geolocation) {
+      alert('خدمة الـ GPS غير مدعومة في متصفحك.');
+      return;
+    }
+    setGlobalZoneGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGlobalZoneGpsLoading(false);
+        setGlobalZoneLat(pos.coords.latitude.toFixed(6));
+        setGlobalZoneLng(pos.coords.longitude.toFixed(6));
+        setShowGlobalZoneGeo(true);
+      },
+      () => {
+        setGlobalZoneGpsLoading(false);
+        alert('تعذر التقاط الـ GPS: تأكد من تفعيل صلاحية الموقع في جهازك.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
 
   const handleCaptureZoneGps = () => {
     if (!navigator.geolocation) {
@@ -2486,6 +2527,212 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  // Aggregated delivery zones across all branches for Central Management
+  const aggregatedZones = React.useMemo(() => {
+    const zoneMap = new Map<string, {
+      cleanName: string;
+      sampleFullName: string;
+      lat: number | null;
+      lng: number | null;
+      radiusMeters: number | null;
+      branches: {
+        branchId: string;
+        branchName: string;
+        branchLogo?: string | null;
+        fee: number;
+      }[];
+    }>();
+
+    branches.forEach((b: any) => {
+      if (Array.isArray(b.deliveryZones)) {
+        b.deliveryZones.forEach((z: any) => {
+          const geo = extractZoneGeo(z.name);
+          const key = geo.cleanName.trim().toLowerCase();
+          if (!key) return;
+          if (!zoneMap.has(key)) {
+            zoneMap.set(key, {
+              cleanName: geo.cleanName.trim(),
+              sampleFullName: z.name,
+              lat: geo.lat ?? null,
+              lng: geo.lng ?? null,
+              radiusMeters: geo.radiusMeters ?? null,
+              branches: []
+            });
+          }
+          const entry = zoneMap.get(key)!;
+          if (!entry.lat && geo.lat) {
+            entry.lat = geo.lat ?? null;
+            entry.lng = geo.lng ?? null;
+            entry.radiusMeters = geo.radiusMeters ?? null;
+            entry.sampleFullName = z.name;
+          }
+          entry.branches.push({
+            branchId: b.id,
+            branchName: b.name,
+            branchLogo: b.logoUrl,
+            fee: z.fee
+          });
+        });
+      }
+    });
+
+    return Array.from(zoneMap.values());
+  }, [branches]);
+
+  const handleSaveGlobalZone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!globalZoneName.trim()) {
+      alert('يرجى كتابة اسم المنطقة أولاً.');
+      return;
+    }
+
+    const targetBranches = globalZoneTargetType === 'ALL'
+      ? branches
+      : branches.filter((b: any) => selectedBranchIdsForZone.includes(b.id));
+
+    if (targetBranches.length === 0) {
+      alert('يرجى تحديد مطعم واحد على الأقل لربطه بهذه المنطقة.');
+      return;
+    }
+
+    setSavingGlobalZone(true);
+    setGlobalZoneSuccessMsg(null);
+
+    const lat = parseFloat(globalZoneLat);
+    const lng = parseFloat(globalZoneLng);
+    const radius = parseFloat(globalZoneRadius) || 1500;
+    const formattedZoneName = formatZoneWithGeo(
+      globalZoneName.trim(),
+      !isNaN(lat) ? lat : null,
+      !isNaN(lng) ? lng : null,
+      radius
+    );
+    const cleanCurrentName = cleanZoneName(globalZoneName.trim()).toLowerCase();
+
+    try {
+      let updatedCount = 0;
+      for (const branch of targetBranches) {
+        const branchFee = parseFloat(branchCustomFees[branch.id] ?? globalDefaultFee) || 15;
+        const currentZones: any[] = Array.isArray(branch.deliveryZones) ? [...branch.deliveryZones] : [];
+        
+        // Remove prior version if updating or matching clean name
+        const filteredZones = currentZones.filter(z => {
+          const zClean = cleanZoneName(z.name).toLowerCase();
+          if (editingGlobalZoneKey && zClean === editingGlobalZoneKey.toLowerCase()) return false;
+          if (zClean === cleanCurrentName) return false;
+          return true;
+        });
+
+        filteredZones.push({
+          name: formattedZoneName,
+          fee: branchFee
+        });
+
+        const res = await fetch(`${API_BASE_URL}/admin/branches/${branch.id}`, {
+          method: 'PUT',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({
+            name: branch.name,
+            deliveryType: 'ZONES',
+            deliveryZones: filteredZones
+          })
+        });
+        if (res.ok) {
+          updatedCount++;
+        }
+      }
+
+      setSavingGlobalZone(false);
+      setGlobalZoneSuccessMsg(`تم تطبيق وحفظ منطقة "${globalZoneName.trim()}" بنجاح على ${updatedCount} مطعم!`);
+      setTimeout(() => setGlobalZoneSuccessMsg(null), 5000);
+
+      // Reset form
+      setGlobalZoneName('');
+      setGlobalZoneLat('');
+      setGlobalZoneLng('');
+      setGlobalZoneRadius('1500');
+      setShowGlobalZoneGeo(false);
+      setEditingGlobalZoneKey(null);
+      setSelectedBranchIdsForZone([]);
+      setBranchCustomFees({});
+
+      // Refresh dashboard data
+      fetchDashboardData();
+    } catch (err: any) {
+      setSavingGlobalZone(false);
+      alert('حدث خطأ أثناء حفظ المنطقة وتطبيقها: ' + (err.message || 'خطأ غير معروف'));
+    }
+  };
+
+  const handleDeleteGlobalZone = (zoneCleanName: string) => {
+    setAdminConfirmDialog({
+      isOpen: true,
+      title: 'حذف منطقة التوصيل من كافة المطاعم',
+      message: `هل أنت متأكد من رغبتك في حذف منطقة "${zoneCleanName}" من جميع المطاعم المرتبطة بها؟`,
+      confirmText: 'نعم، حذف المنطقة',
+      cancelText: 'تراجع',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          const cleanTarget = zoneCleanName.trim().toLowerCase();
+          const affectedBranches = branches.filter((b: any) => 
+            Array.isArray(b.deliveryZones) && 
+            b.deliveryZones.some((z: any) => cleanZoneName(z.name).trim().toLowerCase() === cleanTarget)
+          );
+
+          for (const branch of affectedBranches) {
+            const updatedZones = branch.deliveryZones.filter(
+              (z: any) => cleanZoneName(z.name).trim().toLowerCase() !== cleanTarget
+            );
+            await fetch(`${API_BASE_URL}/admin/branches/${branch.id}`, {
+              method: 'PUT',
+              headers: getAdminHeaders(),
+              body: JSON.stringify({
+                name: branch.name,
+                deliveryZones: updatedZones,
+                deliveryType: updatedZones.length === 0 ? 'FIXED' : branch.deliveryType
+              })
+            });
+          }
+
+          if (editingGlobalZoneKey?.toLowerCase() === cleanTarget) {
+            setEditingGlobalZoneKey(null);
+            setGlobalZoneName('');
+          }
+
+          fetchDashboardData();
+        } catch (err: any) {
+          alert('تعذر حذف المنطقة: ' + err.message);
+        }
+      }
+    });
+  };
+
+  const handleEditGlobalZone = (masterZone: any) => {
+    setEditingGlobalZoneKey(masterZone.cleanName);
+    setGlobalZoneName(masterZone.cleanName);
+    setGlobalZoneLat(masterZone.lat !== null && masterZone.lat !== undefined ? String(masterZone.lat) : '');
+    setGlobalZoneLng(masterZone.lng !== null && masterZone.lng !== undefined ? String(masterZone.lng) : '');
+    setGlobalZoneRadius(masterZone.radiusMeters ? String(masterZone.radiusMeters) : '1500');
+    setShowGlobalZoneGeo(Boolean(masterZone.lat && masterZone.lng));
+    
+    const linkedBranchIds = masterZone.branches.map((b: any) => b.branchId);
+    if (linkedBranchIds.length === branches.length && branches.length > 0) {
+      setGlobalZoneTargetType('ALL');
+    } else {
+      setGlobalZoneTargetType('SPECIFIC');
+    }
+    setSelectedBranchIdsForZone(linkedBranchIds);
+
+    const customFees: Record<string, string> = {};
+    masterZone.branches.forEach((b: any) => {
+      customFees[b.branchId] = String(b.fee);
+    });
+    setBranchCustomFees(customFees);
+
+    window.scrollTo({ top: 300, behavior: 'smooth' });
+  };
+
   const handleOpenEditBranch = (branch: any) => {
     setEditingBranch(branch);
     setEditName(branch.name || '');
@@ -2500,6 +2747,14 @@ export const AdminPage: React.FC = () => {
     setEditDeliveryRadiusKm(branch.deliveryRadiusKm !== undefined && branch.deliveryRadiusKm !== null ? String(branch.deliveryRadiusKm) : '10');
     setEditDeliveryType(branch.deliveryType || 'FIXED');
     setEditDeliveryZones(Array.isArray(branch.deliveryZones) ? branch.deliveryZones : []);
+    setEditingZoneIndex(null);
+    setNewZoneName('');
+    setNewZoneFee('10');
+    setNewZoneLat('');
+    setNewZoneLng('');
+    setNewZoneRadius('1500');
+    setShowZoneGeoSettings(false);
+    setIsZonesDropdownOpen(true);
     setEditAllowDelivery(branch.allowDelivery ?? true);
     setEditAllowPickup(branch.allowPickup ?? true);
     setEditOpeningTime(branch.openingTime || '08:00');
@@ -2922,6 +3177,21 @@ export const AdminPage: React.FC = () => {
                 <span>الفروع والمطاعم</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'BRANCHES' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                   {branches.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('DELIVERY_ZONES')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'DELIVERY_ZONES'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-1 ring-purple-400/40'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
+                }`}
+              >
+                <MapPin className="w-4 h-4 shrink-0 text-purple-400" />
+                <span>مناطق ونطاقات التوصيل</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${activeTab === 'DELIVERY_ZONES' ? 'bg-purple-800/80 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
+                  {aggregatedZones.length}
                 </span>
               </button>
 
@@ -3349,6 +3619,505 @@ export const AdminPage: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Central Delivery Zones Management */}
+        {activeTab === 'DELIVERY_ZONES' && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Page Header Banner */}
+            <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-5 sm:p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
+              <div className="absolute -left-10 -bottom-10 w-44 h-44 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="relative z-10 space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-purple-300 border border-white/10 shrink-0">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg sm:text-xl font-black">إدارة مناطق ونطاقات التوصيل المركزية</h1>
+                    <p className="text-xs text-purple-200 mt-0.5">
+                      حدد المناطق على الخريطة واربطها بجميع المطاعم أو بمطاعم محددة، مع تخصيص سعر توصيل خاص بكل مطعم
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Success Notification Alert */}
+            {globalZoneSuccessMsg && (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-black flex items-center gap-2 shadow-sm animate-fadeIn">
+                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>{globalZoneSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* Grid: 2 Columns on desktop (Add/Edit Form on Right, Existing Master Zones on Left) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              
+              {/* 1. Zone Builder Card (Col 5 / 12) */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                      <h2 className="text-sm font-black text-slate-900">
+                        {editingGlobalZoneKey ? `تعديل منطقة: ${editingGlobalZoneKey}` : 'إضافة منطقة توصيل جديدة'}
+                      </h2>
+                    </div>
+                    {editingGlobalZoneKey && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingGlobalZoneKey(null);
+                          setGlobalZoneName('');
+                          setGlobalZoneLat('');
+                          setGlobalZoneLng('');
+                          setSelectedBranchIdsForZone([]);
+                          setBranchCustomFees({});
+                        }}
+                        className="text-[11px] text-slate-500 hover:text-slate-800 font-bold transition-colors cursor-pointer"
+                      >
+                        إلغاء التعديل
+                      </button>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleSaveGlobalZone} className="space-y-4">
+                    {/* Zone Name */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        اسم المنطقة أو الحي <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="مثال: الحي الأول، حي الزهور، الجامعة..."
+                        value={globalZoneName}
+                        onChange={e => setGlobalZoneName(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-bold focus:bg-white focus:border-purple-500 focus:outline-none transition-all"
+                      />
+                    </div>
+
+                    {/* Map Open Button */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setLocationPickerTarget('GLOBAL_ZONE')}
+                        className="w-full py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer shadow-2xs"
+                      >
+                        <MapPin className="w-4 h-4 text-purple-600" />
+                        <span>🗺️ فتح الخريطة والبحث عن العنوان لاختياره</span>
+                      </button>
+                    </div>
+
+                    {/* Geo Settings Toggle / Coords */}
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <Navigation className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>الموقع الجغرافي والنطاق (اختياري / تلقائي):</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleCaptureGlobalZoneGps}
+                          disabled={globalZoneGpsLoading}
+                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Crosshair className="w-3 h-3 text-emerald-600" />
+                          <span>{globalZoneGpsLoading ? 'سحب...' : 'موقعي الحالي'}</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block mb-0.5">خط العرض (Lat)</span>
+                          <input
+                            type="text"
+                            placeholder="30.0275"
+                            value={globalZoneLat}
+                            onChange={e => setGlobalZoneLat(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block mb-0.5">خط الطول (Lng)</span>
+                          <input
+                            type="text"
+                            placeholder="31.2110"
+                            value={globalZoneLng}
+                            onChange={e => setGlobalZoneLng(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Radius selector & manual input */}
+                      <div className="pt-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] text-slate-600 font-bold">نصف قطر التغطية التلقائية:</span>
+                          <span className="text-[10px] text-purple-700 font-black font-mono">
+                            {parseFloat(globalZoneRadius) >= 1000 ? `${(parseFloat(globalZoneRadius) / 1000).toFixed(2)} كم` : `${globalZoneRadius} متر`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {[
+                            { label: '500 م', val: '500' },
+                            { label: '1 كم', val: '1000' },
+                            { label: '1.5 كم', val: '1500' },
+                            { label: '2 كم', val: '2000' },
+                            { label: '3 كم', val: '3000' },
+                            { label: '5 كم', val: '5000' },
+                          ].map(p => (
+                            <button
+                              key={p.val}
+                              type="button"
+                              onClick={() => setGlobalZoneRadius(p.val)}
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                                globalZoneRadius === p.val
+                                  ? 'bg-purple-600 text-white border-purple-600'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                        {/* Manual range input */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="relative flex-1">
+                            <input
+                              type="number"
+                              min="50"
+                              step="50"
+                              placeholder="كتابة النطاق يدوياً بالمتر..."
+                              value={globalZoneRadius}
+                              onChange={e => setGlobalZoneRadius(e.target.value)}
+                              className="w-full pr-3 pl-12 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-purple-500 focus:outline-none"
+                            />
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">متر</span>
+                          </div>
+                          <span className="text-[10px] font-black text-purple-700 font-mono bg-purple-50 border border-purple-200 px-2.5 py-1.5 rounded-lg shrink-0">
+                            {parseFloat(globalZoneRadius) >= 1000 ? `${(parseFloat(globalZoneRadius) / 1000).toFixed(2)} كم` : `${globalZoneRadius || 0} م`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Target Branches Selection */}
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <label className="block text-xs font-bold text-slate-700">
+                        المطاعم المرتبطة بهذه المنطقة:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGlobalZoneTargetType('ALL');
+                            setSelectedBranchIdsForZone(branches.map(b => b.id));
+                          }}
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            globalZoneTargetType === 'ALL'
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <Store className="w-3.5 h-3.5" />
+                          <span>جميع المطاعم ({branches.length})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGlobalZoneTargetType('SPECIFIC')}
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            globalZoneTargetType === 'SPECIFIC'
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>مطاعم محددة</span>
+                        </button>
+                      </div>
+
+                      {globalZoneTargetType === 'SPECIFIC' && (
+                        <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                          <div className="text-[10px] text-slate-500 font-bold mb-1">اختر المطاعم التي تخدم هذه المنطقة:</div>
+                          <div className="space-y-1">
+                            {branches.map(b => {
+                              const isSelected = selectedBranchIdsForZone.includes(b.id);
+                              return (
+                                <label
+                                  key={b.id}
+                                  className={`flex items-center gap-2 p-1.5 rounded-lg border cursor-pointer transition-colors ${
+                                    isSelected
+                                      ? 'bg-purple-50/70 border-purple-200 text-purple-900 font-bold'
+                                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {
+                                      setSelectedBranchIdsForZone(prev =>
+                                        isSelected ? prev.filter(id => id !== b.id) : [...prev, b.id]
+                                      );
+                                    }}
+                                    className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
+                                  />
+                                  <span className="text-xs truncate">{b.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Custom Fees per Branch */}
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700">
+                          تحديد رسوم التوصيل لكل مطعم:
+                        </label>
+                      </div>
+
+                      {/* Default Fee Quick Filler */}
+                      <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                        <span className="text-[11px] font-bold text-slate-600 shrink-0">سعر موحد مقترح:</span>
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            min="0"
+                            value={globalDefaultFee}
+                            onChange={e => setGlobalDefaultFee(e.target.value)}
+                            className="w-full pr-2 pl-7 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                          />
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">ج.م</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const feeVal = globalDefaultFee || '15';
+                            const targetBranches = globalZoneTargetType === 'ALL'
+                              ? branches
+                              : branches.filter(b => selectedBranchIdsForZone.includes(b.id));
+                            const fees: Record<string, string> = { ...branchCustomFees };
+                            targetBranches.forEach(b => {
+                              fees[b.id] = feeVal;
+                            });
+                            setBranchCustomFees(fees);
+                          }}
+                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                        >
+                          تطبيق السعر على الكل
+                        </button>
+                      </div>
+
+                      {/* Per-branch custom fee inputs */}
+                      <div className="max-h-52 overflow-y-auto space-y-1.5 p-2 bg-slate-50/50 rounded-xl border border-slate-200 custom-scrollbar">
+                        {(globalZoneTargetType === 'ALL' ? branches : branches.filter(b => selectedBranchIdsForZone.includes(b.id))).map(b => {
+                          const currentFee = branchCustomFees[b.id] ?? globalDefaultFee ?? '15';
+                          return (
+                            <div
+                              key={b.id}
+                              className="flex items-center justify-between gap-2 p-1.5 bg-white rounded-lg border border-slate-200 shadow-2xs"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                {b.logoUrl ? (
+                                  <img src={getFullImageUrl(b.logoUrl)} alt="" className="w-6 h-6 rounded-md object-cover border" />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center text-[10px] font-black">
+                                    {b.name[0]}
+                                  </div>
+                                )}
+                                <span className="text-xs font-bold text-slate-800 truncate">{b.name}</span>
+                              </div>
+                              <div className="relative w-24 shrink-0">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={currentFee}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setBranchCustomFees(prev => ({ ...prev, [b.id]: val }));
+                                  }}
+                                  className="w-full pr-2 pl-7 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 focus:bg-white focus:border-purple-500"
+                                />
+                                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold pointer-events-none">
+                                  ج.م
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={savingGlobalZone}
+                        className="w-full py-3 bg-purple-600 hover:bg-purple-700 active:scale-98 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {savingGlobalZone ? (
+                          <>
+                            <RotateCw className="w-4 h-4 animate-spin" />
+                            <span>جاري حفظ وتحديث المطاعم...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            <span>{editingGlobalZoneKey ? '✓ حفظ تحديثات المنطقة والأسعار' : '💾 حفظ وتطبيق المنطقة على المطاعم'}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              {/* 2. Master Zones Explorer (Col 7 / 12) */}
+              <div className="lg:col-span-7 space-y-4">
+                <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div>
+                      <h2 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                        <span>المناطق المسجلة في المنظومة</span>
+                        <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-xs font-mono font-black">
+                          {aggregatedZones.length}
+                        </span>
+                      </h2>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        استعرض كافة المناطق المعتمدة وأسعار التوصيل المحددة لكل مطعم مع خيارات التعديل والحذف السريع
+                      </p>
+                    </div>
+                    {/* Quick Search */}
+                    <div className="relative w-full sm:w-56">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="ابحث عن منطقة..."
+                        value={globalZoneSearch}
+                        onChange={e => setGlobalZoneSearch(e.target.value)}
+                        className="w-full pr-8 pl-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 focus:bg-white focus:border-purple-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {aggregatedZones.length === 0 ? (
+                    <div className="text-center py-12 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                      <MapPin className="w-8 h-8 text-slate-300 mx-auto" />
+                      <div className="text-xs font-bold text-slate-600">لم يتم إضافة مناطق توصيل موحدة بعد</div>
+                      <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                        استخدم النموذج الموجود على اليمين لإضافة منطقتك الأولى وتحديد موقعها على الخريطة وربطها بالمطاعم.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {aggregatedZones
+                        .filter(z => !globalZoneSearch.trim() || z.cleanName.toLowerCase().includes(globalZoneSearch.toLowerCase()))
+                        .map((zone) => {
+                          const isExpanded = expandedMasterZoneKey === zone.cleanName;
+                          return (
+                            <div
+                              key={zone.cleanName}
+                              className="border border-slate-200 rounded-2xl bg-white hover:border-purple-200 transition-all shadow-2xs overflow-hidden"
+                            >
+                              {/* Zone Header Row */}
+                              <div className="p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 border border-purple-100">
+                                    <MapPin className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-black text-slate-900">{zone.cleanName}</span>
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
+                                        يخدمها {zone.branches.length} {zone.branches.length === 1 ? 'مطعم' : 'مطاعم'}
+                                      </span>
+                                      {zone.lat && zone.lng ? (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                          <span>📍 نطاق {(zone.radiusMeters ? zone.radiusMeters / 1000 : 1.5).toFixed(1)} كم</span>
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">
+                                          بدون إحداثيات
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2">
+                                      <span>متوسط رسوم التوصيل:</span>
+                                      <span className="font-mono font-bold text-slate-700">
+                                        {zone.branches.length > 0
+                                          ? (zone.branches.reduce((acc, b) => acc + b.fee, 0) / zone.branches.length).toFixed(0)
+                                          : 0} ج.م
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedMasterZoneKey(isExpanded ? null : zone.cleanName)}
+                                    className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                  >
+                                    <span>{isExpanded ? 'إخفاء المطاعم ▴' : 'عرض المطاعم والأسعار ▾'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditGlobalZone(zone)}
+                                    className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                    title="تعديل هذه المنطقة وأسعارها"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                    <span>تعديل</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteGlobalZone(zone.cleanName)}
+                                    className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                    title="حذف هذه المنطقة من كافة المطاعم"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>حذف</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Expanded Section: Linked branches list with custom fees */}
+                              {isExpanded && (
+                                <div className="p-3 bg-slate-50/80 border-t border-slate-100 space-y-2 animate-fadeIn">
+                                  <div className="text-[11px] font-bold text-slate-600">
+                                    المطاعم التي تقدم التوصيل إلى "{zone.cleanName}" ورسوم كل مطعم:
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {zone.branches.map(b => (
+                                      <div
+                                        key={b.branchId}
+                                        className="p-2 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-2 shadow-2xs"
+                                      >
+                                        <span className="text-xs font-bold text-slate-800 truncate">{b.branchName}</span>
+                                        <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-100 rounded-md text-xs font-mono font-black shrink-0">
+                                          {b.fee} ج.م
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
         )}
@@ -7793,7 +8562,7 @@ export const AdminPage: React.FC = () => {
             type="button"
             onClick={() => setShowMobileMoreMenu(prev => !prev)}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
-              showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS', 'ANALYTICS'].includes(activeTab)
+              showMobileMoreMenu || ['DELIVERY_ZONES', 'BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS', 'ANALYTICS'].includes(activeTab)
                 ? 'text-purple-600 font-black'
                 : 'text-slate-500 hover:text-slate-800 font-medium'
             }`}
@@ -7805,7 +8574,7 @@ export const AdminPage: React.FC = () => {
               )}
             </div>
             <span className="text-[10px] leading-tight">المزيد</span>
-            {(showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS', 'ANALYTICS'].includes(activeTab)) && (
+            {(showMobileMoreMenu || ['DELIVERY_ZONES', 'BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS', 'ANALYTICS'].includes(activeTab)) && (
               <span className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
             )}
           </button>
@@ -7841,6 +8610,31 @@ export const AdminPage: React.FC = () => {
 
             {/* Quick Grid for Secondary Tabs */}
             <div className="grid grid-cols-2 gap-2.5">
+              {/* DELIVERY_ZONES */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('DELIVERY_ZONES');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 col-span-2 ${
+                  activeTab === 'DELIVERY_ZONES'
+                    ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm ring-1 ring-purple-300'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-600 flex items-center justify-center">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-mono text-purple-600 font-bold">{aggregatedZones.length} منطقة</span>
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-slate-900">مناطق ونطاقات التوصيل المركزية</span>
+                  <span className="text-[10px] text-slate-500 block">إضافة وربط المناطق وتخصيص أسعار التوصيل لكل مطعم</span>
+                </div>
+              </button>
+
               {/* ANALYTICS */}
               <button
                 type="button"
@@ -8623,23 +9417,62 @@ export const AdminPage: React.FC = () => {
                       {editDeliveryZones.length > 0 && (
                         <button
                           type="button"
-                          onClick={() => setEditDeliveryZones([])}
-                          className="text-[10px] text-rose-500 hover:text-rose-700 font-bold transition-colors"
+                          onClick={() => {
+                            if (window.confirm('هل أنت متأكد من مسح كافة مناطق هذا الفرع؟')) {
+                              setEditDeliveryZones([]);
+                              setEditingZoneIndex(null);
+                            }
+                          }}
+                          className="text-[10px] text-rose-500 hover:text-rose-700 font-bold transition-colors cursor-pointer"
                         >
                           مسح كافة المناطق
                         </button>
                       )}
                     </div>
 
-                    {/* Responsive Add Zone Box with Map Location & Range */}
-                    <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-2.5 shadow-2xs">
+                    {/* Responsive Add/Edit Zone Box with Map Location & Range */}
+                    <div className="p-3.5 bg-white border border-slate-200 rounded-2xl space-y-3 shadow-2xs">
+                      {/* Active Edit Mode Banner */}
+                      {editingZoneIndex !== null && (
+                        <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-2 text-xs text-amber-800 font-bold animate-fadeIn">
+                          <div className="flex items-center gap-1.5">
+                            <Edit2 className="w-3.5 h-3.5 text-amber-600" />
+                            <span>أنت الآن في وضع تعديل المنطقة رقم {editingZoneIndex + 1}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingZoneIndex(null);
+                              setNewZoneName('');
+                              setNewZoneFee('10');
+                              setNewZoneLat('');
+                              setNewZoneLng('');
+                              setNewZoneRadius('1500');
+                            }}
+                            className="text-[10px] text-slate-500 hover:text-slate-800 font-bold underline cursor-pointer"
+                          >
+                            إلغاء التعديل
+                          </button>
+                        </div>
+                      )}
+
+                      {/* زر فتح الخريطة والبحث التفاعلي */}
+                      <button
+                        type="button"
+                        onClick={() => setLocationPickerTarget('BRANCH_ZONE')}
+                        className="w-full py-2.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer shadow-2xs"
+                      >
+                        <MapPin className="w-4 h-4 text-indigo-600" />
+                        <span>🗺️ فتح الخريطة لتحديد موقع المنطقة أو البحث عنها</span>
+                      </button>
+
                       <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="text"
                           placeholder="اسم المنطقة أو الحي (مثال: الحي الأول، حي الزهور...)"
                           value={newZoneName}
                           onChange={e => setNewZoneName(e.target.value)}
-                          className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
+                          className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
                         />
                         <div className="relative w-full sm:w-32">
                           <input
@@ -8649,7 +9482,7 @@ export const AdminPage: React.FC = () => {
                             placeholder="رسوم التوصيل"
                             value={newZoneFee}
                             onChange={e => setNewZoneFee(e.target.value)}
-                            className="w-full pr-3 pl-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
+                            className="w-full pr-3 pl-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
                           />
                           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">
                             ج.م
@@ -8665,7 +9498,7 @@ export const AdminPage: React.FC = () => {
                           className="text-[11px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Navigation className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>{showZoneGeoSettings ? 'إخفاء إعدادات الخريطة ونطاق التوصيل ▴' : '📍 تحديد موقع المنطقة على الخريطة ونطاق التغطية التلقائي (اختياري) ▾'}</span>
+                          <span>{showZoneGeoSettings ? 'إخفاء إعدادات الخريطة ونطاق التوصيل ▴' : '📍 تفاصيل الإحداثيات ونطاق التغطية اليدوي (اختياري) ▾'}</span>
                         </button>
 
                         {showZoneGeoSettings && (
@@ -8706,11 +9539,12 @@ export const AdminPage: React.FC = () => {
                               </div>
                             </div>
 
+                            {/* نطاق التغطية: أزرار سريعة + إدخال يدوي حر بالمتر */}
                             <div>
                               <div className="flex items-center justify-between mb-1">
                                 <label className="text-[10px] text-slate-600 font-bold">نطاق التغطية التلقائي (نصف القطر):</label>
                                 <span className="text-[10px] text-indigo-700 font-black font-mono">
-                                  {parseFloat(newZoneRadius) >= 1000 ? `${(parseFloat(newZoneRadius) / 1000).toFixed(1)} كم` : `${newZoneRadius} متر`}
+                                  {parseFloat(newZoneRadius) >= 1000 ? `${(parseFloat(newZoneRadius) / 1000).toFixed(2)} كم` : `${newZoneRadius || 0} متر`}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5 flex-wrap">
@@ -8736,72 +9570,230 @@ export const AdminPage: React.FC = () => {
                                   </button>
                                 ))}
                               </div>
-                              <p className="text-[10px] text-slate-500 mt-1">
-                                💡 عندما يكون العميل متواجداً في هذا النطاق، سيتم اختيار هذه المنطقة له تلقائياً في السلة!
+
+                              {/* حقل إدخال يدوي لأي نطاق رقمي مخصص بالمتر */}
+                              <div className="flex items-center gap-2 mt-2">
+                                <div className="relative flex-1">
+                                  <input
+                                    type="number"
+                                    min="50"
+                                    step="50"
+                                    placeholder="أو اكتب النطاق يدوياً بالمتر (مثال: 1200)..."
+                                    value={newZoneRadius}
+                                    onChange={e => setNewZoneRadius(e.target.value)}
+                                    className="w-full pr-3 pl-12 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                                  />
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">
+                                    متر
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-black text-indigo-700 font-mono bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 rounded-lg shrink-0">
+                                  {parseFloat(newZoneRadius) >= 1000 ? `${(parseFloat(newZoneRadius) / 1000).toFixed(2)} كم` : `${newZoneRadius || 0} م`}
+                                </span>
+                              </div>
+
+                              <p className="text-[10px] text-slate-500 mt-1.5">
+                                💡 عندما يطلب العميل وهو متواجد في هذا النطاق، سيتم اختيار هذه المنطقة له تلقائياً بسعر توصيلها!
                               </p>
                             </div>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex justify-end pt-1">
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        {editingZoneIndex !== null && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingZoneIndex(null);
+                              setNewZoneName('');
+                              setNewZoneFee('10');
+                              setNewZoneLat('');
+                              setNewZoneLng('');
+                              setNewZoneRadius('1500');
+                            }}
+                            className="h-9 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                          >
+                            إلغاء التعديل
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
-                            if (!newZoneName.trim()) return;
+                            if (!newZoneName.trim()) {
+                              alert('يرجى إدخال اسم المنطقة أولاً');
+                              return;
+                            }
                             const lat = parseFloat(newZoneLat);
                             const lng = parseFloat(newZoneLng);
                             const radius = parseFloat(newZoneRadius) || 1500;
                             const formattedName = formatZoneWithGeo(newZoneName.trim(), !isNaN(lat) ? lat : null, !isNaN(lng) ? lng : null, radius);
-                            setEditDeliveryZones(prev => [...prev, { name: formattedName, fee: parseFloat(newZoneFee) || 10 }]);
+                            const feeVal = parseFloat(newZoneFee) || 10;
+
+                            if (editingZoneIndex !== null) {
+                              setEditDeliveryZones(prev => prev.map((z, idx) => idx === editingZoneIndex ? { name: formattedName, fee: feeVal } : z));
+                              setEditingZoneIndex(null);
+                            } else {
+                              setEditDeliveryZones(prev => [...prev, { name: formattedName, fee: feeVal }]);
+                            }
+
                             setNewZoneName('');
                             setNewZoneLat('');
                             setNewZoneLng('');
+                            setNewZoneRadius('1500');
+                            setShowZoneGeoSettings(false);
                           }}
-                          className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                          className={`h-9 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
+                            editingZoneIndex !== null
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95'
+                          }`}
                         >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>إضافة منطقة</span>
+                          {editingZoneIndex !== null ? (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              <span>✓ حفظ تعديل المنطقة</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>إضافة منطقة للفرع</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
 
-                    {/* Added Zones List */}
-                    {editDeliveryZones.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5 pt-1 max-h-36 overflow-y-auto">
-                        {editDeliveryZones.map((z, idx) => {
-                          const geo = extractZoneGeo(z.name);
-                          return (
-                            <span 
-                              key={idx} 
-                              className="bg-indigo-50/90 text-indigo-900 border border-indigo-200/80 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-2 shadow-2xs"
-                            >
-                              <span>{geo.cleanName}</span>
-                              <span className="px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded text-[10px] font-mono">
-                                {z.fee} ج.م
-                              </span>
-                              {geo.lat && geo.lng && (
-                                <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-700 rounded text-[9px] font-bold">
-                                  📍 نطاق {(geo.radiusMeters ? geo.radiusMeters / 1000 : 1.5).toFixed(1)} كم
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => setEditDeliveryZones(prev => prev.filter((_, i) => i !== idx))}
-                                className="w-4 h-4 rounded-full hover:bg-rose-100 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
-                                title="حذف هذه المنطقة"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-[11px] text-slate-400 text-center py-2 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
-                        لم يتم إضافة مناطق مخصصة بعد. أضف المناطق وأسعار توصيلها أعلاه.
-                      </p>
-                    )}
+                    {/* Added Zones Section: Collapsible Dropdown Menu with Edit & Delete */}
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                      {/* Dropdown Toggle Header */}
+                      <button
+                        type="button"
+                        onClick={() => setIsZonesDropdownOpen(prev => !prev)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50/80 hover:bg-slate-100 flex items-center justify-between transition-colors cursor-pointer text-right"
+                      >
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-indigo-600 shrink-0" />
+                          <span className="text-xs font-black text-slate-800">
+                            المناطق المضافة لهذا الفرع
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800 font-mono">
+                            {editDeliveryZones.length} {editDeliveryZones.length === 1 ? 'منطقة' : 'مناطق'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {isZonesDropdownOpen ? 'إغلاق القائمة ▴' : 'عرض القائمة وتعديل المناطق ▾'}
+                          </span>
+                          <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isZonesDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`} />
+                        </div>
+                      </button>
+
+                      {/* Dropdown Content */}
+                      {isZonesDropdownOpen && (
+                        <div className="p-2.5 space-y-2 border-t border-slate-100 bg-white animate-fadeIn">
+                          {editDeliveryZones.length > 4 && (
+                            <div className="relative">
+                              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="text"
+                                placeholder="بحث في المناطق المضافة..."
+                                value={zoneSearchFilter}
+                                onChange={e => setZoneSearchFilter(e.target.value)}
+                                className="w-full pr-8 pl-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-400"
+                              />
+                            </div>
+                          )}
+
+                          {editDeliveryZones.length === 0 ? (
+                            <div className="text-center py-4 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                              لم يتم إضافة مناطق مخصصة بعد. أضف المناطق وأسعار توصيلها أعلاه.
+                            </div>
+                          ) : (
+                            <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 pr-0.5 custom-scrollbar">
+                              {editDeliveryZones
+                                .map((z, idx) => ({ ...z, originalIndex: idx }))
+                                .filter(z => !zoneSearchFilter.trim() || extractZoneGeo(z.name).cleanName.toLowerCase().includes(zoneSearchFilter.toLowerCase()))
+                                .map((z) => {
+                                  const geo = extractZoneGeo(z.name);
+                                  const isCurrentlyEditing = editingZoneIndex === z.originalIndex;
+                                  return (
+                                    <div
+                                      key={z.originalIndex}
+                                      className={`py-2 px-2.5 rounded-xl flex items-center justify-between gap-2 transition-all ${
+                                        isCurrentlyEditing
+                                          ? 'bg-amber-50/90 border border-amber-300'
+                                          : 'hover:bg-slate-50'
+                                      }`}
+                                    >
+                                      {/* Left: Zone Info */}
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 text-xs font-mono font-bold">
+                                          {z.originalIndex + 1}
+                                        </span>
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="text-xs font-black text-slate-900 truncate">
+                                              {geo.cleanName}
+                                            </span>
+                                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-md text-[10px] font-mono font-black shrink-0">
+                                              {z.fee} ج.م
+                                            </span>
+                                            {geo.lat && geo.lng ? (
+                                              <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md text-[9px] font-black shrink-0 flex items-center gap-1">
+                                                <span>📍 نطاق {(geo.radiusMeters ? geo.radiusMeters / 1000 : 1.5).toFixed(1)} كم</span>
+                                              </span>
+                                            ) : (
+                                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[9px] font-bold shrink-0">
+                                                بدون خريطة
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Right: Actions (Edit & Delete) */}
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingZoneIndex(z.originalIndex);
+                                            setNewZoneName(geo.cleanName);
+                                            setNewZoneFee(String(z.fee));
+                                            setNewZoneLat(geo.lat ? String(geo.lat) : '');
+                                            setNewZoneLng(geo.lng ? String(geo.lng) : '');
+                                            setNewZoneRadius(geo.radiusMeters ? String(geo.radiusMeters) : '1500');
+                                            setShowZoneGeoSettings(Boolean(geo.lat && geo.lng));
+                                          }}
+                                          className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                                          title="تعديل هذه المنطقة"
+                                        >
+                                          <Edit2 className="w-3 h-3" />
+                                          <span>تعديل</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (editingZoneIndex === z.originalIndex) {
+                                              setEditingZoneIndex(null);
+                                            }
+                                            setEditDeliveryZones(prev => prev.filter((_, i) => i !== z.originalIndex));
+                                          }}
+                                          className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                                          title="حذف هذه المنطقة"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                          <span>حذف</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -12242,13 +13234,32 @@ export const AdminPage: React.FC = () => {
       <LocationPickerModal
         isOpen={locationPickerTarget !== null}
         onClose={() => setLocationPickerTarget(null)}
-        initialLat={locationPickerTarget === 'NEW_BRANCH' ? newLat : editLat}
-        initialLng={locationPickerTarget === 'NEW_BRANCH' ? newLng : editLng}
-        initialAddress={locationPickerTarget === 'NEW_BRANCH' ? newAddress : editAddress}
+        initialLat={
+          locationPickerTarget === 'NEW_BRANCH' ? newLat :
+          locationPickerTarget === 'EDIT_BRANCH' ? editLat :
+          locationPickerTarget === 'BRANCH_ZONE' ? (parseFloat(newZoneLat) || null) :
+          locationPickerTarget === 'GLOBAL_ZONE' ? (parseFloat(globalZoneLat) || null) : null
+        }
+        initialLng={
+          locationPickerTarget === 'NEW_BRANCH' ? newLng :
+          locationPickerTarget === 'EDIT_BRANCH' ? editLng :
+          locationPickerTarget === 'BRANCH_ZONE' ? (parseFloat(newZoneLng) || null) :
+          locationPickerTarget === 'GLOBAL_ZONE' ? (parseFloat(globalZoneLng) || null) : null
+        }
+        initialAddress={
+          locationPickerTarget === 'NEW_BRANCH' ? newAddress :
+          locationPickerTarget === 'EDIT_BRANCH' ? editAddress :
+          locationPickerTarget === 'BRANCH_ZONE' ? newZoneName :
+          locationPickerTarget === 'GLOBAL_ZONE' ? globalZoneName : ''
+        }
         title={
           locationPickerTarget === 'NEW_BRANCH'
             ? 'تحديد موقع الفرع الجديد على الخريطة'
-            : `تحديد موقع فرع ${editName || ''} على الخريطة`
+            : locationPickerTarget === 'EDIT_BRANCH'
+            ? `تحديد موقع فرع ${editName || ''} على الخريطة`
+            : locationPickerTarget === 'BRANCH_ZONE'
+            ? 'تحديد موقع منطقة التوصيل والبحث عنها على الخريطة'
+            : 'تحديد موقع المنطقة المركزية والبحث عنها على الخريطة'
         }
         onConfirm={({ lat, lng, address }) => {
           if (locationPickerTarget === 'NEW_BRANCH') {
@@ -12263,6 +13274,20 @@ export const AdminPage: React.FC = () => {
             if (address && !editAddress) {
               setEditAddress(address);
             }
+          } else if (locationPickerTarget === 'BRANCH_ZONE') {
+            if (lat !== null) setNewZoneLat(lat.toFixed(6));
+            if (lng !== null) setNewZoneLng(lng.toFixed(6));
+            if (address && !newZoneName.trim()) {
+              setNewZoneName(cleanAddressText(address));
+            }
+            setShowZoneGeoSettings(true);
+          } else if (locationPickerTarget === 'GLOBAL_ZONE') {
+            if (lat !== null) setGlobalZoneLat(lat.toFixed(6));
+            if (lng !== null) setGlobalZoneLng(lng.toFixed(6));
+            if (address && !globalZoneName.trim()) {
+              setGlobalZoneName(cleanAddressText(address));
+            }
+            setShowGlobalZoneGeo(true);
           }
         }}
       />
