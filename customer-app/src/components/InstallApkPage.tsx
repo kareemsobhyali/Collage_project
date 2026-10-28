@@ -356,19 +356,21 @@ export const InstallApkPage: React.FC<{
     // 3. إذا كنا على آيفون / آيباد (iOS Safari)
     if (isIos) {
       if (meta?.isBranch && (meta.slug || meta.branchId)) {
-        const branchKey = meta.slug || meta.branchId;
-        const targetUrl = `/?r=${encodeURIComponent(branchKey)}&installed=1`;
-        try {
-          localStorage.setItem('pwa_installed_branch', String(branchKey).toLowerCase());
-          window.history.replaceState({}, '', targetUrl);
-          let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
-          if (!canonical) {
-            canonical = document.createElement('link');
-            canonical.rel = 'canonical';
-            document.head.appendChild(canonical);
-          }
-          canonical.href = window.location.origin + targetUrl;
-        } catch (_e) {}
+        const branchKey = (meta.slug || meta.branchId || '').trim();
+        if (branchKey) {
+          const targetUrl = `/?r=${encodeURIComponent(branchKey)}&installed=1`;
+          try {
+            localStorage.setItem('pwa_installed_branch', branchKey.toLowerCase());
+            window.history.replaceState({}, '', targetUrl);
+            let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
+            if (!canonical) {
+              canonical = document.createElement('link');
+              canonical.rel = 'canonical';
+              document.head.appendChild(canonical);
+            }
+            canonical.href = window.location.origin + targetUrl;
+          } catch (_e) {}
+        }
       }
       setShowIosGuide(true);
       return;
