@@ -29,6 +29,96 @@ import { Logo } from './components/Logo';
 import { SplashScreen } from './components/SplashScreen';
 import { InstallApkPage, parseApkRoute } from './components/InstallApkPage';
 
+/**
+ * دالة مركزية وشاملة لاستخراج معرّف المطعم (Slug أو ID) بدقة من كافة أنواع الروابط:
+ * 1. البيانات المحقونة من السيرفر (__UNIFOOD_INITIAL_BRANCH__)
+ * 2. الباراميترات (?branch= أو ?r= أو ?slug= أو ?b=)
+ * 3. مسار الصفحة (/r/:slug أو /:slug أو /:slug/apk أو /apk/:slug)
+ * 4. مسار الهاش (#/r/:slug أو #/:slug)
+ * 5. التطبيق المثبت في الهاتف (PWA Standalone)
+ */
+export function getRequestedBranchKeyFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    // 0. التحقق أولاً من الفرع المحقون مسبقاً من السيرفر
+    const serverInjected = (window as any).__UNIFOOD_INITIAL_BRANCH__;
+    if (serverInjected && (serverInjected.slug || serverInjected.id)) {
+      return (serverInjected.slug || serverInjected.id).trim();
+    }
+
+    // 1. فحص معاملات الاستعلام (Query Parameters)
+    const params = new URLSearchParams(window.location.search);
+    const bParam = params.get('branch') || params.get('r') || params.get('b') || params.get('slug');
+    if (bParam) {
+      try { return decodeURIComponent(bParam).trim(); } catch { return bParam.trim(); }
+    }
+
+    // 2. فحص مسار الهاش (Hash Routing)
+    if (window.location.hash) {
+      const hash = window.location.hash.replace(/^#+/, '');
+      const hashMatch = hash.match(/(?:branch|r|b)[\/=]([^&?\/]+)/i);
+      if (hashMatch && hashMatch[1]) {
+        try { return decodeURIComponent(hashMatch[1]).trim(); } catch { return hashMatch[1].trim(); }
+      }
+      const hashSegments = hash.split('?')[0].replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+      if (hashSegments.length >= 2 && (hashSegments[0] === 'r' || hashSegments[0] === 'branch' || hashSegments[0] === 'b')) {
+        try { return decodeURIComponent(hashSegments[1]).trim(); } catch { return hashSegments[1].trim(); }
+      }
+      if (hashSegments.length >= 2 && ['apk', 'download', 'install'].includes(hashSegments[hashSegments.length - 1].toLowerCase())) {
+        const target = hashSegments[0] === 'r' ? hashSegments[1] : hashSegments[0];
+        if (target && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
+          try { return decodeURIComponent(target).trim(); } catch { return target.trim(); }
+        }
+      }
+      if (hashSegments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(hashSegments[0].toLowerCase())) {
+        try { return decodeURIComponent(hashSegments[0]).trim(); } catch { return hashSegments[0].trim(); }
+      }
+    }
+
+    // 3. فحص مسار المسار المباشر (Pathname)
+    let cleanPath = '';
+    try { cleanPath = decodeURIComponent(window.location.pathname); } catch { cleanPath = window.location.pathname; }
+    const pathParts = cleanPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+
+    if (pathParts.length >= 2 && (pathParts[0] === 'r' || pathParts[0] === 'branch' || pathParts[0] === 'b')) {
+      return pathParts[1].trim();
+    }
+    // دعم روابط /:slug/apk أو /r/:slug/apk
+    if (pathParts.length >= 2 && ['apk', 'download', 'install'].includes(pathParts[pathParts.length - 1].toLowerCase())) {
+      const target = pathParts[0] === 'r' ? pathParts[1] : pathParts[0];
+      if (target && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
+        return target.trim();
+      }
+    }
+    // دعم روابط /apk/:slug
+    if (pathParts.length >= 2 && ['apk', 'download', 'install'].includes(pathParts[0].toLowerCase())) {
+      const target = pathParts[1];
+      if (target && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
+        return target.trim();
+      }
+    }
+    // دعم المسار المباشر مثل /shawarma-campus
+    if (pathParts.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install', 'pos'].includes(pathParts[0].toLowerCase())) {
+      return pathParts[0].trim();
+    }
+
+    // 4. فحص التطبيق المثبت (PWA Standalone)
+    const isStandalone = (
+      isRunningInNativeApk() ||
+      params.get('installed') === '1' ||
+      window.location.search.includes('installed=1') ||
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://')
+    );
+    if (isStandalone) {
+      const saved = localStorage.getItem('pwa_installed_branch');
+      if (saved) return saved.trim();
+    }
+  } catch (_e) {}
+  return null;
+}
+
 export function App() {
   const isMobileAppExperience = typeof window !== 'undefined' && (
     isRunningInNativeApk() ||
@@ -143,6 +233,10 @@ export function App() {
     }
   });
 
+  const requestedBranchKey = useMemo(() => getRequestedBranchKeyFromUrl(), []);
+  const enteredDirectlyRef = useRef(Boolean(requestedBranchKey));
+  const isMountedTimeRef = useRef(Date.now());
+
   const [selectedBranch, setSelectedBranch] = useState<any | null>(() => {
     if (typeof window === 'undefined') return null;
     try {
@@ -152,54 +246,44 @@ export function App() {
         return serverInjected;
       }
 
-      const params = new URLSearchParams(window.location.search);
-      let bParam = params.get('branch') || params.get('r') || params.get('b');
-      if (!bParam && window.location.hash) {
-        const hash = window.location.hash.replace(/^#+/, '');
-        const hashMatch = hash.match(/(?:branch|r|b)[\/=]([^&?\/]+)/i);
-        if (hashMatch) bParam = hashMatch[1];
-      }
-      if (!bParam && window.location.pathname.length > 1) {
-        let cleanPath = '';
-        try { cleanPath = decodeURIComponent(window.location.pathname); } catch { cleanPath = window.location.pathname; }
-        const parts = cleanPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
-        if (parts[0] === 'branch' || parts[0] === 'r' || parts[0] === 'b') {
-          bParam = parts[1];
-        } else if (!['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(parts[0].toLowerCase())) {
-          bParam = parts[0];
-        }
-      }
-      if (!bParam) {
-        const isStandalone = (
-          isRunningInNativeApk() ||
-          params.get('installed') === '1' ||
-          window.location.search.includes('installed=1') ||
-          window.matchMedia('(display-mode: standalone)').matches ||
-          (window.navigator as any).standalone === true ||
-          document.referrer.includes('android-app://')
-        );
-        if (isStandalone) {
-          bParam = apkRouteInfo.branchSlug || localStorage.getItem('pwa_installed_branch');
-        }
-      }
+      const bParam = getRequestedBranchKeyFromUrl();
       if (bParam) {
-        try { bParam = decodeURIComponent(bParam); } catch {}
-        const cached = localStorage.getItem('unifood_cached_branches');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) {
-            const normalized = bParam.trim().toLowerCase();
-            const found = parsed.find(
-              (b: any) => b.id === bParam || (b.slug && b.slug.toLowerCase() === normalized) || (b.name && b.name.toLowerCase() === normalized)
-            );
-            if (found) return found;
+        try {
+          const cached = localStorage.getItem('unifood_cached_branches');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) {
+              const normalized = bParam.trim().toLowerCase();
+              const found = parsed.find(
+                (b: any) => b.id === bParam || (b.slug && b.slug.toLowerCase() === normalized) || (b.name && b.name.toLowerCase() === normalized)
+              );
+              if (found) return found;
+            }
           }
-        }
+        } catch (_err) {}
       }
     } catch (_e) {}
     return null;
   });
   const [branchCategories, setBranchCategories] = useState<any[]>([]);
+
+  // جلب فوري ومباشر لقائمة المطعم عند وجود فرع بالرابط لمنع أي وميض أو ظهور للصفحة الرئيسية
+  useEffect(() => {
+    if (isAdminRoute || showDriverPortal) return;
+    const directKey = requestedBranchKey;
+    if (directKey) {
+      api.getBranchMenu(directKey)
+        .then((data) => {
+          if (data && data.branch) {
+            setSelectedBranch({ ...data.branch, reviews: data.reviews || [] });
+            setBranchCategories(data.categories || []);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not directly fetch branch menu:', err);
+        });
+    }
+  }, [requestedBranchKey, isAdminRoute, showDriverPortal]);
   const [cart, setCart] = useState<any[]>([]);
 
   // Modals state
@@ -349,6 +433,11 @@ export function App() {
   useEffect(() => {
     if (isAdminRoute || showDriverPortal || isApkRoute) return;
     const handlePopState = () => {
+      // إذا كان حدث popstate التلقائي صادراً من المتصفح خلال أول 1500 ملي ثانية من فتح الصفحة -> تجاهله لمنع الخروج التلقائي
+      if (Date.now() - isMountedTimeRef.current < 1500) {
+        return;
+      }
+
       isHandlingPopstateRef.current = true;
       historyDepthRef.current = Math.max(0, historyDepthRef.current - 1);
 
@@ -374,17 +463,17 @@ export function App() {
       } else if (showAuthModal) {
         setShowAuthModal(false);
       }
-      // ثالثاً: إذا كان المستخدم داخل تطبيق مطعم مثبت (PWA / WebAPK / Standalone):
+      // ثالثاً: إذا كان المستخدم داخل تطبيق مطعم مثبت أو دخل عبر رابط مباشر للمطعم:
       // نمنع الرجوع لشاشة الموقع الرئيسي نهائياً ونعرض نافذة تأكيد إغلاق التطبيق والخروج
-      else if (selectedBranch && isDedicatedRestaurantApp) {
+      else if (selectedBranch && (isDedicatedRestaurantApp || enteredDirectlyRef.current)) {
         try {
           window.history.pushState({ uniFoodStep: 1 }, '');
           historyDepthRef.current = 1;
         } catch (_e) {}
         setShowExitAppDialog(true);
       }
-      // رابعاً: إذا كان تصفحاً عادياً في الموقع الرئيسي للجامعة ودخل لمطعم -> يرجع لقائمة الفروع الرئيسية
-      else if (selectedBranch) {
+      // رابعاً: إذا كان تصفحاً عادياً في الموقع الرئيسي للجامعة وانتقل لمطعم أثناء التصفح -> يرجع لقائمة الفروع الرئيسية
+      else if (selectedBranch && !enteredDirectlyRef.current) {
         handleReturnHome();
       }
       // خامساً: إذا كان في الشاشة الرئيسية ولا توجد أي شاشة فرعية -> إظهار تأكيد الخروج
@@ -555,7 +644,12 @@ export function App() {
             newUrl.pathname = `/r/${encodeURIComponent(slugOrId)}`;
           }
           newUrl.searchParams.set('branch', slugOrId);
-          window.history.pushState({ branchId: branch.id }, '', newUrl.toString());
+          const isCurrentUrlAlreadyBranch = window.location.pathname.includes(slugOrId) || window.location.search.includes(slugOrId);
+          if (isCurrentUrlAlreadyBranch) {
+            window.history.replaceState({ branchId: branch.id }, '', newUrl.toString());
+          } else {
+            window.history.pushState({ branchId: branch.id }, '', newUrl.toString());
+          }
         } catch (_e) {}
       }
       // إفراغ السلة إذا كانت تخص فرعاً آخر
@@ -616,42 +710,8 @@ export function App() {
 
       // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
       if (typeof window !== 'undefined') {
-        let cleanPath = '';
-        try { cleanPath = decodeURIComponent(window.location.pathname); } catch { cleanPath = window.location.pathname; }
-        const pathSegments = cleanPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+        const branchParam = getRequestedBranchKeyFromUrl();
         const params = new URLSearchParams(window.location.search);
-        let branchParam = params.get('branch') || params.get('r') || params.get('b');
-        if (!branchParam && window.location.hash) {
-          const hash = window.location.hash.replace(/^#+/, '');
-          const hashMatch = hash.match(/(?:branch|r|b)[\/=]([^&?\/]+)/i);
-          if (hashMatch) branchParam = hashMatch[1];
-        }
-        if (!branchParam && pathSegments.length > 0) {
-          const firstSeg = pathSegments[0]?.toLowerCase();
-          if (firstSeg && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(firstSeg)) {
-            branchParam = (firstSeg === 'r' || firstSeg === 'branch' || firstSeg === 'b') && pathSegments[1] ? pathSegments[1] : firstSeg;
-          }
-        }
-
-        // إذا كان التطبيق يعمل في وضع التثبيت (PWA Standalone) أو تم حفظ المطعم المثبت مسبقاً
-        if (!branchParam) {
-          try {
-            const isStandaloneMode = (
-              isRunningInNativeApk() ||
-              params.get('installed') === '1' ||
-              window.location.search.includes('installed') ||
-              window.matchMedia('(display-mode: standalone)').matches ||
-              (window.navigator as any).standalone === true ||
-              document.referrer.includes('android-app://')
-            );
-            const savedInstalledBranch = localStorage.getItem('pwa_installed_branch');
-            const initialInjected = (window as any).__UNIFOOD_INITIAL_BRANCH__;
-            if (isStandaloneMode && (currentApkInfo.branchSlug || savedInstalledBranch || initialInjected?.slug || initialInjected?.id)) {
-              branchParam = currentApkInfo.branchSlug || savedInstalledBranch || initialInjected?.slug || initialInjected?.id;
-            }
-          } catch (_e) {}
-        }
-
         const itemParam = params.get('item') || params.get('offer');
 
         if (branchParam) {
@@ -1355,7 +1415,7 @@ export function App() {
             onOpenMyOrders={() => setShowMyOrdersModal(true)}
             onOpenProfile={() => setShowProfileModal(true)}
           />
-        ) : isDedicatedRestaurantApp ? (
+        ) : (requestedBranchKey || isDedicatedRestaurantApp) ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500 py-16 animate-fadeIn">
             <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             <span className="text-xs font-bold text-slate-600">جاري فتح قائمة المطعم...</span>

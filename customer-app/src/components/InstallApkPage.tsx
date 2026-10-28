@@ -194,7 +194,8 @@ export const InstallApkPage: React.FC<{
   // إذا كان المستخدم على جهاز آيفون، يتم توجيهه مباشرة لمنيو المطعم أو الموقع بدون إظهار صفحة الـ APK
   useEffect(() => {
     if (isIos) {
-      const cleanSlug = slug || parseApkRoute().branchSlug;
+      const searchParams = new URLSearchParams(window.location.search);
+      const cleanSlug = slug || parseApkRoute().branchSlug || searchParams.get('branch') || searchParams.get('r') || searchParams.get('slug');
       const target = cleanSlug ? `/r/${encodeURIComponent(cleanSlug)}` : '/';
       window.location.replace(target);
     }

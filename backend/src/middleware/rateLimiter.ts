@@ -23,20 +23,8 @@ export const authLimiter = rateLimit({
 });
 
 
-// حماية مسار إنشاء الطلبات من السبام والطلبات الوهمية المكثفة
-export const orderLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 دقائق
-  max: 20, // حد أقصى 20 طلب خلال 10 دقائق من نفس العنوان
-  message: {
-    error: "تم إرسال عدد كبير من الطلبات في وقت قصير، يرجى الانتظار قليلاً.",
-  },
-  validate: {
-    xForwardedForHeader: false,
-    default: true,
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// تم إلغاء ليميت الطلبات بالكامل لتمكين العملاء من الطلب بحرية تامة دون أي قيود أو حظر
+export const orderLimiter = (_req: any, _res: any, next: any) => next();
 
 // حماية عامة لكافة مسارات الـ API من هجمات الإغراق (DDoS / Flood)
 export const generalApiLimiter = rateLimit({

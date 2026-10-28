@@ -128,9 +128,11 @@ export const OrderDriverLiveMap: React.FC<OrderDriverLiveMapProps> = ({
         attributionControl: false
       });
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
+      // استخدام خرائط CARTO Voyager عالية السرعة والجودة المدعومة بـ CDN عالمي وتدعم العربية
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 20,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
       }).addTo(map);
 
       mapRef.current = map;

@@ -63,8 +63,8 @@ app.use("/api/admin/login", authLimiter);
 app.use("/api/branch/login", authLimiter);
 app.use("/api/driver/login", authLimiter);
 
-// حماية مسار إنشاء الطلبات من السبام
-app.use("/api/customer/orders", orderLimiter);
+// تم إيقاف ليميت الطلبات لتمكين العملاء من الطلب بحرية
+// app.use("/api/customer/orders", orderLimiter);
 
 // حماية مسار رفع الملفات
 app.use("/api/upload", uploadLimiter);
@@ -419,6 +419,8 @@ if (fs.existsSync(customerDistPath)) {
       targetBranchSlug = String(req.query.branch || req.query.r || req.query.b || req.query.slug).trim();
     } else if (segments.length >= 2 && ['apk', 'download', 'install'].includes(segments[segments.length - 1].toLowerCase())) {
       targetBranchSlug = segments[0] === 'r' ? segments[1] : segments[0];
+    } else if (segments.length >= 2 && ['apk', 'download', 'install'].includes(segments[0].toLowerCase())) {
+      targetBranchSlug = segments[1];
     } else if (segments.length === 2 && (segments[0] === 'r' || segments[0] === 'branch' || segments[0] === 'b')) {
       targetBranchSlug = segments[1];
     } else if (segments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'pos', 'api', 'socket.io', 'uploads', 'manifest.json', 'favicon.ico', 'sw.js', 'robots.txt'].includes(segments[0].toLowerCase())) {
@@ -432,6 +434,16 @@ if (fs.existsSync(customerDistPath)) {
       if (targetBranchSlug && !['admin', 'driver', 'delivery', 'api'].includes(targetBranchSlug.toLowerCase())) {
         return res.redirect(302, `/r/${encodeURIComponent(targetBranchSlug)}`);
       } else {
+        let refererSlug: string | null = null;
+        if (req.headers.referer) {
+          try {
+            const refUrl = new URL(req.headers.referer);
+            refererSlug = refUrl.searchParams.get('branch') || refUrl.searchParams.get('r');
+          } catch (_e) {}
+        }
+        if (refererSlug && !['admin', 'driver', 'delivery', 'api'].includes(refererSlug.toLowerCase())) {
+          return res.redirect(302, `/r/${encodeURIComponent(refererSlug)}`);
+        }
         return res.redirect(302, '/');
       }
     }
@@ -487,7 +499,10 @@ if (fs.existsSync(customerDistPath)) {
           html = html.replace(/<link[^>]*rel="apple-touch-icon"[^>]*>/i, `<link rel="apple-touch-icon" sizes="512x512" href="${branchIcon512}" />`);
 
           // 4. حقن سكريبت وعلامات iOS المخصصة لاسم وأيقونة ورابط التثبيت على الآيفون والبيانات المبدئية
+          const host = req.headers['x-forwarded-host'] || req.headers.host || 'unifood.store';
+          const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
           const branchStartUrl = `/r/${encodeURIComponent(branchKey)}`;
+          const absoluteBranchStartUrl = `${proto}://${host}/r/${encodeURIComponent(branchKey)}`;
           const initialBranchJson = JSON.stringify({
             id: branch.id,
             slug: branch.slug || branchKey,
@@ -503,7 +518,7 @@ if (fs.existsSync(customerDistPath)) {
             <meta name="apple-mobile-web-app-title" content="${safeBranchName}">
             <meta name="apple-mobile-web-app-capable" content="yes">
             <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-            <link rel="canonical" href="${branchStartUrl}">
+            <link rel="canonical" href="${absoluteBranchStartUrl}">
             <link rel="apple-touch-icon-precomposed" sizes="180x180" href="${branchIcon192}">
             <link rel="apple-touch-icon" sizes="180x180" href="${branchIcon192}">
             <script>
