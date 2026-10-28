@@ -154,22 +154,24 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-3 sm:p-5 animate-fadeIn">
-      <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden text-right">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-2.5 sm:p-5 animate-fadeIn">
+      <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[94vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden text-right">
         {/* Header */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/70">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
-              <FileSpreadsheet className="w-6 h-6" />
+        <div className="p-3.5 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/80 gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-600/20 shrink-0">
+              <FileSpreadsheet className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <h3 className="font-black text-base sm:text-lg text-slate-900 flex items-center gap-2">
-                <span>استيراد منيو مجمّع (Excel / CSV)</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="font-black text-sm sm:text-base text-slate-900 truncate">
+                  استيراد منيو مجمّع (Excel / CSV)
+                </h3>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300 whitespace-nowrap shrink-0">
                   تحميل الصور التلقائي ✓
                 </span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              </div>
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">
                 أضف أقساماً وأصنافاً وأحجاماً غير محدودة دفعة واحدة لـ <strong className="text-slate-800">{branch?.name}</strong>
               </p>
             </div>
@@ -179,53 +181,53 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={importing}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Action Bar: Template download & Tabs */}
-        <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white shrink-0">
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+        <div className="p-3.5 sm:p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white shrink-0">
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200 sm:flex">
             <button
               type="button"
               onClick={() => setActiveTab('EXCEL')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'EXCEL'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span>ملف Excel / CSV</span>
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="whitespace-nowrap">ملف Excel / CSV</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('PASTE')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'PASTE'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              <Clipboard className="w-4 h-4 text-indigo-600" />
-              <span>لصق نص المنيو</span>
+              <Clipboard className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span className="whitespace-nowrap">لصق نص المنيو</span>
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => downloadMenuExcelTemplate(branch?.name || 'المطعم')}
-            className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer"
           >
-            <Download className="w-4 h-4 text-emerald-600" />
-            <span>تحميل نموذج إكسيل الجاهز (.xlsx)</span>
+            <Download className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="whitespace-nowrap">تحميل نموذج إكسيل الجاهز (.xlsx)</span>
           </button>
         </div>
 
         {/* Body Content */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-5 custom-scrollbar">
+        <div className="p-3.5 sm:p-5 overflow-y-auto flex-1 space-y-4 sm:space-y-5 custom-scrollbar">
           {/* Tab 1: Excel Drop Zone */}
           {activeTab === 'EXCEL' && (
             <div>
@@ -233,16 +235,16 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/60 hover:bg-emerald-50/30 rounded-3xl p-6 sm:p-8 text-center transition-all cursor-pointer group space-y-3"
+                className="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/60 hover:bg-emerald-50/30 rounded-3xl p-5 sm:p-7 text-center transition-all cursor-pointer group space-y-2.5 sm:space-y-3"
               >
-                <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center group-hover:scale-110 transition-transform shadow-xs">
-                  <Upload className="w-7 h-7" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center group-hover:scale-110 transition-transform shadow-xs">
+                  <Upload className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
                 <div>
-                  <h4 className="font-black text-sm text-slate-800">
+                  <h4 className="font-black text-xs sm:text-sm text-slate-800">
                     {fileName ? `الملف المحدد: ${fileName}` : 'اضغط لاختيار ملف الإكسيل أو اسحبه وأفلته هنا'}
                   </h4>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
                     يدعم ملفات: <span className="font-mono font-bold text-slate-700">.xlsx , .xls , .csv</span>
                   </p>
                 </div>
@@ -273,13 +275,13 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
 
 [قسم البرجر]
 دبل تشيز برجر - 110 - دبل:110, تريبل:135`}
-                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-mono text-slate-900 focus:ring-2 focus:ring-indigo-500 leading-relaxed"
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-mono text-slate-900 focus:ring-2 focus:ring-indigo-500 leading-relaxed"
                 dir="rtl"
               />
               <button
                 type="button"
                 onClick={handleParseText}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-amber-300" />
                 <span>تحليل النص المنسوخ وعرض المعاينة</span>
@@ -310,46 +312,46 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
 
           {/* Live Preview Table */}
           {parseResult && parseResult.items.length > 0 && (
-            <div className="space-y-4 pt-2 border-t border-slate-200">
+            <div className="space-y-3 sm:space-y-4 pt-1 border-t border-slate-200">
               {/* Quick Stats Badges */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5">
-                  <Layers className="w-4 h-4 text-indigo-600" />
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">الأقسام المكتشفة</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <div className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5">
+                  <Layers className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-slate-500 block truncate">الأقسام المكتشفة</span>
                     <span className="text-sm font-black text-slate-900 font-mono">{parseResult.categoriesCount}</span>
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5">
-                  <UtensilsCrossed className="w-4 h-4 text-emerald-600" />
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">إجمالي الوجبات</span>
+                <div className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5">
+                  <UtensilsCrossed className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-slate-500 block truncate">إجمالي الوجبات</span>
                     <span className="text-sm font-black text-slate-900 font-mono">{parseResult.items.length}</span>
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5">
-                  <Sparkles className="w-4 h-4 text-amber-600" />
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">وجبات بأحجام</span>
+                <div className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-slate-500 block truncate">وجبات بأحجام</span>
                     <span className="text-sm font-black text-slate-900 font-mono">{parseResult.itemsWithSizesCount}</span>
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5">
-                  <ImageIcon className="w-4 h-4 text-purple-600" />
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">صور سيتم تحميلها</span>
+                <div className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5">
+                  <ImageIcon className="w-4 h-4 text-purple-600 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-slate-500 block truncate">صور سيتم تحميلها</span>
                     <span className="text-sm font-black text-purple-700 font-mono">{parseResult.itemsWithImagesCount}</span>
                   </div>
                 </div>
               </div>
 
               {/* Table search filter */}
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
                 <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={searchQuery}
@@ -363,72 +365,92 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
                 </span>
               </div>
 
-              {/* Table */}
-              <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-60 overflow-y-auto">
-                <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-100 text-slate-700 sticky top-0 font-bold border-b border-slate-200">
-                    <tr>
-                      <th className="p-2.5">القسم</th>
-                      <th className="p-2.5">اسم الوجبة</th>
-                      <th className="p-2.5">السعر الأساسي</th>
-                      <th className="p-2.5">الأحجام</th>
-                      <th className="p-2.5">الصورة</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredItems.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-2.5 font-bold text-indigo-700">{item.categoryName}</td>
-                        <td className="p-2.5">
-                          <span className="font-bold text-slate-900 block">{item.name}</span>
-                          {item.description && (
-                            <span className="text-[10px] text-slate-400 block line-clamp-1">{item.description}</span>
-                          )}
-                        </td>
-                        <td className="p-2.5 font-black text-emerald-700 font-mono">{item.basePrice} ج.م</td>
-                        <td className="p-2.5">
-                          {item.sizes && item.sizes.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {item.sizes.map((s, sIdx) => (
-                                <span
-                                  key={sIdx}
-                                  className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-mono font-bold"
-                                >
-                                  {s.name}: {s.price} ج.م
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-slate-400">حجم موحد</span>
-                          )}
-                        </td>
-                        <td className="p-2.5">
-                          {item.imageUrl ? (
-                            <div className="flex items-center gap-1.5 text-purple-700 font-bold text-[10px]">
-                              <img
-                                src={getFullImageUrl(item.imageUrl)}
-                                alt=""
-                                className="w-6 h-6 rounded-md object-cover border border-slate-200 bg-slate-100"
-                                onError={(e) => {
-                                  (e.target as HTMLElement).style.display = 'none';
-                                }}
-                              />
-                              <span className="text-[9px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
-                                سيتم تنزيلها
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-slate-400">بدون صورة</span>
-                          )}
-                        </td>
+              {/* Table with Horizontal Scroll Support */}
+              <div className="relative border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                {/* Mobile swipe hint banner */}
+                <div className="sm:hidden px-3 py-1.5 bg-indigo-50/90 border-b border-indigo-100 flex items-center justify-between text-[11px] text-indigo-700 font-bold">
+                  <span>👈 اسحب الجدول أفقياً لمشاهدة باقي الأعمدة</span>
+                  <span className="text-[10px] bg-white px-2 py-0.5 rounded-full border border-indigo-200 text-indigo-800">
+                    {filteredItems.length} صنف
+                  </span>
+                </div>
+
+                <div 
+                  className="overflow-x-auto overflow-y-auto max-h-72 sm:max-h-80 custom-scrollbar touch-pan-x touch-pan-y"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
+                  <table className="min-w-[720px] w-full text-right text-xs">
+                    <thead className="bg-slate-100 text-slate-700 sticky top-0 font-bold border-b border-slate-200 z-10">
+                      <tr>
+                        <th className="p-3 whitespace-nowrap w-36">القسم</th>
+                        <th className="p-3 whitespace-nowrap min-w-[160px]">اسم الوجبة</th>
+                        <th className="p-3 whitespace-nowrap w-28">السعر الأساسي</th>
+                        <th className="p-3 whitespace-nowrap min-w-[160px]">الأحجام</th>
+                        <th className="p-3 whitespace-nowrap w-36">الصورة</th>
+                        <th className="p-3 whitespace-nowrap min-w-[180px]">الوصف</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                      {filteredItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3 whitespace-nowrap">
+                            <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold border border-indigo-100/80 inline-block">
+                              {item.categoryName}
+                            </span>
+                          </td>
+                          <td className="p-3 font-bold text-slate-900 whitespace-nowrap">
+                            {item.name}
+                          </td>
+                          <td className="p-3 font-black text-emerald-700 font-mono whitespace-nowrap text-sm">
+                            {item.basePrice} <span className="text-xs font-sans text-slate-400 font-normal">ج.م</span>
+                          </td>
+                          <td className="p-3">
+                            {item.sizes && item.sizes.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {item.sizes.map((s, sIdx) => (
+                                  <span
+                                    key={sIdx}
+                                    className="text-[9px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-mono font-bold whitespace-nowrap"
+                                  >
+                                    {s.name}: {s.price} ج.م
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-bold">حجم موحد</span>
+                            )}
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            {item.imageUrl ? (
+                              <div className="flex items-center gap-1.5 text-purple-700 font-bold text-[10px]">
+                                <img
+                                  src={getFullImageUrl(item.imageUrl)}
+                                  alt=""
+                                  className="w-7 h-7 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+                                <span className="text-[9px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded-md">
+                                  سيتم تنزيلها
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">بدون صورة</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-slate-500 text-[11px] max-w-[220px] truncate" title={item.description}>
+                            {item.description || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Mode Option: Merge or Replace */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-3">
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div>
                   <span className="text-xs font-bold text-slate-800 block">طريقة الاستيراد والتخزين:</span>
                   <span className="text-[11px] text-slate-500">
@@ -437,7 +459,7 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
                       : 'سيتم دمج وإضافة هذه الأصناف للمنيو الحالي دون المساس بالأصناف السابقة.'}
                   </span>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+                <label className="flex items-center gap-2 cursor-pointer select-none shrink-0 pr-6 sm:pr-0">
                   <input
                     type="checkbox"
                     checked={replaceExisting}
@@ -454,12 +476,12 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
+        <div className="p-3.5 sm:p-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-slate-50 shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={importing}
-            className="px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            className="flex-1 sm:flex-initial px-5 py-2.5 sm:py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
           >
             إلغاء
           </button>
@@ -468,7 +490,7 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
             type="button"
             onClick={handleConfirmImport}
             disabled={importing || !parseResult || parseResult.items.length === 0}
-            className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+            className="flex-2 sm:flex-initial px-6 py-2.5 sm:py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
           >
             {importing ? (
               <>
