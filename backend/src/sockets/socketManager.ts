@@ -12,12 +12,33 @@ interface AppSessionState {
   lastSeen: number;
 }
 const appSessions = new Map<string, AppSessionState>();
+const disconnectTimers = new Map<string, NodeJS.Timeout>();
+
+function broadcastPresenceChange(role: "BRANCH" | "STUDENT" | "DRIVER", id: string, isOnline: boolean): void {
+  if (!io) return;
+  if (role === "BRANCH") {
+    console.log(`[Presence] Branch ${id} is now ${isOnline ? "ONLINE 🟢" : "OFFLINE 🔴"}`);
+    io.emit("branch_presence_changed", { branchId: id, isOnline });
+  } else if (role === "DRIVER") {
+    console.log(`[Presence] Driver ${id} is now ${isOnline ? "ONLINE 🟢" : "OFFLINE 🔴"}`);
+    io.emit("driver_presence_changed", { driverId: id, isOnline });
+  }
+}
 
 export function setAppSessionState(role: "BRANCH" | "STUDENT" | "DRIVER", id: string, socketId: string, state: "foreground" | "background"): void {
   const normRole = (role || "").toUpperCase().trim() as "BRANCH" | "STUDENT" | "DRIVER";
   const normId = String(id || "").trim();
   if (!normRole || !normId) return;
   const key = `${normRole}_${normId}`;
+
+  // إلغاء أي مؤقت انقطاع معلق (في حال كانت إعادة اتصال سريعة)
+  if (disconnectTimers.has(key)) {
+    clearTimeout(disconnectTimers.get(key)!);
+    disconnectTimers.delete(key);
+  }
+
+  const wasOnline = normRole === "BRANCH" ? isBranchOnline(normId) : normRole === "DRIVER" ? isDriverOnline(normId) : false;
+
   let session = appSessions.get(key);
   if (!session) {
     session = { socketIds: new Set(), state, lastSeen: Date.now() };
@@ -26,17 +47,76 @@ export function setAppSessionState(role: "BRANCH" | "STUDENT" | "DRIVER", id: st
   session.socketIds.add(socketId);
   session.state = state;
   session.lastSeen = Date.now();
+
+  const isNowOnline = normRole === "BRANCH" ? isBranchOnline(normId) : normRole === "DRIVER" ? isDriverOnline(normId) : false;
+  if (!wasOnline && isNowOnline) {
+    broadcastPresenceChange(normRole, normId, true);
+  }
 }
 
 export function removeAppSessionSocket(socketId: string): void {
   for (const [key, session] of appSessions.entries()) {
     if (session.socketIds.has(socketId)) {
       session.socketIds.delete(socketId);
+      const parts = key.split("_");
+      const normRole = parts[0] as "BRANCH" | "STUDENT" | "DRIVER";
+      const normId = parts.slice(1).join("_");
+
       if (session.socketIds.size === 0) {
-        appSessions.delete(key);
+        // مهلة أمان 6 ثوانٍ لتفادي وميض الحالة عند إعادة تحميل الصفحة أو تحديث الاتصال السريع
+        if (disconnectTimers.has(key)) {
+          clearTimeout(disconnectTimers.get(key)!);
+        }
+        const timer = setTimeout(() => {
+          disconnectTimers.delete(key);
+          const current = appSessions.get(key);
+          if (!current || current.socketIds.size === 0) {
+            appSessions.delete(key);
+            broadcastPresenceChange(normRole, normId, false);
+          }
+        }, 6000);
+        disconnectTimers.set(key, timer);
       }
     }
   }
+}
+
+export function isBranchOnline(branchId: string): boolean {
+  const normId = String(branchId || "").trim();
+  if (!normId) return false;
+  const key = `BRANCH_${normId}`;
+  const session = appSessions.get(key);
+  if (!session || session.socketIds.size === 0) return false;
+
+  if (io) {
+    for (const sid of session.socketIds) {
+      const sock = io.sockets.sockets.get(sid);
+      if (sock && sock.connected) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return true;
+}
+
+export function isDriverOnline(driverId: string): boolean {
+  const normId = String(driverId || "").trim();
+  if (!normId) return false;
+  const key = `DRIVER_${normId}`;
+  const session = appSessions.get(key);
+  if (!session || session.socketIds.size === 0) return false;
+
+  if (io) {
+    for (const sid of session.socketIds) {
+      const sock = io.sockets.sockets.get(sid);
+      if (sock && sock.connected) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return true;
 }
 
 export function isAppRunningInForeground(role: "BRANCH" | "STUDENT" | "DRIVER", id: string): boolean {
@@ -44,29 +124,13 @@ export function isAppRunningInForeground(role: "BRANCH" | "STUDENT" | "DRIVER", 
   const normId = String(id || "").trim();
   if (!normRole || !normId) return false;
 
-  // 1. فحص غرف Socket.io النشطة: طالما أن هناك اتصال سوكيت حي في الغرفة، فالتطبيق مفتوح وشغال حالياً
-  if (io) {
-    let roomName = "";
-    if (normRole === "BRANCH") roomName = `branch_${normId}`;
-    else if (normRole === "STUDENT") roomName = `user_${normId}`;
-    else if (normRole === "DRIVER") roomName = `driver_${normId}`;
+  if (normRole === "BRANCH") return isBranchOnline(normId);
+  if (normRole === "DRIVER") return isDriverOnline(normId);
 
-    if (roomName) {
-      const room = io.sockets.adapter.rooms.get(roomName);
-      if (room && room.size > 0) {
-        return true;
-      }
-    }
-  }
-
-  // 2. فحص جلسة التطبيق المسجلة
+  // للعميل / الطالب
   const key = `${normRole}_${normId}`;
   const session = appSessions.get(key);
-  if (session && session.socketIds.size > 0 && session.state === "foreground") {
-    return true;
-  }
-
-  return false;
+  return Boolean(session && session.socketIds.size > 0 && session.state === "foreground");
 }
 
 function sanitizeOrderForDriverSocket(order: any): any {
@@ -103,6 +167,27 @@ export function initSocket(server: any): SocketIOServer {
     socket.on("app_state", (data: { role?: "BRANCH" | "STUDENT" | "DRIVER"; id?: string; state?: "foreground" | "background" }) => {
       if (data && data.role && data.id) {
         setAppSessionState(data.role, data.id, socket.id, data.state || "foreground");
+      }
+    });
+
+    // نبضات الحفاظ على الاتصال والتواجد الحي دورياً
+    socket.on("heartbeat", (data: { role?: "BRANCH" | "STUDENT" | "DRIVER"; id?: string; state?: "foreground" | "background" }) => {
+      if (data && data.role && data.id) {
+        setAppSessionState(data.role, data.id, socket.id, data.state || "foreground");
+      }
+    });
+
+    // استعلام فوري عن حالة اتصال الفرع
+    socket.on("check_branch_presence", (branchId: string, callback?: (isOnline: boolean) => void) => {
+      if (typeof callback === "function" && branchId) {
+        callback(isBranchOnline(branchId));
+      }
+    });
+
+    // استعلام فوري عن حالة اتصال الطيار
+    socket.on("check_driver_presence", (driverId: string, callback?: (isOnline: boolean) => void) => {
+      if (typeof callback === "function" && driverId) {
+        callback(isDriverOnline(driverId));
       }
     });
 

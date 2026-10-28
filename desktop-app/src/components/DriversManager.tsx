@@ -18,9 +18,10 @@ import { api } from '../services/api';
 
 interface DriversManagerProps {
   onClose?: () => void;
+  socket?: any;
 }
 
-export const DriversManager: React.FC<DriversManagerProps> = ({ onClose }) => {
+export const DriversManager: React.FC<DriversManagerProps> = ({ onClose, socket }) => {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +54,17 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onClose }) => {
   useEffect(() => {
     fetchDrivers();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handlePresence = ({ driverId, isOnline }: { driverId: string; isOnline: boolean }) => {
+      setDrivers(prev => prev.map(d => (d.id === driverId ? { ...d, isOnline } : d)));
+    };
+    socket.on('driver_presence_changed', handlePresence);
+    return () => {
+      socket.off('driver_presence_changed', handlePresence);
+    };
+  }, [socket]);
 
   const resetForm = () => {
     setName('');
@@ -353,11 +365,24 @@ export const DriversManager: React.FC<DriversManagerProps> = ({ onClose }) => {
                   </div>
                 </div>
 
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                  driver.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-                }`}>
-                  {driver.isActive ? 'نشط ومتاح' : 'معطل'}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                  {driver.isOnline ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      متصل الآن
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                      غير متصل
+                    </span>
+                  )}
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    driver.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {driver.isActive ? 'نشط ومتاح' : 'معطل'}
+                  </span>
+                </div>
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs gap-2">

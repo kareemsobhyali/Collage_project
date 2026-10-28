@@ -200,6 +200,16 @@ export function App() {
       document.addEventListener('visibilitychange', handleVisibility);
     }
 
+    const heartbeatInterval = setInterval(() => {
+      if (socket.connected && branch?.id) {
+        socket.emit('heartbeat', {
+          role: 'BRANCH',
+          id: branch.id,
+          state: typeof document !== 'undefined' && document.visibilityState === 'visible' ? 'foreground' : 'background'
+        });
+      }
+    }, 15000);
+
     socket.on('connect', () => {
       setSocketConnected(true);
       socket.emit('join_branch', branch.id);
@@ -302,6 +312,7 @@ export function App() {
     });
 
     return () => {
+      clearInterval(heartbeatInterval);
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibility);
       }
@@ -673,7 +684,7 @@ export function App() {
         )}
 
         {activeTab === 'DRIVERS' && (
-          <DriversManager />
+          <DriversManager socket={socketRef.current} />
         )}
 
         {activeTab === 'SUPPORT' && (

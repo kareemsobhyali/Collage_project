@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import prisma from "../prisma.js";
 import { authenticateUser, AuthRequest, JWT_SECRET } from "../middleware/auth.js";
-import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated } from "../sockets/socketManager.js";
+import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated, isBranchOnline } from "../sockets/socketManager.js";
 import { getLoyaltySettings, awardLoyaltyPointsIfCompleted, getRestaurantLocationSettings, getContactChannelsSettings } from "../services/settings.service.js";
 import { isOrderAcceptedByDriver } from "../services/driver.service.js";
 import { 
@@ -620,6 +620,7 @@ router.get("/branches", async (_req: Request, res: Response) => {
         closedUntil: currentClosedUntil,
         closingReason: currentReason,
         isWithinWorkingHours,
+        isOnline: isBranchOnline(b.id),
         ...crowdInfo,
         avgRating: ratingInfo.avgRating,
         ratingsCount: ratingInfo.ratingsCount,
@@ -863,6 +864,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         closedUntil: currentClosedUntil,
         closingReason: currentReason,
         isWithinWorkingHours,
+        isOnline: isBranchOnline(actualBranchId),
         ...crowdInfo,
         avgRating,
         ratingsCount,
@@ -1302,6 +1304,14 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
 
     if (!branch || !branch.isActive) {
       res.status(400).json({ error: "المطعم غير متاح لاستقبال الطلبات حالياً" });
+      return;
+    }
+
+    // التحقق من اتصال سيستم المطعم بالإنترنت وفتح شاشة الاستقبال
+    if (!isBranchOnline(branch.id)) {
+      res.status(400).json({
+        error: `عذراً، سيستم استقبال الطلبات في مطعم "${branch.name}" غير متصل حالياً (انقطاع في الإنترنت أو إغلاق التطبيق). لا يمكن إرسال الطلب حتى يعود اتصال المطعم حفاظاً على وجبتك ووقتك.`,
+      });
       return;
     }
 

@@ -573,6 +573,16 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       document.addEventListener('visibilitychange', handleVisibility);
     }
 
+    const heartbeatInterval = setInterval(() => {
+      if (socket.connected && driver?.id) {
+        socket.emit('heartbeat', {
+          role: 'DRIVER',
+          id: driver.id,
+          state: typeof document !== 'undefined' && document.visibilityState === 'visible' ? 'foreground' : 'background'
+        });
+      }
+    }, 15000);
+
     socket.on('connect', () => {
       socket.emit('join_driver', driver.id);
       sendAppState();
@@ -654,6 +664,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
     });
 
     return () => {
+      clearInterval(heartbeatInterval);
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibility);
       }

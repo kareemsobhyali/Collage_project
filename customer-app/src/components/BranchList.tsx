@@ -98,6 +98,15 @@ const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
     return () => clearInterval(interval);
   }, [branch.closedUntil, branch.operationalStatus]);
 
+  if (branch.isOnline === false) {
+    return (
+      <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-800 text-rose-300 backdrop-blur-md shadow-sm border border-rose-500/30 shrink-0 flex items-center gap-1">
+        <PowerOff className="w-3 h-3 text-rose-400" />
+        <span>مغلق مؤقتاً (غير متصل)</span>
+      </span>
+    );
+  }
+
   if (branch.operationalStatus === 'CLOSED') {
     return (
       <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-600 text-white backdrop-blur-md shadow-sm border border-white/20 shrink-0 flex items-center gap-1">
@@ -860,7 +869,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   // إحصائيات الفروع المرئية للمستخدم فقط حسب النطاق الجغرافي (طلب المستخدم: فلتر الكل يظهر فقط المطاعم الظاهرة لي)
   const totalVisibleBranchesCount = zoneBranches.length;
   const openBranchesCount = zoneBranches.filter(
-    b => b.operationalStatus === 'OPEN' && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
+    b => b.isOnline !== false && b.operationalStatus === 'OPEN' && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
   ).length;
   const favBranchesCount = zoneBranches.filter(b => favBranchIds.includes(b.id)).length;
   const deliveryBranchesCount = zoneBranches.filter(b => b.allowDelivery === true).length;
@@ -878,6 +887,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
 
       if (activeFilter === 'OPEN') {
         return (
+          b.isOnline !== false &&
           b.operationalStatus === 'OPEN' &&
           isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
         );
@@ -899,13 +909,15 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   // 2. ترتيب المطاعم: المفتوح أولاً ثم المشغول ثم المغلق في الأسفل (طلب المستخدم)
   const sortedFilteredBranches = useMemo(() => {
     return [...filteredBranches].sort((a, b) => {
-      const isAClosed = a.operationalStatus === 'CLOSED';
+      const isAOffline = a.isOnline === false;
+      const isAClosed = a.operationalStatus === 'CLOSED' || isAOffline;
       const isABusy = a.operationalStatus === 'BUSY';
-      const isAOpen = !isAClosed && !isABusy && isBranchOpenByHours(a.openingTime, a.closingTime, a.isWithinWorkingHours);
+      const isAOpen = !isAOffline && !isAClosed && !isABusy && isBranchOpenByHours(a.openingTime, a.closingTime, a.isWithinWorkingHours);
 
-      const isBClosed = b.operationalStatus === 'CLOSED';
+      const isBOffline = b.isOnline === false;
+      const isBClosed = b.operationalStatus === 'CLOSED' || isBOffline;
       const isBBusy = b.operationalStatus === 'BUSY';
-      const isBOpen = !isBClosed && !isBBusy && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours);
+      const isBOpen = !isBOffline && !isBClosed && !isBBusy && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours);
 
       // 1. المطاعم المفتوحة في البداية
       if (isAOpen && !isBOpen) return -1;
@@ -1597,9 +1609,11 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               const payment = branch.paymentConfig;
               const gradientClass = BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length];
               const emoji = FOOD_EMOJIS[idx % FOOD_EMOJIS.length];
+              const isOffline = branch.isOnline === false;
               const isClosed = branch.operationalStatus === 'CLOSED';
               const isBusy = branch.operationalStatus === 'BUSY';
               const isOpenNow =
+                !isOffline &&
                 !isClosed &&
                 !isBusy &&
                 isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours);
@@ -1775,14 +1789,21 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                         </div>
                       )}
 
-                      {isClosed && (
+                      {isOffline && (
+                        <div className="p-2 bg-slate-100 rounded-xl border border-slate-300 text-[11px] text-slate-800 flex items-center gap-1.5 font-bold">
+                          <PowerOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span>مغلق مؤقتاً (سيستم استقبال الطلبات غير متصل حالياً)</span>
+                        </div>
+                      )}
+
+                      {!isOffline && isClosed && (
                         <div className="p-2 bg-rose-50 rounded-xl border border-rose-200 text-[11px] text-rose-900 flex items-center gap-1.5 font-bold">
                           <PowerOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           <span>المطعم مغلق حالياً حتى إشعار آخر</span>
                         </div>
                       )}
 
-                      {!isClosed && !isBusy && !isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours) && (
+                      {!isOffline && !isClosed && !isBusy && !isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours) && (
                         <div className="p-2 bg-rose-50 rounded-xl border border-rose-200 text-[11px] text-rose-900 flex items-center gap-1.5 font-bold">
                           <Clock className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           <span>مغلق لانتهاء مواعيد العمل ({branch.openingTime || '08:00'} - {branch.closingTime || '22:00'})</span>

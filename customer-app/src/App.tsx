@@ -894,6 +894,12 @@ export function App() {
       });
     });
 
+    // تحديث اتصال الفرع الحي بالإنترنت لحظياً (فتح/إغلاق السيستم أو انقطاع النت)
+    socket.on('branch_presence_changed', ({ branchId, isOnline }: { branchId: string; isOnline: boolean }) => {
+      setBranches(prev => prev.map(b => (b.id === branchId ? { ...b, isOnline } : b)));
+      setSelectedBranch((prev: any) => (prev && prev.id === branchId ? { ...prev, isOnline } : prev));
+    });
+
     // 2. تحديث قائمة الفروع فورياً عند إضافة أو حذف فرع من لوحة الإدارة
     socket.on('branches_list_changed', () => {
       loadBranches();

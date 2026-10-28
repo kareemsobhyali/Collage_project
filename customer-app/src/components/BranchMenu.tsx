@@ -673,6 +673,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
   const isBranchOpen =
     branch?.isActive !== false &&
+    branch?.isOnline !== false &&
     (branch?.operationalStatus === 'OPEN' ||
       !branch?.operationalStatus ||
       (branch?.operationalStatus === 'BUSY' && secondsLeft <= 0)) &&
@@ -819,7 +820,9 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       return;
     }
     if (!isBranchOpen) {
-      if (branch?.isActive === false) {
+      if (branch?.isOnline === false) {
+        alert('عذراً، سيستم استقبال الطلبات في المطعم غير متصل حالياً (انقطاع إنترنت أو إغلاق التطبيق). لا يمكن إضافة أصناف أو إرسال طلبات حتى يعود اتصال المطعم.');
+      } else if (branch?.isActive === false) {
         alert('عذراً، هذا المطعم موقوف حالياً من قِبل إدارة المنظومة.');
       } else if (branch.operationalStatus === 'BUSY' && secondsLeft > 0) {
         alert(
@@ -1062,6 +1065,8 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                 <div className="text-xs sm:text-sm font-black whitespace-nowrap">
                   {branch?.isActive === false
                     ? 'موقوف'
+                    : branch?.isOnline === false
+                    ? 'غير متصل'
                     : branch.operationalStatus === 'CLOSED'
                     ? 'مغلق'
                     : branch.operationalStatus === 'BUSY' && secondsLeft > 0
@@ -1071,7 +1076,9 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                     : 'مفتوح للطلب'}
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 block mt-0.5 whitespace-nowrap">
-                  {branch.operationalStatus === 'BUSY' && secondsLeft > 0
+                  {branch?.isOnline === false
+                    ? 'انقطاع الاتصال'
+                    : branch.operationalStatus === 'BUSY' && secondsLeft > 0
                     ? formatCountdown(secondsLeft)
                     : branch.closingTime
                     ? `حتى ${branch.closingTime}`
@@ -1160,6 +1167,23 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                 <p className="text-[11px] text-rose-600 mt-1 leading-relaxed">
                   أنت تتصفح قائمة الطعام للاطلاع فقط؛ لا يمكن إضافة أصناف للسلة أو إرسال طلبات لهذا المطعم لأنك خارج نطاق التغطية.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* بانر انقطاع اتصال المطعم بالإنترنت أو إغلاق السيستم */}
+          {branch?.isOnline === false && (
+            <div className="bg-slate-850 bg-slate-900 text-white p-4 rounded-3xl shadow-lg flex items-center gap-3 border border-slate-700">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0">
+                <PowerOff className="w-5 h-5 text-rose-400" />
+              </div>
+              <div className="min-w-0">
+                <span className="font-black text-xs sm:text-sm text-rose-200 block">
+                  المطعم غير متصل بالإنترنت حالياً (مغلق مؤقتاً)
+                </span>
+                <span className="text-[11px] text-slate-300 block mt-0.5">
+                  سيستم استقبال الطلبات لدى المطعم غير متصل حالياً (انقطاع إنترنت أو التطبيق غير مفتوح). سيعاد فتح الطلب تلقائياً فور عودة اتصال المطعم.
+                </span>
               </div>
             </div>
           )}

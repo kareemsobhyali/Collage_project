@@ -25,6 +25,7 @@ import {
   Crosshair,
   MapPinOff,
   ChevronDown,
+  PowerOff,
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { requestPushPermission } from '../services/notifications';
@@ -163,7 +164,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     );
   }, [branch.operationalStatus, branch.closedUntil]);
   const isBranchFullyClosed = branch.operationalStatus === 'CLOSED';
-  const isBranchClosed = isBranchFullyClosed || isBranchBusy || isBranchClosedByHours;
+  const isBranchOffline = branch.isOnline === false;
+  const isBranchClosed = isBranchFullyClosed || isBranchBusy || isBranchClosedByHours || isBranchOffline;
 
   // مواعيد مقترحة للحجز المسبق تتوافق مع ساعات عمل الفرع
   const scheduledTimePresets = useMemo(() => {
@@ -773,6 +775,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       }
     }
 
+    if (isBranchOffline) {
+      setError(`عذراً، سيستم استقبال الطلبات في مطعم "${branch.name}" غير متصل حالياً (انقطاع في الإنترنت أو التطبيق غير مفتوح). لا يمكن إرسال الطلب حتى يعود اتصال المطعم.`);
+      return;
+    }
+
     if (isBranchFullyClosed) {
       setError('عذراً، هذا المطعم مغلق حالياً ولا يستقبل أي طلبات فورية أو حجز مسبق.');
       return;
@@ -1082,14 +1089,23 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               </div>
               <span
                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  isBranchClosed
+                  isBranchOffline
+                    ? 'bg-slate-800 text-rose-300 border border-slate-700'
+                    : isBranchClosed
                     ? 'bg-rose-50 text-rose-600 border border-rose-200'
                     : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 }`}
               >
-                {isBranchClosed ? 'الفرع مغلق حالياً' : 'متاح الآن'}
+                {isBranchOffline ? 'غير متصل (مغلق)' : isBranchClosed ? 'الفرع مغلق حالياً' : 'متاح الآن'}
               </span>
             </div>
+
+            {isBranchOffline && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5 text-xs text-rose-850 font-bold">
+                <PowerOff className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>سيستم استقبال الطلبات لدى المطعم غير متصل بالإنترنت حالياً (مغلق مؤقتاً). لا يمكن استقبال طلبات جديدة الآن.</span>
+              </div>
+            )}
 
             {/* توصيل أو استلام من الفرع */}
             <div className="grid grid-cols-2 gap-2">
@@ -2028,11 +2044,14 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             disabled={
               loading ||
               isBranchFullyClosed ||
+              isBranchOffline ||
               (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
               isOutOfDeliveryZone
             }
             className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black shadow-lg transition-all flex items-center justify-between ${
+              loading ||
               isBranchFullyClosed ||
+              isBranchOffline ||
               (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
               isOutOfDeliveryZone
                 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
@@ -2045,6 +2064,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   ? 'جاري إرسال الطلب وتثبيت الموقع...'
                   : isOutOfDeliveryZone
                   ? 'المطعم خارج نطاق التوصيل'
+                  : isBranchOffline
+                  ? 'المطعم غير متصل بالإنترنت حالياً'
                   : isBranchFullyClosed
                   ? 'المطعم مغلق حالياً'
                   : isScheduled && !isScheduledTimeValid

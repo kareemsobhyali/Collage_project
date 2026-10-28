@@ -10,7 +10,8 @@ import {
   notifyBranchMenuChanged,
   notifyMenuItemAvailabilityChanged,
   notifyDriverUnassigned,
-  latestDriverLocations
+  latestDriverLocations,
+  isDriverOnline
 } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert, getRestaurantLocationSettings } from "../services/settings.service.js";
 import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
@@ -1471,6 +1472,7 @@ router.get("/drivers", async (req: AuthRequest, res: Response) => {
           phone: d.phone,
           username: d.username,
           isActive: d.isActive,
+          isOnline: isDriverOnline(d.id),
           createdAt: d.createdAt,
           isAllBranches: config.isAllBranches,
           isGeneralDriver: config.isAllBranches || d.branchId !== branchId,

@@ -250,6 +250,17 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     fetchDrivers();
   }, [orders.length]);
 
+  useEffect(() => {
+    if (!socket) return;
+    const handleDriverPresence = ({ driverId, isOnline }: { driverId: string; isOnline: boolean }) => {
+      setDrivers(prev => prev.map(d => (d.id === driverId ? { ...d, isOnline } : d)));
+    };
+    socket.on('driver_presence_changed', handleDriverPresence);
+    return () => {
+      socket.off('driver_presence_changed', handleDriverPresence);
+    };
+  }, [socket]);
+
   const handleAssignDriver = async (orderId: string, driverId: string | null) => {
     const targetOrder = orders.find(o => o.id === orderId);
     if (driverId && targetOrder?.status === 'PENDING') {
@@ -259,6 +270,18 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     if (driverId === '') {
       toast.warning('يرجى اختيار كابتن التوصيل (الطيار) من القائمة أولاً');
       return;
+    }
+
+    if (driverId && driverId !== 'AUTO') {
+      const selectedDrv = drivers.find(d => d.id === driverId);
+      if (selectedDrv && !selectedDrv.isOnline) {
+        const confirmed = window.confirm(
+          `⚠️ تنبيه: الكابتن "${cleanDriverName(selectedDrv.name)}" غير متصل حالياً (التطبيق مغلق أو لا يوجد إنترنت لديه).\n\nيفضل اختيار كابتن متصل لضمان استلام الطلب وتوصيله في أسرع وقت.\nهل أنت متأكد من رغبتك في إسناد الطلب إليه الآن؟`
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
     }
     try {
       setAssigningDriverOrderId(orderId);
@@ -377,6 +400,18 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
     // 2. إذا اختار المطعم طياراً فورياً أو إسناداً تلقائياً ذكياً عند القبول، يتم إسناده الآن بعد أن تم قبول الطلب
     if (driverToAssign) {
+      if (driverToAssign !== 'AUTO') {
+        const selectedDrv = drivers.find(d => d.id === driverToAssign);
+        if (selectedDrv && !selectedDrv.isOnline) {
+          const confirmed = window.confirm(
+            `⚠️ تنبيه: الكابتن "${cleanDriverName(selectedDrv.name)}" غير متصل حالياً (التطبيق مغلق أو لا يوجد إنترنت لديه).\n\nيفضل اختيار كابتن متصل لضمان استلام الطلب وتوصيله في أسرع وقت.\nهل تريد المتابعة وإسناد الطلب إليه على أي حال؟`
+          );
+          if (!confirmed) {
+            onRefreshOrders();
+            return;
+          }
+        }
+      }
       try {
         const res: any = await api.assignDriver(orderToAccept.id, driverToAssign);
         if (driverToAssign === 'AUTO' && res?.autoAssignedDriver) {
@@ -812,6 +847,17 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                                     }`}>
                                       {isGeneral ? 'طيار عام' : 'طيار الفرع'}
                                     </span>
+                                    {d.isOnline ? (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        متصل الآن
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                        غير متصل
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                     <span className="text-[11px] font-mono font-bold text-slate-500" dir="ltr">
@@ -1856,6 +1902,17 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                               }`}>
                                 {isGeneral ? 'طيار عام' : 'طيار الفرع'}
                               </span>
+                              {d.isOnline ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  متصل الآن
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                  غير متصل
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <span className="text-[11px] font-mono font-bold text-slate-500" dir="ltr">
