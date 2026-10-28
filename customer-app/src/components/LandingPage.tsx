@@ -20,7 +20,7 @@ import {
   ExternalLink,
   PhoneCall
 } from 'lucide-react';
-import { getFullImageUrl, isBranchOpenByHours } from '../services/api';
+import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress } from '../services/campusLocations';
 
 interface LandingPageProps {
@@ -40,7 +40,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const isScrollingRef = useRef<number | null>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // إعدادات قنوات التواصل الديناميكية المحملة من لوحة الإدارة
+  const [contactSettings, setContactSettings] = useState({
+    whatsappEnabled: true,
+    whatsappPhone: '201000000000',
+    whatsappMessage: 'مرحباً، أرغب في تسجيل مطعمي بالمنظومة والاستفسار عن تفاصيل الاشتراك',
+    facebookEnabled: true,
+    facebookUrl: 'https://facebook.com',
+    phoneEnabled: true,
+    phoneNumber: '+201000000000',
+  });
+
+  useEffect(() => {
+    api.getPublicContactChannels()
+      .then((data) => {
+        if (data) setContactSettings(data);
+      })
+      .catch(() => {});
+  }, []);
 
   // تحديث المطعم المختار تلقائياً إذا تغيرت القائمة
   useEffect(() => {
@@ -48,6 +67,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       setActiveIndex(0);
     }
   }, [branches.length, activeIndex]);
+
+  // تموضع أولي تلقائي في منتصف أول مطعم عند فتح الصفحة
+  useEffect(() => {
+    if (branches.length > 0) {
+      const timer = setTimeout(() => {
+        const targetCard = cardRefs.current[0];
+        if (targetCard) {
+          targetCard.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [branches.length]);
 
   const scrollToCard = (index: number) => {
     if (index < 0 || index >= branches.length) return;
@@ -68,10 +100,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     scrollToCard(nextIdx);
   };
 
+  // رصد المطعم الأوسط بعد استقرار السحب لمنع أي تقطيع أثناء حركة الإصبع
   const handleScroll = () => {
-    if (isScrollingRef.current) return;
-    isScrollingRef.current = requestAnimationFrame(() => {
-      isScrollingRef.current = null;
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
       if (!scrollContainerRef.current) return;
       const container = scrollContainerRef.current;
       const containerRect = container.getBoundingClientRect();
@@ -92,7 +126,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       });
 
       setActiveIndex(closestIdx);
-    });
+    }, 120);
   };
 
   const handleCopyBranchLink = (e: React.MouseEvent, branch: any) => {
@@ -163,7 +197,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 active:scale-95 text-white text-xs sm:text-sm font-black shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-2 cursor-pointer"
             >
               <Store className="w-4 h-4 text-indigo-200" />
-              <span>استكشف المطاعم واطلب وجبتك</span>
+              <span>شركاؤنا</span>
               <ArrowLeft className="w-4 h-4" />
             </button>
 
@@ -291,14 +325,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <Store className="w-4 h-4" />
               </div>
               <h2 className="text-lg sm:text-xl font-black text-slate-900">
-                المطاعم الشريكة بالمنظومة
+                شركاؤنا في المنظومة
               </h2>
               <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-xs font-black">
                 {branches.length} مطعم
               </span>
             </div>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              اسحب للتنقل بين المطاعم واضغط على أي مطعم لفتح واجهته ومنيوه الخاص فوراً
+              اسحب للتنقل بين شركائنا واضغط على أي مطعم لفتح واجهته ومنيوه الخاص فوراً
             </p>
           </div>
 
@@ -335,7 +369,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           )}
         </div>
 
-        {/* CoverFlow / 3D Slider: المطعم المعروض بارز في المنتصف وما قبله وبعده بضبابية خفيفة */}
+        {/* CoverFlow / 3D Slider: المطعم المعروض بارز في المنتصف بمحاذاة تامة وثبات كامل */}
         {branches.length === 0 ? (
           <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 space-y-2">
             <Store className="w-10 h-10 text-slate-300 mx-auto" />
@@ -347,8 +381,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="flex items-center gap-4 sm:gap-6 overflow-x-auto py-8 px-6 sm:px-[calc(50%-165px)] scroll-smooth snap-x snap-center no-scrollbar"
-              style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+              className="flex items-center gap-3 sm:gap-6 overflow-x-auto py-6 scroll-smooth snap-x snap-mandatory no-scrollbar"
+              style={{
+                scrollbarWidth: 'none',
+                WebkitOverflowScrolling: 'touch',
+                paddingLeft: 'max(20px, calc(50vw - 155px))',
+                paddingRight: 'max(20px, calc(50vw - 155px))',
+              }}
             >
               {branches.map((branch, idx) => {
                 const isActive = idx === activeIndex;
@@ -377,133 +416,139 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         scrollToCard(idx);
                       }
                     }}
-                    className={`w-[290px] sm:w-[330px] shrink-0 snap-center rounded-3xl transition-all duration-500 ease-out flex flex-col justify-between overflow-hidden relative cursor-pointer select-none ${
-                      isActive
-                        ? 'scale-100 sm:scale-105 z-30 opacity-100 filter-none shadow-2xl shadow-indigo-600/25 border-2 border-indigo-500 ring-4 ring-indigo-500/15 bg-white'
-                        : 'scale-90 sm:scale-95 z-10 opacity-80 hover:opacity-100 filter blur-[0.6px] hover:blur-0 shadow-md border border-slate-200/90 bg-white/95'
-                    }`}
+                    className="w-[82vw] max-w-[310px] sm:w-[320px] shrink-0 snap-center py-3 flex items-center justify-center cursor-pointer select-none"
+                    style={{ scrollSnapAlign: 'center', scrollSnapStop: 'always' }}
                   >
-                    {/* شارة المطعم المعروض حالياً في المنتصف */}
-                    {isActive && (
-                      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black shadow-lg flex items-center gap-1.5 backdrop-blur-md animate-fadeIn">
-                        <Sparkles className="w-3 h-3 text-amber-300" />
-                        <span>المطعم المعروض الآن</span>
+                    {/* الكارد الداخلي: التأثير البصري والتكبير والضبابية مطبق هنا للحفاظ على ثبات محاذاة الاسكرول */}
+                    <div
+                      className={`w-full rounded-3xl transition-all duration-300 ease-out flex flex-col justify-between overflow-hidden relative ${
+                        isActive
+                          ? 'scale-100 z-30 opacity-100 filter-none shadow-2xl shadow-indigo-600/25 border-2 border-indigo-500 ring-4 ring-indigo-500/15 bg-white'
+                          : 'scale-95 z-10 opacity-75 hover:opacity-100 filter blur-[0.6px] hover:blur-0 shadow-md border border-slate-200/90 bg-white/95'
+                      }`}
+                    >
+                      {/* شارة المطعم المعروض حالياً في المنتصف */}
+                      {isActive && (
+                        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black shadow-lg flex items-center gap-1.5 backdrop-blur-md animate-fadeIn">
+                          <Sparkles className="w-3 h-3 text-amber-300" />
+                          <span>المطعم المعروض الآن</span>
+                        </div>
+                      )}
+
+                      {/* Top Banner with Badges */}
+                      <div>
+                        <div className="h-24 sm:h-28 relative bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 flex items-start justify-between p-3 overflow-hidden">
+                          {/* Ambient background glow */}
+                          <div className="absolute -top-10 -right-10 w-28 h-28 bg-indigo-500/20 rounded-full blur-xl pointer-events-none" />
+                          <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-amber-500/15 rounded-full blur-xl pointer-events-none" />
+
+                          {/* Status Badge */}
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black backdrop-blur-md shadow-xs z-10 ${
+                              isOpen
+                                ? 'bg-emerald-500/90 text-white'
+                                : 'bg-slate-900/80 text-rose-300 border border-rose-500/30'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isOpen ? 'bg-white animate-pulse' : 'bg-rose-400'
+                              }`}
+                            />
+                            <span>{isOpen ? 'مفتوح للطلب' : 'مغلق حالياً'}</span>
+                          </span>
+
+                          {/* Rating Badge */}
+                          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-md text-slate-800 text-xs font-black shadow-xs z-10">
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                            <span className="font-mono">{rating}</span>
+                          </div>
+                        </div>
+
+                        {/* Logo & Info */}
+                        <div className="px-4 -mt-7 relative z-10">
+                          {branch.logoUrl ? (
+                            <img
+                              src={getFullImageUrl(branch.logoUrl)}
+                              alt={branch.name}
+                              className={`w-14 h-14 rounded-2xl object-cover bg-white border-2 shadow-md p-0.5 shrink-0 transition-all ${
+                                isActive ? 'border-indigo-400 scale-105' : 'border-white'
+                              }`}
+                            />
+                          ) : (
+                            <div className={`w-14 h-14 rounded-2xl bg-indigo-50 border-2 shadow-md flex items-center justify-center text-indigo-600 font-bold shrink-0 transition-all ${
+                              isActive ? 'border-indigo-400 scale-105' : 'border-white'
+                            }`}>
+                              <Store className="w-7 h-7" />
+                            </div>
+                          )}
+
+                          <div className="mt-2.5">
+                            <h3 className={`font-black text-base truncate transition-colors ${
+                              isActive ? 'text-indigo-600' : 'text-slate-900'
+                            }`}>
+                              {branch.name}
+                            </h3>
+                            <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
+                              <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              <span className="truncate">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>
+                            </div>
+                          </div>
+
+                          {/* Info Chips (Prep Time & Delivery) */}
+                          <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-[11px] font-bold text-slate-600">
+                            <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-100 truncate">
+                              <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <span className="truncate">
+                                {branch.estimatedPrepMins ? `~${branch.estimatedPrepMins} د` : '~15-25 د'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-100 truncate">
+                              <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span className="truncate">
+                                {branch.allowDelivery
+                                  ? (typeof branch.deliveryFee === 'number' && branch.deliveryFee > 0
+                                      ? `${branch.deliveryFee} ج.م`
+                                      : 'توصيل متاح')
+                                  : 'استلام فقط'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
 
-                    {/* Top Banner with Badges */}
-                    <div>
-                      <div className="h-24 sm:h-28 relative bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 flex items-start justify-between p-3 overflow-hidden">
-                        {/* Ambient background glow */}
-                        <div className="absolute -top-10 -right-10 w-28 h-28 bg-indigo-500/20 rounded-full blur-xl pointer-events-none" />
-                        <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-amber-500/15 rounded-full blur-xl pointer-events-none" />
-
-                        {/* Status Badge */}
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black backdrop-blur-md shadow-xs z-10 ${
-                            isOpen
-                              ? 'bg-emerald-500/90 text-white'
-                              : 'bg-slate-900/80 text-rose-300 border border-rose-500/30'
+                      {/* Footer Actions */}
+                      <div className="p-4 pt-3 flex items-center gap-2 border-t border-slate-100 mt-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectBranch(branch);
+                          }}
+                          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer ${
+                            isActive
+                              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-500/20 active:scale-95'
+                              : 'bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white'
                           }`}
                         >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isOpen ? 'bg-white animate-pulse' : 'bg-rose-400'
-                            }`}
-                          />
-                          <span>{isOpen ? 'مفتوح للطلب' : 'مغلق حالياً'}</span>
-                        </span>
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          <span>دخول للمنيو</span>
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                        </button>
 
-                        {/* Rating Badge */}
-                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-md text-slate-800 text-xs font-black shadow-xs z-10">
-                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                          <span className="font-mono">{rating}</span>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyBranchLink(e, branch)}
+                          title="نسخ الرابط المباشر لهذا المطعم"
+                          className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-90 transition-all border border-slate-200/80 shrink-0 cursor-pointer"
+                        >
+                          {copiedBranchId === branch.id ? (
+                            <Check className="w-4 h-4 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
                       </div>
-
-                      {/* Logo & Info */}
-                      <div className="px-4 -mt-7 relative z-10">
-                        {branch.logoUrl ? (
-                          <img
-                            src={getFullImageUrl(branch.logoUrl)}
-                            alt={branch.name}
-                            className={`w-14 h-14 rounded-2xl object-cover bg-white border-2 shadow-md p-0.5 shrink-0 transition-all ${
-                              isActive ? 'border-indigo-400 scale-105' : 'border-white'
-                            }`}
-                          />
-                        ) : (
-                          <div className={`w-14 h-14 rounded-2xl bg-indigo-50 border-2 shadow-md flex items-center justify-center text-indigo-600 font-bold shrink-0 transition-all ${
-                            isActive ? 'border-indigo-400 scale-105' : 'border-white'
-                          }`}>
-                            <Store className="w-7 h-7" />
-                          </div>
-                        )}
-
-                        <div className="mt-2.5">
-                          <h3 className={`font-black text-base truncate transition-colors ${
-                            isActive ? 'text-indigo-600' : 'text-slate-900'
-                          }`}>
-                            {branch.name}
-                          </h3>
-                          <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
-                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span className="truncate">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>
-                          </div>
-                        </div>
-
-                        {/* Info Chips (Prep Time & Delivery) */}
-                        <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-[11px] font-bold text-slate-600">
-                          <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-100 truncate">
-                            <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                            <span className="truncate">
-                              {branch.estimatedPrepMins ? `~${branch.estimatedPrepMins} د` : '~15-25 د'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-100 truncate">
-                            <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span className="truncate">
-                              {branch.allowDelivery
-                                ? (typeof branch.deliveryFee === 'number' && branch.deliveryFee > 0
-                                    ? `${branch.deliveryFee} ج.م`
-                                    : 'توصيل متاح')
-                                : 'استلام فقط'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer Actions */}
-                    <div className="p-4 pt-3 flex items-center gap-2 border-t border-slate-100 mt-3">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectBranch(branch);
-                        }}
-                        className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer ${
-                          isActive
-                            ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-500/20 active:scale-95'
-                            : 'bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white'
-                        }`}
-                      >
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        <span>دخول للمنيو</span>
-                        <ArrowLeft className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleCopyBranchLink(e, branch)}
-                        title="نسخ الرابط المباشر لهذا المطعم"
-                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-90 transition-all border border-slate-200/80 shrink-0 cursor-pointer"
-                      >
-                        {copiedBranchId === branch.id ? (
-                          <Check className="w-4 h-4 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </button>
                     </div>
                   </div>
                 );
@@ -576,7 +621,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 5. PARTNER REGISTRATION & CONTACT SECTION: سجّل مطعمك معنا وتواصل عبر واتساب وفيسبوك */}
+      {/* 5. PARTNER REGISTRATION & CONTACT SECTION: سجّل مطعمك معنا (تتحكم بها لوحة الإدارة) */}
       <section
         id="partner-contact-section"
         className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-white p-6 sm:p-10 border border-slate-800 shadow-2xl space-y-8"
@@ -619,83 +664,92 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
 
-        {/* Contact Channels Grid (روابط التواصل والتسجيل) */}
-        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-          {/* 1. WHATSAPP CONTACT CARD */}
-          {/* 🟢 يمكنك تعديل رقم الواتساب ورسالة الترحيب في الرابط أدناه بسهولة */}
-          <a
-            href="https://wa.me/201000000000?text=مرحباً، أرغب في تسجيل مطعمي بالمنظومة والاستفسار عن تفاصيل الاشتراك"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group bg-gradient-to-b from-emerald-950/60 to-slate-900/90 hover:from-emerald-900/80 hover:to-slate-900 border border-emerald-500/30 hover:border-emerald-400 rounded-3xl p-5 transition-all duration-300 shadow-lg hover:shadow-emerald-500/20 hover:-translate-y-1 flex flex-col justify-between space-y-4"
-          >
-            <div className="space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform shadow-inner">
-                <MessageCircle className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-black text-white group-hover:text-emerald-300 transition-colors">
-                تواصل مباشر عبر واتساب
-              </h3>
-              <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                تحدث مع فريق مبيعات وتسجيل المطاعم مباشرة واستفسر عن تفاصيل الاشتراك والتفعيل.
-              </p>
-            </div>
-            <div className="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm">
-              <span>محادثة واتساب سريعة</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </div>
-          </a>
+        {/* Contact Channels Grid (تتحكم بها لوحة تحكم الإدارة ديناميكياً) */}
+        {(contactSettings.whatsappEnabled || contactSettings.facebookEnabled || contactSettings.phoneEnabled) ? (
+          <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            {/* 1. WHATSAPP CONTACT CARD */}
+            {contactSettings.whatsappEnabled && (
+              <a
+                href={`https://wa.me/${contactSettings.whatsappPhone.replace(/\D/g, '')}?text=${encodeURIComponent(contactSettings.whatsappMessage)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group bg-gradient-to-b from-emerald-950/60 to-slate-900/90 hover:from-emerald-900/80 hover:to-slate-900 border border-emerald-500/30 hover:border-emerald-400 rounded-3xl p-5 transition-all duration-300 shadow-lg hover:shadow-emerald-500/20 hover:-translate-y-1 flex flex-col justify-between space-y-4"
+              >
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform shadow-inner">
+                    <MessageCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base font-black text-white group-hover:text-emerald-300 transition-colors">
+                    تواصل مباشر عبر واتساب
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                    تحدث مع فريق مبيعات وتسجيل المطاعم مباشرة واستفسر عن تفاصيل الاشتراك والتفعيل.
+                  </p>
+                </div>
+                <div className="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm">
+                  <span>محادثة واتساب سريعة</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </div>
+              </a>
+            )}
 
-          {/* 2. FACEBOOK PAGE CARD */}
-          {/* 🔵 يمكنك وضع رابط صفحة الفيسبوك الخاصة بك أدناه */}
-          <a
-            href="https://facebook.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group bg-gradient-to-b from-blue-950/60 to-slate-900/90 hover:from-blue-900/80 hover:to-slate-900 border border-blue-500/30 hover:border-blue-400 rounded-3xl p-5 transition-all duration-300 shadow-lg hover:shadow-blue-500/20 hover:-translate-y-1 flex flex-col justify-between space-y-4"
-          >
-            <div className="space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform shadow-inner">
-                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-              </div>
-              <h3 className="text-base font-black text-white group-hover:text-blue-300 transition-colors">
-                صفحتنا على فيسبوك
-              </h3>
-              <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                تابع أحدث المطاعم المنضمة وتحديثات المنظومة وتواصل معنا مباشرة عبر الماسنجر.
-              </p>
-            </div>
-            <div className="py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm">
-              <span>زيارة صفحة فيسبوك</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </div>
-          </a>
+            {/* 2. FACEBOOK PAGE CARD */}
+            {contactSettings.facebookEnabled && (
+              <a
+                href={contactSettings.facebookUrl.startsWith('http') ? contactSettings.facebookUrl : `https://${contactSettings.facebookUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group bg-gradient-to-b from-blue-950/60 to-slate-900/90 hover:from-blue-900/80 hover:to-slate-900 border border-blue-500/30 hover:border-blue-400 rounded-3xl p-5 transition-all duration-300 shadow-lg hover:shadow-blue-500/20 hover:-translate-y-1 flex flex-col justify-between space-y-4"
+              >
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform shadow-inner">
+                    <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                  </div>
+                  <h3 className="text-base font-black text-white group-hover:text-blue-300 transition-colors">
+                    صفحتنا على فيسبوك
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                    تابع أحدث المطاعم المنضمة وتحديثات المنظومة وتواصل معنا مباشرة عبر الماسنجر.
+                  </p>
+                </div>
+                <div className="py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm">
+                  <span>زيارة صفحة فيسبوك</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </div>
+              </a>
+            )}
 
-          {/* 3. DIRECT PHONE / CALL CARD */}
-          {/* 📞 يمكنك تعديل رقم الاتصال الهاتفي أدناه */}
-          <a
-            href="tel:+201000000000"
-            className="group bg-gradient-to-b from-indigo-950/60 to-slate-900/90 hover:from-indigo-900/80 hover:to-slate-900 border border-indigo-500/30 hover:border-indigo-400 rounded-3xl p-5 transition-all duration-300 shadow-lg hover:shadow-indigo-500/20 hover:-translate-y-1 flex flex-col justify-between space-y-4"
-          >
-            <div className="space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform shadow-inner">
-                <PhoneCall className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-black text-white group-hover:text-indigo-300 transition-colors">
-                اتصال هاتفي مباشر
-              </h3>
-              <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                تواصل صوتياً مع إدارة العمليات لترتيب موعد لتهيئة المنظومة وربط مطعمك فوراً.
-              </p>
-            </div>
-            <div className="py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm">
-              <span>اتصل بنا الآن</span>
-              <PhoneCall className="w-3.5 h-3.5" />
-            </div>
-          </a>
-        </div>
+            {/* 3. DIRECT PHONE / CALL CARD */}
+            {contactSettings.phoneEnabled && (
+              <a
+                href={`tel:${contactSettings.phoneNumber}`}
+                className="group bg-gradient-to-b from-indigo-950/60 to-slate-900/90 hover:from-indigo-900/80 hover:to-slate-900 border border-indigo-500/30 hover:border-indigo-400 rounded-3xl p-5 transition-all duration-300 shadow-lg hover:shadow-indigo-500/20 hover:-translate-y-1 flex flex-col justify-between space-y-4"
+              >
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-400/40 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform shadow-inner">
+                    <PhoneCall className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base font-black text-white group-hover:text-indigo-300 transition-colors">
+                    اتصال هاتفي مباشر
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                    تواصل صوتياً مع إدارة العمليات لترتيب موعد لتهيئة المنظومة وربط مطعمك فوراً.
+                  </p>
+                </div>
+                <div className="py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm">
+                  <span>اتصل بنا الآن</span>
+                  <PhoneCall className="w-3.5 h-3.5" />
+                </div>
+              </a>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 text-xs">
+            يمكنك تفعيل قنوات التواصل وتعديل أرقامها من خلال لوحة تحكم الإدارة (SuperAdmin).
+          </div>
+        )}
       </section>
 
       {/* 6. FOOTER: الحقوق والتواصل */}

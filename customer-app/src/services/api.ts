@@ -1003,6 +1003,51 @@ export const api = {
     return data;
   },
 
+  // 37.5 إعدادات قنوات التواصل (قسم انضم كشريك)
+  async getPublicContactChannels() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/customer/public/contact-channels`);
+      if (res.ok) return await res.json();
+    } catch (_e) {}
+    return {
+      whatsappEnabled: true,
+      whatsappPhone: "201000000000",
+      whatsappMessage: "مرحباً، أرغب في تسجيل مطعمي بالمنظومة والاستفسار عن تفاصيل الاشتراك",
+      facebookEnabled: true,
+      facebookUrl: "https://facebook.com",
+      phoneEnabled: true,
+      phoneNumber: "+201000000000",
+    };
+  },
+
+  async getAdminContactChannels() {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/contact-channels`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب إعدادات قنوات التواصل');
+    return data;
+  },
+
+  async updateAdminContactChannels(settings: {
+    whatsappEnabled?: boolean;
+    whatsappPhone?: string;
+    whatsappMessage?: string;
+    facebookEnabled?: boolean;
+    facebookUrl?: string;
+    phoneEnabled?: boolean;
+    phoneNumber?: string;
+  }) {
+    const res = await fetch(`${API_BASE_URL}/admin/settings/contact-channels`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(settings),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ إعدادات قنوات التواصل');
+    return data;
+  },
+
   // 38. إعدادات تنبيهات وإشعارات الواتساب
   async getWhatsAppAlertSettings() {
     const res = await fetch(`${API_BASE_URL}/admin/settings/whatsapp-alerts`, {

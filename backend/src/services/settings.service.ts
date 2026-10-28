@@ -934,5 +934,59 @@ export async function updateRestaurantLocationSettings(settings: Partial<Restaur
   return updated;
 }
 
+export interface ContactChannelsSettings {
+  whatsappEnabled: boolean;
+  whatsappPhone: string;
+  whatsappMessage: string;
+  facebookEnabled: boolean;
+  facebookUrl: string;
+  phoneEnabled: boolean;
+  phoneNumber: string;
+}
+
+const DEFAULT_CONTACT_SETTINGS: ContactChannelsSettings = {
+  whatsappEnabled: true,
+  whatsappPhone: "201000000000",
+  whatsappMessage: "مرحباً، أرغب في تسجيل مطعمي بالمنظومة والاستفسار عن تفاصيل الاشتراك",
+  facebookEnabled: true,
+  facebookUrl: "https://facebook.com",
+  phoneEnabled: true,
+  phoneNumber: "+201000000000",
+};
+
+export async function getContactChannelsSettings(): Promise<ContactChannelsSettings> {
+  try {
+    const record = await prisma.systemSetting.findUnique({
+      where: { key: "contact_channels_settings" },
+    });
+    if (record && record.value) {
+      return { ...DEFAULT_CONTACT_SETTINGS, ...JSON.parse(record.value) };
+    }
+  } catch (_e) {}
+  return DEFAULT_CONTACT_SETTINGS;
+}
+
+export async function updateContactChannelsSettings(settings: Partial<ContactChannelsSettings>): Promise<ContactChannelsSettings> {
+  const current = await getContactChannelsSettings();
+  const updated: ContactChannelsSettings = {
+    ...current,
+    whatsappEnabled: typeof settings.whatsappEnabled === "boolean" ? settings.whatsappEnabled : current.whatsappEnabled,
+    whatsappPhone: settings.whatsappPhone !== undefined ? String(settings.whatsappPhone).trim() : current.whatsappPhone,
+    whatsappMessage: settings.whatsappMessage !== undefined ? String(settings.whatsappMessage).trim() : current.whatsappMessage,
+    facebookEnabled: typeof settings.facebookEnabled === "boolean" ? settings.facebookEnabled : current.facebookEnabled,
+    facebookUrl: settings.facebookUrl !== undefined ? String(settings.facebookUrl).trim() : current.facebookUrl,
+    phoneEnabled: typeof settings.phoneEnabled === "boolean" ? settings.phoneEnabled : current.phoneEnabled,
+    phoneNumber: settings.phoneNumber !== undefined ? String(settings.phoneNumber).trim() : current.phoneNumber,
+  };
+
+  await prisma.systemSetting.upsert({
+    where: { key: "contact_channels_settings" },
+    update: { value: JSON.stringify(updated) },
+    create: { key: "contact_channels_settings", value: JSON.stringify(updated) },
+  });
+
+  return updated;
+}
+
 
 

@@ -171,6 +171,28 @@ export const AdminPage: React.FC = () => {
   const [savingLoyaltySettings, setSavingLoyaltySettings] = useState(false);
   const [loyaltySaveSuccess, setLoyaltySaveSuccess] = useState(false);
 
+  // Contact Channels Settings (Landing page "Join as Partner" section)
+  const [contactSettings, setContactSettings] = useState<{
+    whatsappEnabled: boolean;
+    whatsappPhone: string;
+    whatsappMessage: string;
+    facebookEnabled: boolean;
+    facebookUrl: string;
+    phoneEnabled: boolean;
+    phoneNumber: string;
+  }>({
+    whatsappEnabled: true,
+    whatsappPhone: '201000000000',
+    whatsappMessage: 'مرحباً، أود تسجيل مطعمي والانضمام كشريك في منصة UniFood.',
+    facebookEnabled: true,
+    facebookUrl: 'https://facebook.com',
+    phoneEnabled: true,
+    phoneNumber: '+201000000000',
+  });
+  const [loadingContactSettings, setLoadingContactSettings] = useState(false);
+  const [savingContactSettings, setSavingContactSettings] = useState(false);
+  const [contactSaveSuccess, setContactSaveSuccess] = useState(false);
+
   // SuperAdmin Change Password states
   const [currentAdminPassword, setCurrentAdminPassword] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
@@ -1713,6 +1735,43 @@ export const AdminPage: React.FC = () => {
     });
   };
 
+  // Contact Channels Settings Handlers
+  const fetchContactChannelsSettings = async () => {
+    try {
+      setLoadingContactSettings(true);
+      const data = await api.getAdminContactChannels();
+      if (data) {
+        setContactSettings({
+          whatsappEnabled: data.whatsappEnabled ?? true,
+          whatsappPhone: data.whatsappPhone || '201000000000',
+          whatsappMessage: data.whatsappMessage || 'مرحباً، أود تسجيل مطعمي والانضمام كشريك في منصة UniFood.',
+          facebookEnabled: data.facebookEnabled ?? true,
+          facebookUrl: data.facebookUrl || 'https://facebook.com',
+          phoneEnabled: data.phoneEnabled ?? true,
+          phoneNumber: data.phoneNumber || '+201000000000',
+        });
+      }
+    } catch (err) {
+      console.error('Fetch contact channels settings error:', err);
+    } finally {
+      setLoadingContactSettings(false);
+    }
+  };
+
+  const handleSaveContactChannels = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSavingContactSettings(true);
+      await api.updateAdminContactChannels(contactSettings);
+      setContactSaveSuccess(true);
+      setTimeout(() => setContactSaveSuccess(false), 3500);
+    } catch (err: any) {
+      alert(err.message || 'فشل حفظ إعدادات قنوات التواصل');
+    } finally {
+      setSavingContactSettings(false);
+    }
+  };
+
   // GPS Location Handlers for Add / Edit Branch
   const handleDetectGpsForNewBranch = () => {
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
@@ -1778,6 +1837,7 @@ export const AdminPage: React.FC = () => {
     if (activeTab === 'SETTINGS') {
       fetchLoyaltySettings();
       fetchSoundSettings();
+      fetchContactChannelsSettings();
     }
   }, [activeTab]);
 
@@ -7022,6 +7082,209 @@ export const AdminPage: React.FC = () => {
                       <>
                         <Save className="w-4 h-4" />
                         <span>حفظ وتطبيق نغمة الإشعارات فوراً</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Card: Contact Channels Settings (Landing Page "Join as Partner") */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                    <MessageCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      <span>إعدادات قنوات التواصل (قسم انضم كشريك بالصفحة الرئيسية)</span>
+                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-700 text-[10px] font-black rounded-md border border-emerald-500/20">
+                        مزامنة فورية مع الواجهة 🚀
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      تحكم بالكامل في قنوات التواصل المعروضة للعملاء وأصحاب المطاعم الراغبين في الانضمام (إظهار/إخفاء وتعديل البيانات)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${
+                    contactSettings.whatsappEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-400 border-slate-200'
+                  }`}>
+                    واتساب: {contactSettings.whatsappEnabled ? 'مفعّل' : 'معطّل'}
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${
+                    contactSettings.facebookEnabled ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-400 border-slate-200'
+                  }`}>
+                    فيسبوك: {contactSettings.facebookEnabled ? 'مفعّل' : 'معطّل'}
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${
+                    contactSettings.phoneEnabled ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-400 border-slate-200'
+                  }`}>
+                    الهاتف: {contactSettings.phoneEnabled ? 'مفعّل' : 'معطّل'}
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveContactChannels} className="space-y-6">
+                {/* 1. واتساب */}
+                <div className={`p-4 rounded-2xl border transition-all ${
+                  contactSettings.whatsappEnabled ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-75'
+                }`}>
+                  <div className="flex items-center justify-between pb-3 border-b border-emerald-100/60 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                        WA
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-slate-900 block">قناة محادثة واتساب (WhatsApp)</span>
+                        <span className="text-[11px] text-slate-500 block">تفتح محادثة مباشرة مع المطعم المتقدم للشراكة</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contactSettings.whatsappEnabled}
+                        onChange={(e) => setContactSettings({ ...contactSettings, whatsappEnabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                        رقم الهاتف / الواتساب (بالصيغة الدولية أو المحلية بدون مسافات):
+                      </label>
+                      <input
+                        type="text"
+                        dir="ltr"
+                        value={contactSettings.whatsappPhone}
+                        onChange={(e) => setContactSettings({ ...contactSettings, whatsappPhone: e.target.value })}
+                        placeholder="201000000000"
+                        className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                        الرسالة التلقائية المسبقة عند بدء المحادثة:
+                      </label>
+                      <input
+                        type="text"
+                        value={contactSettings.whatsappMessage}
+                        onChange={(e) => setContactSettings({ ...contactSettings, whatsappMessage: e.target.value })}
+                        placeholder="مرحباً، أود تسجيل مطعمي والانضمام كشريك..."
+                        className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. فيسبوك */}
+                <div className={`p-4 rounded-2xl border transition-all ${
+                  contactSettings.facebookEnabled ? 'bg-blue-50/40 border-blue-200' : 'bg-slate-50 border-slate-200 opacity-75'
+                }`}>
+                  <div className="flex items-center justify-between pb-3 border-b border-blue-100/60 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                        FB
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-slate-900 block">صفحة فيسبوك الرسمية (Facebook)</span>
+                        <span className="text-[11px] text-slate-500 block">رابط الصفحة أو المجتمع على شبكة فيسبوك</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contactSettings.facebookEnabled}
+                        onChange={(e) => setContactSettings({ ...contactSettings, facebookEnabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      رابط الصفحة أو البروفايل (URL):
+                    </label>
+                    <input
+                      type="url"
+                      dir="ltr"
+                      value={contactSettings.facebookUrl}
+                      onChange={(e) => setContactSettings({ ...contactSettings, facebookUrl: e.target.value })}
+                      placeholder="https://facebook.com/unifood"
+                      className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. مكالمة هاتفية */}
+                <div className={`p-4 rounded-2xl border transition-all ${
+                  contactSettings.phoneEnabled ? 'bg-amber-50/40 border-amber-200' : 'bg-slate-50 border-slate-200 opacity-75'
+                }`}>
+                  <div className="flex items-center justify-between pb-3 border-b border-amber-100/60 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                        <Phone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-slate-900 block">الاتصال الهاتفي المباشر (Phone Call)</span>
+                        <span className="text-[11px] text-slate-500 block">يفتح لوحة الاتصال مباشرة على هاتف العميل</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contactSettings.phoneEnabled}
+                        onChange={(e) => setContactSettings({ ...contactSettings, phoneEnabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      رقم الهاتف المباشر:
+                    </label>
+                    <input
+                      type="tel"
+                      dir="ltr"
+                      value={contactSettings.phoneNumber}
+                      onChange={(e) => setContactSettings({ ...contactSettings, phoneNumber: e.target.value })}
+                      placeholder="+201000000000"
+                      className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {contactSaveSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>تم حفظ إعدادات قنوات التواصل بنجاح وتحديثها فورياً بالصفحة الرئيسية! ✅</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingContactSettings || loadingContactSettings}
+                    className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+                  >
+                    {savingContactSettings ? (
+                      <>
+                        <RotateCw className="w-4 h-4 animate-spin" />
+                        <span>جاري الحفظ...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>حفظ إعدادات قنوات التواصل</span>
                       </>
                     )}
                   </button>

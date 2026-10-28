@@ -14,7 +14,9 @@ import {
   updateNotificationSoundSettings,
   DEFAULT_SOUND_SETTINGS,
   getRestaurantLocationSettings,
-  updateRestaurantLocationSettings
+  updateRestaurantLocationSettings,
+  getContactChannelsSettings,
+  updateContactChannelsSettings
 } from "../services/settings.service.js";
 import { 
   notifyBranchStatusChanged,
@@ -1652,6 +1654,31 @@ router.put("/settings/loyalty", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Update loyalty settings error:", error);
     res.status(500).json({ error: "فشل تحديث إعدادات نقاط الولاء" });
+  }
+});
+
+// 10.1 استرجاع إعدادات قنوات التواصل (قسم انضم كشريك)
+router.get("/settings/contact-channels", async (_req: AuthRequest, res: Response) => {
+  try {
+    const settings = await getContactChannelsSettings();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: "فشل جلب إعدادات قنوات التواصل" });
+  }
+});
+
+// 10.2 تحديث إعدادات قنوات التواصل (قسم انضم كشريك)
+router.put("/settings/contact-channels", async (req: AuthRequest, res: Response) => {
+  try {
+    const updated = await updateContactChannelsSettings(req.body);
+    res.json({
+      success: true,
+      message: "تم حفظ وتحديث إعدادات قنوات التواصل بنجاح ✅",
+      settings: updated,
+    });
+  } catch (error) {
+    console.error("Update contact channels error:", error);
+    res.status(500).json({ error: "فشل تحديث إعدادات قنوات التواصل" });
   }
 });
 

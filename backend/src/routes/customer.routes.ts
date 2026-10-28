@@ -4,7 +4,7 @@ import crypto from "crypto";
 import prisma from "../prisma.js";
 import { authenticateUser, AuthRequest, JWT_SECRET } from "../middleware/auth.js";
 import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated } from "../sockets/socketManager.js";
-import { getLoyaltySettings, awardLoyaltyPointsIfCompleted, getRestaurantLocationSettings } from "../services/settings.service.js";
+import { getLoyaltySettings, awardLoyaltyPointsIfCompleted, getRestaurantLocationSettings, getContactChannelsSettings } from "../services/settings.service.js";
 import { isOrderAcceptedByDriver } from "../services/driver.service.js";
 import { 
   recordFlashDealsConsumption, 
@@ -15,6 +15,16 @@ import {
 } from "../services/flashDeal.service.js";
 
 const router = Router();
+
+// جلب إعدادات قنوات التواصل (قسم انضم كشريك بالصفحة الرئيسية)
+router.get("/public/contact-channels", async (_req: Request, res: Response) => {
+  try {
+    const settings = await getContactChannelsSettings();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: "فشل استرجاع إعدادات قنوات التواصل" });
+  }
+});
 
 // جلب موقع المطعم الرئيسي والخرائط للعملاء والطيارين
 router.get("/public/restaurant-location", async (_req: Request, res: Response) => {

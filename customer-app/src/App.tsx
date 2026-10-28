@@ -1037,22 +1037,24 @@ export function App() {
               </button>
             )}
 
-            {/* Group Cart Button */}
-            <button
-              onClick={handleOpenGroupCartClick}
-              className={`h-9 px-2 sm:px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0 ${
-                groupCartCode
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100'
-              }`}
-              title="مشاركة سلة جماعية مع أصدقائك"
-            >
-              <Users className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">طلب جماعي</span>
-              {groupCartCode && (
-                <span className="w-2 h-2 rounded-full bg-amber-300 animate-pulse shrink-0" />
-              )}
-            </button>
+            {/* Group Cart Button (only shown inside branch view) */}
+            {selectedBranch && (
+              <button
+                onClick={handleOpenGroupCartClick}
+                className={`h-9 px-2 sm:px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0 ${
+                  groupCartCode
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100'
+                }`}
+                title="مشاركة سلة جماعية مع أصدقائك"
+              >
+                <Users className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">طلب جماعي</span>
+                {groupCartCode && (
+                  <span className="w-2 h-2 rounded-full bg-amber-300 animate-pulse shrink-0" />
+                )}
+              </button>
+            )}
 
             {/* Quick Cart Button (shown on home screen or desktop) */}
             {cart.length > 0 && !selectedBranch && (
