@@ -9612,7 +9612,7 @@ export const AdminPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <input
                           type="text"
-                          placeholder="اسم المنطقة (مثال: الحي الأول، حي الزهور...)"
+                          placeholder="اسم المنطقة (مثال: الحي الأول)..."
                           value={newZoneName}
                           onChange={e => setNewZoneName(e.target.value)}
                           className="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
@@ -9742,7 +9742,7 @@ export const AdminPage: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-1">
+                      <div className="flex items-center gap-2 pt-1">
                         {editingZoneIndex !== null && (
                           <button
                             type="button"
@@ -9754,7 +9754,7 @@ export const AdminPage: React.FC = () => {
                               setNewZoneLng('');
                               setNewZoneRadius('1500');
                             }}
-                            className="h-9 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                            className="h-10 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0"
                           >
                             إلغاء التعديل
                           </button>
@@ -9793,7 +9793,7 @@ export const AdminPage: React.FC = () => {
                             setNewZoneIsDirectional(false);
                             setShowZoneGeoSettings(false);
                           }}
-                          className={`h-9 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
+                          className={`flex-1 h-10 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
                             editingZoneIndex !== null
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                               : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95'
@@ -9827,10 +9827,10 @@ export const AdminPage: React.FC = () => {
                             <MapPin className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-black text-slate-900 truncate">
-                              المناطق المضافة لهذا الفرع
+                            <div className="text-xs font-black text-slate-900">
+                              المناطق المضافة للفرع
                             </div>
-                            <div className="text-[10px] text-slate-500 font-bold">
+                            <div className="text-[10px] text-slate-500 font-bold mt-0.5">
                               {editDeliveryZones.length === 0 ? 'لا توجد مناطق حالياً' : `${editDeliveryZones.length} مناطق مسجلة`}
                             </div>
                           </div>
@@ -9866,7 +9866,7 @@ export const AdminPage: React.FC = () => {
                               لم يتم إضافة مناطق مخصصة بعد. أضف المناطق وأسعار توصيلها أعلاه.
                             </div>
                           ) : (
-                            <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 pr-0.5 custom-scrollbar">
+                            <div className="max-h-72 overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
                               {editDeliveryZones
                                 .map((z, idx) => ({ ...z, originalIndex: idx }))
                                 .filter(z => !zoneSearchFilter.trim() || extractZoneGeo(z.name).cleanName.toLowerCase().includes(zoneSearchFilter.toLowerCase()))
@@ -9876,48 +9876,53 @@ export const AdminPage: React.FC = () => {
                                   return (
                                     <div
                                       key={z.originalIndex}
-                                      className={`py-2 px-2.5 rounded-xl flex items-center justify-between gap-2 transition-all ${
+                                      className={`p-3 rounded-2xl border transition-all ${
                                         isCurrentlyEditing
-                                          ? 'bg-amber-50/90 border border-amber-300'
-                                          : 'hover:bg-slate-50'
+                                          ? 'bg-amber-50/90 border-amber-300 ring-2 ring-amber-200/50'
+                                          : 'bg-slate-50/80 hover:bg-slate-50 border-slate-200/80 shadow-2xs'
                                       }`}
                                     >
-                                      {/* Left: Zone Info */}
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <span className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 text-xs font-mono font-bold">
-                                          {z.originalIndex + 1}
-                                        </span>
-                                        <div className="min-w-0">
-                                          <div className="flex items-center gap-1.5 flex-wrap">
-                                            <span className="text-xs font-black text-slate-900 truncate">
+                                      {/* السطر الأول: الرقم، اسم المنطقة، وسعر التوصيل */}
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                          <span className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 text-xs font-mono font-black">
+                                            {z.originalIndex + 1}
+                                          </span>
+                                          <div className="min-w-0">
+                                            <span className="text-xs font-black text-slate-900 block truncate">
                                               {geo.cleanName}
                                             </span>
-                                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-md text-[10px] font-mono font-black shrink-0">
-                                              {z.fee} ج.م
-                                            </span>
-                                            {geo.lat && geo.lng ? (
-                                              <>
-                                                <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md text-[9px] font-black shrink-0 flex items-center gap-1">
-                                                  <span>📍 نطاق {(geo.radiusMeters ? geo.radiusMeters / 1000 : 1.5).toFixed(1)} كم</span>
-                                                </span>
-                                                {geo.isDirectional && (
-                                                  <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-md text-[9px] font-black shrink-0 flex items-center gap-0.5">
-                                                    <Compass className="w-2.5 h-2.5 text-purple-600" />
-                                                    <span>مخصص</span>
-                                                  </span>
-                                                )}
-                                              </>
-                                            ) : (
-                                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[9px] font-bold shrink-0">
-                                                بدون خريطة
-                                              </span>
-                                            )}
                                           </div>
                                         </div>
+                                        <span className="px-2.5 py-0.5 bg-indigo-100/70 text-indigo-800 border border-indigo-200/60 rounded-lg text-[11px] font-mono font-black shrink-0">
+                                          {z.fee} ج.م
+                                        </span>
                                       </div>
 
-                                      {/* Right: Actions (Map View, Edit & Delete) */}
-                                      <div className="flex items-center gap-1 shrink-0">
+                                      {/* السطر الثاني: شارات النطاق الجغرافي */}
+                                      <div className="flex items-center gap-1.5 flex-wrap mt-2 pr-8">
+                                        {geo.lat && geo.lng ? (
+                                          <>
+                                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-black shrink-0 flex items-center gap-1">
+                                              <MapPin className="w-2.5 h-2.5 text-emerald-600" />
+                                              <span>نطاق {(geo.radiusMeters ? geo.radiusMeters / 1000 : 1.5).toFixed(1)} كم</span>
+                                            </span>
+                                            {geo.isDirectional && (
+                                              <span className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-md text-[10px] font-black shrink-0 flex items-center gap-1">
+                                                <Compass className="w-2.5 h-2.5 text-purple-600" />
+                                                <span>مخصص بالاتجاهات</span>
+                                              </span>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <span className="px-2 py-0.5 bg-slate-200/70 text-slate-600 rounded-md text-[10px] font-bold shrink-0">
+                                            توصيل عادي (بدون إحداثيات)
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* السطر الثالث: أزرار التحكم (الخريطة، تعديل، حذف) مفصولة تماماً في شريط خاص لمنع أي تداخل */}
+                                      <div className="flex items-center justify-end gap-1.5 pt-2 mt-2.5 border-t border-slate-200/60 flex-wrap">
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -9932,7 +9937,7 @@ export const AdminPage: React.FC = () => {
                                             setShowZoneGeoSettings(true);
                                             setLocationPickerTarget('BRANCH_ZONE');
                                           }}
-                                          className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                                          className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
                                           title="فتح الخريطة وعرض نطاق هذه المنطقة"
                                         >
                                           <MapPin className="w-3 h-3 text-purple-600" />
@@ -9951,10 +9956,10 @@ export const AdminPage: React.FC = () => {
                                             setNewZoneIsDirectional(Boolean(geo.isDirectional));
                                             setShowZoneGeoSettings(Boolean(geo.lat && geo.lng));
                                           }}
-                                          className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                                          className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
                                           title="تعديل هذه المنطقة"
                                         >
-                                          <Edit2 className="w-3 h-3" />
+                                          <Edit2 className="w-3 h-3 text-indigo-600" />
                                           <span>تعديل</span>
                                         </button>
                                         <button
@@ -9965,10 +9970,10 @@ export const AdminPage: React.FC = () => {
                                             }
                                             setEditDeliveryZones(prev => prev.filter((_, i) => i !== z.originalIndex));
                                           }}
-                                          className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                                          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
                                           title="حذف هذه المنطقة"
                                         >
-                                          <Trash2 className="w-3 h-3" />
+                                          <Trash2 className="w-3 h-3 text-rose-600" />
                                           <span>حذف</span>
                                         </button>
                                       </div>
@@ -9985,7 +9990,7 @@ export const AdminPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">رسوم التوصيل للمنطقة (ج.م)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">رسوم التوصيل الافتراضية للفرع (ج.م)</label>
                 <div className="relative">
                   <Coins className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
