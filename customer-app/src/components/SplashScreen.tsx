@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { getFullImageUrl } from '../services/api';
-import { Sparkles, UtensilsCrossed, CheckCircle2, Store } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Sparkles, UtensilsCrossed, CheckCircle2 } from 'lucide-react';
 
 interface SplashScreenProps {
   branches?: any[];
@@ -155,20 +154,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     };
   }, []);
 
-  // Filter only real active branches - NO DUMMY/FAKE DATA!
-  const realBranches = useMemo(() => {
-    if (!Array.isArray(branches)) return [];
-    return branches.filter((b) => b && b.name && String(b.name).trim().length > 0).slice(0, 6);
-  }, [branches]);
-
   if (!visible) return null;
-
-  const hasRealBranches = realBranches.length > 0;
-
-  // Calibrated orbit radius for phones and larger screens
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-  const orbitRadius = isMobile ? 126 : 148;
-  const orbitContainerSize = orbitRadius * 2 + (isMobile ? 80 : 96);
 
   return (
     <div
@@ -187,125 +173,29 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       {/* Top Welcome Pill */}
       <div className="pt-4 sm:pt-6 relative z-10 flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/15 text-xs font-bold text-indigo-100 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
         <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-        <span>أفضل المطاعم والكافيهات متجمعة لك • UniFood</span>
+        <span>أهلاً بك في منصة الطلبات الجامعية • UniFood</span>
       </div>
 
-      {/* 2. Centerpiece: Orbiting Restaurant Logos Carousel */}
+      {/* 2. Centerpiece: UniFood App Logo (Clean & Elegant) */}
       <div className="relative z-10 flex flex-col items-center text-center my-auto">
-        {/* Orbit container */}
-        <div 
-          className="relative flex items-center justify-center"
-          style={{ width: `${orbitContainerSize}px`, height: `${orbitContainerSize}px` }}
-        >
-          {/* Outer Orbit Track Line (Subtle dashed border) */}
-          <div 
-            className="absolute rounded-full border border-indigo-400/25 border-dashed pointer-events-none"
-            style={{ width: `${orbitRadius * 2}px`, height: `${orbitRadius * 2}px` }}
-          />
+        <div className="relative flex items-center justify-center">
+          {/* Concentric Pulsing Radar Aura */}
+          <div className="absolute w-36 h-36 sm:w-44 sm:h-44 rounded-full border border-amber-400/30 bg-amber-400/5 animate-radar-scan-pulse pointer-events-none" />
+          <div className="absolute w-48 h-48 sm:w-56 sm:h-56 rounded-full border border-indigo-400/20 bg-indigo-500/5 animate-radar-scan-pulse [animation-delay:1.2s] pointer-events-none" />
 
-          {/* Inner Decorative Halo Ring */}
-          <div 
-            className="absolute rounded-full border border-amber-400/15 pointer-events-none"
-            style={{ width: `${orbitRadius * 2 - 36}px`, height: `${orbitRadius * 2 - 36}px` }}
-          />
-
-          {/* Center UniFood Logo Anchor with Dual Radar Pulse & Breathing Glow */}
-          <div className="relative z-20 flex items-center justify-center">
-            {/* Concentric Pulsing Radar Aura */}
-            <div className="absolute w-28 h-28 sm:w-32 sm:h-32 rounded-full border border-amber-400/35 bg-amber-400/5 animate-radar-scan-pulse pointer-events-none" />
-            <div className="absolute w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-indigo-400/20 bg-indigo-500/5 animate-radar-scan-pulse [animation-delay:1.4s] pointer-events-none" />
-
-            {/* Central UniFood Glassmorphic Card */}
-            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white p-2 shadow-2xl border-2 border-indigo-400/30 flex items-center justify-center overflow-hidden animate-hub-breathing">
-              <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/20 via-transparent to-indigo-600/20 rounded-2xl pointer-events-none" />
-              <img
-                src="/logo.png"
-                alt="UniFood Logo"
-                className="w-full h-full object-cover rounded-2xl shadow-inner"
-              />
-            </div>
+          {/* Central UniFood Glassmorphic Card */}
+          <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-3xl sm:rounded-4xl bg-white p-3 sm:p-4 shadow-[0_20px_60px_rgba(0,0,0,0.6)] border-2 border-white/80 flex items-center justify-center overflow-hidden animate-hub-breathing">
+            <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/20 via-transparent to-indigo-600/20 rounded-2xl pointer-events-none" />
+            <img
+              src="/logo.png"
+              alt="UniFood Logo"
+              className="w-full h-full object-cover rounded-2xl shadow-inner"
+            />
           </div>
-
-          {/* Case A: Real Branches Loaded -> Orbiting Satellite Badges */}
-          {hasRealBranches ? (
-            <div className="absolute inset-0 animate-spin-orbit">
-              {realBranches.map((item, idx) => {
-                const total = realBranches.length;
-                const angleDeg = idx * (360 / total);
-                const angleRad = (angleDeg * Math.PI) / 180;
-                const x = Math.cos(angleRad) * orbitRadius;
-                const y = Math.sin(angleRad) * orbitRadius;
-
-                return (
-                  <div
-                    key={item.id || idx}
-                    className="absolute top-1/2 left-1/2"
-                    style={{
-                      transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
-                    }}
-                  >
-                    {/* Counter-rotating badge so logo and full restaurant name stay upright! */}
-                    <div 
-                      className="animate-counter-spin flex flex-col items-center animate-satellite-bloom group cursor-pointer"
-                      style={{ animationDelay: `${idx * 110}ms` }}
-                    >
-                      {/* Glassmorphic Logo Card */}
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/95 p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.45)] border border-white/60 flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:scale-110 group-hover:border-amber-400">
-                        {item.logoUrl ? (
-                          <img
-                            src={getFullImageUrl(item.logoUrl)}
-                            alt={item.name}
-                            className="w-full h-full object-cover rounded-xl"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
-                              const parent = (e.target as HTMLElement).parentElement;
-                              if (parent) {
-                                parent.innerHTML = '<span class="text-xl">🍽️</span>';
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-amber-500 text-white flex items-center justify-center font-black text-base shadow-inner">
-                            {item.name ? item.name.charAt(0) : <Store className="w-5 h-5 text-white" />}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* FULL Restaurant Name Badge (No truncation!) */}
-                      <div className="mt-1 px-2.5 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/20 text-white font-black text-[10px] sm:text-[11px] shadow-[0_4px_12px_rgba(0,0,0,0.5)] whitespace-nowrap flex items-center gap-1.5 tracking-tight transition-transform group-hover:scale-105">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                        <span>{item.name}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            /* Case B: Branches Not Loaded Yet -> Sleek Radar Beacon Lights (Zero fake data!) */
-            <div className="absolute inset-0 animate-spin-orbit">
-              {[0, 90, 180, 270].map((deg, i) => {
-                const rad = (deg * Math.PI) / 180;
-                const x = Math.cos(rad) * orbitRadius;
-                const y = Math.sin(rad) * orbitRadius;
-                return (
-                  <div
-                    key={i}
-                    className="absolute top-1/2 left-1/2"
-                    style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
-                  >
-                    <div className="w-4 h-4 rounded-full bg-amber-400/30 border border-amber-300/80 flex items-center justify-center animate-ping">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         {/* Brand Typography */}
-        <div className="mt-5 space-y-1">
+        <div className="mt-6 space-y-1.5">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-none">
             <span className="text-white">Uni</span>
             <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent">Food</span>
