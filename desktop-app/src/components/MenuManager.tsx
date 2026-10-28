@@ -11,12 +11,16 @@ import {
   FolderPlus,
   X,
   Link2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ChevronDown,
+  ChevronUp,
+  Sparkles
 } from 'lucide-react';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
 import { ConfirmModal } from './ConfirmModal';
 import { BulkMenuImportModal } from './BulkMenuImportModal';
+import { BulkItemEditorModal } from './BulkItemEditorModal';
 import { useLockBodyScroll } from '../utils/scrollLock';
 
 interface MenuManagerProps {
@@ -42,7 +46,36 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   // Bulk Menu Import Modal (Excel/CSV)
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
 
-  useLockBodyScroll(showCategoryModal || showItemModal || showBulkImportModal || !!confirmDelete);
+  // Bulk Items Full Editor Modal (تعديل سريع لكافة الأصناف)
+  const [showBulkEditorModal, setShowBulkEditorModal] = useState(false);
+
+  // الأقسام المطوية (المغلقة) لتسهيل التصفح وعدم بقاء كل الأقسام مفتوحة
+  const [collapsedCategoryIds, setCollapsedCategoryIds] = useState<Set<string>>(new Set());
+
+  // طي أو فتح قسم محدد
+  const toggleCategoryCollapse = (catId: string) => {
+    setCollapsedCategoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(catId)) {
+        next.delete(catId);
+      } else {
+        next.add(catId);
+      }
+      return next;
+    });
+  };
+
+  // طي كافة الأقسام
+  const collapseAllCategories = () => {
+    setCollapsedCategoryIds(new Set(categories.map((c) => c.id)));
+  };
+
+  // فتح كافة الأقسام
+  const expandAllCategories = () => {
+    setCollapsedCategoryIds(new Set());
+  };
+
+  useLockBodyScroll(showCategoryModal || showItemModal || showBulkImportModal || showBulkEditorModal || !!confirmDelete);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [itemName, setItemName] = useState('');
   const [itemCategoryId, setItemCategoryId] = useState('');
@@ -325,7 +358,38 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
           })}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto">
+        <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto flex-wrap">
+          {categories.length > 0 && (
+            <button
+              type="button"
+              onClick={collapsedCategoryIds.size === categories.length ? expandAllCategories : collapseAllCategories}
+              className="h-9 px-3 rounded-xl text-xs font-bold transition-all border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer shadow-2xs"
+              title={collapsedCategoryIds.size === categories.length ? 'فتح وعرض كافة الأقسام' : 'طي وإغلاق كافة الأقسام للتركيز'}
+            >
+              {collapsedCategoryIds.size === categories.length ? (
+                <>
+                  <ChevronDown className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>فتح كافة الأقسام</span>
+                </>
+              ) : (
+                <>
+                  <ChevronUp className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span>طي كافة الأقسام</span>
+                </>
+              )}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowBulkEditorModal(true)}
+            className="flex-1 lg:flex-initial h-9 flex items-center justify-center gap-1.5 px-3.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-black transition-all shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
+            title="تعديل الأسماء والأسعار والأحجام لكافة الأصناف في شاشة واحدة وسريعة"
+          >
+            <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>تعديل جماعي للأصناف</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowBulkImportModal(true)}
@@ -380,29 +444,61 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
           </div>
         </div>
       ) : (
-        <div className="space-y-8">
-          {displayedCategories.map(cat => (
-            <div key={cat.id} className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-2">
-                <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
-                  <span>{cat.name}</span>
-                  <span className="text-xs text-slate-400 font-normal">({cat.items?.length || 0} أصناف)</span>
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-rose-100"
-                  title={`حذف قسم "${cat.name}" وجميع الأصناف التابعة له`}
+        <div className="space-y-6">
+          {displayedCategories.map(cat => {
+            const isCollapsed = collapsedCategoryIds.has(cat.id);
+            return (
+              <div key={cat.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs transition-all">
+                {/* Collapsible Category Header */}
+                <div 
+                  onClick={() => toggleCategoryCollapse(cat.id)}
+                  className="flex items-center justify-between p-3.5 sm:p-4 bg-slate-50/80 hover:bg-slate-100/80 transition-colors cursor-pointer select-none border-b border-slate-100"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span className="text-[11px]">حذف القسم</span>
-                </button>
-              </div>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-transform shrink-0 ${isCollapsed ? '-rotate-90 text-slate-400 bg-slate-200/60' : 'text-indigo-600 bg-indigo-100/60'}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-black text-slate-800 flex items-center gap-2 truncate">
+                      <span>{cat.name}</span>
+                      <span className="text-xs text-slate-400 font-normal">({cat.items?.length || 0} صنف)</span>
+                    </h3>
+                    {isCollapsed && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 hidden sm:inline-block">
+                        القسم مطوي (اضغط للعرض)
+                      </span>
+                    )}
+                  </div>
 
-              {/* Items Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {cat.items?.map((item: any) => (
+                  <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => toggleCategoryCollapse(cat.id)}
+                      className="px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer shadow-2xs"
+                    >
+                      {isCollapsed ? 'عرض الأصناف' : 'إغلاق القسم'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-rose-100 cursor-pointer"
+                      title={`حذف قسم "${cat.name}" وجميع الأصناف التابعة له`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span className="text-[11px] hidden sm:inline">حذف القسم</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Items Cards */}
+                {!isCollapsed && (
+                  <div className="p-4 bg-slate-50/20">
+                    {(!cat.items || cat.items.length === 0) ? (
+                      <div className="text-center py-6 text-slate-400 text-xs">
+                        لا توجد أصناف في هذا القسم حالياً.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {cat.items?.map((item: any) => (
                   <div
                     key={item.id}
                     id={`menu-item-${item.id}`}
@@ -545,10 +641,14 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                   </div>
                 ))}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
+    );
+  })}
+</div>
+)}
 
       {/* Modal: Add Category */}
       {showCategoryModal && (
@@ -941,6 +1041,17 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
         onClose={() => setShowBulkImportModal(false)}
         onSuccess={() => {
           setShowBulkImportModal(false);
+          onRefresh();
+        }}
+      />
+
+      {/* نافذة تعديل أصناف المنيو بشكل كامل ومجمّع */}
+      <BulkItemEditorModal
+        isOpen={showBulkEditorModal}
+        categories={categories}
+        onClose={() => setShowBulkEditorModal(false)}
+        onSuccess={() => {
+          setShowBulkEditorModal(false);
           onRefresh();
         }}
       />

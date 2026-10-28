@@ -834,6 +834,13 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       }
       return;
     }
+    const currentY = typeof window !== 'undefined' ? (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0) : 0;
+    try {
+      sessionStorage.setItem('unifood_last_item_scroll_y', String(currentY));
+      if (item?.id) {
+        sessionStorage.setItem('unifood_last_item_id', String(item.id));
+      }
+    } catch (_e) {}
     onSelectItem(item);
   };
 

@@ -319,25 +319,19 @@ export function App() {
     if (isAnyModalOpen) {
       document.documentElement.classList.add('modal-open');
       document.body.classList.add('modal-open');
-      document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
-      document.documentElement.style.overscrollBehavior = 'none';
       document.body.style.overscrollBehavior = 'none';
     } else {
       document.documentElement.classList.remove('modal-open');
       document.body.classList.remove('modal-open');
-      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
-      document.documentElement.style.overscrollBehavior = '';
       document.body.style.overscrollBehavior = '';
     }
 
     return () => {
       document.documentElement.classList.remove('modal-open');
       document.body.classList.remove('modal-open');
-      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
-      document.documentElement.style.overscrollBehavior = '';
       document.body.style.overscrollBehavior = '';
     };
   }, [isAnyModalOpen]);
@@ -1140,11 +1134,14 @@ export function App() {
     }
   };
 
+  const savedItemScrollYRef = useRef<number>(0);
+  const savedItemIdRef = useRef<string | null>(null);
+
   const restoreItemScroll = () => {
     if (typeof window === 'undefined') return;
     const savedYStr = sessionStorage.getItem('unifood_last_item_scroll_y');
-    const savedItemId = sessionStorage.getItem('unifood_last_item_id');
-    const savedY = savedYStr ? parseInt(savedYStr, 10) : 0;
+    const savedItemId = sessionStorage.getItem('unifood_last_item_id') || savedItemIdRef.current;
+    const savedY = savedYStr ? parseInt(savedYStr, 10) : savedItemScrollYRef.current;
 
     const performRestore = () => {
       if (savedY > 0) {
@@ -1163,8 +1160,9 @@ export function App() {
     performRestore();
     requestAnimationFrame(() => {
       performRestore();
-      setTimeout(performRestore, 50);
-      setTimeout(performRestore, 150);
+      setTimeout(performRestore, 40);
+      setTimeout(performRestore, 120);
+      setTimeout(performRestore, 250);
     });
   };
 
@@ -1445,7 +1443,18 @@ export function App() {
             cart={cart}
             user={user}
             onBack={handleReturnHome}
-            onSelectItem={(item) => setCustomizingItem(item)}
+            onSelectItem={(item) => {
+              const currentY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+              savedItemScrollYRef.current = currentY;
+              savedItemIdRef.current = item?.id || null;
+              try {
+                sessionStorage.setItem('unifood_last_item_scroll_y', String(currentY));
+                if (item?.id) {
+                  sessionStorage.setItem('unifood_last_item_id', String(item.id));
+                }
+              } catch (_e) {}
+              setCustomizingItem(item);
+            }}
             onOpenCart={() => setShowCartModal(true)}
             onTrackOrder={(order) => setTrackingOrder(order)}
             onQuickReorder={handleReorder}

@@ -330,6 +330,18 @@ export const api = {
     return data;
   },
 
+  // تعديل جماعي ومجمع للأصناف دفعة واحدة
+  async bulkUpdateItems(items: any[]) {
+    const res = await fetch(`${API_BASE_URL}/branch/items/bulk-update`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ items }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ التعديلات الجماعية');
+    return data;
+  },
+
   // مجموعات الإضافات
   async createModifierGroup(groupData: any) {
     const res = await fetch(`${API_BASE_URL}/branch/modifier-groups`, {

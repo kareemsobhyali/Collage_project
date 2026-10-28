@@ -573,6 +573,91 @@ router.post("/menu/import-bulk", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 7.5 تعديل مجمّع وسريع للأصناف دفعة واحدة (Bulk Items Editor)
+router.put("/items/bulk-update", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ error: "لم يتم إرسال أي أصناف لتعديلها" });
+      return;
+    }
+
+    // جلب أقسام هذا المطعم للتحقق من صحتها
+    const branchCategories = await prisma.menuCategory.findMany({
+      where: { branchId },
+      select: { id: true },
+    });
+    const validCategoryIds = new Set(branchCategories.map((c) => c.id));
+
+    let updatedCount = 0;
+
+    await prisma.$transaction(async (tx) => {
+      for (const itemData of items) {
+        if (!itemData || !itemData.id) continue;
+
+        // التأكد من أن الصنف يخص هذا الفرع
+        const existing = await tx.menuItem.findFirst({
+          where: { id: String(itemData.id), branchId },
+        });
+        if (!existing) continue;
+
+        const updatePayload: any = {};
+
+        if (itemData.name && typeof itemData.name === "string") {
+          updatePayload.name = itemData.name.trim();
+        }
+        if (itemData.basePrice !== undefined && itemData.basePrice !== null && !isNaN(Number(itemData.basePrice))) {
+          updatePayload.basePrice = parseFloat(itemData.basePrice);
+        }
+        if (itemData.description !== undefined) {
+          updatePayload.description = itemData.description ? String(itemData.description).trim() : null;
+        }
+        if (itemData.imageUrl !== undefined) {
+          updatePayload.imageUrl = itemData.imageUrl ? String(itemData.imageUrl).trim() : null;
+        }
+        if (itemData.isAvailable !== undefined) {
+          updatePayload.isAvailable = Boolean(itemData.isAvailable);
+        }
+        if (itemData.categoryId && validCategoryIds.has(String(itemData.categoryId))) {
+          updatePayload.categoryId = String(itemData.categoryId);
+        }
+
+        // تحديث الصنف
+        await tx.menuItem.update({
+          where: { id: existing.id },
+          data: updatePayload,
+        });
+
+        // تحديث الأحجام إن تم إرسالها
+        if (Array.isArray(itemData.sizes)) {
+          await tx.itemSize.deleteMany({ where: { itemId: existing.id } });
+          const validSizes = itemData.sizes
+            .filter((s: any) => s && s.name && s.price !== undefined && !isNaN(Number(s.price)))
+            .map((s: any) => ({
+              itemId: existing.id,
+              name: String(s.name).trim(),
+              price: parseFloat(s.price),
+            }));
+          if (validSizes.length > 0) {
+            await tx.itemSize.createMany({ data: validSizes });
+          }
+        }
+
+        updatedCount++;
+      }
+    });
+
+    notifyBranchMenuChanged(branchId);
+
+    res.json({ success: true, updatedCount });
+  } catch (error: any) {
+    console.error("Bulk update items error:", error);
+    res.status(500).json({ error: error?.message || "فشل تعديل الأصناف المجمعة" });
+  }
+});
+
 // 8. تعديل صنف
 router.put("/items/:id", async (req: AuthRequest, res: Response) => {
   try {
