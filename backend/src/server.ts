@@ -471,9 +471,18 @@ if (fs.existsSync(customerDistPath)) {
           html = html.replace(/<link[^>]*rel="icon"[^>]*>/i, `<link rel="icon" type="image/png" sizes="192x192" href="${branchIcon192}" />`);
           html = html.replace(/<link[^>]*rel="apple-touch-icon"[^>]*>/i, `<link rel="apple-touch-icon" sizes="512x512" href="${branchIcon512}" />`);
 
-          // 4. حقن سكريبت بالهيدر لحفظ معرف المطعم المثبت مسبقاً
-          const preInjectScript = `<script>try{localStorage.setItem('pwa_installed_branch','${encodeURIComponent(branchKey).toLowerCase()}');}catch(e){}</script>`;
-          html = html.replace("</head>", `${preInjectScript}</head>`);
+          // 4. حقن سكريبت وعلامات iOS المخصصة لاسم وأيقونة ورابط التثبيت على الآيفون
+          const branchStartUrl = `/?r=${encodeURIComponent(branchKey)}&installed=1`;
+          const iosAppleTags = `
+            <meta name="apple-mobile-web-app-title" content="${safeBranchName}">
+            <meta name="apple-mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-status-bar-style" content="default">
+            <link rel="canonical" href="${branchStartUrl}">
+            <link rel="apple-touch-icon-precomposed" sizes="180x180" href="${branchIcon192}">
+            <link rel="apple-touch-icon" sizes="180x180" href="${branchIcon192}">
+            <script>try{localStorage.setItem('pwa_installed_branch','${encodeURIComponent(branchKey).toLowerCase()}');}catch(e){}</script>
+          `;
+          html = html.replace("</head>", `${iosAppleTags}</head>`);
         }
       } catch (_e) {}
     }

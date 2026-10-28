@@ -68,8 +68,17 @@ export function App() {
   );
 
   const groupParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('group') : null;
+  const isCurrentlyStandalone = typeof window !== 'undefined' && (
+    isRunningInNativeApk() ||
+    new URLSearchParams(window.location.search).get('installed') === '1' ||
+    window.location.search.includes('installed=1') ||
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true ||
+    document.referrer.includes('android-app://')
+  );
   const apkRouteInfo = parseApkRoute();
-  const [isApkRoute, setIsApkRoute] = useState(apkRouteInfo.isApkPage);
+  // إذا كان التطبيق يعمل كـ Standalone ومثبت على شاشة الهاتف، نلغي شاشة التثبيت لأن التطبيق مثبت ومفتوح بالفعل
+  const [isApkRoute, setIsApkRoute] = useState(() => (isCurrentlyStandalone ? false : apkRouteInfo.isApkPage));
   const [apkSlug, setApkSlug] = useState<string | null>(apkRouteInfo.branchSlug);
 
   // مزامنة حالة مسار تثبيت الـ APK مع تغيرات الـ URL والـ Hash والـ History
@@ -77,7 +86,15 @@ export function App() {
     if (typeof window === 'undefined') return;
     const handleUrlChange = () => {
       const info = parseApkRoute();
-      setIsApkRoute(info.isApkPage);
+      const isStandalone = (
+        isRunningInNativeApk() ||
+        new URLSearchParams(window.location.search).get('installed') === '1' ||
+        window.location.search.includes('installed=1') ||
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://')
+      );
+      setIsApkRoute(isStandalone ? false : info.isApkPage);
       setApkSlug(info.branchSlug);
     };
 
@@ -147,12 +164,13 @@ export function App() {
         const isStandalone = (
           isRunningInNativeApk() ||
           params.get('installed') === '1' ||
+          window.location.search.includes('installed=1') ||
           window.matchMedia('(display-mode: standalone)').matches ||
           (window.navigator as any).standalone === true ||
           document.referrer.includes('android-app://')
         );
         if (isStandalone) {
-          bParam = localStorage.getItem('pwa_installed_branch');
+          bParam = apkRouteInfo.branchSlug || localStorage.getItem('pwa_installed_branch');
         }
       }
       if (bParam) {
@@ -544,12 +562,26 @@ export function App() {
 
       // التحقق أولاً إذا كان الرابط مخصصاً لصفحة تثبيت التطبيق APK المباشر للمطعم
       const currentApkInfo = parseApkRoute();
+      const isStandaloneMode = (
+        isRunningInNativeApk() ||
+        new URLSearchParams(window.location.search).get('installed') === '1' ||
+        window.location.search.includes('installed') ||
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://')
+      );
+
       if (currentApkInfo.isApkPage) {
-        if (!isApkRoute) {
-          setIsApkRoute(true);
-          setApkSlug(currentApkInfo.branchSlug);
+        if (isStandaloneMode) {
+          // إذا كان التطبيق يعمل كـ PWA مثبت على الهاتف، نلغي شاشة التثبيت ونفتح منيو المطعم مباشرة
+          setIsApkRoute(false);
+        } else {
+          if (!isApkRoute) {
+            setIsApkRoute(true);
+            setApkSlug(currentApkInfo.branchSlug);
+          }
+          return; // منع فتح منيو الفرع لأن المستخدم في صفحة تثبيت وتنزيل التطبيق
         }
-        return; // منع فتح منيو الفرع لأن المستخدم في صفحة تثبيت وتنزيل التطبيق
       }
 
       // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
@@ -581,8 +613,8 @@ export function App() {
               document.referrer.includes('android-app://')
             );
             const savedInstalledBranch = localStorage.getItem('pwa_installed_branch');
-            if (isStandaloneMode && savedInstalledBranch) {
-              branchParam = savedInstalledBranch;
+            if (isStandaloneMode && (currentApkInfo.branchSlug || savedInstalledBranch)) {
+              branchParam = currentApkInfo.branchSlug || savedInstalledBranch;
             }
           } catch (_e) {}
         }

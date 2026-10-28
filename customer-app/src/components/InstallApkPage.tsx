@@ -169,7 +169,17 @@ export const InstallApkPage: React.FC<{
   const [error, setError] = useState<string | null>(null);
 
   const [installPrompt, setInstallPrompt] = useState<any>(() => getDeferredInstallPrompt());
-  const [isInstalled, setIsInstalled] = useState(() => isRunningInNativeApk());
+  const [isInstalled, setIsInstalled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return (
+      isRunningInNativeApk() ||
+      new URLSearchParams(window.location.search).get('installed') === '1' ||
+      window.location.search.includes('installed=1') ||
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://')
+    );
+  });
   const [isInstalling, setIsInstalling] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
   const [showInstallHelpModal, setShowInstallHelpModal] = useState(false);
@@ -281,6 +291,21 @@ export const InstallApkPage: React.FC<{
             document.head.appendChild(appleIcon);
           }
 
+          let appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]') as HTMLMetaElement;
+          if (!appleTitle) {
+            appleTitle = document.createElement('meta');
+            appleTitle.name = 'apple-mobile-web-app-title';
+            document.head.appendChild(appleTitle);
+          }
+          appleTitle.content = data.name || 'UniFood';
+
+          // إذا كان التطبيق مفتوحاً بالفعل في وضع التثبيت (Standalone)، نتوجه مباشرة إلى منيو المطعم
+          if (isInstalled) {
+            const directTarget = `/?r=${encodeURIComponent(branchKey)}&installed=1`;
+            window.location.replace(directTarget);
+            return;
+          }
+
           let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
           if (manifestLink) {
             manifestLink.href = branchManifestUrl;
@@ -330,6 +355,21 @@ export const InstallApkPage: React.FC<{
 
     // 3. إذا كنا على آيفون / آيباد (iOS Safari)
     if (isIos) {
+      if (meta?.isBranch && (meta.slug || meta.branchId)) {
+        const branchKey = meta.slug || meta.branchId;
+        const targetUrl = `/?r=${encodeURIComponent(branchKey)}&installed=1`;
+        try {
+          localStorage.setItem('pwa_installed_branch', String(branchKey).toLowerCase());
+          window.history.replaceState({}, '', targetUrl);
+          let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
+          if (!canonical) {
+            canonical = document.createElement('link');
+            canonical.rel = 'canonical';
+            document.head.appendChild(canonical);
+          }
+          canonical.href = window.location.origin + targetUrl;
+        } catch (_e) {}
+      }
       setShowIosGuide(true);
       return;
     }
@@ -897,12 +937,23 @@ export const InstallApkPage: React.FC<{
               </div>
             </div>
 
-            <div className="pt-4 mt-4 border-t border-slate-800 flex justify-end">
+            <div className="pt-4 mt-4 border-t border-slate-800 grid grid-cols-2 gap-2">
               <button
+                type="button"
                 onClick={() => setShowIosGuide(false)}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all"
+                className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all text-center cursor-pointer"
               >
-                فهمت ذلك، شكراً!
+                فهمت ذلك، تم!
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowIosGuide(false);
+                  window.location.href = webTargetUrl;
+                }}
+                className="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all text-center cursor-pointer shadow-md shadow-indigo-600/30"
+              >
+                تصفح المنيو الآن
               </button>
             </div>
           </div>

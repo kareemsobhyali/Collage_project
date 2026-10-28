@@ -55,6 +55,13 @@
             if (fav) fav.href = icon192;
             var apple = document.querySelector('link[rel="apple-touch-icon"]');
             if (apple) apple.href = icon512;
+            var appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+            if (!appleTitle) {
+              appleTitle = document.createElement('meta');
+              appleTitle.name = 'apple-mobile-web-app-title';
+              document.head.appendChild(appleTitle);
+            }
+            appleTitle.content = decodeURIComponent(branch);
           }
         } catch(_e) {}
 
