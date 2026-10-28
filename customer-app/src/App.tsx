@@ -1074,59 +1074,76 @@ export function App() {
               </button>
             )}
 
-            {user ? (
-              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                {user.role === 'SUPERADMIN' && (
+            {/* Header User & Auth Tools (Shown inside Branch view, or if SuperAdmin on home) */}
+            {selectedBranch ? (
+              user ? (
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                  {user.role === 'SUPERADMIN' && (
+                    <button
+                      onClick={() => {
+                        window.location.href = '/admin';
+                      }}
+                      className="h-9 px-2 sm:px-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
+                      title="فتح لوحة تحكم إدارة المنظومة"
+                    >
+                      <ShieldCheck className="w-4 h-4 shrink-0 text-amber-300" />
+                      <span className="hidden sm:inline">لوحة الإدارة</span>
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => {
-                      window.location.href = '/admin';
-                    }}
-                    className="h-9 px-2 sm:px-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
-                    title="فتح لوحة تحكم إدارة المنظومة"
+                    onClick={() => setShowMyOrdersModal(true)}
+                    className="h-9 px-2 sm:px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-colors shrink-0 cursor-pointer"
+                    title="طلباتي السابقة والحالية"
                   >
-                    <ShieldCheck className="w-4 h-4 shrink-0 text-amber-300" />
-                    <span className="hidden sm:inline">لوحة الإدارة</span>
+                    <Clock className="w-4 h-4 shrink-0" />
+                    <span>طلباتي</span>
                   </button>
-                )}
 
-                <button
-                  onClick={() => setShowMyOrdersModal(true)}
-                  className="h-9 px-2 sm:px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-colors shrink-0 cursor-pointer"
-                  title="طلباتي السابقة والحالية"
-                >
-                  <Clock className="w-4 h-4 shrink-0" />
-                  <span>طلباتي</span>
-                </button>
+                  <button
+                    onClick={() => setShowProfileModal(true)}
+                    className="h-9 px-2 sm:px-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200/80 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                    title="حسابي والمحفظة ونقاط الولاء"
+                  >
+                    <User className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span className="hidden sm:inline max-w-[80px] truncate">{user.name.split(' ')[0]}</span>
+                    <span className="flex bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-lg text-[10px] font-black items-center gap-0.5 leading-none shrink-0">
+                      <span>★</span>
+                      <span>{user.loyaltyPoints ?? 0}</span>
+                    </span>
+                  </button>
 
+                  <button
+                    onClick={handleLogout}
+                    className="h-9 px-2 sm:px-2.5 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200/80 rounded-xl flex items-center justify-center gap-1 text-xs font-bold transition-colors shrink-0 cursor-pointer"
+                    title="تسجيل الخروج"
+                  >
+                    <LogOut className="w-4 h-4 shrink-0" />
+                    <span className="hidden md:inline">خروج</span>
+                  </button>
+                </div>
+              ) : (
                 <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="h-9 px-2 sm:px-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200/80 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                  title="حسابي والمحفظة ونقاط الولاء"
+                  onClick={() => setShowAuthModal(true)}
+                  className="h-9 px-2.5 sm:px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center transition-all shrink-0 cursor-pointer"
                 >
-                  <User className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span className="hidden sm:inline max-w-[80px] truncate">{user.name.split(' ')[0]}</span>
-                  <span className="flex bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-lg text-[10px] font-black items-center gap-0.5 leading-none shrink-0">
-                    <span>★</span>
-                    <span>{user.loyaltyPoints ?? 0}</span>
-                  </span>
+                  دخول / حساب
                 </button>
-
-                <button
-                  onClick={handleLogout}
-                  className="h-9 px-2 sm:px-2.5 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200/80 rounded-xl flex items-center justify-center gap-1 text-xs font-bold transition-colors shrink-0 cursor-pointer"
-                  title="تسجيل الخروج"
-                >
-                  <LogOut className="w-4 h-4 shrink-0" />
-                  <span className="hidden md:inline">خروج</span>
-                </button>
-              </div>
+              )
             ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="h-9 px-2.5 sm:px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-sm flex items-center justify-center transition-all shrink-0 cursor-pointer"
-              >
-                دخول / حساب
-              </button>
+              /* في الصفحة الرئيسية: إخفاء أزرار تسجيل الدخول، وإظهار لوحة الإدارة فقط للمسؤولين */
+              user?.role === 'SUPERADMIN' ? (
+                <button
+                  onClick={() => {
+                    window.location.href = '/admin';
+                  }}
+                  className="h-9 px-2.5 sm:px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
+                  title="فتح لوحة تحكم إدارة المنظومة"
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-amber-300" />
+                  <span>لوحة الإدارة</span>
+                </button>
+              ) : null
             )}
           </div>
         </div>
