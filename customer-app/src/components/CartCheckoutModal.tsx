@@ -24,6 +24,7 @@ import {
   Copy,
   Crosshair,
   MapPinOff,
+  ChevronDown,
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { requestPushPermission } from '../services/notifications';
@@ -99,6 +100,32 @@ const ORDER_NOTE_CHIPS = [
   'اتصل عند الوصول',
 ];
 
+export const checkIsTimeInBranchHours = (
+  timeStr: string,
+  openingTime?: string | null,
+  closingTime?: string | null
+): boolean => {
+  if (!openingTime || !closingTime || !timeStr) return true;
+  const targetParts = timeStr.split(':').map(Number);
+  const openParts = openingTime.split(':').map(Number);
+  const closeParts = closingTime.split(':').map(Number);
+  if (targetParts.length < 2 || openParts.length < 2 || closeParts.length < 2) return true;
+  if (isNaN(targetParts[0]) || isNaN(openParts[0]) || isNaN(closeParts[0])) return true;
+
+  const targetMins = targetParts[0] * 60 + (targetParts[1] || 0);
+  const openMins = openParts[0] * 60 + (openParts[1] || 0);
+  const closeMins = closeParts[0] * 60 + (closeParts[1] || 0);
+
+  if (openMins === closeMins) return true;
+
+  if (closeMins > openMins) {
+    return targetMins >= openMins && targetMins <= closeMins;
+  } else {
+    // فترة مسائية تمتد لما بعد منتصف الليل (مثلاً: 18:00 إلى 02:00)
+    return targetMins >= openMins || targetMins <= closeMins;
+  }
+};
+
 export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   cart,
   branch,
@@ -133,11 +160,60 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const isBranchFullyClosed = branch.operationalStatus === 'CLOSED';
   const isBranchClosed = isBranchFullyClosed || isBranchBusy || isBranchClosedByHours;
 
+  // مواعيد مقترحة للحجز المسبق تتوافق مع ساعات عمل الفرع
+  const scheduledTimePresets = useMemo(() => {
+    const allPresets = [
+      { val: '10:00', label: '10:00 ص' },
+      { val: '11:30', label: '11:30 ص' },
+      { val: '12:30', label: '12:30 م' },
+      { val: '13:30', label: '1:30 م' },
+      { val: '14:30', label: '2:30 م' },
+      { val: '15:30', label: '3:30 م' },
+      { val: '17:00', label: '5:00 م' },
+      { val: '18:30', label: '6:30 م' },
+      { val: '20:00', label: '8:00 م' },
+      { val: '21:30', label: '9:30 م' },
+      { val: '23:00', label: '11:00 م' },
+    ];
+    if (!branch.openingTime || !branch.closingTime) return allPresets.slice(1, 6);
+    const valid = allPresets.filter((p) =>
+      checkIsTimeInBranchHours(p.val, branch.openingTime, branch.closingTime)
+    );
+    return valid.length > 0 ? valid.slice(0, 6) : allPresets.slice(1, 6);
+  }, [branch.openingTime, branch.closingTime]);
+
+  // هل التوقيت المختار يقع ضمن ساعات عمل المطعم؟
+  const isScheduledTimeValid = useMemo(() => {
+    if (!isScheduled) return true;
+    return checkIsTimeInBranchHours(scheduledTime, branch.openingTime, branch.closingTime);
+  }, [isScheduled, scheduledTime, branch.openingTime, branch.closingTime]);
+
+  // إذا كان المطعم خارج مواعيد العمل الحالية، تفعيل وضع الحجز المسبق تلقائياً إذا كان الفرع غير مغلق نهائياً
   useEffect(() => {
-    if (isBranchClosed && isScheduled) {
+    if (isBranchClosedByHours && !isBranchFullyClosed && !isBranchBusy) {
+      setIsScheduled(true);
+    }
+  }, [isBranchClosedByHours, isBranchFullyClosed, isBranchBusy]);
+
+  // إذا تم إغلاق الفرع كلياً، إيقاف وضع الحجز المسبق
+  useEffect(() => {
+    if (isBranchFullyClosed && isScheduled) {
       setIsScheduled(false);
     }
-  }, [isBranchClosed, isScheduled]);
+  }, [isBranchFullyClosed, isScheduled]);
+
+  // ضبط وقت الحجز المسبق الافتراضي ليكون ضمن ساعات عمل المطعم
+  useEffect(() => {
+    if (branch.openingTime && branch.closingTime) {
+      if (!checkIsTimeInBranchHours(scheduledTime, branch.openingTime, branch.closingTime)) {
+        if (scheduledTimePresets.length > 0) {
+          setScheduledTime(scheduledTimePresets[0].val);
+        } else {
+          setScheduledTime(branch.openingTime);
+        }
+      }
+    }
+  }, [branch.openingTime, branch.closingTime, scheduledTimePresets]);
 
   const paymentConfig = branch.paymentConfig;
 
@@ -378,6 +454,24 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     hasZones ? branch.deliveryZones[0].id : ''
   );
 
+  const selectedZone = useMemo(() => {
+    if (!hasZones) return null;
+    return branch.deliveryZones.find((z: any) => z.id === selectedZoneId) || branch.deliveryZones[0];
+  }, [hasZones, branch.deliveryZones, selectedZoneId]);
+
+  // مطابقة منطقة التوصيل تلقائياً عند تحديد موقع العميل بالـ GPS أو اكتشاف اسم المنطقة
+  useEffect(() => {
+    if (!hasZones || !branch.deliveryZones?.length) return;
+    if (detectedPlaceLabel) {
+      const matched = branch.deliveryZones.find((z: any) =>
+        z.name && (detectedPlaceLabel.includes(z.name) || z.name.includes(detectedPlaceLabel))
+      );
+      if (matched && matched.id !== selectedZoneId) {
+        setSelectedZoneId(matched.id);
+      }
+    }
+  }, [hasZones, detectedPlaceLabel, branch.deliveryZones]);
+
   // Promo Code
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<{
@@ -401,8 +495,6 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   let deliveryZoneName = '';
   if (orderType === 'DELIVERY') {
     if (hasZones) {
-      const selectedZone =
-        branch.deliveryZones.find((z: any) => z.id === selectedZoneId) || branch.deliveryZones[0];
       deliveryFee = selectedZone ? selectedZone.fee : 0;
       deliveryZoneName = selectedZone ? selectedZone.name : '';
     } else {
@@ -582,10 +674,10 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       return;
     }
 
-    const finalPhone = (customerPhone.trim() || user.phone || '').trim();
+    const finalPhone = (user.phone || customerPhone || '').trim();
     if (!/^01[0125][0-9]{8}$/.test(finalPhone)) {
       setError(
-        'يرجى إدخال رقم موبايل مصري صحيح للتواصل مكون من 11 رقماً يبدأ بـ 010 أو 011 أو 012 أو 015'
+        'يرجى التأكد من تسجيل رقم هاتف مصري صحيح (11 رقماً) في حسابك لإتمام الطلب'
       );
       return;
     }
@@ -671,13 +763,20 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       return;
     }
 
-    if (isBranchClosedByHours) {
-      setError(
-        `عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${formatTime12Arabic(
-          branch.openingTime || '08:00'
-        )} - ${formatTime12Arabic(branch.closingTime || '22:00')}).`
-      );
-      return;
+    if (isScheduled) {
+      if (!isScheduledTimeValid) {
+        setError(
+          `المطعم غير متاح في وقت الحجز المختار (${scheduledTime}). مواعيد العمل الرسمية: من ${branch.openingTime || '08:00'} إلى ${branch.closingTime || '22:00'}. يرجى اختيار موعد آخر ضمن ساعات العمل.`
+        );
+        return;
+      }
+    } else {
+      if (isBranchClosedByHours) {
+        setError(
+          `عذراً، المطعم مغلق حالياً خارج مواعيد العمل الرسمية (${branch.openingTime || '08:00'} - ${branch.closingTime || '22:00'}). يمكنك اختيار "حجز لوقت لاحق" لطلب وجبتك مسبقاً.`
+        );
+        return;
+      }
     }
 
     try {
@@ -690,7 +789,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         paymentMethod,
         addressText: orderType === 'DELIVERY' ? finalDeliveryAddress : 'استلام من الفرع',
         customerPhone: finalPhone,
-        customerName: customerName.trim() || user.name,
+        customerName: (user.name || customerName || 'عميل').trim(),
         notes: notes.trim() || undefined,
         deliveryZoneName:
           orderType === 'DELIVERY'
@@ -1026,7 +1125,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               )}
             </div>
 
-            {/* فوري أم حجز لبريك المحاضرات */}
+            {/* فوري أم حجز لوقت لاحق */}
             <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
               <button
                 type="button"
@@ -1045,43 +1144,37 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
               <button
                 type="button"
-                disabled={isBranchClosed}
+                disabled={isBranchFullyClosed}
                 onClick={() => {
-                  if (isBranchClosed) return;
+                  if (isBranchFullyClosed) return;
                   setIsScheduled(true);
                 }}
                 className={`py-2 px-3 rounded-xl border text-center transition-all flex items-center justify-center gap-1.5 ${
-                  isBranchClosed
+                  isBranchFullyClosed
                     ? 'border-slate-200 bg-slate-100 text-slate-400 opacity-60 cursor-not-allowed'
                     : isScheduled
                     ? 'border-indigo-600 bg-indigo-600 text-white font-black shadow-2xs'
                     : 'border-slate-200 text-slate-600 hover:bg-slate-50 font-bold'
                 }`}
               >
-                <span className="text-xs">🕒 حجز لموعد البريك</span>
+                <span className="text-xs">🕒 حجز لوقت لاحق</span>
               </button>
             </div>
 
             {isScheduled && (
-              <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-2 animate-fadeIn">
+              <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-2.5 animate-fadeIn">
                 <span className="text-[11px] font-bold text-slate-700 block">
-                  اختر موعد البريك أو وقت الاستلام المطلوب:
+                  اختر وقت الاستلام المطلوب (حجز مسبق):
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { val: '11:30', label: '11:30 ص' },
-                    { val: '12:30', label: '12:30 م' },
-                    { val: '13:30', label: '1:30 م' },
-                    { val: '14:30', label: '2:30 م' },
-                    { val: '15:30', label: '3:30 م' },
-                  ].map((t) => (
+                  {scheduledTimePresets.map((t) => (
                     <button
                       key={t.val}
                       type="button"
                       onClick={() => setScheduledTime(t.val)}
-                      className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                         scheduledTime === t.val
-                          ? 'bg-indigo-600 text-white shadow-xs'
+                          ? 'bg-indigo-600 text-white shadow-xs font-black'
                           : 'bg-white text-slate-700 border border-slate-200 hover:bg-indigo-50'
                       }`}
                     >
@@ -1089,15 +1182,25 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[10px] text-slate-500 font-bold">أو حدد وقتاً مخصصاً:</span>
+                <div className="flex items-center gap-2 pt-0.5">
+                  <span className="text-[10px] text-slate-500 font-bold shrink-0">أو حدد وقتاً مخصصاً:</span>
                   <input
                     type="time"
                     value={scheduledTime}
                     onChange={(e) => setScheduledTime(e.target.value)}
-                    className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                    className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600"
                   />
                 </div>
+
+                {!isScheduledTimeValid && (
+                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2 animate-fadeIn">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>
+                      ⚠️ المطعم غير متاح في هذا التوقيت ({scheduledTime}). مواعيد العمل الرسمية: من{' '}
+                      <strong>{branch.openingTime || '08:00'}</strong> إلى <strong>{branch.closingTime || '22:00'}</strong>. يرجى اختيار موعد آخر.
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -1126,30 +1229,33 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 )}
               </div>
 
-              {/* اختيار منطقة التوصيل إن كان الفرع يعتمد Zones */}
+              {/* اختيار منطقة التوصيل إن كان الفرع يعتمد Zones - قائمة منسدلة Dropdown */}
               {hasZones && (
-                <div className="space-y-1.5 pb-2 border-b border-slate-100">
-                  <label className="block text-[11px] font-bold text-slate-600">
-                    اختر منطقة التوصيل:
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {branch.deliveryZones.map((zone: any) => (
-                      <button
-                        key={zone.id}
-                        type="button"
-                        onClick={() => setSelectedZoneId(zone.id)}
-                        className={`p-2 rounded-xl border text-right transition-all flex items-center justify-between text-xs ${
-                          selectedZoneId === zone.id
-                            ? 'border-indigo-600 bg-indigo-50/70 font-black text-indigo-950 ring-1 ring-indigo-300'
-                            : 'border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-white'
-                        }`}
-                      >
-                        <span className="truncate">{zone.name}</span>
-                        <span className="font-mono text-indigo-600 font-bold shrink-0">
-                          +{zone.fee} ج.م
-                        </span>
-                      </button>
-                    ))}
+                <div className="space-y-1.5 pb-2.5 border-b border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>منطقة التوصيل:</span>
+                    </label>
+                    {selectedZone && (
+                      <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-lg">
+                        رسوم التوصيل: +{selectedZone.fee} ج.م
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <select
+                      value={selectedZoneId}
+                      onChange={(e) => setSelectedZoneId(e.target.value)}
+                      className="w-full appearance-none bg-slate-50 hover:bg-slate-100/70 border border-slate-200 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 pr-3 pl-8 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 transition-all cursor-pointer shadow-2xs"
+                    >
+                      {branch.deliveryZones.map((zone: any) => (
+                        <option key={zone.id} value={zone.id}>
+                          {zone.name} (+{zone.fee} ج.م)
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                   </div>
                 </div>
               )}
@@ -1417,70 +1523,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             </section>
           )}
 
-          {/* 4. بيانات المستلم للتواصل */}
-          <section className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-black text-[11px] flex items-center justify-center">
-                  {orderType === 'DELIVERY' ? '4' : '3'}
-                </span>
-                <h4 className="text-xs font-black text-slate-800">بيانات المستلم للتواصل</h4>
-              </div>
-              {isPhoneValid && (
-                <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3 text-emerald-600" />
-                  <span>رقم الهاتف صحيح</span>
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  اسم المستلم
-                </label>
-                <div className="relative">
-                  <User className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
-                  <input
-                    type="text"
-                    placeholder="اسم العميل أو المستلم"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full pr-8 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  رقم الموبايل (11 رقماً) *
-                </label>
-                <div className="relative">
-                  <Phone className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
-                  <input
-                    type="tel"
-                    maxLength={11}
-                    placeholder="010XXXXXXXX"
-                    value={customerPhone}
-                    onChange={(e) =>
-                      setCustomerPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))
-                    }
-                    className={`w-full pr-8 pl-3 py-2 bg-slate-50 border rounded-xl text-xs font-mono font-bold focus:bg-white focus:outline-none focus:ring-2 ${
-                      customerPhone.length > 0 && !isPhoneValid
-                        ? 'border-rose-300 focus:ring-rose-500'
-                        : 'border-slate-200 focus:ring-indigo-600'
-                    }`}
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* 5. طريقة الدفع والخصومات */}
+          {/* 3 أو 4. طريقة الدفع والخصومات */}
           <section className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
             <div className="flex items-center gap-1.5">
               <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-black text-[11px] flex items-center justify-center">
-                {orderType === 'DELIVERY' ? '5' : '4'}
+                {orderType === 'DELIVERY' ? '4' : '3'}
               </span>
               <h4 className="text-xs font-black text-slate-800">طريقة الدفع</h4>
             </div>
@@ -1947,11 +1994,18 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           <button
             type="button"
             onClick={handleCheckout}
-            disabled={loading || isBranchClosed || isOutOfDeliveryZone}
+            disabled={
+              loading ||
+              isBranchFullyClosed ||
+              (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
+              isOutOfDeliveryZone
+            }
             className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black shadow-lg transition-all flex items-center justify-between ${
-              isBranchClosed || isOutOfDeliveryZone
+              isBranchFullyClosed ||
+              (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
+              isOutOfDeliveryZone
                 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-                : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white shadow-indigo-600/25'
+                : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white shadow-indigo-600/25 cursor-pointer'
             }`}
           >
             <div className="flex items-center gap-2">
@@ -1960,7 +2014,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   ? 'جاري إرسال الطلب وتثبيت الموقع...'
                   : isOutOfDeliveryZone
                   ? 'المطعم خارج نطاق التوصيل'
-                  : isBranchClosed
+                  : isBranchFullyClosed
+                  ? 'المطعم مغلق حالياً'
+                  : isScheduled && !isScheduledTimeValid
+                  ? 'المطعم مغلق في هذا التوقيت - اختر موعداً متاحاً'
+                  : !isScheduled && isBranchClosed
                   ? 'المطعم مغلق حالياً'
                   : !user
                   ? 'تسجيل الدخول لإتمام الطلب'
