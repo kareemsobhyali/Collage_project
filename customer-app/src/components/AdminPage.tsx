@@ -82,6 +82,7 @@ import { isRunningInNativeApk, openExternalLink } from '../services/notification
 import { Logo } from './Logo';
 import { cleanAddressText, getDisplayAddress, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark, extractZoneGeo, cleanZoneName, formatZoneWithGeo, type DirectionalCoverage, formatDistance, isCustomerWithinZoneGeo } from '../services/campusLocations';
 import { LocationPickerModal } from './LocationPickerModal';
+import { BulkMenuImportModal } from './BulkMenuImportModal';
 const QUICK_ADMIN_CANCEL_REASONS = [
   'المطعم مغلق حالياً',
   'نفاد الكمية في المطعم',
@@ -390,6 +391,7 @@ export const AdminPage: React.FC = () => {
   const [editingBranch, setEditingBranch] = useState<any | null>(null);
   const [editingPaymentBranch, setEditingPaymentBranch] = useState<any | null>(null);
   const [editingCredentialsBranch, setEditingCredentialsBranch] = useState<any | null>(null);
+  const [bulkImportBranch, setBulkImportBranch] = useState<any | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
   const [adminCancellingOrder, setAdminCancellingOrder] = useState<any | null>(null);
   const [adminCancelReason, setAdminCancelReason] = useState<string>('');
@@ -3585,9 +3587,9 @@ export const AdminPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Action buttons (Responsive 2-col on mobile, 5-col on desktop) */}
+                    {/* Action buttons (Responsive 2-col on mobile, 6-col on desktop) */}
                     <div className="pt-2.5 border-t border-slate-100">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2">
                         <button
                           type="button"
                           onClick={() => handleOpenEditBranch(branch)}
@@ -3620,6 +3622,16 @@ export const AdminPage: React.FC = () => {
 
                         <button
                           type="button"
+                          onClick={() => setBulkImportBranch(branch)}
+                          className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition-all border border-emerald-200 shadow-2xs active:scale-95 cursor-pointer"
+                          title="استيراد منيو كامل للمطعم من ملف Excel أو CSV مع تنزيل وحفظ الصور تلقائياً على السيرفر"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                          <span>استيراد منيو</span>
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => {
                             const origin = typeof window !== 'undefined' ? window.location.origin : '';
                             const link = `${origin}/?branch=${branch.slug || branch.id}`;
@@ -3648,11 +3660,11 @@ export const AdminPage: React.FC = () => {
                               window.open(apkLink, '_blank');
                             }
                           }}
-                          className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 px-2.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition-all border border-emerald-200 shadow-2xs active:scale-95"
+                          className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-xl text-xs font-bold transition-all border border-sky-200 shadow-2xs active:scale-95"
                           title="فتح ونسخ رابط صفحة تثبيت وتوليد تطبيق المطعم (APK) المخصص بشعار واسم المطعم"
                         >
-                          <Smartphone className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                          <span>تطبيق المطعم (APK)</span>
+                          <Smartphone className="w-3.5 h-3.5 shrink-0 text-sky-600" />
+                          <span>تطبيق المطعم</span>
                         </button>
                       </div>
                     </div>
@@ -10382,6 +10394,17 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* D2. Bulk Menu Import Modal (Excel / CSV) */}
+      <BulkMenuImportModal
+        branch={bulkImportBranch}
+        isOpen={!!bulkImportBranch}
+        onClose={() => setBulkImportBranch(null)}
+        onSuccess={() => {
+          setBulkImportBranch(null);
+          fetchDashboardData();
+        }}
+      />
 
       {/* E. Order Details Modal */}
       {selectedOrderDetails && (() => {

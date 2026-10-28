@@ -595,6 +595,18 @@ export const api = {
     return data;
   },
 
+  // استيراد منيو مجمع للفرع من لوحة تحكم الأدمن (Excel / CSV) مع حفظ الصور محلياً
+  async importAdminBulkMenu(branchId: string, payload: { items: any[]; replaceExisting?: boolean }) {
+    const res = await fetch(`${API_BASE_URL}/admin/branches/${branchId}/menu/import-bulk`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استيراد المنيو');
+    return data;
+  },
+
   async getAdminReviews(params?: { branchId?: string; rating?: string; hasText?: boolean }) {
     const query = new URLSearchParams();
     if (params?.branchId) query.set('branchId', params.branchId);

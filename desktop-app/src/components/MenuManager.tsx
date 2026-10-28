@@ -10,11 +10,13 @@ import {
   Layers, 
   FolderPlus,
   X,
-  Link2
+  Link2,
+  FileSpreadsheet
 } from 'lucide-react';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
 import { ConfirmModal } from './ConfirmModal';
+import { BulkMenuImportModal } from './BulkMenuImportModal';
 import { useLockBodyScroll } from '../utils/scrollLock';
 
 interface MenuManagerProps {
@@ -37,7 +39,10 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   // Item Form Modal
   const [showItemModal, setShowItemModal] = useState(false);
 
-  useLockBodyScroll(showCategoryModal || showItemModal || !!confirmDelete);
+  // Bulk Menu Import Modal (Excel/CSV)
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+
+  useLockBodyScroll(showCategoryModal || showItemModal || showBulkImportModal || !!confirmDelete);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [itemName, setItemName] = useState('');
   const [itemCategoryId, setItemCategoryId] = useState('');
@@ -323,6 +328,15 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
         <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto">
           <button
             type="button"
+            onClick={() => setShowBulkImportModal(true)}
+            className="flex-1 lg:flex-initial h-9 flex items-center justify-center gap-1.5 px-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm whitespace-nowrap cursor-pointer active:scale-95"
+            title="استيراد أصناف وقوائم كاملة دفعة واحدة من ملف إكسل أو نص"
+          >
+            <FileSpreadsheet className="w-4 h-4 shrink-0" />
+            <span>استيراد منيو (Excel)</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setShowCategoryModal(true)}
             className="flex-1 lg:flex-initial h-9 flex items-center justify-center gap-1.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors whitespace-nowrap"
           >
@@ -345,7 +359,25 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
         <div className="bg-white rounded-2xl p-12 text-center text-slate-400 border border-slate-100">
           <Layers className="w-16 h-16 mx-auto mb-3 opacity-30" />
           <h4 className="text-lg font-bold text-slate-700">المنيو فارغ حالياً</h4>
-          <p className="text-sm">ابدأ بإضافة أول قسم وأول صنف في مطعمك!</p>
+          <p className="text-sm mb-4">ابدأ بإضافة أول قسم وأول صنف في مطعمك، أو استورد منيو كامل دفعة واحدة من ملف Excel!</p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowBulkImportModal(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>استيراد المنيو من Excel</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCategoryModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition-all"
+            >
+              <FolderPlus className="w-4 h-4 text-indigo-600" />
+              <span>إضافة قسم يدوياً</span>
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-8">
@@ -900,6 +932,17 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
         loading={deleting}
         onConfirm={handleExecuteDelete}
         onClose={() => !deleting && setConfirmDelete(null)}
+      />
+
+      {/* نافذة استيراد المنيو المجمع (Excel / CSV) */}
+      <BulkMenuImportModal
+        isOpen={showBulkImportModal}
+        branch={branch}
+        onClose={() => setShowBulkImportModal(false)}
+        onSuccess={() => {
+          setShowBulkImportModal(false);
+          onRefresh();
+        }}
       />
     </div>
   );

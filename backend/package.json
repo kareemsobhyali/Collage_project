@@ -32,7 +32,8 @@
     "pino": "^10.4.0",
     "prisma": "5.22.0",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.8.4"
+    "socket.io": "^4.8.4",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

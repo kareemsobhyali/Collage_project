@@ -36,6 +36,7 @@ import {
 } from "../services/driver.service.js";
 import { seedMockDatabase } from "../services/mockData.service.js";
 import { restoreFlashDealsForOrder } from "../services/flashDeal.service.js";
+import { importBulkMenu } from "../services/menuImport.service.js";
 
 
 
@@ -468,6 +469,34 @@ router.post("/branches/:id/credentials", async (req: AuthRequest, res: Response)
   } catch (error) {
     console.error("Set credentials error:", error);
     res.status(500).json({ error: "فشل حفظ بيانات دخول الفرع" });
+  }
+});
+
+// استيراد منيو كامل مجمع لفرع محدد من لوحة الإدارة مع تنزيل وحفظ الصور تلقائياً على السيرفر
+router.post("/branches/:id/menu/import-bulk", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.params.id as string;
+    const { items, replaceExisting } = req.body;
+
+    const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+    if (!branch) {
+      res.status(404).json({ error: "المطعم غير موجود" });
+      return;
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ error: "لا توجد أصناف صالحة للاستيراد في الملف" });
+      return;
+    }
+
+    const result = await importBulkMenu(branchId, items, {
+      replaceExisting: Boolean(replaceExisting),
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("Admin bulk menu import error:", error);
+    res.status(500).json({ error: error?.message || "فشل استيراد المنيو" });
   }
 });
 

@@ -16,6 +16,7 @@ import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert, getR
 import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
 import { restoreFlashDealsForOrder } from "../services/flashDeal.service.js";
 import { findBestSmartDriverForBranch } from "../services/dispatch.service.js";
+import { importBulkMenu } from "../services/menuImport.service.js";
 
 
 const router = Router();
@@ -554,6 +555,28 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Create item error:", error);
     res.status(500).json({ error: "فشل إضافة الصنف" });
+  }
+});
+
+// 7.5 استيراد منيو كامل مجمع (Excel / CSV / Bulk Import) مع التنزيل والتخزين التلقائي للصور على السيرفر
+router.post("/menu/import-bulk", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const { items, replaceExisting } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ error: "لا توجد أصناف صالحة للاستيراد في الملف" });
+      return;
+    }
+
+    const result = await importBulkMenu(branchId, items, {
+      replaceExisting: Boolean(replaceExisting),
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("Bulk menu import error:", error);
+    res.status(500).json({ error: error?.message || "فشل استيراد المنيو" });
   }
 });
 

@@ -318,6 +318,18 @@ export const api = {
     return data;
   },
 
+  // استيراد منيو كامل مجمع (Excel / CSV) مع حفظ الصور محلياً
+  async importBulkMenu(payload: { items: any[]; replaceExisting?: boolean }) {
+    const res = await fetch(`${API_BASE_URL}/branch/menu/import-bulk`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استيراد المنيو');
+    return data;
+  },
+
   // مجموعات الإضافات
   async createModifierGroup(groupData: any) {
     const res = await fetch(`${API_BASE_URL}/branch/modifier-groups`, {
