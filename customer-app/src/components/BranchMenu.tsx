@@ -27,7 +27,10 @@ import {
   Download,
   User,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Tag,
+  Ticket,
+  ImageIcon
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
 import { getDisplayAddress, getStoredClientCoords, isBranchInDeliveryZone } from '../services/campusLocations';
@@ -454,8 +457,10 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   const [showReviewsModal, setShowReviewsModal] = useState<boolean>(false);
   const [copiedDirectLink, setCopiedDirectLink] = useState(false);
 
-  // العروض والصفقات الخاطفة التابعة للفرع
-  const [flashDeals, setFlashDeals] = useState<any[]>([]);
+  // العروض والصفقات الخاطفة والبانرات التابعة للفرع
+  const [flashDeals, setFlashDeals] = useState<any[]>(branch?.flashDeals || []);
+  const [branchBanners, setBranchBanners] = useState<any[]>(branch?.banners || []);
+  const [branchPromos, setBranchPromos] = useState<any[]>(branch?.promos || []);
   const [copiedPromoCode, setCopiedPromoCode] = useState<string | null>(null);
 
   // الطلبات الجارية للعميل
@@ -487,32 +492,76 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     }
   };
 
-  // جلب العروض والصفقات الخاطفة
+  // تحديث البيانات عند تغير خصائص الفرع القادمة من الـ Props
   useEffect(() => {
-    let isMounted = true;
-    api.getFlashDeals()
-      .then((res) => {
-        if (!isMounted || !res) return;
-        const allDeals = [
-          ...(Array.isArray(res.deals) ? res.deals : []),
-          ...(Array.isArray(res.promoDeals) ? res.promoDeals : []),
-          ...(Array.isArray(res.comboDeals) ? res.comboDeals : []),
-        ];
-        // تصفية العروض الخاصة بهذا المطعم أو العروض العامة
-        const relevant = allDeals.filter(
-          (d: any) =>
-            !d.branchId ||
-            d.branchId === branch?.id ||
-            d.targetBranch?.id === branch?.id
-        );
-        setFlashDeals(relevant.length > 0 ? relevant : allDeals);
-      })
-      .catch(() => {});
+    if (branch?.flashDeals && Array.isArray(branch.flashDeals)) {
+      setFlashDeals(branch.flashDeals);
+    }
+    if (branch?.banners && Array.isArray(branch.banners)) {
+      setBranchBanners(branch.banners);
+    }
+    if (branch?.promos && Array.isArray(branch.promos)) {
+      setBranchPromos(branch.promos);
+    }
+  }, [branch]);
+
+  // جلب فوري وتحديث حي للعروض والبانرات الترويجية التابعة لهذا المطعم
+  const fetchOffersAndBanners = useRef<() => void>(() => {});
+  fetchOffersAndBanners.current = async () => {
+    try {
+      const [dealsRes, bannersRes] = await Promise.all([
+        api.getFlashDeals().catch(() => null),
+        api.getBanners().catch(() => null),
+      ]);
+
+      const bId = branch?.id;
+      const bSlug = branch?.slug ? String(branch.slug).toLowerCase() : '';
+
+      // 1. تصفية العروض الخاطفة لهذا المطعم
+      if (dealsRes && Array.isArray(dealsRes.deals)) {
+        const relevantDeals = dealsRes.deals.filter((d: any) => {
+          if (!d.branchId && !d.targetBranch) return true; // عام
+          const dealBId = d.branchId || d.targetBranch?.id;
+          const dealBSlug = d.targetBranch?.slug ? String(d.targetBranch.slug).toLowerCase() : '';
+          return (
+            dealBId === bId ||
+            (bSlug && (String(dealBId).toLowerCase() === bSlug || dealBSlug === bSlug))
+          );
+        });
+        setFlashDeals(relevantDeals);
+      }
+
+      // 2. تصفية البانرات الإعلانية لهذا المطعم
+      if (Array.isArray(bannersRes)) {
+        const relevantB = bannersRes.filter((b: any) => {
+          if (!b.linkUrl) return true; // بانر عام
+          const link = String(b.linkUrl).toLowerCase();
+          return (
+            (bId && link.includes(bId.toLowerCase())) ||
+            (bSlug && link.includes(bSlug))
+          );
+        });
+        setBranchBanners(relevantB);
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    fetchOffersAndBanners.current();
+    const handleBannersUpdate = () => fetchOffersAndBanners.current();
+    const handleDealsUpdate = () => fetchOffersAndBanners.current();
+
+    window.addEventListener('banners_updated', handleBannersUpdate);
+    window.addEventListener('flash_deals_updated', handleDealsUpdate);
 
     return () => {
-      isMounted = false;
+      window.removeEventListener('banners_updated', handleBannersUpdate);
+      window.removeEventListener('flash_deals_updated', handleDealsUpdate);
     };
-  }, [branch?.id]);
+  }, [branch?.id, branch?.slug]);
+
+  // إجمالي العروض والبانرات والكوبونات المتاحة
+  const totalOffersCount = flashDeals.length + branchBanners.length + branchPromos.length;
 
   // جلب ومتابعة الطلبات الحالية للعميل لحظياً
   useEffect(() => {
@@ -788,6 +837,30 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     onSelectItem(item);
   };
 
+  const handleBannerClick = (banner: any) => {
+    if (!banner.linkUrl) {
+      setBranchTab('RESTAURANT');
+      return;
+    }
+    const url = String(banner.linkUrl);
+    let targetItemId: string | null = null;
+    if (url.includes('?')) {
+      const q = url.split('?')[1];
+      const params = new URLSearchParams(q);
+      targetItemId = params.get('offer') || params.get('item');
+    }
+    if (targetItemId) {
+      for (const cat of displayedCategories || []) {
+        const found = (cat.items || []).find((i: any) => i.id === targetItemId);
+        if (found) {
+          handleItemSelection(found);
+          return;
+        }
+      }
+    }
+    setBranchTab('RESTAURANT');
+  };
+
   const branchReviews: any[] = Array.isArray(branch?.reviews) ? branch.reviews : [];
   const avgRating = branch?.avgRating || (branchReviews.length > 0
     ? Number((branchReviews.reduce((acc, r) => acc + (r.rating || 5), 0) / branchReviews.length).toFixed(1))
@@ -863,11 +936,11 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         >
           <span className="text-amber-400">🔥</span>
           <span>العروض</span>
-          {flashDeals.length > 0 && (
+          {totalOffersCount > 0 && (
             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black shrink-0 ${
               branchTab === 'DEALS' ? 'bg-black/30 text-amber-200' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
             }`}>
-              {flashDeals.length}
+              {totalOffersCount}
             </span>
           )}
         </button>
@@ -1376,16 +1449,16 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: العروض (DEALS) - صفقات الفلاش وكوبونات الخصم والكومبو              */}
+      {/* TAB 3: العروض (DEALS) - صفقات الفلاش، البانرات الترويجية، وكوبونات الخصم */}
       {/* ========================================================================= */}
       {branchTab === 'DEALS' && (
-        <div className="space-y-4 animate-fadeIn">
-          {flashDeals.length === 0 ? (
+        <div className="space-y-6 animate-fadeIn">
+          {totalOffersCount === 0 ? (
             <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 space-y-3">
               <Flame className="w-12 h-12 text-amber-400 mx-auto" />
               <h3 className="text-base font-black text-slate-900">لا توجد عروض نشطة حالياً لهذا المطعم</h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                يتم تحديث العروض والصفقات الخاطفة باستمرار؛ تصفح قائمة الطعام للاستمتاع بأشهى الوجبات!
+                يتم تحديث العروض والبانرات والصفقات الخاطفة باستمرار؛ تصفح قائمة الطعام للاستمتاع بأشهى الوجبات!
               </p>
               <button
                 type="button"
@@ -1397,128 +1470,279 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
               </button>
             </div>
           ) : (
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                  <Flame className="w-4 h-4 text-rose-500" />
-                  <span>عروض وتخفيضات خاصة بالمطعم ({flashDeals.length})</span>
-                </h3>
-              </div>
+            <div className="space-y-6">
+              {/* 1. قسم البانرات الإعلانية الترويجية للمطعم */}
+              {branchBanners.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-purple-600" />
+                      <span>بانرات وعروض حصرية ({branchBanners.length})</span>
+                    </h3>
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {flashDeals.map((deal: any, dIdx: number) => {
-                  const isPromo = deal.type === 'PROMO' || Boolean(deal.promoCode || deal.code);
-                  const isCopied = copiedPromoCode === (deal.promoCode || deal.code);
-
-                  return (
-                    <div
-                      key={deal.id || `deal-${dIdx}`}
-                      className="bg-white rounded-3xl p-4 border border-rose-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3 select-none"
-                    >
-                      <div>
-                        {/* Header: Deal Badge */}
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-rose-500" />
-                            <span>{deal.badgeText || (isPromo ? 'كوبون خصم' : 'صفقة خاطفة 🔥')}</span>
-                          </span>
-
-                          {deal.expiresAt && (
-                            <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span>مؤقت</span>
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Deal Image if available */}
-                        {deal.imageUrl && (
-                          <div className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 mb-2.5">
+                  <div className="grid grid-cols-1 gap-3.5">
+                    {branchBanners.map((banner: any, bIdx: number) => (
+                      <div
+                        key={banner.id || `banner-${bIdx}`}
+                        className="group relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white shadow-lg border border-purple-500/20 p-5 flex flex-col sm:flex-row items-center justify-between gap-4"
+                      >
+                        {banner.imageUrl && (
+                          <div className="w-full sm:w-48 h-32 rounded-2xl overflow-hidden shrink-0 border border-white/10 bg-black/40">
                             <img
-                              src={getFullImageUrl(deal.imageUrl)}
-                              alt={deal.title}
-                              className="w-full h-full object-cover"
+                              src={getFullImageUrl(banner.imageUrl)}
+                              alt={banner.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                           </div>
                         )}
 
-                        <h4 className="font-black text-sm text-slate-900 leading-snug">
-                          {deal.title}
-                        </h4>
-
-                        {deal.subtitle && (
-                          <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
-                            {deal.subtitle}
-                          </p>
-                        )}
-
-                        {/* Price Details */}
-                        {deal.discountPrice && (
-                          <div className="flex items-baseline gap-2 mt-2 pt-2 border-t border-slate-100">
-                            <span className="text-base font-black text-rose-600 font-mono">
-                              {deal.discountPrice} ج.م
+                        <div className="flex-1 space-y-1.5 text-right w-full">
+                          {banner.badgeText && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950 mb-1">
+                              <Sparkles className="w-3 h-3" />
+                              <span>{banner.badgeText}</span>
                             </span>
-                            {deal.originalPrice && (
-                              <span className="text-xs text-slate-400 line-through font-mono">
-                                {deal.originalPrice} ج.م
+                          )}
+                          <h4 className="text-base font-black text-white leading-snug">
+                            {banner.title}
+                          </h4>
+                          {banner.subtitle && (
+                            <p className="text-xs text-purple-200/80 leading-relaxed font-medium">
+                              {banner.subtitle}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleBannerClick(banner)}
+                          className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-95 cursor-pointer"
+                        >
+                          <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
+                          <span>اطلب العرض الآن</span>
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. قسم عروض الفلاش والكومبو الموقوتة */}
+              {flashDeals.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                      <Flame className="w-4 h-4 text-rose-500" />
+                      <span>عروض وتخفيضات خاصة بالمطعم ({flashDeals.length})</span>
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {flashDeals.map((deal: any, dIdx: number) => {
+                      const isPromo = deal.type === 'PROMO' || Boolean(deal.promoCode || deal.code);
+                      const isCopied = copiedPromoCode === (deal.promoCode || deal.code);
+
+                      // استخراج الصنف المرتبط بالعرض
+                      const linkedItem = deal.item || (() => {
+                        if (!deal.menuItemId) return null;
+                        for (const cat of displayedCategories || []) {
+                          const it = (cat.items || []).find((i: any) => i.id === deal.menuItemId);
+                          if (it) return it;
+                        }
+                        return null;
+                      })();
+
+                      return (
+                        <div
+                          key={deal.id || `deal-${dIdx}`}
+                          className="bg-white rounded-3xl p-4 border border-rose-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3 select-none"
+                        >
+                          <div>
+                            {/* Header: Deal Badge */}
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-rose-500" />
+                                <span>{deal.badgeText || (isPromo ? 'كوبون خصم' : 'صفقة خاطفة 🔥')}</span>
                               </span>
+
+                              {deal.expiresAt && (
+                                <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  <span>مؤقت</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Deal Image if available */}
+                            {(deal.imageUrl || linkedItem?.imageUrl) && (
+                              <div className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 mb-2.5">
+                                <img
+                                  src={getFullImageUrl(deal.imageUrl || linkedItem?.imageUrl)}
+                                  alt={deal.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+
+                            <h4 className="font-black text-sm text-slate-900 leading-snug">
+                              {deal.title}
+                            </h4>
+
+                            {deal.subtitle && (
+                              <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
+                                {deal.subtitle}
+                              </p>
+                            )}
+
+                            {/* Price Details */}
+                            {deal.discountPrice && (
+                              <div className="flex items-baseline gap-2 mt-2 pt-2 border-t border-slate-100">
+                                <span className="text-base font-black text-rose-600 font-mono">
+                                  {deal.discountPrice} ج.م
+                                </span>
+                                {deal.originalPrice && (
+                                  <span className="text-xs text-slate-400 line-through font-mono">
+                                    {deal.originalPrice} ج.م
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Action Button */}
-                      <div className="pt-1">
-                        {isPromo ? (
+                          {/* Action Button */}
+                          <div className="pt-1">
+                            {isPromo ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const code = deal.promoCode || deal.code;
+                                  if (navigator.clipboard) {
+                                    navigator.clipboard.writeText(code);
+                                    try {
+                                      localStorage.setItem('unifood_auto_promo', code);
+                                    } catch {}
+                                    setCopiedPromoCode(code);
+                                    setTimeout(() => setCopiedPromoCode(null), 2500);
+                                  }
+                                }}
+                                className="w-full py-2 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
+                              >
+                                {isCopied ? (
+                                  <>
+                                    <Check className="w-4 h-4 text-emerald-300" />
+                                    <span>{`تم نسخ الكود (${deal.promoCode || deal.code}) ✓`}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-4 h-4" />
+                                    <span>{`نسخ كود الخصم (${deal.promoCode || deal.code})`}</span>
+                                  </>
+                                )}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (linkedItem) {
+                                    handleItemSelection(linkedItem);
+                                  } else {
+                                    setBranchTab('RESTAURANT');
+                                  }
+                                }}
+                                className="w-full py-2 px-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-md shadow-rose-600/20 cursor-pointer"
+                              >
+                                <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                                <span>اطلب العرض الآن</span>
+                                <ArrowLeft className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. قسم كوبونات الخصم وقسائم التوفير للمطعم */}
+              {branchPromos.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                      <Ticket className="w-4 h-4 text-emerald-600" />
+                      <span>كوبونات وقسائم الخصم ({branchPromos.length})</span>
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {branchPromos.map((promo: any, pIdx: number) => {
+                      const isCopied = copiedPromoCode === promo.code;
+                      return (
+                        <div
+                          key={promo.id || `promo-${pIdx}`}
+                          className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-xs"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-black text-sm text-emerald-900 bg-white px-2.5 py-0.5 rounded-lg border border-emerald-300">
+                                {promo.code}
+                              </span>
+                              <span className="text-[11px] font-black text-emerald-700">
+                                {promo.discountType === 'PERCENT' || promo.discountType === 'PERCENTAGE'
+                                  ? `خصم ${promo.value}%`
+                                  : `خصم ${promo.value} ج.م`}
+                              </span>
+                            </div>
+                            {promo.minOrder > 0 && (
+                              <p className="text-[10px] text-slate-500">
+                                الحد الأدنى للطلب: {promo.minOrder} ج.م
+                              </p>
+                            )}
+                            {promo.description && (
+                              <p className="text-[10px] text-slate-600 font-medium">
+                                {promo.description}
+                              </p>
+                            )}
+                          </div>
+
                           <button
                             type="button"
                             onClick={() => {
-                              const code = deal.promoCode || deal.code;
                               if (navigator.clipboard) {
-                                navigator.clipboard.writeText(code);
+                                navigator.clipboard.writeText(promo.code);
                                 try {
-                                  localStorage.setItem('unifood_auto_promo', code);
+                                  localStorage.setItem('unifood_auto_promo', promo.code);
                                 } catch {}
-                                setCopiedPromoCode(code);
+                                setCopiedPromoCode(promo.code);
                                 setTimeout(() => setCopiedPromoCode(null), 2500);
                               }
                             }}
-                            className="w-full py-2 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 shrink-0 ${
+                              isCopied
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-emerald-600/10 text-emerald-800 hover:bg-emerald-600/20'
+                            }`}
                           >
                             {isCopied ? (
                               <>
-                                <Check className="w-4 h-4 text-emerald-300" />
-                                <span>{`تم نسخ الكود (${deal.promoCode || deal.code}) ✓`}</span>
+                                <Check className="w-3.5 h-3.5" />
+                                <span>تم النسخ ✓</span>
                               </>
                             ) : (
                               <>
-                                <Copy className="w-4 h-4" />
-                                <span>{`نسخ كود الخصم (${deal.promoCode || deal.code})`}</span>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>نسخ الكود</span>
                               </>
                             )}
                           </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (deal.item) {
-                                handleItemSelection(deal.item);
-                              } else {
-                                setBranchTab('RESTAURANT');
-                              }
-                            }}
-                            className="w-full py-2 px-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-md shadow-rose-600/20 cursor-pointer"
-                          >
-                            <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
-                            <span>اطلب العرض الآن</span>
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

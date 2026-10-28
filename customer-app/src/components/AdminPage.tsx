@@ -2199,8 +2199,8 @@ export const AdminPage: React.FC = () => {
     setDealRecurringDays('ALL');
     setDealDailyStartTime('11:00');
     setDealDailyEndTime('17:00');
-    // Default 3 hours from now
-    const exp = new Date(Date.now() + 3 * 3600 * 1000);
+    // Default 30 days from now (عرض يدوم شهراً كاملاً حتى لا ينتهي ويختفي العرض بالخطأ)
+    const exp = new Date(Date.now() + 30 * 24 * 3600 * 1000);
     const tzOffset = exp.getTimezoneOffset() * 60000;
     setDealExpiresAt(new Date(exp.getTime() - tzOffset).toISOString().slice(0, 16));
     setDealIsActive(true);
@@ -10947,6 +10947,25 @@ export const AdminPage: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">المطعم التابع له البانر (اختياري)</label>
+                  <select
+                    onChange={(e) => {
+                      const bId = e.target.value;
+                      if (!bId) {
+                        setNewBannerLink('');
+                      } else {
+                        const targetB = branches.find(b => b.id === bId);
+                        setNewBannerLink(`?branch=${targetB?.slug || bId}`);
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 mb-2"
+                  >
+                    <option value="">-- إعلان عام (يظهر للجميع) --</option>
+                    {branches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+
                   <label className="block text-xs font-bold text-slate-600 mb-1">رابط التوجيه أو المطعم (اختياري)</label>
                   <input
                     type="text"
@@ -10957,23 +10976,8 @@ export const AdminPage: React.FC = () => {
                     dir="ltr"
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    يمكنك وضع رابط مباشر لمطعم أو صنف محدد ليفتح شاشة الطلب مباشرة عند النقر!
+                    يتم ربط البانر بالمطعم المختار ويظهر في شاشة العروض الخاصة به مباشرة بالإضافة للشاشة الرئيسية.
                   </p>
-                  {branches.length > 0 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1">
-                      <span className="text-[10px] text-slate-500 ml-1">ربط سريع بمطعم:</span>
-                      {branches.slice(0, 5).map(b => (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => setNewBannerLink(`?branch=${b.slug || b.id}`)}
-                          className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-purple-900/50 text-purple-700 border border-slate-200 transition-colors"
-                        >
-                          {b.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
               </div>
@@ -11083,6 +11087,25 @@ export const AdminPage: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">المطعم التابع له البانر (اختياري)</label>
+                  <select
+                    onChange={(e) => {
+                      const bId = e.target.value;
+                      if (!bId) {
+                        setEditBannerLink('');
+                      } else {
+                        const targetB = branches.find(b => b.id === bId);
+                        setEditBannerLink(`?branch=${targetB?.slug || bId}`);
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 mb-2"
+                  >
+                    <option value="">-- إعلان عام (يظهر للجميع) --</option>
+                    {branches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+
                   <label className="block text-xs font-bold text-slate-600 mb-1">رابط التوجيه أو المطعم (اختياري)</label>
                   <input
                     type="text"
@@ -11093,23 +11116,8 @@ export const AdminPage: React.FC = () => {
                     dir="ltr"
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    يمكنك وضع رابط مباشر لمطعم أو صنف محدد ليفتح شاشة الطلب مباشرة عند النقر!
+                    يتم ربط البانر بالمطعم المختار ويظهر في شاشة العروض الخاصة به مباشرة بالإضافة للشاشة الرئيسية.
                   </p>
-                  {branches.length > 0 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1">
-                      <span className="text-[10px] text-slate-500 ml-1">ربط سريع بمطعم:</span>
-                      {branches.slice(0, 5).map(b => (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => setEditBannerLink(`?branch=${b.slug || b.id}`)}
-                          className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-purple-900/50 text-purple-700 border border-slate-200 transition-colors"
-                        >
-                          {b.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -11817,11 +11825,11 @@ export const AdminPage: React.FC = () => {
                   <div className="flex flex-wrap gap-1.5">
                     {[
                       { label: '+ 1 ساعة', hours: 1 },
-                      { label: '+ 2 ساعة', hours: 2 },
-                      { label: '+ 3 ساعات (البريك)', hours: 3 },
-                      { label: '+ 6 ساعات', hours: 6 },
-                      { label: '+ 12 ساعة', hours: 12 },
-                      { label: '+ 24 ساعة', hours: 24 }
+                      { label: '+ 3 ساعات', hours: 3 },
+                      { label: '+ 24 ساعة', hours: 24 },
+                      { label: 'أسبوع', hours: 24 * 7 },
+                      { label: 'شهر كامل (موصى به)', hours: 24 * 30 },
+                      { label: 'سنة (عرض دائم)', hours: 24 * 365 }
                     ].map(btn => (
                       <button
                         key={btn.hours}

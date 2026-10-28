@@ -275,7 +275,13 @@ export function App() {
       api.getBranchMenu(directKey)
         .then((data) => {
           if (data && data.branch) {
-            setSelectedBranch({ ...data.branch, reviews: data.reviews || [] });
+            setSelectedBranch({
+              ...data.branch,
+              reviews: data.reviews || [],
+              banners: data.banners || [],
+              flashDeals: data.flashDeals || [],
+              promos: data.promos || [],
+            });
             setBranchCategories(data.categories || []);
           }
         })
@@ -633,7 +639,13 @@ export function App() {
     try {
       setLoading(true);
       const data = await api.getBranchMenu(branch.id);
-      setSelectedBranch({ ...data.branch, reviews: data.reviews || [] });
+      setSelectedBranch({
+        ...data.branch,
+        reviews: data.reviews || [],
+        banners: data.banners || [],
+        flashDeals: data.flashDeals || [],
+        promos: data.promos || [],
+      });
       setBranchCategories(data.categories || []);
       if (typeof window !== 'undefined') {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -735,7 +747,13 @@ export function App() {
             api.getBranchMenu(cleanBranchParam)
               .then((menuData) => {
                 if (menuData && menuData.branch) {
-                  setSelectedBranch({ ...menuData.branch, reviews: menuData.reviews || [] });
+                  setSelectedBranch({
+                    ...menuData.branch,
+                    reviews: menuData.reviews || [],
+                    banners: menuData.banners || [],
+                    flashDeals: menuData.flashDeals || [],
+                    promos: menuData.promos || [],
+                  });
                   setBranchCategories(menuData.categories || []);
                   if (itemParam && Array.isArray(menuData.categories)) {
                     for (const cat of menuData.categories) {
@@ -962,6 +980,21 @@ export function App() {
     // 5. تحديث البانرات الإعلانية لحظياً
     socket.on('banners_updated', () => {
       window.dispatchEvent(new CustomEvent('banners_updated'));
+      setSelectedBranch((currBranch: any) => {
+        if (currBranch && currBranch.id) {
+          api.getBranchMenu(currBranch.id).then((res) => {
+            if (res && res.branch) {
+              setSelectedBranch((prev: any) => ({
+                ...prev,
+                banners: res.banners || [],
+                flashDeals: res.flashDeals || [],
+                promos: res.promos || [],
+              }));
+            }
+          }).catch(() => {});
+        }
+        return currBranch;
+      });
     });
 
     // 5.1 تحديث عروض الفلاش والكميات المستهلكة/المتبقية لحظياً لجميع العملاء
@@ -972,6 +1005,12 @@ export function App() {
           api.getBranchMenu(currBranch.id).then((res) => {
             if (res && res.categories) {
               setBranchCategories(res.categories);
+              setSelectedBranch((prev: any) => ({
+                ...prev,
+                banners: res.banners || [],
+                flashDeals: res.flashDeals || [],
+                promos: res.promos || [],
+              }));
             }
           }).catch(() => {});
         }

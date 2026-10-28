@@ -475,8 +475,33 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
 
       const activeCustomDeals = allActiveDeals.filter(d => isFlashDealCurrentlyActive(d, now));
 
+      // جلب بيانات الأصناف المرتبطة بالعروض مع الأحجام والإضافات
+      const itemIdsToFetch = Array.from(new Set(activeCustomDeals.map(d => d.menuItemId).filter(Boolean))) as string[];
+      let fetchedItemsMap: Record<string, any> = {};
+      if (itemIdsToFetch.length > 0) {
+        try {
+          const itemsData = await prisma.menuItem.findMany({
+            where: { id: { in: itemIdsToFetch }, isAvailable: true },
+            include: {
+              sizes: true,
+              modifierGroupLinks: {
+                include: {
+                  group: {
+                    include: {
+                      options: { where: { isAvailable: true } }
+                    }
+                  }
+                }
+              }
+            }
+          });
+          fetchedItemsMap = Object.fromEntries(itemsData.map(it => [it.id, it]));
+        } catch (_errItems) {}
+      }
+
       customDeals = activeCustomDeals.map((d) => {
         const stockInfo = getDealStockInfo(d);
+        const linkedItem = d.menuItemId ? fetchedItemsMap[d.menuItemId] : null;
         return {
           id: `custom_${d.id}`,
           dbId: d.id,
@@ -490,7 +515,7 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
           promoCode: d.promoCode,
           code: d.promoCode,
           badgeText: d.badgeText || "عرض البريك 🔥",
-          imageUrl: d.imageUrl,
+          imageUrl: d.imageUrl || linkedItem?.imageUrl || null,
           expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
           maxUses: stockInfo.isUnlimited ? 9999 : (d.maxQuantity || 50),
           usedCount: d.soldQuantity || 0,
@@ -503,7 +528,12 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
           dailyEndTime: d.dailyEndTime,
           targetBranch: d.branch,
           branchId: d.branchId,
-          menuItemId: d.menuItemId
+          menuItemId: d.menuItemId,
+          item: linkedItem ? {
+            ...linkedItem,
+            originalBasePrice: d.originalPrice || linkedItem.basePrice,
+            basePrice: d.discountPrice || linkedItem.basePrice,
+          } : null,
         };
       });
     } catch (_e) {
@@ -657,7 +687,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       },
     });
 
-    const [categories, activeOrdersCount, ratingStats, recentReviews, activeFlashDeals] = await Promise.all([
+    const [categories, activeOrdersCount, ratingStats, recentReviews, allFlashDeals, allBanners, allPromos] = await Promise.all([
       prisma.menuCategory.findMany({
         where: { branchId: actualBranchId },
         include: {
@@ -723,12 +753,58 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
             { branchId: actualBranchId },
             { branchId: null },
           ],
-          menuItemId: { not: null },
         },
+        include: {
+          branch: { select: { id: true, name: true, slug: true, logoUrl: true } },
+        },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+      }),
+      prisma.banner.findMany({
+        where: { isActive: true },
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+      }),
+      prisma.promoCode.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
       }),
     ]);
 
-    const liveFlashDeals = (activeFlashDeals || []).filter(d => isFlashDealCurrentlyActive(d, now));
+    const liveFlashDeals = (allFlashDeals || []).filter(d => isFlashDealCurrentlyActive(d, now));
+
+    // استخراج البانرات الخاصة بهذا المطعم أو البانرات العامة
+    const branchSlugNorm = (branch.slug || "").toLowerCase();
+    const relevantBanners = (allBanners || []).filter((b: any) => {
+      if (!b.linkUrl) return true; // بانر ترويجي عام يظهر للكل
+      const link = String(b.linkUrl).toLowerCase();
+      return (
+        link.includes(actualBranchId.toLowerCase()) ||
+        (branchSlugNorm && link.includes(branchSlugNorm))
+      );
+    });
+
+    // استخراج كوبونات الخصم الصالحة لهذا المطعم
+    const relevantPromos = (allPromos || []).filter((p: any) => {
+      if (p.expiresAt && new Date(p.expiresAt) <= now) return false;
+      if (p.maxUses && p.usedCount >= p.maxUses) return false;
+      if (!p.applicableBranchIds) return true;
+      try {
+        const allowed = JSON.parse(p.applicableBranchIds);
+        if (Array.isArray(allowed)) {
+          return allowed.some(
+            (id: string) =>
+              id === actualBranchId ||
+              (branchSlugNorm && String(id).toLowerCase() === branchSlugNorm)
+          );
+        }
+      } catch {
+        const allowed = p.applicableBranchIds.split(",").map((s: string) => s.trim().toLowerCase());
+        return (
+          allowed.includes(actualBranchId.toLowerCase()) ||
+          (branchSlugNorm && allowed.includes(branchSlugNorm))
+        );
+      }
+      return true;
+    });
 
     let currentStatus = branch.operationalStatus;
     let currentClosedUntil = branch.closedUntil;
@@ -799,6 +875,45 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         review: r.review || "",
         createdAt: r.createdAt,
         itemsSummary: (r.items || []).map((i) => `${i.quantity}× ${i.itemName}`).join(" ، "),
+      })),
+      flashDeals: liveFlashDeals.map((d) => {
+        const stockInfo = getDealStockInfo(d);
+        return {
+          id: `custom_${d.id}`,
+          dbId: d.id,
+          type: d.dealType,
+          title: d.title,
+          subtitle: d.subtitle,
+          originalPrice: d.originalPrice,
+          discountPrice: d.discountPrice,
+          price: d.discountPrice || d.originalPrice,
+          discountPercent: d.discountPercent,
+          promoCode: d.promoCode,
+          code: d.promoCode,
+          badgeText: d.badgeText || "عرض البريك 🔥",
+          imageUrl: d.imageUrl,
+          expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
+          maxUses: stockInfo.isUnlimited ? 9999 : (d.maxQuantity || 50),
+          usedCount: d.soldQuantity || 0,
+          remainingUses: stockInfo.remainingQuantity,
+          isUnlimited: stockInfo.isUnlimited,
+          maxPerUser: d.maxPerUser || null,
+          isRecurring: Boolean(d.isRecurring),
+          recurringDays: d.recurringDays,
+          dailyStartTime: d.dailyStartTime,
+          dailyEndTime: d.dailyEndTime,
+          branchId: d.branchId,
+          menuItemId: d.menuItemId,
+        };
+      }),
+      banners: relevantBanners,
+      promos: relevantPromos.map((p) => ({
+        id: p.id,
+        code: p.code,
+        discountType: p.discountType,
+        value: p.value,
+        minOrder: p.minOrder,
+        expiresAt: p.expiresAt,
       })),
     });
   } catch (error: any) {
