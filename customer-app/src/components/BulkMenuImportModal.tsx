@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, 
   Upload, 
@@ -12,6 +12,7 @@ import {
   Sparkles,
   Layers,
   UtensilsCrossed,
+  Store,
   Image as ImageIcon
 } from 'lucide-react';
 import { 
@@ -24,7 +25,8 @@ import {
 import { api, getFullImageUrl } from '../services/api';
 
 interface BulkMenuImportModalProps {
-  branch: any;
+  branch?: any;
+  branches?: any[];
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -32,10 +34,23 @@ interface BulkMenuImportModalProps {
 
 export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
   branch,
+  branches = [],
   isOpen,
   onClose,
   onSuccess,
 }) => {
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(() => branch?.id || (branches && branches[0]?.id) || '');
+
+  useEffect(() => {
+    if (branch?.id) {
+      setSelectedBranchId(branch.id);
+    } else if (branches && branches.length > 0 && (!selectedBranchId || !branches.some((b: any) => b.id === selectedBranchId))) {
+      setSelectedBranchId(branches[0].id);
+    }
+  }, [branch, branches]);
+
+  const activeBranch = (branches && branches.find((b: any) => b.id === selectedBranchId)) || branch;
+
   const [activeTab, setActiveTab] = useState<'EXCEL' | 'PASTE'>('EXCEL');
   const [fileName, setFileName] = useState<string>('');
   const [pastedText, setPastedText] = useState<string>('');
@@ -53,7 +68,7 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  if (!isOpen || !branch) return null;
+  if (!isOpen) return null;
 
   // معالجة اختيار ملف Excel أو CSV
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,7 +135,13 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
       setErrorMsg('');
       setImportProgressText('جاري رفع الأصناف وتنزيل الصور وتخزينها على السيرفر...');
 
-      const res = await api.importAdminBulkMenu(branch.id, {
+      const targetBranchId = activeBranch?.id;
+      if (!targetBranchId) {
+        setErrorMsg('يرجى تحديد المطعم أولاً للاستيراد');
+        return;
+      }
+
+      const res = await api.importAdminBulkMenu(targetBranchId, {
         replaceExisting,
         items: parseResult.items,
       });
@@ -164,7 +185,7 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
-                <span>استيراد منيو مجمع لمطعم: {branch?.name || ''}</span>
+                <span>استيراد منيو مجمع {activeBranch ? `لمطعم: ${activeBranch.name}` : ''}</span>
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                   Excel / CSV / نص
                 </span>
@@ -186,6 +207,28 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
 
         {/* Body Container */}
         <div className="p-5 flex-1 overflow-y-auto space-y-5">
+          {/* Branch Selector Dropdown if multiple branches available */}
+          {branches && branches.length > 0 && (
+            <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2 text-emerald-800">
+                <Store className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span className="text-xs font-black">المطعم المستهدف للاستيراد:</span>
+              </div>
+              <select
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                disabled={importing}
+                className="px-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs cursor-pointer"
+              >
+                {branches.map((b: any) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Success Banner */}
           {successInfo && (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 animate-slideDown">
@@ -239,7 +282,7 @@ export const BulkMenuImportModal: React.FC<BulkMenuImportModalProps> = ({
             {/* Template Download Button */}
             <button
               type="button"
-              onClick={() => downloadMenuExcelTemplate(branch?.name)}
+              onClick={() => downloadMenuExcelTemplate(activeBranch?.name)}
               className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-200 transition-colors"
               title="تحميل قالب إكسيل جاهز يحتوي على أمثلة للشاورما والمشويات والأحجام"
             >

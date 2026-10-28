@@ -3421,6 +3421,15 @@ export const AdminPage: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
+                  onClick={() => setBulkImportBranch(filteredBranches[0] || branches[0] || { id: '', name: '' })}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
+                  title="استيراد وتحديث منيو أي مطعم بالكامل من ملف Excel أو CSV أو نص مباشر"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>استيراد منيو (Excel)</span>
+                </button>
+                <button
                   onClick={() => setShowAddBranchModal(true)}
                   className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
@@ -10398,6 +10407,7 @@ export const AdminPage: React.FC = () => {
       {/* D2. Bulk Menu Import Modal (Excel / CSV) */}
       <BulkMenuImportModal
         branch={bulkImportBranch}
+        branches={branches}
         isOpen={!!bulkImportBranch}
         onClose={() => setBulkImportBranch(null)}
         onSuccess={() => {
