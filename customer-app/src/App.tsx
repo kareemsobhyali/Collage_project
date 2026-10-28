@@ -145,6 +145,12 @@ export function App() {
   const [selectedBranch, setSelectedBranch] = useState<any | null>(() => {
     if (typeof window === 'undefined') return null;
     try {
+      // 0. التحقق أولاً من الفرع المحقون مسبقاً من السيرفر (Server Injected Branch) لفتح المنيو فوراً بدون تأخير
+      const serverInjected = (window as any).__UNIFOOD_INITIAL_BRANCH__;
+      if (serverInjected && (serverInjected.slug || serverInjected.id)) {
+        return serverInjected;
+      }
+
       const params = new URLSearchParams(window.location.search);
       let bParam = params.get('branch') || params.get('r') || params.get('b');
       if (!bParam && window.location.hash) {
@@ -153,7 +159,9 @@ export function App() {
         if (hashMatch) bParam = hashMatch[1];
       }
       if (!bParam && window.location.pathname.length > 1) {
-        const parts = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+        let cleanPath = '';
+        try { cleanPath = decodeURIComponent(window.location.pathname); } catch { cleanPath = window.location.pathname; }
+        const parts = cleanPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
         if (parts[0] === 'branch' || parts[0] === 'r' || parts[0] === 'b') {
           bParam = parts[1];
         } else if (!['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(parts[0].toLowerCase())) {
@@ -174,13 +182,14 @@ export function App() {
         }
       }
       if (bParam) {
+        try { bParam = decodeURIComponent(bParam); } catch {}
         const cached = localStorage.getItem('unifood_cached_branches');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) {
             const normalized = bParam.trim().toLowerCase();
             const found = parsed.find(
-              (b: any) => b.id === bParam || (b.slug && b.slug.toLowerCase() === normalized)
+              (b: any) => b.id === bParam || (b.slug && b.slug.toLowerCase() === normalized) || (b.name && b.name.toLowerCase() === normalized)
             );
             if (found) return found;
           }
@@ -246,6 +255,9 @@ export function App() {
   const isDedicatedRestaurantApp = useMemo(() => {
     if (typeof window === 'undefined') return false;
     try {
+      // 0. إذا وجد فرع محقون من السيرفر مسبقاً
+      if ((window as any).__UNIFOOD_INITIAL_BRANCH__) return true;
+
       const params = new URLSearchParams(window.location.search);
       const isStandaloneMode = (
         window.matchMedia('(display-mode: standalone)').matches ||
@@ -255,20 +267,33 @@ export function App() {
         params.get('app') === '1' ||
         isRunningInNativeApk()
       );
+
+      let cleanPath = '';
+      try { cleanPath = decodeURIComponent(window.location.pathname); } catch { cleanPath = window.location.pathname; }
+      const pathParts = cleanPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+      const hasBranchInPath = (pathParts.length >= 2 && (pathParts[0] === 'r' || pathParts[0] === 'branch' || pathParts[0] === 'b')) ||
+        (pathParts.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(pathParts[0].toLowerCase()));
+
+      const hasBranchInQuery = Boolean(params.get('r') || params.get('branch') || params.get('b'));
       const savedBranch = (localStorage.getItem('pwa_installed_branch') || '').trim().toLowerCase();
       const currentBranchKey = (selectedBranch?.slug || selectedBranch?.id || '').trim().toLowerCase();
 
-      // 1. إذا كان التطبيق مثبتاً أو في وضع Standalone وله فرع مسجل أو محدد
-      if (isStandaloneMode && (savedBranch || selectedBranch)) {
+      // 1. إذا كان التطبيق في وضع Standalone وله فرع بالمسار أو بالاستعلام أو بالتخزين أو محدد
+      if (isStandaloneMode && (hasBranchInPath || hasBranchInQuery || savedBranch || selectedBranch)) {
         return true;
       }
 
-      // 2. إذا كان الفرع الحالي يطابق الفرع المثبت في التخزين
+      // 2. إذا كان المسار صريحاً لفرع ومحدد كـ PWA
+      if (hasBranchInPath && (params.get('installed') === '1' || isStandaloneMode)) {
+        return true;
+      }
+
+      // 3. إذا كان الفرع الحالي يطابق الفرع المثبت في التخزين
       if (savedBranch && currentBranchKey && (savedBranch === currentBranchKey || savedBranch.includes(currentBranchKey))) {
         return true;
       }
 
-      // 3. إذا كان الرابط يحتوي على وسم التثبيت لمطعم محدد
+      // 4. إذا كان الرابط يحتوي على وسم التثبيت لمطعم محدد
       if (params.get('installed') === '1' && (Boolean(params.get('r') || params.get('branch')) || selectedBranch)) {
         return true;
       }
@@ -524,7 +549,11 @@ export function App() {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
         try {
           const newUrl = new URL(window.location.href);
-          newUrl.searchParams.set('branch', branch.slug || branch.id);
+          const slugOrId = branch.slug || branch.id;
+          if (!newUrl.pathname.startsWith('/r/') && !newUrl.pathname.startsWith('/branch/')) {
+            newUrl.pathname = `/r/${encodeURIComponent(slugOrId)}`;
+          }
+          newUrl.searchParams.set('branch', slugOrId);
           window.history.pushState({ branchId: branch.id }, '', newUrl.toString());
         } catch (_e) {}
       }
@@ -586,7 +615,9 @@ export function App() {
 
       // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
       if (typeof window !== 'undefined') {
-        const pathSegments = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+        let cleanPath = '';
+        try { cleanPath = decodeURIComponent(window.location.pathname); } catch { cleanPath = window.location.pathname; }
+        const pathSegments = cleanPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
         const params = new URLSearchParams(window.location.search);
         let branchParam = params.get('branch') || params.get('r') || params.get('b');
         if (!branchParam && window.location.hash) {
@@ -594,7 +625,7 @@ export function App() {
           const hashMatch = hash.match(/(?:branch|r|b)[\/=]([^&?\/]+)/i);
           if (hashMatch) branchParam = hashMatch[1];
         }
-        if (!branchParam && window.location.pathname.length > 1) {
+        if (!branchParam && pathSegments.length > 0) {
           const firstSeg = pathSegments[0]?.toLowerCase();
           if (firstSeg && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(firstSeg)) {
             branchParam = (firstSeg === 'r' || firstSeg === 'branch' || firstSeg === 'b') && pathSegments[1] ? pathSegments[1] : firstSeg;
@@ -613,8 +644,9 @@ export function App() {
               document.referrer.includes('android-app://')
             );
             const savedInstalledBranch = localStorage.getItem('pwa_installed_branch');
-            if (isStandaloneMode && (currentApkInfo.branchSlug || savedInstalledBranch)) {
-              branchParam = currentApkInfo.branchSlug || savedInstalledBranch;
+            const initialInjected = (window as any).__UNIFOOD_INITIAL_BRANCH__;
+            if (isStandaloneMode && (currentApkInfo.branchSlug || savedInstalledBranch || initialInjected?.slug || initialInjected?.id)) {
+              branchParam = currentApkInfo.branchSlug || savedInstalledBranch || initialInjected?.slug || initialInjected?.id;
             }
           } catch (_e) {}
         }
@@ -622,20 +654,24 @@ export function App() {
         const itemParam = params.get('item') || params.get('offer');
 
         if (branchParam) {
-          const normalized = branchParam.trim().toLowerCase();
+          let cleanBranchParam = branchParam;
+          try { cleanBranchParam = decodeURIComponent(branchParam); } catch {}
+          const normalized = cleanBranchParam.trim().toLowerCase();
           try {
             localStorage.setItem('pwa_installed_branch', normalized);
           } catch (_e) {}
           const target = loadedBranches.find(
             (b: any) =>
-              b.id === branchParam ||
-              (b.slug && b.slug.toLowerCase() === normalized)
+              b.id === cleanBranchParam ||
+              b.id === normalized ||
+              (b.slug && b.slug.toLowerCase() === normalized) ||
+              (b.name && b.name.toLowerCase() === normalized)
           );
           if (target) {
             handleSelectBranch(target, itemParam);
           } else {
             // محاولة جلب الفرع مباشرة من الـ Backend عبر الـ slug أو الـ id
-            api.getBranchMenu(branchParam)
+            api.getBranchMenu(cleanBranchParam)
               .then((menuData) => {
                 if (menuData && menuData.branch) {
                   setSelectedBranch({ ...menuData.branch, reviews: menuData.reviews || [] });

@@ -239,9 +239,9 @@ app.get("/manifest.json", async (req, res) => {
           name: `${branch.name} | UniFood`,
           short_name: branch.name,
           description: `اطلب وجبتك المفضلة من ${branch.name} مباشرة وسريعاً بدون انتظار`,
-          start_url: `/?r=${encodeURIComponent(branchKey)}&installed=1`,
+          start_url: `/r/${encodeURIComponent(branchKey)}`,
           scope: "/",
-          id: `/?r=${encodeURIComponent(branchKey)}`,
+          id: `/r/${encodeURIComponent(branchKey)}`,
           display: "standalone",
           display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
           prefer_related_applications: false,
@@ -471,16 +471,30 @@ if (fs.existsSync(customerDistPath)) {
           html = html.replace(/<link[^>]*rel="icon"[^>]*>/i, `<link rel="icon" type="image/png" sizes="192x192" href="${branchIcon192}" />`);
           html = html.replace(/<link[^>]*rel="apple-touch-icon"[^>]*>/i, `<link rel="apple-touch-icon" sizes="512x512" href="${branchIcon512}" />`);
 
-          // 4. حقن سكريبت وعلامات iOS المخصصة لاسم وأيقونة ورابط التثبيت على الآيفون
-          const branchStartUrl = `/?r=${encodeURIComponent(branchKey)}&installed=1`;
+          // 4. حقن سكريبت وعلامات iOS المخصصة لاسم وأيقونة ورابط التثبيت على الآيفون والبيانات المبدئية
+          const branchStartUrl = `/r/${encodeURIComponent(branchKey)}`;
+          const initialBranchJson = JSON.stringify({
+            id: branch.id,
+            slug: branch.slug || branchKey,
+            name: branch.name,
+            logoUrl: logoUrl,
+            operationalStatus: branch.operationalStatus,
+            deliveryFee: branch.deliveryFee,
+            address: branch.address,
+            openingTime: branch.openingTime,
+            closingTime: branch.closingTime,
+          });
           const iosAppleTags = `
             <meta name="apple-mobile-web-app-title" content="${safeBranchName}">
             <meta name="apple-mobile-web-app-capable" content="yes">
-            <meta name="apple-mobile-web-app-status-bar-style" content="default">
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
             <link rel="canonical" href="${branchStartUrl}">
             <link rel="apple-touch-icon-precomposed" sizes="180x180" href="${branchIcon192}">
             <link rel="apple-touch-icon" sizes="180x180" href="${branchIcon192}">
-            <script>try{localStorage.setItem('pwa_installed_branch','${encodeURIComponent(branchKey).toLowerCase()}');}catch(e){}</script>
+            <script>
+              window.__UNIFOOD_INITIAL_BRANCH__ = ${initialBranchJson};
+              try { localStorage.setItem('pwa_installed_branch', '${encodeURIComponent(branchKey).toLowerCase()}'); } catch(e) {}
+            </script>
           `;
           html = html.replace("</head>", `${iosAppleTags}</head>`);
         }

@@ -59,9 +59,11 @@
             if (!appleTitle) {
               appleTitle = document.createElement('meta');
               appleTitle.name = 'apple-mobile-web-app-title';
+              appleTitle.content = decodeURIComponent(branch);
               document.head.appendChild(appleTitle);
+            } else if (!appleTitle.content) {
+              appleTitle.content = decodeURIComponent(branch);
             }
-            appleTitle.content = decodeURIComponent(branch);
           }
         } catch(_e) {}
 

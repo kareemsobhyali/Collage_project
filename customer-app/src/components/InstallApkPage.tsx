@@ -301,10 +301,20 @@ export const InstallApkPage: React.FC<{
 
           // إذا كان التطبيق مفتوحاً بالفعل في وضع التثبيت (Standalone)، نتوجه مباشرة إلى منيو المطعم
           if (isInstalled) {
-            const directTarget = `/?r=${encodeURIComponent(branchKey)}&installed=1`;
+            const directTarget = `/r/${encodeURIComponent(branchKey)}`;
             window.location.replace(directTarget);
             return;
           }
+
+          try {
+            let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
+            if (!canonical) {
+              canonical = document.createElement('link');
+              canonical.rel = 'canonical';
+              document.head.appendChild(canonical);
+            }
+            canonical.href = window.location.origin + `/r/${encodeURIComponent(branchKey)}`;
+          } catch (_e) {}
 
           let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
           if (manifestLink) {
@@ -327,8 +337,8 @@ export const InstallApkPage: React.FC<{
   }, [slug]);
 
   // الرابط المباشر للمطعم في المتصفح أو التطبيق
-  const webTargetUrl = meta?.isBranch && meta?.slug
-    ? `/?r=${encodeURIComponent(meta.slug)}`
+  const webTargetUrl = meta?.isBranch && (meta.slug || meta.branchId)
+    ? `/r/${encodeURIComponent(meta.slug || meta.branchId || '')}`
     : '/';
 
   // فتح الصفحة مباشرة في تطبيق Google Chrome (لتخطي متصفح الواتساب والفيسبوك)
@@ -358,7 +368,7 @@ export const InstallApkPage: React.FC<{
       if (meta?.isBranch && (meta.slug || meta.branchId)) {
         const branchKey = (meta.slug || meta.branchId || '').trim();
         if (branchKey) {
-          const targetUrl = `/?r=${encodeURIComponent(branchKey)}&installed=1`;
+          const targetUrl = `/r/${encodeURIComponent(branchKey)}`;
           try {
             localStorage.setItem('pwa_installed_branch', branchKey.toLowerCase());
             window.history.replaceState({}, '', targetUrl);
