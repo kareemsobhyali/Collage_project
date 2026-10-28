@@ -3,6 +3,7 @@ import path from "path";
 import crypto from "crypto";
 import prisma from "../prisma.js";
 import { notifyBranchMenuChanged } from "../sockets/socketManager.js";
+import { optimizeImageToWebp } from "../utils/imageOptimizer.js";
 
 export interface BulkItemSizeInput {
   name: string;
@@ -79,63 +80,49 @@ export async function downloadAndSaveImage(imageUrl: string): Promise<string> {
       return trimmed; // خطة بديلة: الاحتفاظ بالرابط الأصلي
     }
 
-    const contentType = (res.headers.get("content-type") || "").toLowerCase();
-    let ext = ".jpg";
-    let mimeType = "image/jpeg";
-    if (contentType.includes("png")) {
-      ext = ".png";
-      mimeType = "image/png";
-    } else if (contentType.includes("webp")) {
-      ext = ".webp";
-      mimeType = "image/webp";
-    } else if (contentType.includes("jpeg")) {
-      ext = ".jpg";
-      mimeType = "image/jpeg";
-    } else if (contentType.includes("gif")) {
-      ext = ".gif";
-      mimeType = "image/gif";
-    } else {
-      const urlExt = path.extname(trimmed.split("?")[0]).toLowerCase();
-      if ([".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(urlExt)) {
-        ext = urlExt;
-        if (urlExt === ".png") mimeType = "image/png";
-        else if (urlExt === ".webp") mimeType = "image/webp";
-        else if (urlExt === ".gif") mimeType = "image/gif";
-      }
-    }
-
     const arrayBuffer = await res.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const rawBuffer = Buffer.from(arrayBuffer);
 
-    // التحقق من حجم الصورة (بحد أقصى 15 ميجابايت وبحد أدنى 100 بايت)
-    if (buffer.length < 100 || buffer.length > 15 * 1024 * 1024) {
+    // التحقق من حجم الصورة (بحد أقصى 20 ميجابايت وبحد أدنى 100 بايت)
+    if (rawBuffer.length < 100 || rawBuffer.length > 20 * 1024 * 1024) {
       return trimmed;
     }
 
+    // ضغط وتحويل الصورة المنزلة تلقائياً إلى صيغة WebP فائقة الكفاءة
+    const optimized = await optimizeImageToWebp(rawBuffer, {
+      maxWidth: 1200,
+      maxHeight: 1200,
+      quality: 82,
+    });
+
     const uploadsDir = resolveUploadsDir();
-    const uniqueName = `menu-${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
+    const uniqueName = `menu-${Date.now()}-${crypto.randomBytes(6).toString("hex")}${optimized.extension}`;
     const targetPath = path.join(uploadsDir, uniqueName);
 
-    // 1. الحفظ على القرص الصلب
-    await fs.promises.writeFile(targetPath, buffer);
+    // 1. الحفظ على القرص الصلب بصيغة WebP
+    await fs.promises.writeFile(targetPath, optimized.buffer);
 
     // 2. الحفظ الثنائي في قاعدة البيانات PostgreSQL كنسخة دائمة ضد أي إعادة تشغيل أو إعادة بناء للسيرفر
     prisma.uploadedFile.upsert({
       where: { filename: uniqueName },
       update: {
-        mimeType,
-        data: buffer,
-        size: buffer.length,
+        mimeType: optimized.mimeType,
+        data: optimized.buffer,
+        size: optimized.optimizedSize,
       },
       create: {
         filename: uniqueName,
-        mimeType,
-        data: buffer,
-        size: buffer.length,
+        mimeType: optimized.mimeType,
+        data: optimized.buffer,
+        size: optimized.optimizedSize,
       },
     }).catch((dbErr) => {
       console.warn(`[MenuImport] Could not backup ${uniqueName} in DB:`, dbErr?.message || dbErr);
     });
+
+    const origKB = (optimized.originalSize / 1024).toFixed(1);
+    const optKB = (optimized.optimizedSize / 1024).toFixed(1);
+    console.log(`[MenuImport] Downloaded & converted to WebP: ${uniqueName} (${origKB}KB -> ${optKB}KB)`);
 
     return `/uploads/${uniqueName}`;
   } catch (err: any) {

@@ -1,11 +1,11 @@
-import { Router, Request, Response } from "express";
+import { Router, Response } from "express";
 import crypto from "crypto";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 import prisma from "../prisma.js";
 import { authenticateAny, requireSuperAdmin, AuthRequest } from "../middleware/auth.js";
-
+import { optimizeImageToWebp } from "../utils/imageOptimizer.js";
 
 const router = Router();
 
@@ -27,7 +27,6 @@ function isValidImageBuffer(buf: Buffer): boolean {
   return false;
 }
 
-
 // التأكد من وجود مجلد الرفع وتحديده بدقة
 function getUploadDir(): string {
   const candidates = [
@@ -44,76 +43,84 @@ function getUploadDir(): string {
 }
 const uploadDir = getUploadDir();
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueSuffix = Date.now() + "-" + crypto.randomBytes(12).toString("hex");
-    cb(null, `${uniqueSuffix}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB حد أقصى
+// تخزين الصور في الذاكرة أولاً لمعالجتها وتحويلها إلى WebP قبل حفظها على القرص
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 }, // نقبل حتى 12 ميجابايت من صور كاميرات الموبايل الحديثة
   fileFilter: (_req, file, cb) => {
-    const allowed = /^(jpeg|jpg|png|webp|gif)$/;
+    const allowed = /^(jpeg|jpg|png|webp|gif|heic|heif)$/i;
     const ext = allowed.test(path.extname(file.originalname).toLowerCase().replace(".", ""));
-    const mime = /^image\/(jpeg|jpg|png|webp|gif)$/.test(file.mimetype.toLowerCase());
-    if (ext && mime) {
+    const mime = /^image\/(jpeg|jpg|png|webp|gif|heic|heif)$/i.test(file.mimetype.toLowerCase());
+    if (ext || mime) {
       cb(null, true);
     } else {
-      cb(new Error("يُسمح فقط برفع ملفات الصور بصيغة (JPG, PNG, WEBP, GIF)"));
+      cb(new Error("يُسمح فقط برفع ملفات الصور بصيغة (JPG, PNG, WEBP, GIF, HEIC)"));
     }
   },
 }).single("image");
 
-// نقطة نهاية رفع الصور مع التحقق من الهوية ومعالجة آمنة للأخطاء
+// نقطة نهاية رفع الصور مع التحويل التلقائي لـ WebP والضغط فائق الكفاءة
 router.post("/", authenticateAny, (req: AuthRequest, res: Response) => {
-  upload(req, res, (err: any) => {
+  imageUpload(req, res, async (err: any) => {
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {
-        return res.status(400).json({ error: "حجم الصورة كبير جداً، الحد الأقصى المسموح به هو 5 ميجابايت" });
+        return res.status(400).json({ error: "حجم الصورة كبير جداً، الحد الأقصى المسموح به هو 12 ميجابايت" });
       }
       return res.status(400).json({ error: `خطأ أثناء رفع الملف: ${err.message}` });
     } else if (err) {
       return res.status(400).json({ error: err.message || "فشل رفع الصورة" });
     }
 
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ error: "لم يتم اختيار أي صورة للرفع" });
     }
 
-    const filename = req.file.filename;
-    const mimeType = req.file.mimetype || "image/jpeg";
+    const rawBuffer = req.file.buffer;
+
+    if (!isValidImageBuffer(rawBuffer)) {
+      return res.status(400).json({ error: "محتوى الملف غير صالح كصورة، يرجى اختيار صورة حقيقية" });
+    }
 
     try {
-      const fileBuffer = fs.readFileSync(req.file.path);
+      // 1. ضغط الصورة وتحويلها لصيغة WebP الحديثة مع الحفاظ على الجودة العالية
+      const optimized = await optimizeImageToWebp(rawBuffer, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 82,
+      });
 
-      if (!isValidImageBuffer(fileBuffer)) {
-        try { fs.unlinkSync(req.file.path); } catch {}
-        return res.status(400).json({ error: "محتوى الملف غير صالح كصورة، يرجى اختيار صورة حقيقية" });
-      }
+      const uniqueSuffix = Date.now() + "-" + crypto.randomBytes(12).toString("hex");
+      const filename = `${uniqueSuffix}${optimized.extension}`;
+      const filePath = path.join(uploadDir, filename);
 
-      // حفظ نسخة احتياطية ثنائية (Binary ByteA) في قاعدة البيانات لضمان بقائها حتى لو تم إعادة تشغيل السيرفر أو الاستضافة
+      // 2. الحفظ على القرص الصلب (بحجم WebP الخفيف جداً)
+      await fs.promises.writeFile(filePath, optimized.buffer);
+
+      // 3. حفظ نسخة احتياطية ثنائية (Binary WebP) في قاعدة البيانات PostgreSQL
       prisma.uploadedFile.upsert({
         where: { filename },
         update: {
-          mimeType,
-          data: fileBuffer,
-          size: fileBuffer.length,
+          mimeType: optimized.mimeType,
+          data: optimized.buffer,
+          size: optimized.optimizedSize,
         },
         create: {
           filename,
-          mimeType,
-          data: fileBuffer,
-          size: fileBuffer.length,
+          mimeType: optimized.mimeType,
+          data: optimized.buffer,
+          size: optimized.optimizedSize,
         },
       }).catch((dbErr) => {
         console.warn("[Upload] Could not store binary copy in DB:", dbErr);
       });
+
+      const originalKB = (optimized.originalSize / 1024).toFixed(1);
+      const optimizedKB = (optimized.optimizedSize / 1024).toFixed(1);
+      const savings = (
+        ((optimized.originalSize - optimized.optimizedSize) / optimized.originalSize) *
+        100
+      ).toFixed(1);
+      console.log(`[Upload] Image converted to WebP: ${filename} (${originalKB}KB -> ${optimizedKB}KB, -${savings}%)`);
 
       const fileUrl = `/uploads/${filename}`;
       return res.json({
@@ -122,21 +129,27 @@ router.post("/", authenticateAny, (req: AuthRequest, res: Response) => {
         fileUrl,
         filename,
       });
-    } catch {
-      const fileUrl = `/uploads/${filename}`;
-      return res.json({
-        success: true,
-        url: fileUrl,
-        filename,
-      });
+    } catch (saveErr: any) {
+      console.error("[Upload] Error saving image:", saveErr);
+      return res.status(500).json({ error: "حدث خطأ أثناء معالجة وحفظ الصورة" });
     }
-
   });
 });
 
 // تكوين رفع الملفات الصوتية الخاصة بنغمات الإشعارات والتنبيهات
+const audioStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const uniqueSuffix = Date.now() + "-" + crypto.randomBytes(12).toString("hex");
+    cb(null, `audio-${uniqueSuffix}${ext}`);
+  },
+});
+
 const audioUpload = multer({
-  storage,
+  storage: audioStorage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB حد أقصى للملفات الصوتية
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase().replace(".", "");
@@ -210,4 +223,3 @@ router.post("/audio", requireSuperAdmin, (req: AuthRequest, res: Response) => {
 });
 
 export default router;
-
