@@ -516,7 +516,7 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
     const updatedConfig = await prisma.branchPaymentConfig.upsert({
       where: { branchId: id },
       update: {
-        cashEnabled: cashEnabled !== undefined ? Boolean(cashEnabled) : undefined,
+        cashEnabled: true, // الدفع كاش إجباري دائم في كل المطاعم
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : undefined,
         vodafoneCashNumber: vodafoneCashNumber !== undefined ? vodafoneCashNumber : undefined,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : undefined,
@@ -525,7 +525,7 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
       },
       create: {
         branchId: id,
-        cashEnabled: cashEnabled !== undefined ? Boolean(cashEnabled) : true,
+        cashEnabled: true, // إجباري دائم
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : false,
         vodafoneCashNumber: vodafoneCashNumber || null,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : false,

@@ -24,6 +24,16 @@ export function getDisplayAddress(addressText?: string | null, fallback: string 
   return clean;
 }
 
+/**
+ * تنظيف اسم المنطقة أو الحي من وسوم الـ GPS والإحداثيات
+ */
+export function cleanZoneName(zoneName?: string | null): string {
+  if (!zoneName) return '';
+  return zoneName
+    .replace(/\s*\[GPS:[^\]]*\]/gi, '')
+    .trim();
+}
+
 export const DEFAULT_CAMPUS_RESTAURANT_COORDS = { lat: 30.0275, lng: 31.2095 };
 
 /**

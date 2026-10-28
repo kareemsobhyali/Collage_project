@@ -268,36 +268,29 @@ router.delete("/delivery-zones/:id", async (req: AuthRequest, res: Response) => 
   }
 });
 
-// 2.7 تعديل طرق الدفع الخاصة بالفرع
+// 2.7 تعديل طرق الدفع الخاصة بالفرع (المطعم يمكنه فقط تفعيل أو إيقاف الطرق، والدفع كاش إجباري دائم، وبيانات المحافظ تُعدل من الإدارة فقط)
 router.put("/payment-methods", async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
     const {
-      cashEnabled,
       vodafoneCashEnabled,
-      vodafoneCashNumber,
       instapayEnabled,
-      instapayHandle,
       cardEnabled,
     } = req.body;
 
     const updatedConfig = await prisma.branchPaymentConfig.upsert({
       where: { branchId },
       update: {
-        cashEnabled: cashEnabled !== undefined ? Boolean(cashEnabled) : undefined,
+        cashEnabled: true, // الدفع كاش إجباري دائم في كل المطاعم ولا يمكن إيقافه
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : undefined,
-        vodafoneCashNumber: vodafoneCashNumber !== undefined ? (vodafoneCashNumber ? vodafoneCashNumber.trim() : null) : undefined,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : undefined,
-        instapayHandle: instapayHandle !== undefined ? (instapayHandle ? instapayHandle.trim() : null) : undefined,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : undefined,
       },
       create: {
         branchId,
-        cashEnabled: cashEnabled !== undefined ? Boolean(cashEnabled) : true,
+        cashEnabled: true, // إجباري دائم
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : false,
-        vodafoneCashNumber: vodafoneCashNumber ? vodafoneCashNumber.trim() : null,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : false,
-        instapayHandle: instapayHandle ? instapayHandle.trim() : null,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : false,
       },
     });

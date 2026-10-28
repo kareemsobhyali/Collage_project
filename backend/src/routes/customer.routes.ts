@@ -1408,13 +1408,9 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // التحقق من أن طريقة الدفع مفعلة لهذا الفرع تحديداً
+    // التحقق من أن طريقة الدفع مفعلة لهذا الفرع تحديداً (الدفع كاش متاح وإجباري دائماً لجميع المطاعم)
     const paymentConfig = branch.paymentConfig;
     if (paymentConfig) {
-      if (paymentMethod === "CASH" && !paymentConfig.cashEnabled) {
-        res.status(400).json({ error: "الدفع كاش غير متاح لهذا الفرع" });
-        return;
-      }
       if (paymentMethod === "VODAFONE_CASH" && !paymentConfig.vodafoneCashEnabled) {
         res.status(400).json({ error: "الدفع بمحفظة فودافون كاش غير متاح لهذا الفرع" });
         return;

@@ -25,11 +25,12 @@ import {
   Clock,
   Calendar,
   Link2,
-  Copy
+  Copy,
+  Lock
 } from 'lucide-react';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
-import { getDisplayAddress } from '../utils/address';
+import { cleanAddressText, getDisplayAddress, cleanZoneName } from '../utils/address';
 import { ConfirmModal } from './ConfirmModal';
 import { 
   getAutoPrintEnabled, 
@@ -51,7 +52,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   // 1. Branch Details States
   const [name, setName] = useState(branch?.name || '');
   const [phone, setPhone] = useState(branch?.phone || '');
-  const [address, setAddress] = useState(branch?.address || '');
+  const [address, setAddress] = useState(cleanAddressText(branch?.address) || '');
   const [logoUrl, setLogoUrl] = useState(branch?.logoUrl || '');
   const [logoError, setLogoError] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -106,7 +107,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     if (branch) {
       setName(branch.name || '');
       setPhone(branch.phone || '');
-      setAddress(branch.address || '');
+      setAddress(cleanAddressText(branch.address) || '');
       setLogoUrl(branch.logoUrl || '');
       setLogoError(false);
       setDeliveryType(branch.deliveryType || 'FIXED');
@@ -229,10 +230,19 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
 
     try {
       setDetailsLoading(true);
+      // الحفاظ على إحداثيات GPS إن وجدت مسبقاً دون إظهارها في حقل التعديل
+      const existingCoordsMatch = branch?.address?.match(/\[GPS:[0-9.-]+,[0-9.-]+\]/);
+      let finalAddress = cleanAddressText(address).trim();
+      if (existingCoordsMatch && finalAddress) {
+        finalAddress = `${existingCoordsMatch[0]} ${finalAddress}`;
+      } else if (!finalAddress && existingCoordsMatch) {
+        finalAddress = existingCoordsMatch[0];
+      }
+
       const res = await api.updateBranchDetails({
         name: name.trim(),
         phone: phone.trim() || undefined,
-        address: address.trim() || undefined,
+        address: finalAddress || undefined,
         logoUrl: logoUrl.trim() || undefined,
         deliveryType,
         deliveryFee: parseFloat(deliveryFee) || 10,
@@ -258,24 +268,12 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     setPaymentError(null);
     setPaymentSuccess(false);
 
-    if (vodafoneCashEnabled && !vodafoneCashNumber.trim()) {
-      setPaymentError('يرجى إدخال رقم محفظة فودافون كاش ليستقبل عليه العملاء التحويلات');
-      return;
-    }
-
-    if (instapayEnabled && !instapayHandle.trim()) {
-      setPaymentError('يرجى إدخال معرف إنستاباي (IPA Handle) للمطعم');
-      return;
-    }
-
     try {
       setPaymentLoading(true);
       const res = await api.updateBranchPaymentMethods({
-        cashEnabled,
+        cashEnabled: true, // الدفع كاش إجباري دائم في كل المطاعم
         vodafoneCashEnabled,
-        vodafoneCashNumber: vodafoneCashNumber.trim() || undefined,
         instapayEnabled,
-        instapayHandle: instapayHandle.trim() || undefined,
         cardEnabled,
       });
 
@@ -285,7 +283,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         setTimeout(() => setPaymentSuccess(false), 3500);
       }
     } catch (err: any) {
-      setPaymentError(err.message || 'فشل حفظ طرق الدفع');
+      setPaymentError(err.message || 'فشل تحديث طرق الدفع');
     } finally {
       setPaymentLoading(false);
     }
@@ -548,19 +546,23 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                       </div>
 
                       {/* Existing Zones List */}
-                      <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">
                         {deliveryZones.length === 0 ? (
-                          <p className="text-[11px] text-slate-400 text-center py-2">لا توجد مناطق مضافة بعد. أضف المناطق أدناه.</p>
+                          <p className="text-[11px] text-slate-400 text-center py-2.5">لا توجد مناطق مضافة بعد. أضف المناطق أدناه.</p>
                         ) : (
                           deliveryZones.map(zone => (
-                            <div key={zone.id} className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200 text-xs">
-                              <span className="font-bold text-slate-800">{zone.name}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-black text-indigo-600 font-mono">{zone.fee} ج.م</span>
+                            <div key={zone.id} className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200 text-xs gap-3 shadow-2xs hover:border-slate-300 transition-all">
+                              <span className="font-bold text-slate-800 truncate min-w-0 flex-1" title={cleanZoneName(zone.name)}>
+                                {cleanZoneName(zone.name)}
+                              </span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="font-black text-indigo-600 font-mono px-2 py-0.5 bg-indigo-50 border border-indigo-100 rounded-lg text-xs whitespace-nowrap">
+                                  {zone.fee} ج.م
+                                </span>
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteZone(zone.id, zone.name)}
-                                  className="text-slate-400 hover:text-rose-600 p-1"
+                                  onClick={() => handleDeleteZone(zone.id, cleanZoneName(zone.name))}
+                                  className="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-colors"
                                   title="حذف المنطقة"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -572,29 +574,33 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                       </div>
 
                       {/* Add Zone mini-form */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                      <div className="flex items-center gap-2 pt-2.5 border-t border-slate-200">
                         <input
                           type="text"
                           placeholder="اسم المنطقة (مثال: مبنى طب أسنان)"
                           value={newZoneName}
                           onChange={e => setNewZoneName(e.target.value)}
-                          className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                          className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
                         />
-                        <input
-                          type="number"
-                          placeholder="السعر"
-                          min="0"
-                          value={newZoneFee}
-                          onChange={e => setNewZoneFee(e.target.value)}
-                          className="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                        />
+                        <div className="relative w-20 shrink-0">
+                          <input
+                            type="number"
+                            placeholder="السعر"
+                            min="0"
+                            value={newZoneFee}
+                            onChange={e => setNewZoneFee(e.target.value)}
+                            className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 text-center focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
+                          />
+                        </div>
                         <button
                           type="button"
                           disabled={addingZone || !newZoneName.trim()}
                           onClick={handleAddZone}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                          className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 shrink-0 flex items-center justify-center gap-1 shadow-sm active:scale-95 cursor-pointer"
+                          title="إضافة منطقة جديدة"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="w-4 h-4" />
+                          <span className="hidden sm:inline">إضافة</span>
                         </button>
                       </div>
                     </div>
@@ -679,49 +685,53 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
             )}
 
             <form onSubmit={handleSavePaymentMethods} id="payment-form" className="space-y-3.5">
-              {/* Cash */}
-              <div className={`p-4 rounded-2xl border-2 transition-all ${
-                cashEnabled ? 'border-emerald-500/80 bg-emerald-50/30' : 'border-slate-200 bg-slate-50/50'
-              }`}>
+              {/* Cash - إجباري دائم */}
+              <div className="p-4 rounded-2xl border border-emerald-200/90 bg-emerald-50/25 transition-all shadow-2xs">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <span className="text-xl shrink-0">💵</span>
                     <div className="min-w-0 flex-1">
-                      <span className="font-bold text-xs text-slate-900 block truncate">الدفع نقداً (كاش عند الاستلام)</span>
-                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">يدفع العميل للكاشير أو المندوب عند استلام الوجبة</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-xs text-slate-900">الدفع نقداً (كاش عند الاستلام)</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200/70 inline-flex items-center gap-1 shadow-2xs">
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>إجباري دائم</span>
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">
+                        الدفع كاش متاح دائماً وإجباري لجميع المطاعم ولا يمكن إيقافه
+                      </span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={cashEnabled}
-                    onClick={() => setCashEnabled(!cashEnabled)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                      cashEnabled ? 'bg-emerald-600' : 'bg-slate-200'
-                    }`}
+                  <div
+                    className="relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed opacity-85 rounded-full border-2 border-transparent bg-emerald-600 transition-colors"
                     dir="ltr"
+                    title="الدفع كاش إجباري دائم في النظام"
                   >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
-                        cashEnabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
+                    <span className="inline-block h-5 w-5 transform translate-x-5 rounded-full bg-white shadow-sm" />
+                  </div>
                 </div>
               </div>
 
               {/* Vodafone Cash */}
-              <div className={`p-4 rounded-2xl border-2 transition-all space-y-2.5 ${
-                vodafoneCashEnabled ? 'border-rose-500/80 bg-rose-50/30' : 'border-slate-200 bg-slate-50/50'
+              <div className={`p-4 rounded-2xl border transition-all space-y-3 ${
+                vodafoneCashEnabled ? 'border-rose-200 bg-rose-50/20 shadow-2xs' : 'border-slate-200 bg-white'
               }`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
                       <Smartphone className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="font-bold text-xs text-slate-900 block truncate">فودافون كاش ومحافظ الهاتف</span>
-                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل المبلغ لمحفظة المطعم المحددة</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-slate-900 block truncate">فودافون كاش ومحافظ الهاتف</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          vodafoneCashEnabled ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {vodafoneCashEnabled ? 'مفعّل' : 'معطّل'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل المبلغ لمحفظة كاش المحددة</span>
                     </div>
                   </div>
                   <button
@@ -733,6 +743,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                       vodafoneCashEnabled ? 'bg-rose-600' : 'bg-slate-200'
                     }`}
                     dir="ltr"
+                    title={vodafoneCashEnabled ? 'إيقاف استقبال فودافون كاش' : 'تفعيل استقبال فودافون كاش'}
                   >
                     <span
                       className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
@@ -742,35 +753,56 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                   </button>
                 </div>
 
-                {vodafoneCashEnabled && (
-                  <div className="pt-1 animate-fadeIn">
-                    <label className="block text-[11px] font-bold text-rose-900 mb-1">
-                      رقم محفظة كاش الخاصة بالمطعم (يظهر للعملاء أثناء الطلب):
+                {/* رقم المحفظة للقراءة فقط */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                      <Lock className="w-3 h-3 text-slate-400" />
+                      <span>رقم محفظة كاش الخاصة بالمطعم:</span>
                     </label>
-                    <input
-                      type="tel"
-                      required={vodafoneCashEnabled}
-                      value={vodafoneCashNumber}
-                      onChange={e => setVodafoneCashNumber(e.target.value)}
-                      placeholder="مثال: 01012345678"
-                      className="w-full px-3 py-2 bg-white border border-rose-300 rounded-xl text-xs font-mono font-bold text-rose-950 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                    />
+                    <span className="text-[10px] text-slate-400 font-medium">يتم ضبطه وتعديله من الإدارة</span>
                   </div>
-                )}
+                  <div className="flex items-center justify-between px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                    <span className="text-xs font-mono font-black text-slate-900 tracking-wider">
+                      {vodafoneCashNumber || 'لم يُحدد رقم محفظة من الإدارة بعد'}
+                    </span>
+                    {vodafoneCashNumber && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(vodafoneCashNumber);
+                          toast.success('تم نسخ رقم المحفظة');
+                        }}
+                        className="text-[11px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-rose-50 transition-colors"
+                        title="نسخ الرقم"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>نسخ</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* InstaPay */}
-              <div className={`p-4 rounded-2xl border-2 transition-all space-y-2.5 ${
-                instapayEnabled ? 'border-indigo-500/80 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50'
+              <div className={`p-4 rounded-2xl border transition-all space-y-3 ${
+                instapayEnabled ? 'border-indigo-200 bg-indigo-50/20 shadow-2xs' : 'border-slate-200 bg-white'
               }`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
                       <Zap className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="font-bold text-xs text-slate-900 block truncate">إنستاباي (InstaPay)</span>
-                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل فوري عبر الحساب البنكي أو عنوان IPA</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-slate-900 block truncate">إنستاباي (InstaPay)</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          instapayEnabled ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {instapayEnabled ? 'مفعّل' : 'معطّل'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل فوري عبر عنوان IPA أو الحساب البنكي</span>
                     </div>
                   </div>
                   <button
@@ -782,6 +814,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                       instapayEnabled ? 'bg-indigo-600' : 'bg-slate-200'
                     }`}
                     dir="ltr"
+                    title={instapayEnabled ? 'إيقاف استقبال إنستاباي' : 'تفعيل استقبال إنستاباي'}
                   >
                     <span
                       className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
@@ -791,34 +824,55 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                   </button>
                 </div>
 
-                {instapayEnabled && (
-                  <div className="pt-1 animate-fadeIn">
-                    <label className="block text-[11px] font-bold text-indigo-900 mb-1">
-                      معرف إنستاباي IPA للمطعم (مثال: restaurant@instapay):
+                {/* معرف إنستاباي للقراءة فقط */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                      <Lock className="w-3 h-3 text-slate-400" />
+                      <span>معرف إنستاباي IPA الخاص بالمطعم:</span>
                     </label>
-                    <input
-                      type="text"
-                      required={instapayEnabled}
-                      value={instapayHandle}
-                      onChange={e => setInstapayHandle(e.target.value)}
-                      placeholder="restaurant@instapay"
-                      className="w-full px-3 py-2 bg-white border border-indigo-300 rounded-xl text-xs font-mono font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
+                    <span className="text-[10px] text-slate-400 font-medium">يتم ضبطه وتعديله من الإدارة</span>
                   </div>
-                )}
+                  <div className="flex items-center justify-between px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                    <span className="text-xs font-mono font-black text-slate-900 tracking-wider">
+                      {instapayHandle || 'لم يُحدد عنوان إنستاباي من الإدارة بعد'}
+                    </span>
+                    {instapayHandle && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(instapayHandle);
+                          toast.success('تم نسخ معرف إنستاباي');
+                        }}
+                        className="text-[11px] text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-indigo-50 transition-colors"
+                        title="نسخ المعرف"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>نسخ</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Card */}
-              <div className={`p-4 rounded-2xl border-2 transition-all ${
-                cardEnabled ? 'border-sky-500/80 bg-sky-50/30' : 'border-slate-200 bg-slate-50/50'
+              <div className={`p-4 rounded-2xl border transition-all ${
+                cardEnabled ? 'border-sky-200 bg-sky-50/20 shadow-2xs' : 'border-slate-200 bg-white'
               }`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0 border border-sky-100">
                       <CreditCard className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="font-bold text-xs text-slate-900 block truncate">الدفع ببطاقات فيزا / ماستركارد</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-slate-900 block truncate">الدفع ببطاقات فيزا / ماستركارد</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          cardEnabled ? 'bg-sky-100 text-sky-800 border border-sky-200' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {cardEnabled ? 'مفعّل' : 'معطّل'}
+                        </span>
+                      </div>
                       <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">بوابة الدفع الإلكتروني المباشر</span>
                     </div>
                   </div>
@@ -831,6 +885,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                       cardEnabled ? 'bg-sky-600' : 'bg-slate-200'
                     }`}
                     dir="ltr"
+                    title={cardEnabled ? 'إيقاف الدفع بالبطاقات' : 'تفعيل الدفع بالبطاقات'}
                   >
                     <span
                       className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${

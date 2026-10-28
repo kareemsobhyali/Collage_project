@@ -2868,7 +2868,7 @@ export const AdminPage: React.FC = () => {
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify({
-          cashEnabled,
+          cashEnabled: true, // إجباري دائم
           vodafoneCashEnabled,
           vodafoneCashNumber: vodafoneCashNumber.trim() || null,
           instapayEnabled,
@@ -10250,16 +10250,21 @@ export const AdminPage: React.FC = () => {
             <form onSubmit={handleSavePaymentSettings} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-4 sm:p-5 space-y-4 overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar">
               {/* Cash */}
-              <div className="p-3 bg-slate-100 rounded-xl flex items-center justify-between">
+              <div className="p-3 bg-emerald-50/50 border border-emerald-200/80 rounded-xl flex items-center justify-between">
                 <div>
-                  <span className="font-bold text-xs text-slate-900 block">الدفع كاش عند الاستلام</span>
-                  <span className="text-[11px] text-slate-500">يقوم العميل بالدفع نقداً لمندوب المطعم أو الكاشير</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-xs text-slate-900 block">الدفع كاش عند الاستلام</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      إجباري دائم
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500">يقوم العميل بالدفع نقداً لمندوب المطعم أو الكاشير (مفعّل دائماً لجميع الفروع)</span>
                 </div>
                 <input
                   type="checkbox"
-                  checked={cashEnabled}
-                  onChange={e => setCashEnabled(e.target.checked)}
-                  className="w-4 h-4 rounded text-purple-600"
+                  checked={true}
+                  disabled={true}
+                  className="w-4 h-4 rounded text-emerald-600 cursor-not-allowed opacity-80"
                 />
               </div>
 
