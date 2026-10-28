@@ -82,3 +82,28 @@ auth_info_baileys/
 **/auth_info_baileys/
 
 Divado-Hyper-One-Menu.pdf
+
+# ==========================================
+# 8. Temporary, Scratch & Test Scripts (الملفات المؤقتة وسكربتات الاختبار)
+# ==========================================
+scratch/
+**/scratch/
+test_db.*
+test_*.mjs
+test_*.cjs
+*.tmp
+*.bak
+*.dump
+*.sql
+temp/
+tmp/
+
+# ==========================================
+# 9. Security Keys & SSH Certificates (مفاتيح السيرفرات والتشفير)
+# ==========================================
+*.pem
+*.ppk
+*.key
+*.pub
+*.crt
+
