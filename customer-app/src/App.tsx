@@ -27,7 +27,7 @@ const DriverPortal = React.lazy(() => import('./components/DriverPortal').then(m
 import { GroupCartModal } from './components/GroupCartModal';
 import { Logo } from './components/Logo';
 import { SplashScreen } from './components/SplashScreen';
-import { parseApkRoute } from './components/InstallApkPage';
+import { InstallApkPage, parseApkRoute } from './components/InstallApkPage';
 
 export function App() {
   const isMobileAppExperience = typeof window !== 'undefined' && (
@@ -68,6 +68,26 @@ export function App() {
   );
 
   const groupParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('group') : null;
+  const apkRouteInfo = parseApkRoute();
+  const [isApkRoute, setIsApkRoute] = useState(apkRouteInfo.isApkPage);
+  const [apkSlug, setApkSlug] = useState<string | null>(apkRouteInfo.branchSlug);
+
+  // مزامنة حالة مسار تثبيت الـ APK مع تغيرات الـ URL والـ Hash والـ History
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleUrlChange = () => {
+      const info = parseApkRoute();
+      setIsApkRoute(info.isApkPage);
+      setApkSlug(info.branchSlug);
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
 
   // مزامنة أحدث عنوان للسيرفر من GitHub تلقائياً عند فتح التطبيق
   useEffect(() => {
@@ -204,13 +224,13 @@ export function App() {
 
   // تهيئة حارس الرجوع الأولي لمنع الخروج المفاجئ
   useEffect(() => {
-    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal) return;
+    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal || isApkRoute) return;
     try {
       window.history.replaceState({ uniFoodRoot: true, depth: 0 }, '');
       window.history.pushState({ uniFoodStep: 1, depth: 1 }, '');
       historyDepthRef.current = 1;
     } catch (_e) {}
-  }, [isAdminRoute, showDriverPortal]);
+  }, [isAdminRoute, showDriverPortal, isApkRoute]);
 
   // تتبع فتح الشاشات الفرعية والنوافذ لدفع خطوة في الـ History
   const currentNavStateKey = [
@@ -240,7 +260,7 @@ export function App() {
 
   // الاستماع لحدث الرجوع (popstate)
   useEffect(() => {
-    if (isAdminRoute || showDriverPortal) return;
+    if (isAdminRoute || showDriverPortal || isApkRoute) return;
     const handlePopState = () => {
       isHandlingPopstateRef.current = true;
       historyDepthRef.current = Math.max(0, historyDepthRef.current - 1);
@@ -300,6 +320,7 @@ export function App() {
   }, [
     isAdminRoute,
     showDriverPortal,
+    isApkRoute,
     showExitAppDialog,
     customizingItem,
     showCartModal,
@@ -444,18 +465,14 @@ export function App() {
         localStorage.setItem('unifood_cached_branches', JSON.stringify(loadedBranches));
       } catch (_e) {}
 
-      // إذا كان الرابط يحتوي على apk أو download، نقوم بتوجيه المستخدم مباشرة للمطعم أو الصفحة الرئيسية
+      // التحقق أولاً إذا كان الرابط مخصصاً لصفحة تثبيت التطبيق APK المباشر للمطعم
       const currentApkInfo = parseApkRoute();
       if (currentApkInfo.isApkPage) {
-        if (currentApkInfo.branchSlug) {
-          const target = loadedBranches.find((b: any) => (b.slug && b.slug.toLowerCase() === currentApkInfo.branchSlug?.toLowerCase()) || b.id === currentApkInfo.branchSlug);
-          if (target) {
-            setSelectedBranch(target);
-            window.history.replaceState({}, '', `/${target.slug || target.id}`);
-            return;
-          }
+        if (!isApkRoute) {
+          setIsApkRoute(true);
+          setApkSlug(currentApkInfo.branchSlug);
         }
-        window.history.replaceState({}, '', '/');
+        return; // منع فتح منيو الفرع لأن المستخدم في صفحة تثبيت وتنزيل التطبيق
       }
 
       // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
@@ -826,6 +843,21 @@ export function App() {
           />
         )}
       </React.Suspense>
+    );
+  }
+
+  if (isApkRoute) {
+    return (
+      <InstallApkPage
+        initialSlug={apkSlug}
+        onNavigateHome={() => {
+          setIsApkRoute(false);
+          const url = new URL(window.location.href);
+          url.pathname = '/';
+          url.search = '';
+          window.history.pushState({}, '', url.toString());
+        }}
+      />
     );
   }
 
