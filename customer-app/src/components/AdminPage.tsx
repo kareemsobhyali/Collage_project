@@ -4123,45 +4123,60 @@ export const AdminPage: React.FC = () => {
                                 </div>
 
                                 {/* Actions */}
-                                <div className="flex items-center gap-1.5 w-full sm:w-auto pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleEditGlobalZone(zone);
-                                      setLocationPickerTarget('GLOBAL_ZONE');
-                                    }}
-                                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
-                                    title="فتح الخريطة وعرض نطاق التغطية الدائري أو المخصص لهذه المنطقة"
-                                  >
-                                    <MapPin className="w-3.5 h-3.5" />
-                                    <span>الخريطة والنطاق</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedMasterZoneKey(isExpanded ? null : zone.cleanName)}
-                                    className="flex-1 sm:flex-initial px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-                                  >
-                                    <span>{isExpanded ? 'إخفاء المطاعم' : 'عرض المطاعم والأسعار'}</span>
-                                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditGlobalZone(zone)}
-                                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
-                                    title="تعديل هذه المنطقة وأسعارها"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                    <span>تعديل</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteGlobalZone(zone.cleanName)}
-                                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
-                                    title="حذف هذه المنطقة من كافة المطاعم"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    <span>حذف</span>
-                                  </button>
+                                <div className="w-full sm:w-auto pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-1.5">
+                                  {/* Map & Expand Buttons */}
+                                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleEditGlobalZone(zone);
+                                        setLocationPickerTarget('GLOBAL_ZONE');
+                                      }}
+                                      className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs active:scale-98"
+                                      title="فتح الخريطة وعرض نطاق التغطية الدائري أو المخصص لهذه المنطقة"
+                                    >
+                                      <MapPin className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
+                                      <span className="truncate">الخريطة والنطاق</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedMasterZoneKey(isExpanded ? null : zone.cleanName)}
+                                      className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs active:scale-98"
+                                      title={isExpanded ? 'إخفاء قائمة المطاعم' : 'عرض تفاصيل أسعار ومطاعم هذه المنطقة'}
+                                    >
+                                      <span className="truncate">
+                                        {isExpanded ? 'إخفاء المطاعم' : (
+                                          <>
+                                            <span>عرض المطاعم</span>
+                                            <span className="hidden md:inline"> والأسعار</span>
+                                          </>
+                                        )}
+                                      </span>
+                                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 text-slate-500 ${isExpanded ? 'rotate-180' : ''}`} />
+                                    </button>
+                                  </div>
+
+                                  {/* Edit & Delete Buttons */}
+                                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditGlobalZone(zone)}
+                                      className="px-3 py-1.5 bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs active:scale-98"
+                                      title="تعديل هذه المنطقة وأسعارها"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                                      <span>تعديل</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteGlobalZone(zone.cleanName)}
+                                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs active:scale-98"
+                                      title="حذف هذه المنطقة من كافة المطاعم"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                                      <span>حذف</span>
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
 
