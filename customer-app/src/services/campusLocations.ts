@@ -342,3 +342,56 @@ export function findBranchForBanner(banner: any, branches: any[]): any | null {
 
   return null;
 }
+
+
+/**
+ * استخراج بيانات الموقع الجغرافي ونطاق التغطية من اسم المنطقة
+ * الصيغة المدعومة: اسم المنطقة [GPS:lat,lng,radiusMeters] أو اسم المنطقة
+ */
+export interface ZoneGeoData {
+  cleanName: string;
+  lat?: number;
+  lng?: number;
+  radiusMeters?: number;
+}
+
+export function extractZoneGeo(zoneName?: string | null): ZoneGeoData {
+  if (!zoneName) return { cleanName: '' };
+
+  const match = zoneName.match(/\[GPS:([0-9.-]+),([0-9.-]+)(?:,([0-9.]+))?\]/);
+  if (match) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    const radiusMeters = match[3] ? parseFloat(match[3]) : undefined;
+    const cleanName = zoneName.replace(/\[GPS:[^\]]+\]/g, '').trim();
+    return {
+      cleanName: cleanName || zoneName,
+      lat: !isNaN(lat) ? lat : undefined,
+      lng: !isNaN(lng) ? lng : undefined,
+      radiusMeters: radiusMeters && !isNaN(radiusMeters) ? radiusMeters : undefined,
+    };
+  }
+
+  return {
+    cleanName: zoneName.trim(),
+  };
+}
+
+export function cleanZoneName(zoneName?: string | null): string {
+  if (!zoneName) return '';
+  return extractZoneGeo(zoneName).cleanName;
+}
+
+export function formatZoneWithGeo(
+  cleanName: string,
+  lat?: number | null,
+  lng?: number | null,
+  radiusMeters?: number | null
+): string {
+  const base = cleanZoneName(cleanName).trim();
+  if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+    const rad = typeof radiusMeters === 'number' && !isNaN(radiusMeters) ? Math.round(radiusMeters) : 1500;
+    return `${base} [GPS:${lat.toFixed(6)},${lng.toFixed(6)},${rad}]`;
+  }
+  return base;
+}

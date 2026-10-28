@@ -71,14 +71,15 @@ import {
   Flame,
   Zap,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Crosshair
 } from 'lucide-react';
 
 
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { isRunningInNativeApk, openExternalLink } from '../services/notifications';
 import { Logo } from './Logo';
-import { cleanAddressText, getDisplayAddress, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark } from '../services/campusLocations';
+import { cleanAddressText, getDisplayAddress, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark, extractZoneGeo, cleanZoneName, formatZoneWithGeo } from '../services/campusLocations';
 import { LocationPickerModal } from './LocationPickerModal';
 const QUICK_ADMIN_CANCEL_REASONS = [
   'المطعم مغلق حالياً',
@@ -673,6 +674,31 @@ export const AdminPage: React.FC = () => {
   const [editDeliveryZones, setEditDeliveryZones] = useState<any[]>([]);
   const [newZoneName, setNewZoneName] = useState('');
   const [newZoneFee, setNewZoneFee] = useState('10');
+  const [newZoneLat, setNewZoneLat] = useState<string>('');
+  const [newZoneLng, setNewZoneLng] = useState<string>('');
+  const [newZoneRadius, setNewZoneRadius] = useState<string>('1500');
+  const [showZoneGeoSettings, setShowZoneGeoSettings] = useState<boolean>(false);
+  const [zoneGpsLoading, setZoneGpsLoading] = useState<boolean>(false);
+
+  const handleCaptureZoneGps = () => {
+    if (!navigator.geolocation) {
+      alert('خدمة الـ GPS غير مدعومة في متصفحك.');
+      return;
+    }
+    setZoneGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setZoneGpsLoading(false);
+        setNewZoneLat(pos.coords.latitude.toFixed(6));
+        setNewZoneLng(pos.coords.longitude.toFixed(6));
+      },
+      () => {
+        setZoneGpsLoading(false);
+        alert('تعذر التقاط الـ GPS: تأكد من تفعيل صلاحية الموقع في جهازك.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
   const [editAllowDelivery, setEditAllowDelivery] = useState(true);
   const [editAllowPickup, setEditAllowPickup] = useState(true);
   const [editOpeningTime, setEditOpeningTime] = useState('08:00');
@@ -8605,17 +8631,17 @@ export const AdminPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Responsive Add Zone Box */}
-                    <div className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-2 shadow-2xs">
-                      <input
-                        type="text"
-                        placeholder="اسم المنطقة أو الحي (مثال: وسط البلد، حي النزهة...)"
-                        value={newZoneName}
-                        onChange={e => setNewZoneName(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
-                      />
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
+                    {/* Responsive Add Zone Box with Map Location & Range */}
+                    <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-2.5 shadow-2xs">
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          placeholder="اسم المنطقة أو الحي (مثال: الحي الأول، حي الزهور...)"
+                          value={newZoneName}
+                          onChange={e => setNewZoneName(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
+                        />
+                        <div className="relative w-full sm:w-32">
                           <input
                             type="number"
                             min="0"
@@ -8629,14 +8655,110 @@ export const AdminPage: React.FC = () => {
                             ج.م
                           </span>
                         </div>
+                      </div>
+
+                      {/* زر وخيارات تحديد الموقع الجغرافي ونطاق التغطية التلقائي */}
+                      <div className="pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowZoneGeoSettings(prev => !prev)}
+                          className="text-[11px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Navigation className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>{showZoneGeoSettings ? 'إخفاء إعدادات الخريطة ونطاق التوصيل ▴' : '📍 تحديد موقع المنطقة على الخريطة ونطاق التغطية التلقائي (اختياري) ▾'}</span>
+                        </button>
+
+                        {showZoneGeoSettings && (
+                          <div className="mt-2 p-2.5 bg-slate-50 rounded-xl border border-indigo-100 space-y-2.5 text-xs animate-fadeIn">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-[11px] font-bold text-slate-700">إحداثيات مركز المنطقة:</span>
+                              <button
+                                type="button"
+                                onClick={handleCaptureZoneGps}
+                                disabled={zoneGpsLoading}
+                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                              >
+                                <Crosshair className="w-3 h-3 text-emerald-600" />
+                                <span>{zoneGpsLoading ? 'جاري السحب...' : 'سحب موقعي الحالي بالـ GPS'}</span>
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[10px] text-slate-500 font-bold block mb-0.5">خط العرض (Latitude)</label>
+                                <input
+                                  type="text"
+                                  placeholder="مثال: 30.0275"
+                                  value={newZoneLat}
+                                  onChange={e => setNewZoneLat(e.target.value)}
+                                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-slate-500 font-bold block mb-0.5">خط الطول (Longitude)</label>
+                                <input
+                                  type="text"
+                                  placeholder="مثال: 31.2110"
+                                  value={newZoneLng}
+                                  onChange={e => setNewZoneLng(e.target.value)}
+                                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[10px] text-slate-600 font-bold">نطاق التغطية التلقائي (نصف القطر):</label>
+                                <span className="text-[10px] text-indigo-700 font-black font-mono">
+                                  {parseFloat(newZoneRadius) >= 1000 ? `${(parseFloat(newZoneRadius) / 1000).toFixed(1)} كم` : `${newZoneRadius} متر`}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {[
+                                  { label: '500 م', val: '500' },
+                                  { label: '1 كم', val: '1000' },
+                                  { label: '1.5 كم', val: '1500' },
+                                  { label: '2 كم', val: '2000' },
+                                  { label: '3 كم', val: '3000' },
+                                  { label: '5 كم', val: '5000' },
+                                ].map(p => (
+                                  <button
+                                    key={p.val}
+                                    type="button"
+                                    onClick={() => setNewZoneRadius(p.val)}
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                                      newZoneRadius === p.val
+                                        ? 'bg-indigo-600 text-white border-indigo-600'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    {p.label}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-1">
+                                💡 عندما يكون العميل متواجداً في هذا النطاق، سيتم اختيار هذه المنطقة له تلقائياً في السلة!
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end pt-1">
                         <button
                           type="button"
                           onClick={() => {
                             if (!newZoneName.trim()) return;
-                            setEditDeliveryZones(prev => [...prev, { name: newZoneName.trim(), fee: parseFloat(newZoneFee) || 10 }]);
+                            const lat = parseFloat(newZoneLat);
+                            const lng = parseFloat(newZoneLng);
+                            const radius = parseFloat(newZoneRadius) || 1500;
+                            const formattedName = formatZoneWithGeo(newZoneName.trim(), !isNaN(lat) ? lat : null, !isNaN(lng) ? lng : null, radius);
+                            setEditDeliveryZones(prev => [...prev, { name: formattedName, fee: parseFloat(newZoneFee) || 10 }]);
                             setNewZoneName('');
+                            setNewZoneLat('');
+                            setNewZoneLng('');
                           }}
-                          className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-sm"
+                          className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>إضافة منطقة</span>
@@ -8647,25 +8769,33 @@ export const AdminPage: React.FC = () => {
                     {/* Added Zones List */}
                     {editDeliveryZones.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5 pt-1 max-h-36 overflow-y-auto">
-                        {editDeliveryZones.map((z, idx) => (
-                          <span 
-                            key={idx} 
-                            className="bg-indigo-50/90 text-indigo-900 border border-indigo-200/80 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-2 shadow-2xs"
-                          >
-                            <span>{z.name}</span>
-                            <span className="px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded text-[10px] font-mono">
-                              {z.fee} ج.م
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setEditDeliveryZones(prev => prev.filter((_, i) => i !== idx))}
-                              className="w-4 h-4 rounded-full hover:bg-rose-100 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
-                              title="حذف هذه المنطقة"
+                        {editDeliveryZones.map((z, idx) => {
+                          const geo = extractZoneGeo(z.name);
+                          return (
+                            <span 
+                              key={idx} 
+                              className="bg-indigo-50/90 text-indigo-900 border border-indigo-200/80 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-2 shadow-2xs"
                             >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        ))}
+                              <span>{geo.cleanName}</span>
+                              <span className="px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded text-[10px] font-mono">
+                                {z.fee} ج.م
+                              </span>
+                              {geo.lat && geo.lng && (
+                                <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-700 rounded text-[9px] font-bold">
+                                  📍 نطاق {(geo.radiusMeters ? geo.radiusMeters / 1000 : 1.5).toFixed(1)} كم
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setEditDeliveryZones(prev => prev.filter((_, i) => i !== idx))}
+                                className="w-4 h-4 rounded-full hover:bg-rose-100 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
+                                title="حذف هذه المنطقة"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-[11px] text-slate-400 text-center py-2 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
