@@ -562,20 +562,19 @@ export function App() {
         mLink.href = manifestUrl;
       }
 
-      // تحديث أيقونة الموقع وأيقونة الهاتف للشاشة الرئيسية
-      if (selectedBranch.logoUrl) {
-        const fullLogo = getFullImageUrl(selectedBranch.logoUrl);
-        const fav = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
-        if (fav) fav.href = fullLogo;
-        let apple = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
-        if (apple) {
-          apple.href = fullLogo;
-        } else {
-          apple = document.createElement('link');
-          apple.rel = 'apple-touch-icon';
-          apple.href = fullLogo;
-          document.head.appendChild(apple);
-        }
+      // تحديث أيقونة الموقع وأيقونة الهاتف للشاشة الرئيسية بأيقونة PNG موحدة ومربعة
+      const branchIcon192 = `/api/branch-icon/${encodeURIComponent(branchSlug)}-192.png`;
+      const branchIcon512 = `/api/branch-icon/${encodeURIComponent(branchSlug)}-512.png`;
+      const fav = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+      if (fav) fav.href = branchIcon192;
+      let apple = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
+      if (apple) {
+        apple.href = branchIcon512;
+      } else {
+        apple = document.createElement('link');
+        apple.rel = 'apple-touch-icon';
+        apple.href = branchIcon512;
+        document.head.appendChild(apple);
       }
     }
   }, [selectedBranch, isAdminRoute, showDriverPortal]);

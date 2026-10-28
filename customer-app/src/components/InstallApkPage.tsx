@@ -259,33 +259,28 @@ export const InstallApkPage: React.FC<{
         const appTitle = data.isBranch ? `تثبيت تطبيق ${data.name} | UniFood` : 'تثبيت تطبيق UniFood | اطلب وجبتك أونلاين';
         document.title = appTitle;
 
-        // تحديث أيقونة الموقع وأيقونة تطبيق الهاتف لشاشة أندرويد و iOS
-        if (data.logoUrl) {
-          const fullLogo = getFullImageUrl(data.logoUrl);
-
-          // حماية المتصفح من إرسال طلبات Favicon ضخمة إذا كانت الصورة ما زالت Base64
-          if (!fullLogo.startsWith('data:')) {
-            const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
-            if (favicon) {
-              favicon.href = fullLogo;
-            }
-
-            let appleIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
-            if (appleIcon) {
-              appleIcon.href = fullLogo;
-            } else {
-              appleIcon = document.createElement('link');
-              appleIcon.rel = 'apple-touch-icon';
-              appleIcon.href = fullLogo;
-              document.head.appendChild(appleIcon);
-            }
-          }
-        }
-
-        // تحديث رابط الـ Manifest لفرع المطعم المحدد لضمان تحميل بيانات وشعار المطعم في الـ WebAPK
+        // تحديث أيقونة الموقع وأيقونة تطبيق الهاتف لشاشة أندرويد و iOS وربط المانيفست المخصص
         const branchKey = (data.slug || data.branchId || slug || '').trim().toLowerCase();
         if (branchKey) {
+          const branchIcon192 = `/api/branch-icon/${encodeURIComponent(branchKey)}-192.png`;
+          const branchIcon512 = `/api/branch-icon/${encodeURIComponent(branchKey)}-512.png`;
           const branchManifestUrl = `/manifest.json?branch=${encodeURIComponent(branchKey)}`;
+
+          const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+          if (favicon) {
+            favicon.href = branchIcon192;
+          }
+
+          let appleIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
+          if (appleIcon) {
+            appleIcon.href = branchIcon512;
+          } else {
+            appleIcon = document.createElement('link');
+            appleIcon.rel = 'apple-touch-icon';
+            appleIcon.href = branchIcon512;
+            document.head.appendChild(appleIcon);
+          }
+
           let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
           if (manifestLink) {
             manifestLink.href = branchManifestUrl;

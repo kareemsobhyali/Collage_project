@@ -79,28 +79,14 @@ router.get("/manifest", async (req: Request, res: Response) => {
       });
 
       if (branch) {
-        let logoUrl = branch.logoUrl || "/logo.png";
-        if (logoUrl.startsWith("http")) {
-          try {
-            const parsed = new URL(logoUrl);
-            if (parsed.pathname.startsWith("/uploads/")) {
-              logoUrl = parsed.pathname;
-            }
-          } catch (_e) {}
-        } else if (!logoUrl.startsWith("/")) {
-          logoUrl = `/uploads/${logoUrl}`;
-        }
-
-        const isJpg = /\.jpe?g($|\?)/i.test(logoUrl);
-        const iconType = isJpg ? "image/jpeg" : "image/png";
-
+        const branchKey = branch.slug || branch.id;
         const manifest = {
           name: `${branch.name} | UniFood`,
           short_name: branch.name,
           description: `اطلب وجبتك المفضلة من ${branch.name} مباشرة من تطبيق الموبايل`,
-          start_url: `/?r=${encodeURIComponent(branch.slug || branch.id)}&installed=1`,
+          start_url: `/?r=${encodeURIComponent(branchKey)}&installed=1`,
           scope: "/",
-          id: `/?r=${encodeURIComponent(branch.slug || branch.id)}`,
+          id: `/?r=${encodeURIComponent(branchKey)}`,
           display: "standalone",
           display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
           prefer_related_applications: false,
@@ -115,37 +101,25 @@ router.get("/manifest", async (req: Request, res: Response) => {
           lang: "ar",
           icons: [
             {
-              src: logoUrl,
-              sizes: "192x192",
-              type: iconType,
-              purpose: "any"
-            },
-            {
-              src: logoUrl,
-              sizes: "512x512",
-              type: iconType,
-              purpose: "any"
-            },
-            {
-              src: logoUrl,
-              sizes: "192x192",
-              type: iconType,
-              purpose: "maskable"
-            },
-            {
-              src: logoUrl,
-              sizes: "512x512",
-              type: iconType,
-              purpose: "maskable"
-            },
-            {
-              src: "/logo.png",
+              src: `/api/branch-icon/${encodeURIComponent(branchKey)}-192.png`,
               sizes: "192x192",
               type: "image/png",
               purpose: "any"
             },
             {
-              src: "/logo.png",
+              src: `/api/branch-icon/${encodeURIComponent(branchKey)}-512.png`,
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any"
+            },
+            {
+              src: `/api/branch-icon/${encodeURIComponent(branchKey)}-192.png?maskable=1`,
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "maskable"
+            },
+            {
+              src: `/api/branch-icon/${encodeURIComponent(branchKey)}-512.png?maskable=1`,
               sizes: "512x512",
               type: "image/png",
               purpose: "maskable"

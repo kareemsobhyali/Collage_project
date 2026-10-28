@@ -40,6 +40,8 @@
           if (branch && branch !== 'admin' && branch !== 'driver' && branch !== 'api') {
             try { localStorage.setItem('pwa_installed_branch', decodeURIComponent(branch).toLowerCase()); } catch(e) {}
             var manifestUrl = '/manifest.json?branch=' + encodeURIComponent(branch);
+            var icon192 = '/api/branch-icon/' + encodeURIComponent(branch) + '-192.png';
+            var icon512 = '/api/branch-icon/' + encodeURIComponent(branch) + '-512.png';
             var mLink = document.querySelector('link[rel="manifest"]');
             if (mLink) {
               mLink.href = manifestUrl;
@@ -49,6 +51,10 @@
               newLink.href = manifestUrl;
               document.head.appendChild(newLink);
             }
+            var fav = document.querySelector('link[rel="icon"]');
+            if (fav) fav.href = icon192;
+            var apple = document.querySelector('link[rel="apple-touch-icon"]');
+            if (apple) apple.href = icon512;
           }
         } catch(_e) {}
 

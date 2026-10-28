@@ -24,6 +24,7 @@ import { authLimiter, orderLimiter, generalApiLimiter, uploadLimiter } from "./m
 import prisma from "./prisma.js";
 import { getNotificationSoundSettings } from "./services/settings.service.js";
 import { seedMockDatabase } from "./services/mockData.service.js";
+import { getBranchPngIcon } from "./services/branchIcon.service.js";
 
 
 const app = express();
@@ -139,6 +140,40 @@ app.get("/uploads/:filename", async (req, res, next) => {
 
 app.use("/uploads", express.static(uploadsPath));
 
+// خدمة أيقونات المطاعم بصيغة PNG نقية ومربعة لتوليد WebAPK وتثبيت PWA بدون أي تشويه وبشعار المطعم الحقيقي
+app.get(["/api/branch-icon/:slug.png", "/api/branch-icon/:slug", "/branch-icon.png"], async (req, res) => {
+  try {
+    let rawSlug = req.params.slug;
+    if (Array.isArray(rawSlug)) rawSlug = rawSlug[0];
+    let slug = String(rawSlug || req.query.branch || req.query.r || req.query.slug || "default").trim();
+    slug = decodeURIComponent(slug).replace(/\.png$/i, "");
+
+    let size = 512;
+    if (slug.endsWith("-192")) {
+      size = 192;
+      slug = slug.replace(/-192$/, "");
+    } else if (slug.endsWith("-512")) {
+      size = 512;
+      slug = slug.replace(/-512$/, "");
+    } else if (req.query.size === "192") {
+      size = 192;
+    }
+
+    const isMaskable = req.query.maskable === "1" || req.query.maskable === "true" || slug.endsWith("-maskable");
+    if (slug.endsWith("-maskable")) {
+      slug = slug.replace(/-maskable$/, "");
+    }
+
+    const iconBuffer = await getBranchPngIcon(slug, size, isMaskable);
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+    return res.send(iconBuffer);
+  } catch (err) {
+    console.error("Branch icon error:", err);
+    return res.redirect("/logo.png");
+  }
+});
+
 // خدمة ملف manifest.json الديناميكي لدعم تثبيت تطبيق مخصص للفرع أو المنصة العامة
 app.get("/manifest.json", async (req, res) => {
   let branchParam = (req.query.branch || req.query.r || req.query.slug) as string | undefined;
@@ -163,66 +198,37 @@ app.get("/manifest.json", async (req, res) => {
       const branch = await prisma.branch.findFirst({
         where: {
           OR: [
-            { slug: cleanParam.toLowerCase() },
+            { slug: { equals: cleanParam, mode: "insensitive" } },
             { id: cleanParam },
-            { slug: { contains: cleanParam.toLowerCase() } },
+            { slug: { contains: cleanParam, mode: "insensitive" } },
             { name: { contains: cleanParam, mode: "insensitive" } },
           ],
         },
       });
 
       if (branch) {
-        let logoUrl = branch.logoUrl || "/logo.png";
-        if (logoUrl.startsWith("data:")) {
-          // الحفاظ على data: URL دون إضافة /uploads/ لتجنب إنتاج مسارات وهمية ضخمة تكسر المانيفست
-        } else if (logoUrl.startsWith("http")) {
-          try {
-            const parsed = new URL(logoUrl);
-            if (parsed.pathname.startsWith("/uploads/")) {
-              logoUrl = parsed.pathname;
-            }
-          } catch (_e) {}
-        } else if (!logoUrl.startsWith("/")) {
-          logoUrl = `/uploads/${logoUrl}`;
-        }
-
-        // تحديد نوع الأيقونة بدقة (MIME Type) لتفادي رفض جوجل كروم لأيقونة WebAPK
-        const isJpg = /\.jpe?g($|\?)/i.test(logoUrl);
-        const iconType = isJpg ? "image/jpeg" : "image/png";
-
+        const branchKey = branch.slug || branch.id;
         const branchIcons = [
           {
-            src: logoUrl,
-            sizes: "192x192",
-            type: iconType,
-            purpose: "any",
-          },
-          {
-            src: logoUrl,
-            sizes: "512x512",
-            type: iconType,
-            purpose: "any",
-          },
-          {
-            src: logoUrl,
-            sizes: "192x192",
-            type: iconType,
-            purpose: "maskable",
-          },
-          {
-            src: logoUrl,
-            sizes: "512x512",
-            type: iconType,
-            purpose: "maskable",
-          },
-          {
-            src: "/logo.png",
+            src: `/api/branch-icon/${encodeURIComponent(branchKey)}-192.png`,
             sizes: "192x192",
             type: "image/png",
             purpose: "any",
           },
           {
-            src: "/logo.png",
+            src: `/api/branch-icon/${encodeURIComponent(branchKey)}-512.png`,
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: `/api/branch-icon/${encodeURIComponent(branchKey)}-192.png?maskable=1`,
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable",
+          },
+          {
+            src: `/api/branch-icon/${encodeURIComponent(branchKey)}-512.png?maskable=1`,
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
@@ -233,9 +239,9 @@ app.get("/manifest.json", async (req, res) => {
           name: `${branch.name} | UniFood`,
           short_name: branch.name,
           description: `اطلب وجبتك المفضلة من ${branch.name} مباشرة وسريعاً بدون انتظار`,
-          start_url: `/?r=${encodeURIComponent(branch.slug || branch.id)}&installed=1`,
+          start_url: `/?r=${encodeURIComponent(branchKey)}&installed=1`,
           scope: "/",
-          id: `/?r=${encodeURIComponent(branch.slug || branch.id)}`,
+          id: `/?r=${encodeURIComponent(branchKey)}`,
           display: "standalone",
           display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
           prefer_related_applications: false,
@@ -459,11 +465,11 @@ if (fs.existsSync(customerDistPath)) {
           // 2. تحديث العنوان ليحمل اسم المطعم مباشرة بأمان تام
           html = html.replace(/<title>.*?<\/title>/i, `<title>${safeBranchName} | طلب وتوصيل وجبات أونلاين</title>`);
 
-          // 3. تحديث أيقونة الموقع والأيقونة التي يعتمدها iOS وأندرويد للشاشة
-          // حماية المتصفح من تدمير الاتصال عند وضع Data URL ضخمة في ترويسة HTML
-          const safeFaviconUrl = logoUrl.startsWith("data:") ? "/logo.png" : logoUrl;
-          html = html.replace(/<link[^>]*rel="icon"[^>]*>/i, `<link rel="icon" type="image/png" href="${safeFaviconUrl}" />`);
-          html = html.replace(/<link[^>]*rel="apple-touch-icon"[^>]*>/i, `<link rel="apple-touch-icon" href="${safeFaviconUrl}" />`);
+          // 3. تحديث أيقونة الموقع والأيقونة التي يعتمدها iOS وأندرويد للشاشة بأيقونة PNG مربعة ونقية للمطعم
+          const branchIcon192 = `/api/branch-icon/${encodeURIComponent(branchKey)}-192.png`;
+          const branchIcon512 = `/api/branch-icon/${encodeURIComponent(branchKey)}-512.png`;
+          html = html.replace(/<link[^>]*rel="icon"[^>]*>/i, `<link rel="icon" type="image/png" sizes="192x192" href="${branchIcon192}" />`);
+          html = html.replace(/<link[^>]*rel="apple-touch-icon"[^>]*>/i, `<link rel="apple-touch-icon" sizes="512x512" href="${branchIcon512}" />`);
 
           // 4. حقن سكريبت بالهيدر لحفظ معرف المطعم المثبت مسبقاً
           const preInjectScript = `<script>try{localStorage.setItem('pwa_installed_branch','${encodeURIComponent(branchKey).toLowerCase()}');}catch(e){}</script>`;
