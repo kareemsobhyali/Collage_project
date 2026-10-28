@@ -61,6 +61,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       .catch(() => {});
   }, []);
 
+  // التأكد من استقرار الشاشة في أعلى شاشة البداية (Hero) عند فتح الصفحة أو تحديثها
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  }, []);
+
   // تحديث المطعم المختار تلقائياً إذا تغيرت القائمة
   useEffect(() => {
     if (branches.length > 0 && activeIndex >= branches.length) {
@@ -68,25 +75,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   }, [branches.length, activeIndex]);
 
-  // تموضع أولي تلقائي في منتصف أول مطعم عند فتح الصفحة
-  useEffect(() => {
-    if (branches.length > 0) {
-      const timer = setTimeout(() => {
-        const targetCard = cardRefs.current[0];
-        if (targetCard) {
-          targetCard.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
-        }
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [branches.length]);
-
   const scrollToCard = (index: number) => {
     if (index < 0 || index >= branches.length) return;
     setActiveIndex(index);
     const targetCard = cardRefs.current[index];
-    if (targetCard) {
-      targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    const container = scrollContainerRef.current;
+    if (targetCard && container) {
+      const cardRect = targetCard.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const cardCenter = cardRect.left + cardRect.width / 2;
+      const containerCenter = containerRect.left + containerRect.width / 2;
+      const diff = cardCenter - containerCenter;
+      // تمرير شريط المطاعم أفقياً فقط دون تحريك شاشة المتصفح رأسياً
+      container.scrollBy({ left: diff, behavior: 'smooth' });
     }
   };
 
@@ -212,22 +213,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           {/* Quick Metrics Bar */}
-          <div className="pt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center border-t border-slate-800/80">
-            <div className="p-2">
-              <div className="text-base sm:text-lg font-black text-amber-400 font-mono">100%</div>
-              <div className="text-[11px] text-slate-400 font-bold">روابط مباشرة مخصصة</div>
+          <div className="pt-6 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-center border-t border-slate-800/80">
+            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs">
+              <div className="text-base sm:text-xl font-black text-amber-400 font-mono">100%</div>
+              <div className="text-[11px] text-slate-300 font-bold mt-0.5">روابط مباشرة مخصصة</div>
             </div>
-            <div className="p-2">
-              <div className="text-base sm:text-lg font-black text-emerald-400 font-mono">~15-25 د</div>
-              <div className="text-[11px] text-slate-400 font-bold">متوسط سرعة التجهيز</div>
+            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs">
+              <div className="text-base sm:text-xl font-black text-emerald-400 font-mono">~15-25 د</div>
+              <div className="text-[11px] text-slate-300 font-bold mt-0.5">متوسط سرعة التجهيز</div>
             </div>
-            <div className="p-2">
-              <div className="text-base sm:text-lg font-black text-sky-400 font-mono">GPS حي</div>
-              <div className="text-[11px] text-slate-400 font-bold">تتبع خط سير الكابتن</div>
+            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs">
+              <div className="text-base sm:text-xl font-black text-sky-400 font-mono">GPS حي</div>
+              <div className="text-[11px] text-slate-300 font-bold mt-0.5">تتبع خط سير الكابتن</div>
             </div>
-            <div className="p-2">
-              <div className="text-base sm:text-lg font-black text-purple-400 font-mono">كاشير حراري</div>
-              <div className="text-[11px] text-slate-400 font-bold">طباعة فورية بالمطبخ</div>
+            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs">
+              <div className="text-base sm:text-xl font-black text-purple-400 font-mono">كاشير حراري</div>
+              <div className="text-[11px] text-slate-300 font-bold mt-0.5">طباعة فورية بالمطبخ</div>
             </div>
           </div>
         </div>
@@ -249,67 +250,67 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {/* Card 1: Direct Branch Links */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md transition-all space-y-2.5">
-            <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-indigo-300 hover:-translate-y-0.5 transition-all duration-200 space-y-2.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs group-hover:scale-105 transition-transform">
               <Store className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black text-slate-900">رابط مباشر وواجهة مخصصة لكل مطعم</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              كل مطعم يمتلك واجهة ومنيو برابط إلكتروني خاص (مثل unifood.com/?branch=shawarma) يمكن للعميل فتحه مباشرة ومشاركته عبر واتساب دون تشتيت.
+            <h3 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors">رابط مباشر وواجهة مخصصة لكل مطعم</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-normal">
+              كل مطعم يمتلك واجهة ومنيو برابط إلكتروني خاص (مثل unifood.store/r/shawarma) يمكن للعميل فتحه مباشرة ومشاركته عبر واتساب دون تشتيت.
             </p>
           </div>
 
           {/* Card 2: Live GPS Tracking */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md transition-all space-y-2.5">
-            <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-2xs">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-rose-300 hover:-translate-y-0.5 transition-all duration-200 space-y-2.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-2xs group-hover:scale-105 transition-transform">
               <MapPin className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black text-slate-900">تتبع دقيق للطلب والكابتن بالـ GPS</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <h3 className="text-sm font-black text-slate-900 group-hover:text-rose-600 transition-colors">تتبع دقيق للطلب والكابتن بالـ GPS</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-normal">
               متابعة حية لموقع كابتن التوصيل على الخريطة من لحظة استلام الوجبة بالمطعم وحتى وصولها إلى بابك، مع عد تنازلي لوقت الوصول الفعلي.
             </p>
           </div>
 
           {/* Card 3: Group Cart */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md transition-all space-y-2.5">
-            <div className="w-11 h-11 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shadow-2xs">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-purple-300 hover:-translate-y-0.5 transition-all duration-200 space-y-2.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shadow-2xs group-hover:scale-105 transition-transform">
               <Users className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black text-slate-900">سلة تشاركية للطلب الجماعي</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <h3 className="text-sm font-black text-slate-900 group-hover:text-purple-600 transition-colors">سلة تشاركية للطلب الجماعي</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-normal">
               أنشئ سلة مشتركة وشارك كود السلة مع أصدقائك أو زملائك في العمل؛ يضيف كل فرد وجبته الخاصة وتصل في فاتورة موحدة وحساب مفصل لكل شخص.
             </p>
           </div>
 
           {/* Card 4: Wallet & Loyalty */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md transition-all space-y-2.5">
-            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shadow-2xs">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-amber-300 hover:-translate-y-0.5 transition-all duration-200 space-y-2.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shadow-2xs group-hover:scale-105 transition-transform">
               <Wallet className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black text-slate-900">محفظة رقمية واسترداد نقدي (Cashback)</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <h3 className="text-sm font-black text-slate-900 group-hover:text-amber-600 transition-colors">محفظة رقمية واسترداد نقدي (Cashback)</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-normal">
               اكسب نقاط ولاء ورصيداً نقدياً مع كل طلب ناجح، واستخدمه كخصم مباشر أو رصيد لشراء وجباتك التالية بكل سهولة وأمان.
             </p>
           </div>
 
           {/* Card 5: POS & Kitchen Thermal Printing */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md transition-all space-y-2.5">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-2xs">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-emerald-300 hover:-translate-y-0.5 transition-all duration-200 space-y-2.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-2xs group-hover:scale-105 transition-transform">
               <Printer className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black text-slate-900">ربط فوري بطابعات المطبخ والكاشير</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <h3 className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors">ربط فوري بطابعات المطبخ والكاشير</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-normal">
               نظام سطح المكتب المخصص للمطاعم يتصل تلقائياً بطابعات الفواتير الحرارية ESC/POS لطباعة بونات التجهيز في المطبخ فور اعتماد الطلب.
             </p>
           </div>
 
           {/* Card 6: WhatsApp Notifications & OTP */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md transition-all space-y-2.5">
-            <div className="w-11 h-11 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shadow-2xs">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-teal-300 hover:-translate-y-0.5 transition-all duration-200 space-y-2.5 group">
+            <div className="w-11 h-11 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shadow-2xs group-hover:scale-105 transition-transform">
               <MessageCircle className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black text-slate-900">إشعارات وتأكيدات فورية عبر الواتساب</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <h3 className="text-sm font-black text-slate-900 group-hover:text-teal-600 transition-colors">إشعارات وتأكيدات فورية عبر الواتساب</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-normal">
               تفعيل تلقائي للحسابات عبر روابط سريعة (Magic Link) وإرسال بونات الفاتورة ورابط تتبع الكابتن المباشر إلى رقم واتساب العميل.
             </p>
           </div>
@@ -318,55 +319,94 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* 3. PARTNER RESTAURANTS SECTION: عرض تفاعلي ثلاثي الأبعاد مع إبراز المطعم الأوسط وضبابية خفيفة للجانبين */}
       <section id="partner-restaurants-section" className="space-y-4 pt-2">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+          <div className="flex items-center justify-between w-full sm:w-auto">
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
                 <Store className="w-4 h-4" />
               </div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900">
+              <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
                 شركاؤنا في المنظومة
               </h2>
-              <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-xs font-black">
-                {branches.length} مطعم
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-bold whitespace-nowrap">
+                {branches.length} {branches.length === 1 ? 'مطعم' : branches.length === 2 ? 'مطعمين' : branches.length <= 10 ? 'مطاعم' : 'مطعم'}
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              اسحب للتنقل بين شركائنا واضغط على أي مطعم لفتح واجهته ومنيوه الخاص فوراً
-            </p>
+
+            {/* Previous / Next buttons on mobile (compact) */}
+            {branches.length > 0 && (
+              <div className="flex items-center gap-1.5 sm:hidden shrink-0">
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  disabled={activeIndex === 0}
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all shadow-2xs active:scale-95 ${
+                    activeIndex === 0
+                      ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
+                      : 'bg-white hover:bg-indigo-50 border-slate-200 text-slate-700 hover:text-indigo-600 cursor-pointer'
+                  }`}
+                  title="المطعم السابق"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={activeIndex === branches.length - 1}
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all shadow-2xs active:scale-95 ${
+                    activeIndex === branches.length - 1
+                      ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
+                      : 'bg-white hover:bg-indigo-50 border-slate-200 text-slate-700 hover:text-indigo-600 cursor-pointer'
+                  }`}
+                  title="المطعم التالي"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Previous / Next buttons for horizontal scrolling */}
-          {branches.length > 0 && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handlePrev}
-                disabled={activeIndex === 0}
-                className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs active:scale-95 ${
-                  activeIndex === 0
-                    ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
-                    : 'bg-white hover:bg-indigo-50 border-slate-200 text-slate-700 hover:text-indigo-600 cursor-pointer'
-                }`}
-                title="المطعم السابق"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={activeIndex === branches.length - 1}
-                className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs active:scale-95 ${
-                  activeIndex === branches.length - 1
-                    ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
-                    : 'bg-white hover:bg-indigo-50 border-slate-200 text-slate-700 hover:text-indigo-600 cursor-pointer'
-                }`}
-                title="المطعم التالي"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          {/* Desktop/Tablet text & buttons */}
+          <div className="hidden sm:flex items-center gap-3">
+            <p className="text-xs text-slate-500 font-medium">
+              اسحب للتنقل بين شركائنا واضغط على أي مطعم لفتح واجهته ومنيوه الخاص فوراً
+            </p>
+            {branches.length > 0 && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  disabled={activeIndex === 0}
+                  className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs active:scale-95 ${
+                    activeIndex === 0
+                      ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
+                      : 'bg-white hover:bg-indigo-50 border-slate-200 text-slate-700 hover:text-indigo-600 cursor-pointer'
+                  }`}
+                  title="المطعم السابق"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={activeIndex === branches.length - 1}
+                  className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs active:scale-95 ${
+                    activeIndex === branches.length - 1
+                      ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
+                      : 'bg-white hover:bg-indigo-50 border-slate-200 text-slate-700 hover:text-indigo-600 cursor-pointer'
+                  }`}
+                  title="المطعم التالي"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Subtitle on mobile */}
+          <p className="sm:hidden text-[11px] text-slate-500 font-medium -mt-1">
+            اسحب يميناً ويساراً للتنقل بين المطاعم واضغط للدخول
+          </p>
         </div>
 
         {/* CoverFlow / 3D Slider: المطعم المعروض بارز في المنتصف بمحاذاة تامة وثبات كامل */}
@@ -427,14 +467,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           : 'scale-95 z-10 opacity-75 hover:opacity-100 filter blur-[0.6px] hover:blur-0 shadow-md border border-slate-200/90 bg-white/95'
                       }`}
                     >
-                      {/* شارة المطعم المعروض حالياً في المنتصف */}
-                      {isActive && (
-                        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black shadow-lg flex items-center gap-1.5 backdrop-blur-md animate-fadeIn">
-                          <Sparkles className="w-3 h-3 text-amber-300" />
-                          <span>المطعم المعروض الآن</span>
-                        </div>
-                      )}
-
                       {/* Top Banner with Badges */}
                       <div>
                         <div className="h-24 sm:h-28 relative bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 flex items-start justify-between p-3 overflow-hidden">
@@ -472,23 +504,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                               src={getFullImageUrl(branch.logoUrl)}
                               alt={branch.name}
                               className={`w-14 h-14 rounded-2xl object-cover bg-white border-2 shadow-md p-0.5 shrink-0 transition-all ${
-                                isActive ? 'border-indigo-400 scale-105' : 'border-white'
+                                isActive ? 'border-indigo-500 scale-105 ring-4 ring-indigo-500/20 shadow-indigo-500/10' : 'border-white'
                               }`}
                             />
                           ) : (
                             <div className={`w-14 h-14 rounded-2xl bg-indigo-50 border-2 shadow-md flex items-center justify-center text-indigo-600 font-bold shrink-0 transition-all ${
-                              isActive ? 'border-indigo-400 scale-105' : 'border-white'
+                              isActive ? 'border-indigo-500 scale-105 ring-4 ring-indigo-500/20 shadow-indigo-500/10' : 'border-white'
                             }`}>
                               <Store className="w-7 h-7" />
                             </div>
                           )}
 
                           <div className="mt-2.5">
-                            <h3 className={`font-black text-base truncate transition-colors ${
-                              isActive ? 'text-indigo-600' : 'text-slate-900'
-                            }`}>
-                              {branch.name}
-                            </h3>
+                            <div className="flex items-center gap-1.5">
+                              <h3 className={`font-black text-base truncate transition-colors ${
+                                isActive ? 'text-indigo-600' : 'text-slate-900'
+                              }`}>
+                                {branch.name}
+                              </h3>
+                              {isActive && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-[10px] font-black shrink-0 border border-indigo-100">
+                                  <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                                  <span>محدد</span>
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
                               <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                               <span className="truncate">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>

@@ -173,7 +173,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       {/* Top Welcome Pill */}
       <div className="pt-4 sm:pt-6 relative z-10 flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/15 text-xs font-bold text-indigo-100 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
         <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-        <span>أهلاً بك في منصة الطلبات الجامعية • UniFood</span>
+        <span>أهلاً بك في منصة طلب وتوصيل الطعام • UniFood</span>
       </div>
 
       {/* 2. Centerpiece: UniFood App Logo (Clean & Elegant) */}
