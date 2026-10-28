@@ -3625,7 +3625,7 @@ export const AdminPage: React.FC = () => {
 
         {/* Tab: Central Delivery Zones Management */}
         {activeTab === 'DELIVERY_ZONES' && (
-          <div className="space-y-6 animate-fadeIn">
+          <div className="space-y-6 animate-fadeIn pb-32 sm:pb-12">
             {/* Page Header Banner */}
             <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-5 sm:p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
               <div className="absolute -left-10 -bottom-10 w-44 h-44 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -3715,18 +3715,18 @@ export const AdminPage: React.FC = () => {
 
                     {/* Geo Settings Toggle / Coords */}
                     <div className="space-y-2 pt-1">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                          <Navigation className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>الموقع الجغرافي والنطاق (اختياري / تلقائي):</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 min-w-0">
+                          <Navigation className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                          <span className="truncate">إحداثيات ونطاق المنطقة (اختياري):</span>
                         </label>
                         <button
                           type="button"
                           onClick={handleCaptureGlobalZoneGps}
                           disabled={globalZoneGpsLoading}
-                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                         >
-                          <Crosshair className="w-3 h-3 text-emerald-600" />
+                          <Crosshair className={`w-3 h-3 text-emerald-600 ${globalZoneGpsLoading ? 'animate-spin' : ''}`} />
                           <span>{globalZoneGpsLoading ? 'سحب...' : 'موقعي الحالي'}</span>
                         </button>
                       </div>
@@ -3756,13 +3756,10 @@ export const AdminPage: React.FC = () => {
 
                       {/* Radius selector & manual input */}
                       <div className="pt-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] text-slate-600 font-bold">نصف قطر التغطية التلقائية:</span>
-                          <span className="text-[10px] text-purple-700 font-black font-mono">
-                            {parseFloat(globalZoneRadius) >= 1000 ? `${(parseFloat(globalZoneRadius) / 1000).toFixed(2)} كم` : `${globalZoneRadius} متر`}
-                          </span>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] text-slate-700 font-bold">نصف قطر التغطية التلقائية:</span>
                         </div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
                           {[
                             { label: '500 م', val: '500' },
                             { label: '1 كم', val: '1000' },
@@ -3775,9 +3772,9 @@ export const AdminPage: React.FC = () => {
                               key={p.val}
                               type="button"
                               onClick={() => setGlobalZoneRadius(p.val)}
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                              className={`py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer text-center ${
                                 globalZoneRadius === p.val
-                                  ? 'bg-purple-600 text-white border-purple-600'
+                                  ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
                                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
                               }`}
                             >
@@ -3785,23 +3782,20 @@ export const AdminPage: React.FC = () => {
                             </button>
                           ))}
                         </div>
-                        {/* Manual range input */}
-                        <div className="flex items-center gap-2 mt-2">
-                          <div className="relative flex-1">
-                            <input
-                              type="number"
-                              min="50"
-                              step="50"
-                              placeholder="كتابة النطاق يدوياً بالمتر..."
-                              value={globalZoneRadius}
-                              onChange={e => setGlobalZoneRadius(e.target.value)}
-                              className="w-full pr-3 pl-12 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-purple-500 focus:outline-none"
-                            />
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">متر</span>
+                        {/* Manual range input with inline conversion badge */}
+                        <div className="relative mt-2">
+                          <input
+                            type="number"
+                            min="50"
+                            step="50"
+                            placeholder="أو اكتب النطاق يدوياً بالمتر (مثال: 1500)..."
+                            value={globalZoneRadius}
+                            onChange={e => setGlobalZoneRadius(e.target.value)}
+                            className="w-full pr-3 pl-20 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-purple-500 focus:outline-none"
+                          />
+                          <div className="absolute left-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-lg pointer-events-none font-mono">
+                            <span>{parseFloat(globalZoneRadius) >= 1000 ? `${(parseFloat(globalZoneRadius) / 1000).toFixed(2)} كم` : `${globalZoneRadius || 0} م`}</span>
                           </div>
-                          <span className="text-[10px] font-black text-purple-700 font-mono bg-purple-50 border border-purple-200 px-2.5 py-1.5 rounded-lg shrink-0">
-                            {parseFloat(globalZoneRadius) >= 1000 ? `${(parseFloat(globalZoneRadius) / 1000).toFixed(2)} كم` : `${globalZoneRadius || 0} م`}
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -3884,17 +3878,19 @@ export const AdminPage: React.FC = () => {
                       </div>
 
                       {/* Default Fee Quick Filler */}
-                      <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
-                        <span className="text-[11px] font-bold text-slate-600 shrink-0">سعر موحد مقترح:</span>
-                        <div className="relative w-24">
-                          <input
-                            type="number"
-                            min="0"
-                            value={globalDefaultFee}
-                            onChange={e => setGlobalDefaultFee(e.target.value)}
-                            className="w-full pr-2 pl-7 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                          />
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">ج.م</span>
+                      <div className="flex items-center justify-between gap-2 p-2.5 bg-slate-50 rounded-2xl border border-slate-200">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-[11px] font-bold text-slate-600 shrink-0">سعر موحد:</span>
+                          <div className="relative w-20 shrink-0">
+                            <input
+                              type="number"
+                              min="0"
+                              value={globalDefaultFee}
+                              onChange={e => setGlobalDefaultFee(e.target.value)}
+                              className="w-full pr-2 pl-7 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-purple-500"
+                            />
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">ج.م</span>
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -3902,37 +3898,37 @@ export const AdminPage: React.FC = () => {
                             const feeVal = globalDefaultFee || '15';
                             const targetBranches = globalZoneTargetType === 'ALL'
                               ? branches
-                              : branches.filter(b => selectedBranchIdsForZone.includes(b.id));
+                              : branches.filter((b: any) => selectedBranchIdsForZone.includes(b.id));
                             const fees: Record<string, string> = { ...branchCustomFees };
                             targetBranches.forEach(b => {
                               fees[b.id] = feeVal;
                             });
                             setBranchCustomFees(fees);
                           }}
-                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                          className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-black transition-colors cursor-pointer shrink-0 whitespace-nowrap active:scale-95"
                         >
-                          تطبيق السعر على الكل
+                          تطبيق على الكل
                         </button>
                       </div>
 
                       {/* Per-branch custom fee inputs */}
-                      <div className="max-h-52 overflow-y-auto space-y-1.5 p-2 bg-slate-50/50 rounded-xl border border-slate-200 custom-scrollbar">
-                        {(globalZoneTargetType === 'ALL' ? branches : branches.filter(b => selectedBranchIdsForZone.includes(b.id))).map(b => {
+                      <div className="max-h-56 overflow-y-auto space-y-1.5 p-2 bg-slate-50/50 rounded-2xl border border-slate-200 custom-scrollbar">
+                        {(globalZoneTargetType === 'ALL' ? branches : branches.filter((b: any) => selectedBranchIdsForZone.includes(b.id))).map(b => {
                           const currentFee = branchCustomFees[b.id] ?? globalDefaultFee ?? '15';
                           return (
                             <div
                               key={b.id}
-                              className="flex items-center justify-between gap-2 p-1.5 bg-white rounded-lg border border-slate-200 shadow-2xs"
+                              className="flex items-center justify-between gap-2 p-2 bg-white rounded-xl border border-slate-200/80 shadow-2xs"
                             >
-                              <div className="flex items-center gap-2 min-w-0">
+                              <div className="flex items-center gap-2.5 min-w-0">
                                 {b.logoUrl ? (
-                                  <img src={getFullImageUrl(b.logoUrl)} alt="" className="w-6 h-6 rounded-md object-cover border" />
+                                  <img src={getFullImageUrl(b.logoUrl)} alt="" className="w-7 h-7 rounded-lg object-cover border border-slate-200" />
                                 ) : (
-                                  <div className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center text-[10px] font-black">
+                                  <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-[10px] font-black border border-purple-100">
                                     {b.name[0]}
                                   </div>
                                 )}
-                                <span className="text-xs font-bold text-slate-800 truncate">{b.name}</span>
+                                <span className="text-xs font-black text-slate-800 truncate">{b.name}</span>
                               </div>
                               <div className="relative w-24 shrink-0">
                                 <input
@@ -3943,9 +3939,9 @@ export const AdminPage: React.FC = () => {
                                     const val = e.target.value;
                                     setBranchCustomFees(prev => ({ ...prev, [b.id]: val }));
                                   }}
-                                  className="w-full pr-2 pl-7 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 focus:bg-white focus:border-purple-500"
+                                  className="w-full pr-2 pl-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:bg-white focus:border-purple-500 text-center"
                                 />
-                                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold pointer-events-none">
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">
                                   ج.م
                                 </span>
                               </div>
@@ -4060,18 +4056,19 @@ export const AdminPage: React.FC = () => {
                                 </div>
 
                                 {/* Actions */}
-                                <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                                <div className="flex items-center gap-1.5 w-full sm:w-auto pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                                   <button
                                     type="button"
                                     onClick={() => setExpandedMasterZoneKey(isExpanded ? null : zone.cleanName)}
-                                    className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                    className="flex-1 sm:flex-initial px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                                   >
-                                    <span>{isExpanded ? 'إخفاء المطاعم ▴' : 'عرض المطاعم والأسعار ▾'}</span>
+                                    <span>{isExpanded ? 'إخفاء المطاعم' : 'عرض المطاعم والأسعار'}</span>
+                                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleEditGlobalZone(zone)}
-                                    className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
                                     title="تعديل هذه المنطقة وأسعارها"
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
@@ -4080,7 +4077,7 @@ export const AdminPage: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteGlobalZone(zone.cleanName)}
-                                    className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
                                     title="حذف هذه المنطقة من كافة المطاعم"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -9460,29 +9457,29 @@ export const AdminPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setLocationPickerTarget('BRANCH_ZONE')}
-                        className="w-full py-2.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer shadow-2xs"
+                        className="w-full py-2.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer shadow-2xs"
                       >
-                        <MapPin className="w-4 h-4 text-indigo-600" />
-                        <span>🗺️ فتح الخريطة لتحديد موقع المنطقة أو البحث عنها</span>
+                        <MapPin className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <span>فتح الخريطة لتحديد موقع المنطقة أو البحث عنها</span>
                       </button>
 
-                      <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex items-center gap-2">
                         <input
                           type="text"
-                          placeholder="اسم المنطقة أو الحي (مثال: الحي الأول، حي الزهور...)"
+                          placeholder="اسم المنطقة (مثال: الحي الأول، حي الزهور...)"
                           value={newZoneName}
                           onChange={e => setNewZoneName(e.target.value)}
-                          className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
+                          className="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
                         />
-                        <div className="relative w-full sm:w-32">
+                        <div className="relative w-28 shrink-0">
                           <input
                             type="number"
                             min="0"
                             step="1"
-                            placeholder="رسوم التوصيل"
+                            placeholder="السعر"
                             value={newZoneFee}
                             onChange={e => setNewZoneFee(e.target.value)}
-                            className="w-full pr-3 pl-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
+                            className="w-full pr-2.5 pl-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors text-center"
                           />
                           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">
                             ج.م
@@ -9495,10 +9492,17 @@ export const AdminPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setShowZoneGeoSettings(prev => !prev)}
-                          className="text-[11px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className={`w-full py-2 px-3 rounded-xl border text-xs font-black transition-all flex items-center justify-between cursor-pointer ${
+                            showZoneGeoSettings
+                              ? 'bg-indigo-50/70 border-indigo-200 text-indigo-700'
+                              : 'bg-slate-50 border-slate-200/80 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                          }`}
                         >
-                          <Navigation className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>{showZoneGeoSettings ? 'إخفاء إعدادات الخريطة ونطاق التوصيل ▴' : '📍 تفاصيل الإحداثيات ونطاق التغطية اليدوي (اختياري) ▾'}</span>
+                          <div className="flex items-center gap-1.5">
+                            <Navigation className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            <span>تحديد الإحداثيات ونطاق التغطية التلقائي (اختياري)</span>
+                          </div>
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showZoneGeoSettings ? 'rotate-180 text-indigo-600' : 'text-slate-400'}`} />
                         </button>
 
                         {showZoneGeoSettings && (
@@ -9509,7 +9513,7 @@ export const AdminPage: React.FC = () => {
                                 type="button"
                                 onClick={handleCaptureZoneGps}
                                 disabled={zoneGpsLoading}
-                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer shrink-0"
                               >
                                 <Crosshair className="w-3 h-3 text-emerald-600" />
                                 <span>{zoneGpsLoading ? 'جاري السحب...' : 'سحب موقعي الحالي بالـ GPS'}</span>
@@ -9541,13 +9545,10 @@ export const AdminPage: React.FC = () => {
 
                             {/* نطاق التغطية: أزرار سريعة + إدخال يدوي حر بالمتر */}
                             <div>
-                              <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center justify-between mb-1.5">
                                 <label className="text-[10px] text-slate-600 font-bold">نطاق التغطية التلقائي (نصف القطر):</label>
-                                <span className="text-[10px] text-indigo-700 font-black font-mono">
-                                  {parseFloat(newZoneRadius) >= 1000 ? `${(parseFloat(newZoneRadius) / 1000).toFixed(2)} كم` : `${newZoneRadius || 0} متر`}
-                                </span>
                               </div>
-                              <div className="flex items-center gap-1.5 flex-wrap">
+                              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
                                 {[
                                   { label: '500 م', val: '500' },
                                   { label: '1 كم', val: '1000' },
@@ -9560,9 +9561,9 @@ export const AdminPage: React.FC = () => {
                                     key={p.val}
                                     type="button"
                                     onClick={() => setNewZoneRadius(p.val)}
-                                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                                    className={`py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer text-center ${
                                       newZoneRadius === p.val
-                                        ? 'bg-indigo-600 text-white border-indigo-600'
+                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
                                     }`}
                                   >
@@ -9571,23 +9572,18 @@ export const AdminPage: React.FC = () => {
                                 ))}
                               </div>
 
-                              {/* حقل إدخال يدوي لأي نطاق رقمي مخصص بالمتر */}
-                              <div className="flex items-center gap-2 mt-2">
-                                <div className="relative flex-1">
-                                  <input
-                                    type="number"
-                                    min="50"
-                                    step="50"
-                                    placeholder="أو اكتب النطاق يدوياً بالمتر (مثال: 1200)..."
-                                    value={newZoneRadius}
-                                    onChange={e => setNewZoneRadius(e.target.value)}
-                                    className="w-full pr-3 pl-12 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-                                  />
-                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">
-                                    متر
-                                  </span>
-                                </div>
-                                <span className="text-[10px] font-black text-indigo-700 font-mono bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 rounded-lg shrink-0">
+                              {/* حقل إدخال يدوي لأي نطاق رقمي مخصص بالمتر مع مؤشر كم */}
+                              <div className="relative mt-2">
+                                <input
+                                  type="number"
+                                  min="50"
+                                  step="50"
+                                  placeholder="أو اكتب النطاق بالمتر (مثال: 1200)..."
+                                  value={newZoneRadius}
+                                  onChange={e => setNewZoneRadius(e.target.value)}
+                                  className="w-full pr-3 pl-20 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                                />
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-700 font-mono bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md pointer-events-none">
                                   {parseFloat(newZoneRadius) >= 1000 ? `${(parseFloat(newZoneRadius) / 1000).toFixed(2)} كم` : `${newZoneRadius || 0} م`}
                                 </span>
                               </div>
@@ -9670,22 +9666,28 @@ export const AdminPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsZonesDropdownOpen(prev => !prev)}
-                        className="w-full px-3.5 py-2.5 bg-slate-50/80 hover:bg-slate-100 flex items-center justify-between transition-colors cursor-pointer text-right"
+                        className="w-full px-3.5 py-2.5 bg-slate-50/90 hover:bg-slate-100/80 flex items-center justify-between gap-2 transition-colors cursor-pointer text-right"
                       >
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-indigo-600 shrink-0" />
-                          <span className="text-xs font-black text-slate-800">
-                            المناطق المضافة لهذا الفرع
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800 font-mono">
-                            {editDeliveryZones.length} {editDeliveryZones.length === 1 ? 'منطقة' : 'مناطق'}
-                          </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                            <MapPin className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-black text-slate-900 truncate">
+                              المناطق المضافة لهذا الفرع
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-bold">
+                              {editDeliveryZones.length === 0 ? 'لا توجد مناطق حالياً' : `${editDeliveryZones.length} مناطق مسجلة`}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5 text-slate-400">
-                          <span className="text-[10px] font-bold text-slate-500">
-                            {isZonesDropdownOpen ? 'إغلاق القائمة ▴' : 'عرض القائمة وتعديل المناطق ▾'}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[11px] font-black text-indigo-600 px-2 py-0.5 bg-indigo-50 border border-indigo-100 rounded-lg">
+                            {isZonesDropdownOpen ? 'طي' : 'عرض'}
                           </span>
-                          <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isZonesDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`} />
+                          <div className="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500">
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isZonesDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`} />
+                          </div>
                         </div>
                       </button>
 
