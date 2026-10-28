@@ -29,10 +29,7 @@ export async function syncRemoteServerConfig(): Promise<{ apiUrl: string; webUrl
 export const getPublicWebUrl = (): string => {
   if (typeof window === 'undefined') return 'https://unifood.store';
   try {
-    const custom = localStorage.getItem('unifood_pos_api_url');
-    if (custom && custom.trim()) {
-      return custom.trim().replace(/\/+$/, '').replace(/\/api\/?$/, '');
-    }
+    localStorage.removeItem('unifood_pos_api_url');
     const remoteWeb = localStorage.getItem('unifood_remote_web_url');
     if (remoteWeb && remoteWeb.trim()) return remoteWeb.trim();
     const remoteApi = localStorage.getItem('unifood_remote_api_url');
@@ -52,13 +49,8 @@ export const getApiHost = () => (typeof window !== 'undefined' ? window.location
 export const getApiBaseUrl = () => {
   if (typeof window === 'undefined') return 'https://unifood.store/api';
   try {
-    // 1. رابط يدوي مخصص تم تعيينه في إعدادات التطبيق
-    const custom = localStorage.getItem('unifood_pos_api_url');
-    if (custom && custom.trim()) {
-      const clean = custom.trim().replace(/\/+$/, '');
-      return clean.endsWith('/api') ? clean : `${clean}/api`;
-    }
-    // 2. الرابط المحدث لحظياً من GitHub (server-config.json)
+    localStorage.removeItem('unifood_pos_api_url');
+    // الرابط المحدث لحظياً من GitHub (server-config.json)
     const remote = localStorage.getItem('unifood_remote_api_url');
     if (remote && remote.trim()) {
       const clean = remote.trim().replace(/\/+$/, '');
