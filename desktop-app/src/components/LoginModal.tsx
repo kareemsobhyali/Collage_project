@@ -131,11 +131,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
-                onClick={() => handleApplyServerUrl('https://collage-project-5zby.onrender.com')}
+                onClick={() => handleApplyServerUrl('https://unifood.store')}
                 className="py-1.5 px-2 bg-indigo-600 text-white rounded-xl font-bold text-[11px] hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1"
               >
                 <span>السيرفر السحابي (Cloud)</span>
-                {API_BASE_URL.includes('onrender.com') && <Check className="w-3 h-3" />}
+                {API_BASE_URL.includes('unifood.store') && <Check className="w-3 h-3" />}
               </button>
               <button
                 type="button"

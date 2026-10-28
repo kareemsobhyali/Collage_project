@@ -68,7 +68,7 @@ jobs:
           INPUT_BASE_URL: ${{ github.event.inputs.base_url }}
         run: |
           CONFIG_URL=$(node -e "try { console.log(require('../app-config.json').baseUrl || ''); } catch(e) { console.log(''); }")
-          SERVER_URL="${INPUT_BASE_URL:-${CONFIG_URL:-https://collage-project-5zby.onrender.com}}"
+          SERVER_URL="${INPUT_BASE_URL:-${CONFIG_URL:-https://unifood.store}}"
           echo "Building APKs with fallback BASE_URL=$SERVER_URL (Dynamic config via GitHub app-config.json enabled)"
           gradle assembleRelease -PBASE_URL="$SERVER_URL" --no-daemon
 

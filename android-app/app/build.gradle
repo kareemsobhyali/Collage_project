@@ -2,7 +2,7 @@ plugins {
     id 'com.android.application'
 }
 
-def baseServerUrl = project.hasProperty('BASE_URL') ? project.property('BASE_URL').toString().replaceAll('/+$', '') : 'https://collage-project-5zby.onrender.com'
+def baseServerUrl = project.hasProperty('BASE_URL') ? project.property('BASE_URL').toString().replaceAll('/+$', '') : 'https://unifood.store'
 
 android {
     namespace 'com.unifood.app'

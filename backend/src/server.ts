@@ -360,8 +360,8 @@ app.get("/api/public/server-config", (_req, res) => {
   } catch (_e) {}
   res.json({
     success: true,
-    webUrl: "https://collage-project-5zby.onrender.com",
-    apiUrl: "https://collage-project-5zby.onrender.com/api",
+    webUrl: "https://unifood.store",
+    apiUrl: "https://unifood.store/api",
     githubConfigUrl: "https://raw.githubusercontent.com/kareemsobhyali/Collage_project/main/server-config.json",
   });
 });

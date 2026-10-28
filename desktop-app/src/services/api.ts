@@ -27,7 +27,7 @@ export async function syncRemoteServerConfig(): Promise<{ apiUrl: string; webUrl
 }
 
 export const getPublicWebUrl = (): string => {
-  if (typeof window === 'undefined') return 'https://collage-project-5zby.onrender.com';
+  if (typeof window === 'undefined') return 'https://unifood.store';
   try {
     const custom = localStorage.getItem('unifood_pos_api_url');
     if (custom && custom.trim()) {
@@ -44,13 +44,13 @@ export const getPublicWebUrl = (): string => {
   if (typeof window !== 'undefined' && window.location.origin && window.location.protocol !== 'file:') {
     return window.location.origin;
   }
-  return 'https://collage-project-5zby.onrender.com';
+  return 'https://unifood.store';
 };
 
 export const getApiHost = () => (typeof window !== 'undefined' ? window.location.hostname : 'localhost');
 
 export const getApiBaseUrl = () => {
-  if (typeof window === 'undefined') return 'https://collage-project-5zby.onrender.com/api';
+  if (typeof window === 'undefined') return 'https://unifood.store/api';
   try {
     // 1. رابط يدوي مخصص تم تعيينه في إعدادات التطبيق
     const custom = localStorage.getItem('unifood_pos_api_url');
@@ -68,7 +68,7 @@ export const getApiBaseUrl = () => {
 
   if ((import.meta as any).env?.VITE_API_URL) return `${(import.meta as any).env.VITE_API_URL}/api`;
   if (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null') {
-    return 'https://collage-project-5zby.onrender.com/api';
+    return 'https://unifood.store/api';
   }
   if (window.location.port === '5173' || window.location.port === '5174' || window.location.port === '3000') {
     return `http://${window.location.hostname || 'localhost'}:5000/api`;

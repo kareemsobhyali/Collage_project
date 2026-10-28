@@ -1,8 +1,8 @@
 {
-  "baseUrl": "https://collage-project-5zby.onrender.com",
+  "baseUrl": "https://unifood.store",
   "studentPath": "/",
   "driverPath": "/driver",
   "adminPath": "/admin",
   "restaurantPath": "/branch/",
-  "updatedAt": "2026-10-17"
+  "updatedAt": "2026-10-28"
 }

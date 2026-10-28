@@ -35,7 +35,7 @@ export const getApiBaseUrl = () => {
 
   if ((import.meta as any).env?.VITE_API_URL) return (import.meta as any).env.VITE_API_URL;
   if (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null') {
-    return 'https://collage-project-5zby.onrender.com/api';
+    return 'https://unifood.store/api';
   }
   if (window.location.port && window.location.port !== '5000' && window.location.port !== '80' && window.location.port !== '443') {
     return `http://${window.location.hostname}:5000/api`;

@@ -41,6 +41,7 @@ function getAppBaseUrl(req: Request): string {
     hostToCheck === "localhost" ||
     hostToCheck === "127.0.0.1" ||
     hostToCheck === "::1" ||
+    hostToCheck.endsWith("unifood.store") ||
     hostToCheck.endsWith(".onrender.com") ||
     hostToCheck.endsWith(".railway.app") ||
     (configuredWebUrl && configuredWebUrl.toLowerCase().includes(hostToCheck));
@@ -50,7 +51,7 @@ function getAppBaseUrl(req: Request): string {
     return `${protocol}://${candidateHost}`;
   }
 
-  return configuredWebUrl || "https://collage-project-5zby.onrender.com";
+  return configuredWebUrl || "https://unifood.store";
 }
 
 
