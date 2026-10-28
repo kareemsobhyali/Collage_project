@@ -347,28 +347,58 @@ export function findBranchForBanner(banner: any, branches: any[]): any | null {
 /**
  * استخراج بيانات الموقع الجغرافي ونطاق التغطية من اسم المنطقة
  * الصيغة المدعومة: اسم المنطقة [GPS:lat,lng,radiusMeters] أو اسم المنطقة
+ * مع دعم التخصيص الاتجاهي: [GPS:lat,lng,radiusMeters,DIR:N=3000,E=1500,S=1500,W=0]
  */
+export interface DirectionalCoverage {
+  north: number; // بالأمتار، 0 يعني التوصيل مغلق وغير متاح بهذا الاتجاه
+  east: number;
+  south: number;
+  west: number;
+}
+
 export interface ZoneGeoData {
   cleanName: string;
   lat?: number;
   lng?: number;
   radiusMeters?: number;
+  isDirectional?: boolean;
+  directions?: DirectionalCoverage;
 }
 
 export function extractZoneGeo(zoneName?: string | null): ZoneGeoData {
   if (!zoneName) return { cleanName: '' };
 
-  const match = zoneName.match(/\[GPS:([0-9.-]+),([0-9.-]+)(?:,([0-9.]+))?\]/);
-  if (match) {
-    const lat = parseFloat(match[1]);
-    const lng = parseFloat(match[2]);
-    const radiusMeters = match[3] ? parseFloat(match[3]) : undefined;
+  const tagMatch = zoneName.match(/\[GPS:([^\]]+)\]/);
+  if (tagMatch) {
+    const rawContent = tagMatch[1];
     const cleanName = zoneName.replace(/\[GPS:[^\]]+\]/g, '').trim();
+
+    let directions: DirectionalCoverage | undefined = undefined;
+    let isDirectional = false;
+
+    const dirMatch = rawContent.match(/DIR:N=([0-9.]+),E=([0-9.]+),S=([0-9.]+),W=([0-9.]+)/i);
+    if (dirMatch) {
+      directions = {
+        north: parseFloat(dirMatch[1]) || 0,
+        east: parseFloat(dirMatch[2]) || 0,
+        south: parseFloat(dirMatch[3]) || 0,
+        west: parseFloat(dirMatch[4]) || 0,
+      };
+      isDirectional = true;
+    }
+
+    const baseParts = rawContent.split(',DIR:')[0].split(',');
+    const lat = parseFloat(baseParts[0]);
+    const lng = parseFloat(baseParts[1]);
+    const radiusMeters = baseParts[2] ? parseFloat(baseParts[2]) : undefined;
+
     return {
       cleanName: cleanName || zoneName,
       lat: !isNaN(lat) ? lat : undefined,
       lng: !isNaN(lng) ? lng : undefined,
       radiusMeters: radiusMeters && !isNaN(radiusMeters) ? radiusMeters : undefined,
+      isDirectional,
+      directions,
     };
   }
 
@@ -386,12 +416,189 @@ export function formatZoneWithGeo(
   cleanName: string,
   lat?: number | null,
   lng?: number | null,
-  radiusMeters?: number | null
+  radiusMeters?: number | null,
+  directions?: DirectionalCoverage | null
 ): string {
   const base = cleanZoneName(cleanName).trim();
   if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
     const rad = typeof radiusMeters === 'number' && !isNaN(radiusMeters) ? Math.round(radiusMeters) : 1500;
+    if (
+      directions &&
+      (typeof directions.north === 'number' ||
+       typeof directions.east === 'number' ||
+       typeof directions.south === 'number' ||
+       typeof directions.west === 'number')
+    ) {
+      const n = Math.round(directions.north ?? rad);
+      const e = Math.round(directions.east ?? rad);
+      const s = Math.round(directions.south ?? rad);
+      const w = Math.round(directions.west ?? rad);
+      return `${base} [GPS:${lat.toFixed(6)},${lng.toFixed(6)},${rad},DIR:N=${n},E=${e},S=${s},W=${w}]`;
+    }
     return `${base} [GPS:${lat.toFixed(6)},${lng.toFixed(6)},${rad}]`;
   }
   return base;
+}
+
+/**
+ * حساب زاوية البوصلة (Bearing) بالدرجات من نقطة البداية إلى نقطة الهدف
+ * 0° = شمال، 90° = شرق، 180° = جنوب، 270° = غرب
+ */
+export function calculateBearingDegrees(fromLat: number, fromLng: number, toLat: number, toLng: number): number {
+  const lat1 = (fromLat * Math.PI) / 180;
+  const lat2 = (toLat * Math.PI) / 180;
+  const dLon = ((toLng - fromLng) * Math.PI) / 180;
+
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  const bearingRad = Math.atan2(y, x);
+  const bearingDeg = (bearingRad * 180) / Math.PI;
+  return (bearingDeg + 360) % 360;
+}
+
+/**
+ * معرفة الاتجاه الأساسي (شمال، شرق، جنوب، غرب) بناءً على زاوية البوصلة
+ */
+export function getDirectionForBearing(bearingDeg: number): 'north' | 'east' | 'south' | 'west' {
+  const norm = ((bearingDeg % 360) + 360) % 360;
+  if (norm >= 315 || norm < 45) return 'north';
+  if (norm >= 45 && norm < 135) return 'east';
+  if (norm >= 135 && norm < 225) return 'south';
+  return 'west';
+}
+
+/**
+ * حساب أقصى نصف قطر مسموح عند زاوية معينة مع التنعيم الانسيابي بين الاتجاهات
+ */
+export function getAllowedRadiusAtBearing(
+  bearingDeg: number,
+  baseRadius: number,
+  directions?: DirectionalCoverage
+): number {
+  if (!directions) return baseRadius;
+
+  const theta = ((bearingDeg % 360) + 360) % 360;
+
+  let rA: number, rB: number, tA: number, tB: number;
+  if (theta >= 0 && theta < 90) {
+    tA = 0; tB = 90;
+    rA = directions.north; rB = directions.east;
+  } else if (theta >= 90 && theta < 180) {
+    tA = 90; tB = 180;
+    rA = directions.east; rB = directions.south;
+  } else if (theta >= 180 && theta < 270) {
+    tA = 180; tB = 270;
+    rA = directions.south; rB = directions.west;
+  } else {
+    tA = 270; tB = 360;
+    rA = directions.west; rB = directions.north;
+  }
+
+  const progress = (theta - tA) / (tB - tA);
+  const factor = (1 - Math.cos(progress * Math.PI)) / 2;
+  return Math.max(0, rA + factor * (rB - rA));
+}
+
+/**
+ * التحقق مما إذا كان موقع العميل يقع داخل نطاق التغطية الجغرافي للمنطقة (مع فحص الاتجاهات)
+ */
+export function isCustomerWithinZoneGeo(
+  custLat: number,
+  custLng: number,
+  zoneGeo: ZoneGeoData
+): { isCovered: boolean; distanceMeters: number; maxAllowedMeters: number; reason?: string } {
+  if (typeof zoneGeo.lat !== 'number' || typeof zoneGeo.lng !== 'number') {
+    return { isCovered: true, distanceMeters: 0, maxAllowedMeters: Infinity };
+  }
+
+  const distance = calculateDistanceMeters(zoneGeo.lat, zoneGeo.lng, custLat, custLng);
+  const baseRadius = zoneGeo.radiusMeters || 1500;
+
+  if (!zoneGeo.isDirectional || !zoneGeo.directions) {
+    const isCovered = distance <= baseRadius;
+    return {
+      isCovered,
+      distanceMeters: distance,
+      maxAllowedMeters: baseRadius,
+      reason: !isCovered ? `المسافة (${formatDistance(distance)}) أكبر من نصف قطر التغطية (${formatDistance(baseRadius)})` : undefined
+    };
+  }
+
+  const bearing = calculateBearingDegrees(zoneGeo.lat, zoneGeo.lng, custLat, custLng);
+  const cardinal = getDirectionForBearing(bearing);
+  const cardinalRadius = zoneGeo.directions[cardinal];
+
+  const cardinalNames = {
+    north: 'الشمال',
+    east: 'الشرق',
+    south: 'الجنوب',
+    west: 'الغرب'
+  };
+
+  // إذا كان التوصيل مغلقاً تماماً في هذا الاتجاه
+  if (cardinalRadius === 0) {
+    return {
+      isCovered: false,
+      distanceMeters: distance,
+      maxAllowedMeters: 0,
+      reason: `التوصيل غير متاح حالياً باتجاه ${cardinalNames[cardinal]}`
+    };
+  }
+
+  const allowedRadius = getAllowedRadiusAtBearing(bearing, baseRadius, zoneGeo.directions);
+  const isCovered = distance <= allowedRadius;
+
+  return {
+    isCovered,
+    distanceMeters: distance,
+    maxAllowedMeters: Math.round(allowedRadius),
+    reason: !isCovered
+      ? `المسافة (${formatDistance(distance)}) تتجاوز الحد المسموح باتجاه ${cardinalNames[cardinal]} (${formatDistance(Math.round(allowedRadius))})`
+      : undefined
+  };
+}
+
+/**
+ * توليد مصفوفة نقاط مضلع التغطية [lat, lng] لرسمها على خريطة Leaflet
+ */
+export function generateCoveragePolygonPoints(
+  centerLat: number,
+  centerLng: number,
+  baseRadius: number,
+  directions?: DirectionalCoverage,
+  steps: number = 72
+): [number, number][] {
+  const points: [number, number][] = [];
+  const R = 6371000; // نصف قطر الأرض بالمتر
+  const lat1 = (centerLat * Math.PI) / 180;
+  const lon1 = (centerLng * Math.PI) / 180;
+
+  for (let i = 0; i < steps; i++) {
+    const bearingDeg = (i * 360) / steps;
+    const rad = getAllowedRadiusAtBearing(bearingDeg, baseRadius, directions);
+
+    if (rad <= 1) {
+      points.push([centerLat, centerLng]);
+      continue;
+    }
+
+    const angularDist = rad / R;
+    const bearingRad = (bearingDeg * Math.PI) / 180;
+
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(angularDist) +
+      Math.cos(lat1) * Math.sin(angularDist) * Math.cos(bearingRad)
+    );
+    const lon2 = lon1 + Math.atan2(
+      Math.sin(bearingRad) * Math.sin(angularDist) * Math.cos(lat1),
+      Math.cos(angularDist) - Math.sin(lat1) * Math.sin(lat2)
+    );
+
+    points.push([
+      Number(((lat2 * 180) / Math.PI).toFixed(6)),
+      Number(((lon2 * 180) / Math.PI).toFixed(6))
+    ]);
+  }
+
+  return points;
 }

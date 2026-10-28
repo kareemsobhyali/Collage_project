@@ -39,6 +39,8 @@ import {
   cleanZoneName,
   extractZoneGeo,
   calculateDistanceMeters,
+  isCustomerWithinZoneGeo,
+  formatDistance,
 } from '../services/campusLocations';
 
 interface CartCheckoutModalProps {
@@ -464,7 +466,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     return branch.deliveryZones.find((z: any) => z.id === selectedZoneId) || branch.deliveryZones[0];
   }, [hasZones, branch.deliveryZones, selectedZoneId]);
 
-  // مطابقة منطقة التوصيل الأقرب تلقائياً عند تحديد موقع العميل بالـ GPS أو اكتشاف اسم المنطقة
+  // مطابقة منطقة التوصيل الأقرب تلقائياً عند تحديد موقع العميل بالـ GPS أو اكتشاف اسم المنطقة مع مراعاة النطاق والاتجاهات
   useEffect(() => {
     if (!hasZones || !capturedCoords || !branch.deliveryZones?.length) return;
 
@@ -474,10 +476,9 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     for (const zone of branch.deliveryZones) {
       const geo = extractZoneGeo(zone.name);
       if (typeof geo.lat === 'number' && typeof geo.lng === 'number') {
-        const dist = calculateDistanceMeters(capturedCoords.lat, capturedCoords.lng, geo.lat, geo.lng);
-        const radius = geo.radiusMeters || 1500;
-        if (dist <= radius && dist < minDistance) {
-          minDistance = dist;
+        const coverage = isCustomerWithinZoneGeo(capturedCoords.lat, capturedCoords.lng, geo);
+        if (coverage.isCovered && coverage.distanceMeters < minDistance) {
+          minDistance = coverage.distanceMeters;
           bestZoneId = zone.id;
         }
       } else if (detectedPlaceLabel && geo.cleanName) {
@@ -2095,7 +2096,12 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             <div className="space-y-2 overflow-y-auto py-1 flex-1">
               {branch.deliveryZones.map((zone: any) => {
                 const isSelected = selectedZoneId === zone.id;
-                const cleanName = cleanZoneName(zone.name);
+                const geo = extractZoneGeo(zone.name);
+                const cleanName = geo.cleanName;
+                const coverage = (capturedCoords && geo.lat && geo.lng)
+                  ? isCustomerWithinZoneGeo(capturedCoords.lat, capturedCoords.lng, geo)
+                  : null;
+
                 return (
                   <button
                     key={zone.id}
@@ -2110,7 +2116,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                         : 'border-slate-200 hover:bg-slate-50/80 bg-white'
                     }`}
                   >
-                    <div className="flex items-center gap-3.5">
+                    <div className="flex items-center gap-3.5 min-w-0">
                       {/* Radio Circle - Blue circle when checked (matching screenshot 4) */}
                       <div
                         className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
@@ -2123,16 +2129,31 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                           <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
                         )}
                       </div>
-                      <span
-                        className={`text-sm sm:text-base font-bold ${
-                          isSelected ? 'text-indigo-950 font-black' : 'text-slate-800'
-                        }`}
-                      >
-                        {cleanName}
-                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`text-sm sm:text-base font-bold ${
+                              isSelected ? 'text-indigo-950 font-black' : 'text-slate-800'
+                            }`}
+                          >
+                            {cleanName}
+                          </span>
+                          {coverage && (
+                            coverage.isCovered ? (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ضمن نطاقك ({formatDistance(coverage.distanceMeters)})
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                {coverage.reason || 'خارج النطاق'}
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <span className="font-mono text-sm font-black text-indigo-700 shrink-0">
+                    <span className="font-mono text-sm font-black text-indigo-700 shrink-0 mr-2">
                       (+{zone.fee} ج.م)
                     </span>
                   </button>

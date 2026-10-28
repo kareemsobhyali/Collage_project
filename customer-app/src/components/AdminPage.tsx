@@ -22,6 +22,7 @@ import {
   Save, 
   RotateCw,
   MapPin,
+  Compass,
   Trash2,
   Edit2,
   ShoppingBag,
@@ -79,7 +80,7 @@ import {
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { isRunningInNativeApk, openExternalLink } from '../services/notifications';
 import { Logo } from './Logo';
-import { cleanAddressText, getDisplayAddress, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark, extractZoneGeo, cleanZoneName, formatZoneWithGeo } from '../services/campusLocations';
+import { cleanAddressText, getDisplayAddress, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark, extractZoneGeo, cleanZoneName, formatZoneWithGeo, type DirectionalCoverage, formatDistance, isCustomerWithinZoneGeo } from '../services/campusLocations';
 import { LocationPickerModal } from './LocationPickerModal';
 const QUICK_ADMIN_CANCEL_REASONS = [
   'المطعم مغلق حالياً',
@@ -677,6 +678,8 @@ export const AdminPage: React.FC = () => {
   const [newZoneLat, setNewZoneLat] = useState<string>('');
   const [newZoneLng, setNewZoneLng] = useState<string>('');
   const [newZoneRadius, setNewZoneRadius] = useState<string>('1500');
+  const [newZoneDirections, setNewZoneDirections] = useState<DirectionalCoverage | null>(null);
+  const [newZoneIsDirectional, setNewZoneIsDirectional] = useState<boolean>(false);
   const [showZoneGeoSettings, setShowZoneGeoSettings] = useState<boolean>(false);
   const [zoneGpsLoading, setZoneGpsLoading] = useState<boolean>(false);
   const [editingZoneIndex, setEditingZoneIndex] = useState<number | null>(null);
@@ -688,6 +691,8 @@ export const AdminPage: React.FC = () => {
   const [globalZoneLat, setGlobalZoneLat] = useState<string>('');
   const [globalZoneLng, setGlobalZoneLng] = useState<string>('');
   const [globalZoneRadius, setGlobalZoneRadius] = useState<string>('1500');
+  const [globalZoneDirections, setGlobalZoneDirections] = useState<DirectionalCoverage | null>(null);
+  const [globalZoneIsDirectional, setGlobalZoneIsDirectional] = useState<boolean>(false);
   const [showGlobalZoneGeo, setShowGlobalZoneGeo] = useState<boolean>(false);
   const [globalZoneTargetType, setGlobalZoneTargetType] = useState<'ALL' | 'SPECIFIC'>('ALL');
   const [selectedBranchIdsForZone, setSelectedBranchIdsForZone] = useState<string[]>([]);
@@ -2535,6 +2540,8 @@ export const AdminPage: React.FC = () => {
       lat: number | null;
       lng: number | null;
       radiusMeters: number | null;
+      directions?: DirectionalCoverage | null;
+      isDirectional?: boolean;
       branches: {
         branchId: string;
         branchName: string;
@@ -2556,6 +2563,8 @@ export const AdminPage: React.FC = () => {
               lat: geo.lat ?? null,
               lng: geo.lng ?? null,
               radiusMeters: geo.radiusMeters ?? null,
+              directions: geo.directions ?? null,
+              isDirectional: Boolean(geo.isDirectional),
               branches: []
             });
           }
@@ -2564,6 +2573,8 @@ export const AdminPage: React.FC = () => {
             entry.lat = geo.lat ?? null;
             entry.lng = geo.lng ?? null;
             entry.radiusMeters = geo.radiusMeters ?? null;
+            entry.directions = geo.directions ?? null;
+            entry.isDirectional = Boolean(geo.isDirectional);
             entry.sampleFullName = z.name;
           }
           entry.branches.push({
@@ -2605,7 +2616,8 @@ export const AdminPage: React.FC = () => {
       globalZoneName.trim(),
       !isNaN(lat) ? lat : null,
       !isNaN(lng) ? lng : null,
-      radius
+      radius,
+      globalZoneIsDirectional ? globalZoneDirections : null
     );
     const cleanCurrentName = cleanZoneName(globalZoneName.trim()).toLowerCase();
 
@@ -2651,6 +2663,8 @@ export const AdminPage: React.FC = () => {
       setGlobalZoneLat('');
       setGlobalZoneLng('');
       setGlobalZoneRadius('1500');
+      setGlobalZoneDirections(null);
+      setGlobalZoneIsDirectional(false);
       setShowGlobalZoneGeo(false);
       setEditingGlobalZoneKey(null);
       setSelectedBranchIdsForZone([]);
@@ -2714,6 +2728,8 @@ export const AdminPage: React.FC = () => {
     setGlobalZoneLat(masterZone.lat !== null && masterZone.lat !== undefined ? String(masterZone.lat) : '');
     setGlobalZoneLng(masterZone.lng !== null && masterZone.lng !== undefined ? String(masterZone.lng) : '');
     setGlobalZoneRadius(masterZone.radiusMeters ? String(masterZone.radiusMeters) : '1500');
+    setGlobalZoneDirections(masterZone.directions || null);
+    setGlobalZoneIsDirectional(Boolean(masterZone.isDirectional));
     setShowGlobalZoneGeo(Boolean(masterZone.lat && masterZone.lng));
     
     const linkedBranchIds = masterZone.branches.map((b: any) => b.branchId);
@@ -2753,6 +2769,8 @@ export const AdminPage: React.FC = () => {
     setNewZoneLat('');
     setNewZoneLng('');
     setNewZoneRadius('1500');
+    setNewZoneDirections(null);
+    setNewZoneIsDirectional(false);
     setShowZoneGeoSettings(false);
     setIsZonesDropdownOpen(true);
     setEditAllowDelivery(branch.allowDelivery ?? true);
@@ -3728,11 +3746,30 @@ export const AdminPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setLocationPickerTarget('GLOBAL_ZONE')}
-                        className="w-full py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer shadow-2xs"
+                        className="w-full py-2.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer shadow-2xs"
                       >
-                        <MapPin className="w-4 h-4 text-purple-600" />
-                        <span>🗺️ فتح الخريطة والبحث عن العنوان لاختياره</span>
+                        <MapPin className="w-4 h-4 text-indigo-600" />
+                        <span>🗺️ فتح الخريطة لتحديد الموقع ونطاق التغطية الدائري والاتجاهات</span>
                       </button>
+
+                      {globalZoneIsDirectional && globalZoneDirections && (
+                        <div className="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs flex items-center justify-between gap-2 mt-2">
+                          <div className="flex items-center gap-1.5 font-bold text-indigo-950 min-w-0">
+                            <Compass className="w-4 h-4 text-indigo-600 shrink-0" />
+                            <span className="truncate">تغطية مخصصة:</span>
+                            <span className="font-mono text-[10px] sm:text-[11px] text-indigo-700 truncate">
+                              ⬆️ {globalZoneDirections.north > 0 ? formatDistance(globalZoneDirections.north) : 'مغلق 🚫'} | ➡️ {globalZoneDirections.east > 0 ? formatDistance(globalZoneDirections.east) : 'مغلق 🚫'} | ⬇️ {globalZoneDirections.south > 0 ? formatDistance(globalZoneDirections.south) : 'مغلق 🚫'} | ⬅️ {globalZoneDirections.west > 0 ? formatDistance(globalZoneDirections.west) : 'مغلق 🚫'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setLocationPickerTarget('GLOBAL_ZONE')}
+                            className="text-[11px] font-black text-indigo-700 hover:text-indigo-900 underline shrink-0 cursor-pointer"
+                          >
+                            تعديل الخريطة
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Geo Settings Toggle / Coords */}
@@ -4057,9 +4094,17 @@ export const AdminPage: React.FC = () => {
                                         يخدمها {zone.branches.length} {zone.branches.length === 1 ? 'مطعم' : 'مطاعم'}
                                       </span>
                                       {zone.lat && zone.lng ? (
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                                          <span>📍 نطاق {(zone.radiusMeters ? zone.radiusMeters / 1000 : 1.5).toFixed(1)} كم</span>
-                                        </span>
+                                        <>
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                            <span>📍 نطاق {(zone.radiusMeters ? zone.radiusMeters / 1000 : 1.5).toFixed(1)} كم</span>
+                                          </span>
+                                          {zone.isDirectional && (
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                                              <Compass className="w-3 h-3 text-purple-600" />
+                                              <span>اتجاهات مخصصة</span>
+                                            </span>
+                                          )}
+                                        </>
                                       ) : (
                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">
                                           بدون إحداثيات
@@ -4079,6 +4124,18 @@ export const AdminPage: React.FC = () => {
 
                                 {/* Actions */}
                                 <div className="flex items-center gap-1.5 w-full sm:w-auto pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleEditGlobalZone(zone);
+                                      setLocationPickerTarget('GLOBAL_ZONE');
+                                    }}
+                                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
+                                    title="فتح الخريطة وعرض نطاق التغطية الدائري أو المخصص لهذه المنطقة"
+                                  >
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    <span>الخريطة والنطاق</span>
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => setExpandedMasterZoneKey(isExpanded ? null : zone.cleanName)}
@@ -9515,8 +9572,27 @@ export const AdminPage: React.FC = () => {
                         className="w-full py-2.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer shadow-2xs"
                       >
                         <MapPin className="w-4 h-4 text-indigo-600 shrink-0" />
-                        <span>فتح الخريطة لتحديد موقع المنطقة أو البحث عنها</span>
+                        <span>🗺️ فتح الخريطة لتحديد موقع المنطقة والتحكم بنطاق التغطية والاتجاهات</span>
                       </button>
+
+                      {newZoneIsDirectional && newZoneDirections && (
+                        <div className="p-2 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1 font-bold text-indigo-950 truncate">
+                            <Compass className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            <span className="truncate">تغطية مخصصة:</span>
+                            <span className="font-mono text-[10px] text-indigo-700 truncate">
+                              ⬆️{newZoneDirections.north > 0 ? formatDistance(newZoneDirections.north) : 'مغلق'} | ➡️{newZoneDirections.east > 0 ? formatDistance(newZoneDirections.east) : 'مغلق'} | ⬇️{newZoneDirections.south > 0 ? formatDistance(newZoneDirections.south) : 'مغلق'} | ⬅️{newZoneDirections.west > 0 ? formatDistance(newZoneDirections.west) : 'مغلق'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setLocationPickerTarget('BRANCH_ZONE')}
+                            className="text-[10px] font-black text-indigo-700 hover:text-indigo-900 underline shrink-0 cursor-pointer"
+                          >
+                            تعديل الخريطة
+                          </button>
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-2">
                         <input
@@ -9678,7 +9754,13 @@ export const AdminPage: React.FC = () => {
                             const lat = parseFloat(newZoneLat);
                             const lng = parseFloat(newZoneLng);
                             const radius = parseFloat(newZoneRadius) || 1500;
-                            const formattedName = formatZoneWithGeo(newZoneName.trim(), !isNaN(lat) ? lat : null, !isNaN(lng) ? lng : null, radius);
+                            const formattedName = formatZoneWithGeo(
+                              newZoneName.trim(),
+                              !isNaN(lat) ? lat : null,
+                              !isNaN(lng) ? lng : null,
+                              radius,
+                              newZoneIsDirectional ? newZoneDirections : null
+                            );
                             const feeVal = parseFloat(newZoneFee) || 10;
 
                             if (editingZoneIndex !== null) {
@@ -9692,6 +9774,8 @@ export const AdminPage: React.FC = () => {
                             setNewZoneLat('');
                             setNewZoneLng('');
                             setNewZoneRadius('1500');
+                            setNewZoneDirections(null);
+                            setNewZoneIsDirectional(false);
                             setShowZoneGeoSettings(false);
                           }}
                           className={`h-9 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
@@ -9797,9 +9881,17 @@ export const AdminPage: React.FC = () => {
                                               {z.fee} ج.م
                                             </span>
                                             {geo.lat && geo.lng ? (
-                                              <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md text-[9px] font-black shrink-0 flex items-center gap-1">
-                                                <span>📍 نطاق {(geo.radiusMeters ? geo.radiusMeters / 1000 : 1.5).toFixed(1)} كم</span>
-                                              </span>
+                                              <>
+                                                <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md text-[9px] font-black shrink-0 flex items-center gap-1">
+                                                  <span>📍 نطاق {(geo.radiusMeters ? geo.radiusMeters / 1000 : 1.5).toFixed(1)} كم</span>
+                                                </span>
+                                                {geo.isDirectional && (
+                                                  <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-md text-[9px] font-black shrink-0 flex items-center gap-0.5">
+                                                    <Compass className="w-2.5 h-2.5 text-purple-600" />
+                                                    <span>مخصص</span>
+                                                  </span>
+                                                )}
+                                              </>
                                             ) : (
                                               <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[9px] font-bold shrink-0">
                                                 بدون خريطة
@@ -9809,7 +9901,7 @@ export const AdminPage: React.FC = () => {
                                         </div>
                                       </div>
 
-                                      {/* Right: Actions (Edit & Delete) */}
+                                      {/* Right: Actions (Map View, Edit & Delete) */}
                                       <div className="flex items-center gap-1 shrink-0">
                                         <button
                                           type="button"
@@ -9820,6 +9912,28 @@ export const AdminPage: React.FC = () => {
                                             setNewZoneLat(geo.lat ? String(geo.lat) : '');
                                             setNewZoneLng(geo.lng ? String(geo.lng) : '');
                                             setNewZoneRadius(geo.radiusMeters ? String(geo.radiusMeters) : '1500');
+                                            setNewZoneDirections(geo.directions || null);
+                                            setNewZoneIsDirectional(Boolean(geo.isDirectional));
+                                            setShowZoneGeoSettings(true);
+                                            setLocationPickerTarget('BRANCH_ZONE');
+                                          }}
+                                          className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                                          title="فتح الخريطة وعرض نطاق هذه المنطقة"
+                                        >
+                                          <MapPin className="w-3 h-3 text-purple-600" />
+                                          <span>الخريطة والنطاق</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingZoneIndex(z.originalIndex);
+                                            setNewZoneName(geo.cleanName);
+                                            setNewZoneFee(String(z.fee));
+                                            setNewZoneLat(geo.lat ? String(geo.lat) : '');
+                                            setNewZoneLng(geo.lng ? String(geo.lng) : '');
+                                            setNewZoneRadius(geo.radiusMeters ? String(geo.radiusMeters) : '1500');
+                                            setNewZoneDirections(geo.directions || null);
+                                            setNewZoneIsDirectional(Boolean(geo.isDirectional));
                                             setShowZoneGeoSettings(Boolean(geo.lat && geo.lng));
                                           }}
                                           className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
@@ -13287,10 +13401,29 @@ export const AdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* Interactive Location Picker Modal with Autocomplete Search */}
+      {/* Interactive Location Picker Modal with Autocomplete Search & Directional Coverage */}
       <LocationPickerModal
         isOpen={locationPickerTarget !== null}
         onClose={() => setLocationPickerTarget(null)}
+        mode={
+          locationPickerTarget === 'BRANCH_ZONE' || locationPickerTarget === 'GLOBAL_ZONE'
+            ? 'ZONE'
+            : 'POINT'
+        }
+        initialRadius={
+          locationPickerTarget === 'BRANCH_ZONE'
+            ? (parseFloat(newZoneRadius) || 1500)
+            : locationPickerTarget === 'GLOBAL_ZONE'
+            ? (parseFloat(globalZoneRadius) || 1500)
+            : 1500
+        }
+        initialDirections={
+          locationPickerTarget === 'BRANCH_ZONE'
+            ? (newZoneDirections || undefined)
+            : locationPickerTarget === 'GLOBAL_ZONE'
+            ? (globalZoneDirections || undefined)
+            : undefined
+        }
         initialLat={
           locationPickerTarget === 'NEW_BRANCH' ? newLat :
           locationPickerTarget === 'EDIT_BRANCH' ? editLat :
@@ -13315,10 +13448,10 @@ export const AdminPage: React.FC = () => {
             : locationPickerTarget === 'EDIT_BRANCH'
             ? `تحديد موقع فرع ${editName || ''} على الخريطة`
             : locationPickerTarget === 'BRANCH_ZONE'
-            ? 'تحديد موقع منطقة التوصيل والبحث عنها على الخريطة'
-            : 'تحديد موقع المنطقة المركزية والبحث عنها على الخريطة'
+            ? 'تحديد مركز ونطاق تغطية منطقة التوصيل والاتجاهات على الخريطة'
+            : 'تحديد مركز ونطاق تغطية المنطقة المركزية والاتجاهات على الخريطة'
         }
-        onConfirm={({ lat, lng, address }) => {
+        onConfirm={({ lat, lng, address, radiusMeters, directions, isDirectional }) => {
           if (locationPickerTarget === 'NEW_BRANCH') {
             setNewLat(lat);
             setNewLng(lng);
@@ -13334,6 +13467,9 @@ export const AdminPage: React.FC = () => {
           } else if (locationPickerTarget === 'BRANCH_ZONE') {
             if (lat !== null) setNewZoneLat(lat.toFixed(6));
             if (lng !== null) setNewZoneLng(lng.toFixed(6));
+            if (radiusMeters) setNewZoneRadius(String(Math.round(radiusMeters)));
+            setNewZoneDirections(directions || null);
+            setNewZoneIsDirectional(Boolean(isDirectional));
             if (address && !newZoneName.trim()) {
               setNewZoneName(cleanAddressText(address));
             }
@@ -13341,6 +13477,9 @@ export const AdminPage: React.FC = () => {
           } else if (locationPickerTarget === 'GLOBAL_ZONE') {
             if (lat !== null) setGlobalZoneLat(lat.toFixed(6));
             if (lng !== null) setGlobalZoneLng(lng.toFixed(6));
+            if (radiusMeters) setGlobalZoneRadius(String(Math.round(radiusMeters)));
+            setGlobalZoneDirections(directions || null);
+            setGlobalZoneIsDirectional(Boolean(isDirectional));
             if (address && !globalZoneName.trim()) {
               setGlobalZoneName(cleanAddressText(address));
             }
