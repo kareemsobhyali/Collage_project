@@ -31,6 +31,7 @@ import {
   Search,
   Clock,
   Eye,
+  EyeOff,
   Check,
   Building,
   Smartphone,
@@ -75,7 +76,7 @@ import {
 
 
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
-import { isRunningInNativeApk, triggerInstallApp, openExternalLink } from '../services/notifications';
+import { isRunningInNativeApk, openExternalLink } from '../services/notifications';
 import { Logo } from './Logo';
 import { cleanAddressText, getDisplayAddress, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark } from '../services/campusLocations';
 import { LocationPickerModal } from './LocationPickerModal';
@@ -200,6 +201,9 @@ export const AdminPage: React.FC = () => {
   const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
   const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState<string | null>(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Notification Sound Customization Settings
   const [soundSettings, setSoundSettings] = useState<{
@@ -3313,21 +3317,6 @@ export const AdminPage: React.FC = () => {
                         >
                           <Share2 className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
                           <span>رابط مباشر</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                            const apkLink = `${origin}/${branch.slug || branch.id}/apk`;
-                            navigator.clipboard.writeText(apkLink);
-                            alert(`تم نسخ رابط صفحة تثبيت تطبيق (${branch.name}) بنجاح:\n${apkLink}`);
-                          }}
-                          className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 px-2.5 py-2 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition-all border border-emerald-200 shadow-2xs active:scale-95"
-                          title="نسخ رابط صفحة تثبيت التطبيق المخصصة للمطعم (لوجو وبيانات التطبيق)"
-                        >
-                          <Smartphone className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                          <span>صفحة التثبيت (APK)</span>
                         </button>
                       </div>
                     </div>
@@ -6611,17 +6600,17 @@ export const AdminPage: React.FC = () => {
         {activeTab === 'SETTINGS' && (
           <div className="space-y-6">
             {/* Header info banner */}
-            <div className="bg-gradient-to-r from-purple-900/40 via-white to-indigo-900/40 border border-purple-500/30 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+            <div className="bg-gradient-to-r from-purple-50 via-indigo-50/60 to-white border border-purple-200/70 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/25 flex items-center justify-center shrink-0">
                   <Settings className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
                     إعدادات النظام وأمان المنظومة
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    التحكم في نظام نقاط الولاء والمكافآت، وتغيير كلمة مرور حساب الإدارة الرئيسية (SuperAdmin)
+                  <p className="text-xs text-slate-600 mt-1">
+                    التحكم في نظام نقاط الولاء والمكافآت، قنوات التواصل، وتأمين حساب الإدارة الرئيسية
                   </p>
                 </div>
               </div>
@@ -6629,10 +6618,10 @@ export const AdminPage: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
               {/* Card 1: Loyalty Points Settings */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-6">
+              <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center shrink-0">
                       <Gift className="w-5 h-5" />
                     </div>
                     <div>
@@ -6641,10 +6630,10 @@ export const AdminPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <span className={`px-3 py-1 rounded-full text-[11px] font-bold border ${
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border shrink-0 ${
                     loyaltySettings.enabled 
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
-                      : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
                   }`}>
                     {loyaltySettings.enabled ? '● النظام مفعّل' : '○ النظام معطّل'}
                   </span>
@@ -6666,7 +6655,7 @@ export const AdminPage: React.FC = () => {
                         onChange={(e) => setLoyaltySettings({ ...loyaltySettings, enabled: e.target.checked })}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                     </label>
                   </div>
 
@@ -6674,7 +6663,7 @@ export const AdminPage: React.FC = () => {
                   <div className="space-y-4">
                     {/* Points Redemption Rate */}
                     <div>
-                      <label className="text-xs font-bold text-slate-600 block mb-1.5">
+                      <label className="text-xs font-bold text-slate-700 block mb-1.5">
                         سعر استبدال النقطة بالجنيه (EGP لكل نقطة)
                       </label>
                       <div className="relative">
@@ -6684,13 +6673,15 @@ export const AdminPage: React.FC = () => {
                           min="0.001"
                           value={loyaltySettings.pointsRedemptionRate}
                           onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsRedemptionRate: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-3.5 pl-24 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                           required
                         />
-                        <span className="absolute left-3.5 top-2.5 text-xs text-slate-500 font-mono">ج.م / نقطة</span>
+                        <span className="absolute left-3 top-2.5 text-[11px] text-slate-500 font-bold bg-slate-200/60 px-2 py-0.5 rounded-md">
+                          ج.م / نقطة
+                        </span>
                       </div>
-                      <div className="mt-2 p-2.5 bg-purple-50 border border-purple-200/40 rounded-xl text-[11px] text-purple-700 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+                      <div className="mt-2 p-2.5 bg-purple-50/70 border border-purple-200/60 rounded-xl text-[11px] text-purple-800 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
                         <span>
                           مثال عملي: كل <strong>100 نقطة</strong> تعادل حالياً <strong>{(100 * loyaltySettings.pointsRedemptionRate).toFixed(1)} جنيه</strong> في محفظة العميل.
                         </span>
@@ -6699,7 +6690,7 @@ export const AdminPage: React.FC = () => {
 
                     {/* Min Points to Redeem */}
                     <div>
-                      <label className="text-xs font-bold text-slate-600 block mb-1.5">
+                      <label className="text-xs font-bold text-slate-700 block mb-1.5">
                         الحد الأدنى للنقاط المطلوب للاستبدال
                       </label>
                       <input
@@ -6708,7 +6699,7 @@ export const AdminPage: React.FC = () => {
                         step="1"
                         value={loyaltySettings.minPointsToRedeem}
                         onChange={(e) => setLoyaltySettings({ ...loyaltySettings, minPointsToRedeem: parseInt(e.target.value) || 0 })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                         required
                       />
                       <span className="text-[10px] text-slate-500 block mt-1">
@@ -6719,7 +6710,7 @@ export const AdminPage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Points per pound spent */}
                       <div>
-                        <label className="text-xs font-bold text-slate-600 block mb-1.5">
+                        <label className="text-xs font-bold text-slate-700 block mb-1.5">
                           النقاط المكتسبة لكل جنيه مصروف
                         </label>
                         <input
@@ -6728,7 +6719,7 @@ export const AdminPage: React.FC = () => {
                           step="1"
                           value={loyaltySettings.pointsPerPound}
                           onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsPerPound: parseInt(e.target.value) || 0 })}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                           required
                         />
                         <span className="text-[10px] text-slate-500 block mt-1">
@@ -6738,7 +6729,7 @@ export const AdminPage: React.FC = () => {
 
                       {/* Welcome Points */}
                       <div>
-                        <label className="text-xs font-bold text-slate-600 block mb-1.5">
+                        <label className="text-xs font-bold text-slate-700 block mb-1.5">
                           نقاط ترحيبية عند التسجيل
                         </label>
                         <input
@@ -6747,7 +6738,7 @@ export const AdminPage: React.FC = () => {
                           step="1"
                           value={loyaltySettings.welcomePoints}
                           onChange={(e) => setLoyaltySettings({ ...loyaltySettings, welcomePoints: parseInt(e.target.value) || 0 })}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                           required
                         />
                         <span className="text-[10px] text-slate-500 block mt-1">
@@ -6758,16 +6749,16 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   {/* Fraud prevention callout */}
-                  <div className="p-3 bg-emerald-50 border border-emerald-200/40 rounded-xl flex items-start gap-2.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-emerald-700/90 leading-relaxed">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-emerald-800 leading-relaxed">
                       <strong>أمان النقاط مفعل برمجياً:</strong> يتم احتساب وإضافة النقاط إلى حساب العميل فقط وفور تحويل حالة الطلب إلى <strong>(تم التسليم بنجاح / COMPLETED)</strong>، مما يمنع نهائياً أي تحايل عبر إنشاء طلبات وهمية أو ملغاة.
                     </p>
                   </div>
 
                   {loyaltySaveSuccess && (
                     <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
                       <span>تم حفظ إعدادات نظام النقاط بنجاح ويسري مفعولها الآن!</span>
                     </div>
                   )}
@@ -6775,7 +6766,7 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={savingLoyaltySettings || loadingLoyaltySettings}
-                    className="w-full h-11 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 disabled:opacity-50"
+                    className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md shadow-purple-600/25 disabled:opacity-50"
                   >
                     {savingLoyaltySettings ? (
                       <>
@@ -6793,9 +6784,9 @@ export const AdminPage: React.FC = () => {
               </div>
 
               {/* Card 2: Change Admin Password */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-6">
+              <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-6">
                 <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 border border-purple-500/20 flex items-center justify-center shrink-0">
                     <Lock className="w-5 h-5" />
                   </div>
                   <div>
@@ -6806,68 +6797,92 @@ export const AdminPage: React.FC = () => {
 
                 <form onSubmit={handleChangeAdminPassword} className="space-y-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-600 block mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
                       كلمة المرور الحالية
                     </label>
                     <div className="relative">
                       <input
-                        type="password"
+                        type={showCurrentPassword ? 'text' : 'password'}
                         value={currentAdminPassword}
                         onChange={(e) => setCurrentAdminPassword(e.target.value)}
                         placeholder="أدخل كلمة المرور الحالية للتحقق"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                         required
                       />
-                      <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                      <Key className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute left-3 top-2.5 text-slate-400 hover:text-slate-700 p-0.5 rounded transition-colors"
+                        title={showCurrentPassword ? 'إخفاء' : 'إظهار'}
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-600 block mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
                       كلمة المرور الجديدة
                     </label>
                     <div className="relative">
                       <input
-                        type="password"
+                        type={showNewPassword ? 'text' : 'password'}
                         value={newAdminPassword}
                         onChange={(e) => setNewAdminPassword(e.target.value)}
                         placeholder="كلمة مرور جديدة (6 خانات على الأقل)"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                         required
                         minLength={6}
                       />
-                      <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                      <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute left-3 top-2.5 text-slate-400 hover:text-slate-700 p-0.5 rounded transition-colors"
+                        title={showNewPassword ? 'إخفاء' : 'إظهار'}
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-600 block mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
                       تأكيد كلمة المرور الجديدة
                     </label>
                     <div className="relative">
                       <input
-                        type="password"
+                        type={showConfirmPassword ? 'text' : 'password'}
                         value={confirmAdminPassword}
                         onChange={(e) => setConfirmAdminPassword(e.target.value)}
                         placeholder="أعد إدخال كلمة المرور الجديدة"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                         required
                         minLength={6}
                       />
-                      <Check className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                      <Check className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute left-3 top-2.5 text-slate-400 hover:text-slate-700 p-0.5 rounded transition-colors"
+                        title={showConfirmPassword ? 'إخفاء' : 'إظهار'}
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 
                   {passwordChangeError && (
                     <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                      <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                       <span>{passwordChangeError}</span>
                     </div>
                   )}
 
                   {passwordChangeSuccess && (
                     <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
                       <span>{passwordChangeSuccess}</span>
                     </div>
                   )}
@@ -6876,7 +6891,7 @@ export const AdminPage: React.FC = () => {
                     <button
                       type="submit"
                       disabled={passwordChangeLoading}
-                      className="w-full h-11 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-900 border border-slate-200 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full h-11 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md shadow-purple-600/20 disabled:opacity-50"
                     >
                       {passwordChangeLoading ? (
                         <>
@@ -6885,7 +6900,7 @@ export const AdminPage: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <Lock className="w-4 h-4 text-purple-400" />
+                          <Lock className="w-4 h-4" />
                           <span>تحديث كلمة مرور الإدارة</span>
                         </>
                       )}
@@ -6894,8 +6909,8 @@ export const AdminPage: React.FC = () => {
                 </form>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                  <span className="text-xs font-black text-slate-600 block">💡 نصائح أمنية</span>
-                  <ul className="text-[11px] text-slate-500 space-y-1 list-disc list-inside">
+                  <span className="text-xs font-black text-slate-700 block">💡 نصائح أمنية</span>
+                  <ul className="text-[11px] text-slate-600 space-y-1 list-disc list-inside">
                     <li>استخدم مزيجاً من الحروف والأرقام لزيادة قوة كلمة المرور.</li>
                     <li>لا تشارك كلمة المرور مع مدراء الفروع؛ لكل فرع حسابه المستقل.</li>
                     <li>يتم تشفير كلمة المرور فوراً باستخدام تقنية Bcrypt مع Salt عالي الأمان.</li>
@@ -6907,17 +6922,17 @@ export const AdminPage: React.FC = () => {
 
 
             {/* Card 3: Notification Sound Customization */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 flex items-center justify-center shrink-0">
                     <Volume2 className="w-5 h-5" />
                   </div>
                   <div>
                     <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                       <span>التحكم في صوت نغمة الإشعارات والتنبيهات</span>
-                      <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-700 text-[10px] font-black rounded-md border border-indigo-500/30">
-                        بث لحظي للـ POS وبوابات الطيارين 🔔
+                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-black rounded-md border border-indigo-200">
+                        بث لحظي للـ POS 🔔
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-500">
@@ -6926,10 +6941,10 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <span className={`px-3 py-1 rounded-full text-[11px] font-bold border shrink-0 ${
+                <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border shrink-0 whitespace-nowrap self-start sm:self-auto ${
                   soundSettings.enabled 
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
-                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
                 }`}>
                   {soundSettings.enabled ? '● صوت الإشعارات مفعّل' : '○ صوت الإشعارات مكتوم'}
                 </span>
@@ -6951,7 +6966,7 @@ export const AdminPage: React.FC = () => {
                       onChange={(e) => setSoundSettings({ ...soundSettings, enabled: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                   </label>
                 </div>
 
@@ -6962,7 +6977,7 @@ export const AdminPage: React.FC = () => {
                     <div>
                       <span className="text-[11px] font-bold text-slate-500 block mb-1">النغمة المعتمدة حالياً:</span>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-600/10 text-indigo-600 flex items-center justify-center shrink-0">
                           <Music className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
@@ -6990,7 +7005,7 @@ export const AdminPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleResetSoundSettings}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all"
+                          className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all"
                         >
                           استعادة النغمة الافتراضية
                         </button>
@@ -7011,14 +7026,14 @@ export const AdminPage: React.FC = () => {
                           disabled={uploadingAudio}
                         />
                         {uploadingAudio ? (
-                          <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold py-2">
+                          <div className="flex items-center gap-2 text-indigo-600 text-xs font-bold py-2">
                             <RotateCw className="w-5 h-5 animate-spin" />
                             <span>جاري رفع وتأمين الملف الصوتي في السيرفر...</span>
                           </div>
                         ) : (
                           <>
-                            <Upload className="w-6 h-6 text-slate-500 group-hover:text-indigo-400 transition-colors mb-1.5" />
-                            <span className="text-xs font-black text-slate-800 group-hover:text-slate-900">
+                            <Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-600 transition-colors mb-1.5" />
+                            <span className="text-xs font-black text-slate-800 group-hover:text-indigo-600">
                               اضغط هنا لاختيار ملف صوتي
                             </span>
                             <span className="text-[10px] text-slate-500 mt-1">
@@ -7031,7 +7046,7 @@ export const AdminPage: React.FC = () => {
 
                     {audioUploadError && (
                       <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 text-[11px] rounded-xl flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                         <span>{audioUploadError}</span>
                       </div>
                     )}
@@ -7041,11 +7056,11 @@ export const AdminPage: React.FC = () => {
                 {/* Volume Slider */}
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <label className="font-bold text-slate-600 flex items-center gap-1.5">
-                      <Volume2 className="w-4 h-4 text-indigo-400" />
+                    <label className="font-bold text-slate-700 flex items-center gap-1.5">
+                      <Volume2 className="w-4 h-4 text-indigo-600" />
                       <span>مستوى شدة صوت الرنين والتنبيه:</span>
                     </label>
-                    <span className="font-mono font-black text-indigo-400">
+                    <span className="font-mono font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
                       {Math.round(soundSettings.volume * 100)}%
                     </span>
                   </div>
@@ -7056,13 +7071,13 @@ export const AdminPage: React.FC = () => {
                     step="0.05"
                     value={soundSettings.volume}
                     onChange={(e) => setSoundSettings({ ...soundSettings, volume: parseFloat(e.target.value) || 1.0 })}
-                    className="w-full accent-indigo-500 h-2 bg-slate-100 rounded-lg cursor-pointer"
+                    className="w-full accent-indigo-600 h-2 bg-slate-200 rounded-lg cursor-pointer"
                   />
                 </div>
 
                 {soundSaveSuccess && (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
                     <span>تم حفظ صوت التنبيه بنجاح وبثه لجميع الشاشات ونقاط البيع وبوابات الطيارين! ✅</span>
                   </div>
                 )}
@@ -7071,7 +7086,7 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={savingSoundSettings || loadingSoundSettings}
-                    className="h-11 px-6 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                    className="h-11 px-6 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 disabled:opacity-50"
                   >
                     {savingSoundSettings ? (
                       <>
@@ -7090,8 +7105,8 @@ export const AdminPage: React.FC = () => {
             </div>
 
             {/* Card: Contact Channels Settings (Landing Page "Join as Partner") */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center shrink-0">
                     <MessageCircle className="w-5 h-5" />
@@ -7099,8 +7114,8 @@ export const AdminPage: React.FC = () => {
                   <div>
                     <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                       <span>إعدادات قنوات التواصل (قسم انضم كشريك بالصفحة الرئيسية)</span>
-                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-700 text-[10px] font-black rounded-md border border-emerald-500/20">
-                        مزامنة فورية مع الواجهة 🚀
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-black rounded-md border border-emerald-200">
+                        مزامنة فورية 🚀
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-500">
@@ -7109,18 +7124,18 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${
+                <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
                     contactSettings.whatsappEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-400 border-slate-200'
                   }`}>
                     واتساب: {contactSettings.whatsappEnabled ? 'مفعّل' : 'معطّل'}
                   </span>
-                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
                     contactSettings.facebookEnabled ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-400 border-slate-200'
                   }`}>
                     فيسبوك: {contactSettings.facebookEnabled ? 'مفعّل' : 'معطّل'}
                   </span>
-                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
                     contactSettings.phoneEnabled ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-400 border-slate-200'
                   }`}>
                     الهاتف: {contactSettings.phoneEnabled ? 'مفعّل' : 'معطّل'}
@@ -7165,7 +7180,7 @@ export const AdminPage: React.FC = () => {
                         value={contactSettings.whatsappPhone}
                         onChange={(e) => setContactSettings({ ...contactSettings, whatsappPhone: e.target.value })}
                         placeholder="201000000000"
-                        className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                        className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                       />
                     </div>
                     <div>
@@ -7177,7 +7192,7 @@ export const AdminPage: React.FC = () => {
                         value={contactSettings.whatsappMessage}
                         onChange={(e) => setContactSettings({ ...contactSettings, whatsappMessage: e.target.value })}
                         placeholder="مرحباً، أود تسجيل مطعمي والانضمام كشريك..."
-                        className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                        className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                       />
                     </div>
                   </div>
@@ -7218,7 +7233,7 @@ export const AdminPage: React.FC = () => {
                       value={contactSettings.facebookUrl}
                       onChange={(e) => setContactSettings({ ...contactSettings, facebookUrl: e.target.value })}
                       placeholder="https://facebook.com/unifood"
-                      className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                      className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                 </div>
@@ -7258,7 +7273,7 @@ export const AdminPage: React.FC = () => {
                       value={contactSettings.phoneNumber}
                       onChange={(e) => setContactSettings({ ...contactSettings, phoneNumber: e.target.value })}
                       placeholder="+201000000000"
-                      className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none"
+                      className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                     />
                   </div>
                 </div>
@@ -7274,7 +7289,7 @@ export const AdminPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={savingContactSettings || loadingContactSettings}
-                    className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+                    className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50"
                   >
                     {savingContactSettings ? (
                       <>
@@ -7292,116 +7307,7 @@ export const AdminPage: React.FC = () => {
               </form>
             </div>
 
-            {/* Card: Android Native Apps (Admin & Restaurant Kitchen APK) */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl space-y-5">
-              <div className="border-b border-slate-200 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
-                    <Smartphone className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                      <span>تطبيقات الأندرويد للأجهزة والهواتف (Android APKs)</span>
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-md border border-emerald-500/30">
-                        حزم أصلية مستقلة 📲
-                      </span>
-                    </h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      تطبيقات أندرويد مستقلة وسريعة تعمل بجانب بعضها على نفس الهاتف أو التابلت بدون أي تعارض
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons for Both Apps */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* 1. Restaurant Kitchen APK */}
-                <div className="p-4 bg-emerald-50 border border-emerald-200/50 rounded-2xl flex flex-col justify-between gap-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black text-emerald-700 flex items-center gap-1.5">
-                        <Store className="w-4 h-4 text-emerald-400" />
-                        <span>نسخة كاشير ومطبخ المطعم (Restaurant APK)</span>
-                      </span>
-                      <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-bold rounded">
-                        com.unifood.restaurant
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
-                      مخصصة لهواتف وتابلت كاشير ومطبخ المطاعم لاستقبال الطلبات فورياً مع إنذار صوتي مستمر وإبقاء الشاشة مفعلة دائماً.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Restaurant.apk');
-                    }}
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 shrink-0"
-                  >
-                    <Smartphone className="w-4 h-4" />
-                    <span>تحميل تطبيق كاشير ومطبخ المطعم</span>
-                  </button>
-                </div>
-
-                {/* 2. Admin Control Panel APK */}
-                <div className="p-4 bg-purple-50 border border-purple-200/50 rounded-2xl flex flex-col justify-between gap-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black text-purple-700 flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4 text-purple-400" />
-                        <span>نسخة لوحة تحكم الإدارة (Admin APK)</span>
-                      </span>
-                      <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[9px] font-mono font-bold rounded">
-                        com.unifood.admin
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
-                      مخصصة للإدارة المركزية لمتابعة كافة الفروع والطلبات، إدارة الحسابات، وتلقي التنبيهات الحساسة للعمليات.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
-                    }}
-                    className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 shrink-0"
-                  >
-                    <Smartphone className="w-4 h-4" />
-                    <span>تحميل تطبيق الإدارة المركزية</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Feature Highlights */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                  <span className="font-bold text-slate-800 block">🚀 تشغيل سريع وتلقائي</span>
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    يفتح الشاشة المخصصة لكل دور فوراً بدون الحاجة لكتابة روابط أو البحث في المتصفحات.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                  <span className="font-bold text-slate-800 block">📱 شاشة نشطة دائماً</span>
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    إبقاء شاشة الهاتف/التابلت نشطة في المطبخ لضمان عدم إغلاق الشاشة أثناء انتظار الطلبات.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                  <span className="font-bold text-slate-800 block">🔔 دعم التنبيهات والإشعارات</span>
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    استقبال إشعارات النظام الفورية وأجراس التنبيه بالطلبات الجديدة واعتذار الطيارين.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-
-
-            {/* Card 3: Factory Reset to Zero State (حالة الصفر) */}
+            {/* Card: Factory Reset to Zero State (حالة الصفر) */}
             <div className="bg-rose-50/20 border border-rose-200 rounded-3xl p-6 shadow-xl space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rose-200/40 pb-4">
                 <div className="flex items-center gap-3">
@@ -7752,7 +7658,7 @@ export const AdminPage: React.FC = () => {
       {/* Mobile Bottom Navigation Bar */}
       <nav 
         aria-label="التنقل السريع في لوحة الإدارة"
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 backdrop-blur-xl px-2 py-1.5 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.6)]"
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 border-t border-slate-200/80 backdrop-blur-xl px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
       >
         <div className="grid grid-cols-5 gap-1 items-center max-w-lg mx-auto">
           {/* 1. Branches */}
@@ -7764,8 +7670,8 @@ export const AdminPage: React.FC = () => {
             }}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
               activeTab === 'BRANCHES' && !showMobileMoreMenu
-                ? 'text-purple-400 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
+                ? 'text-purple-600 font-black'
+                : 'text-slate-500 hover:text-slate-800 font-medium'
             }`}
           >
             <div className="relative">
@@ -7778,7 +7684,7 @@ export const AdminPage: React.FC = () => {
             </div>
             <span className="text-[10px] leading-tight">الفروع</span>
             {activeTab === 'BRANCHES' && !showMobileMoreMenu && (
-              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
             )}
           </button>
 
@@ -7791,8 +7697,8 @@ export const AdminPage: React.FC = () => {
             }}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
               activeTab === 'ORDERS' && !showMobileMoreMenu
-                ? 'text-purple-400 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
+                ? 'text-purple-600 font-black'
+                : 'text-slate-500 hover:text-slate-800 font-medium'
             }`}
           >
             <div className="relative">
@@ -7805,7 +7711,7 @@ export const AdminPage: React.FC = () => {
             </div>
             <span className="text-[10px] leading-tight">الطلبات</span>
             {activeTab === 'ORDERS' && !showMobileMoreMenu && (
-              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
             )}
           </button>
 
@@ -7818,8 +7724,8 @@ export const AdminPage: React.FC = () => {
             }}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
               activeTab === 'STUDENTS' && !showMobileMoreMenu
-                ? 'text-purple-400 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
+                ? 'text-purple-600 font-black'
+                : 'text-slate-500 hover:text-slate-800 font-medium'
             }`}
           >
             <div className="relative">
@@ -7832,7 +7738,7 @@ export const AdminPage: React.FC = () => {
             </div>
             <span className="text-[10px] leading-tight">العملاء</span>
             {activeTab === 'STUDENTS' && !showMobileMoreMenu && (
-              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
             )}
           </button>
 
@@ -7845,14 +7751,14 @@ export const AdminPage: React.FC = () => {
             }}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
               activeTab === 'FINANCE' && !showMobileMoreMenu
-                ? 'text-emerald-400 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
+                ? 'text-emerald-600 font-black'
+                : 'text-slate-500 hover:text-slate-800 font-medium'
             }`}
           >
             <Coins className="w-5 h-5 mb-0.5" />
             <span className="text-[10px] leading-tight">المالية</span>
             {activeTab === 'FINANCE' && !showMobileMoreMenu && (
-              <span className="w-1 h-1 rounded-full bg-emerald-500 mt-0.5 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
             )}
           </button>
 
@@ -7862,19 +7768,19 @@ export const AdminPage: React.FC = () => {
             onClick={() => setShowMobileMoreMenu(prev => !prev)}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative ${
               showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS', 'ANALYTICS'].includes(activeTab)
-                ? 'text-purple-400 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
+                ? 'text-purple-600 font-black'
+                : 'text-slate-500 hover:text-slate-800 font-medium'
             }`}
           >
             <div className="relative">
               <MoreHorizontal className="w-5 h-5 mb-0.5" />
               {whatsAppStatus?.isConnected && (
-                <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse ring-2 ring-slate-900" />
+                <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-emerald-500 animate-pulse ring-2 ring-white" />
               )}
             </div>
             <span className="text-[10px] leading-tight">المزيد</span>
             {(showMobileMoreMenu || ['BANNERS', 'PROMOS', 'WHATSAPP', 'SETTINGS', 'REVIEWS', 'DRIVERS', 'ANALYTICS'].includes(activeTab)) && (
-              <span className="w-1 h-1 rounded-full bg-purple-500 mt-0.5 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
             )}
           </button>
         </div>
@@ -8148,28 +8054,6 @@ export const AdminPage: React.FC = () => {
                 </div>
               </button>
             </div>
-
-            {/* Quick Install Admin APK banner for mobile browser */}
-            {!isRunningInNativeApk() && (
-              <button
-                type="button"
-                onClick={() => {
-                  triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Admin.apk');
-                }}
-                className="w-full p-3 bg-gradient-to-r from-purple-50 via-white to-indigo-50 border border-purple-200/60 rounded-2xl flex items-center justify-between gap-3 text-slate-900 transition-all active:scale-98 shadow-md"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-700 flex items-center justify-center text-base shrink-0">
-                    📲
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-black block">تحميل تطبيق الإدارة (APK)</span>
-                    <span className="text-[10px] text-purple-700 block">تثبيت لوحة التحكم كتطبيق أندرويد مستقل</span>
-                  </div>
-                </div>
-                <span className="text-xs font-bold px-2.5 py-1 bg-purple-600 hover:bg-purple-500 rounded-xl shrink-0">تثبيت</span>
-              </button>
-            )}
 
             {/* Quick Actions Row */}
             <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">

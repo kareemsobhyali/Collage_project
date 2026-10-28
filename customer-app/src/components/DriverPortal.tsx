@@ -36,7 +36,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
-import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, triggerInstallApp, openExternalLink, registerNativeBackgroundSession, clearNativeBackgroundSession } from '../services/notifications';
+import { registerServiceWorker, requestPushPermission, sendWebNotification, isRunningInNativeApk, openExternalLink, registerNativeBackgroundSession, clearNativeBackgroundSession } from '../services/notifications';
 import { cleanAddressText, getDisplayAddress, getNearestLocationName, extractCoordinatesFromAddress, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
 import { DriverRouteMap } from './DriverRouteMap';
 
@@ -991,17 +991,6 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
               <span>{loginLoading ? 'جاري التحقق...' : 'تسجيل الدخول للكابتن'}</span>
             </button>
           </form>
-
-          {!isRunningInNativeApk() && (
-            <button
-              type="button"
-              onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Driver.apk')}
-              className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-colors"
-            >
-              <Smartphone className="w-4 h-4" />
-              <span>تثبيت تطبيق كابتن التوصيل (أندرويد)</span>
-            </button>
-          )}
 
           {onClose && !isRunningInNativeApk() && (
             <button

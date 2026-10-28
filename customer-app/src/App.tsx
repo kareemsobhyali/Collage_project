@@ -12,7 +12,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { api, API_BASE_URL, getFullImageUrl, syncRemoteServerConfig } from './services/api';
-import { registerServiceWorker, isRunningInNativeApk, triggerInstallApp, registerNativeBackgroundSession, clearNativeBackgroundSession } from './services/notifications';
+import { registerServiceWorker, isRunningInNativeApk, registerNativeBackgroundSession, clearNativeBackgroundSession } from './services/notifications';
 import { BranchList } from './components/BranchList';
 import { BranchMenu } from './components/BranchMenu';
 import { LandingPage } from './components/LandingPage';
@@ -27,7 +27,7 @@ const DriverPortal = React.lazy(() => import('./components/DriverPortal').then(m
 import { GroupCartModal } from './components/GroupCartModal';
 import { Logo } from './components/Logo';
 import { SplashScreen } from './components/SplashScreen';
-import { InstallApkPage, parseApkRoute } from './components/InstallApkPage';
+import { parseApkRoute } from './components/InstallApkPage';
 
 export function App() {
   const isMobileAppExperience = typeof window !== 'undefined' && (
@@ -68,26 +68,6 @@ export function App() {
   );
 
   const groupParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('group') : null;
-  const apkRouteInfo = parseApkRoute();
-  const [isApkRoute, setIsApkRoute] = useState(apkRouteInfo.isApkPage);
-  const [apkSlug, setApkSlug] = useState<string | null>(apkRouteInfo.branchSlug);
-
-  // مزامنة حالة مسار تثبيت الـ APK مع تغيرات الـ URL والـ Hash والـ History
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleUrlChange = () => {
-      const info = parseApkRoute();
-      setIsApkRoute(info.isApkPage);
-      setApkSlug(info.branchSlug);
-    };
-
-    window.addEventListener('popstate', handleUrlChange);
-    window.addEventListener('hashchange', handleUrlChange);
-    return () => {
-      window.removeEventListener('popstate', handleUrlChange);
-      window.removeEventListener('hashchange', handleUrlChange);
-    };
-  }, []);
 
   // مزامنة أحدث عنوان للسيرفر من GitHub تلقائياً عند فتح التطبيق
   useEffect(() => {
@@ -224,13 +204,13 @@ export function App() {
 
   // تهيئة حارس الرجوع الأولي لمنع الخروج المفاجئ
   useEffect(() => {
-    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal || isApkRoute) return;
+    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal) return;
     try {
       window.history.replaceState({ uniFoodRoot: true, depth: 0 }, '');
       window.history.pushState({ uniFoodStep: 1, depth: 1 }, '');
       historyDepthRef.current = 1;
     } catch (_e) {}
-  }, [isAdminRoute, showDriverPortal, isApkRoute]);
+  }, [isAdminRoute, showDriverPortal]);
 
   // تتبع فتح الشاشات الفرعية والنوافذ لدفع خطوة في الـ History
   const currentNavStateKey = [
@@ -260,7 +240,7 @@ export function App() {
 
   // الاستماع لحدث الرجوع (popstate)
   useEffect(() => {
-    if (isAdminRoute || showDriverPortal || isApkRoute) return;
+    if (isAdminRoute || showDriverPortal) return;
     const handlePopState = () => {
       isHandlingPopstateRef.current = true;
       historyDepthRef.current = Math.max(0, historyDepthRef.current - 1);
@@ -464,24 +444,23 @@ export function App() {
         localStorage.setItem('unifood_cached_branches', JSON.stringify(loadedBranches));
       } catch (_e) {}
 
-      // التحقق أولاً إذا كان الرابط مخصصاً لصفحة تثبيت التطبيق APK
+      // إذا كان الرابط يحتوي على apk أو download، نقوم بتوجيه المستخدم مباشرة للمطعم أو الصفحة الرئيسية
       const currentApkInfo = parseApkRoute();
       if (currentApkInfo.isApkPage) {
-        if (!isApkRoute) {
-          setIsApkRoute(true);
-          setApkSlug(currentApkInfo.branchSlug);
+        if (currentApkInfo.branchSlug) {
+          const target = loadedBranches.find((b: any) => (b.slug && b.slug.toLowerCase() === currentApkInfo.branchSlug?.toLowerCase()) || b.id === currentApkInfo.branchSlug);
+          if (target) {
+            setSelectedBranch(target);
+            window.history.replaceState({}, '', `/${target.slug || target.id}`);
+            return;
+          }
         }
-        return; // منع فتح منيو الفرع لأن المستخدم متواجد في صفحة تثبيت التطبيق APK
+        window.history.replaceState({}, '', '/');
       }
 
       // فحص إذا كان الرابط يحتوي على معرّف مباشر لمطعم (Slug أو ID) أو صنف/عرض
-      if (typeof window !== 'undefined' && !isApkRoute) {
+      if (typeof window !== 'undefined') {
         const pathSegments = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
-        const isApkPath = pathSegments.some((seg) => ['apk', 'download', 'install'].includes(seg.toLowerCase()));
-        if (isApkPath) {
-          return; // حماية إضافية تمنع قراءة أول جزء كفرع إذا كان الرابط مخصصاً للـ APK
-        }
-
         const params = new URLSearchParams(window.location.search);
         let branchParam = params.get('branch') || params.get('r') || params.get('b');
         if (!branchParam && window.location.hash) {
@@ -850,21 +829,6 @@ export function App() {
     );
   }
 
-  if (isApkRoute) {
-    return (
-      <InstallApkPage
-        initialSlug={apkSlug}
-        onNavigateHome={() => {
-          setIsApkRoute(false);
-          const url = new URL(window.location.href);
-          url.pathname = '/';
-          url.search = '';
-          window.history.pushState({}, '', url.toString());
-        }}
-      />
-    );
-  }
-
   const handleLogout = () => {
     clearNativeBackgroundSession();
     localStorage.removeItem('customer_token');
@@ -1024,19 +988,6 @@ export function App() {
 
           {/* Left: User & Orders Tools (All h-9 shrink-0 so nothing ever overlaps) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Direct Student App Install / APK Button (hidden inside APK and on home landing page) */}
-            {selectedBranch && !isRunningInNativeApk() && (
-              <button
-                type="button"
-                onClick={() => triggerInstallApp('https://github.com/kareemsobhyali/Collage_project/releases/download/latest-apk/UniFood-Student.apk')}
-                className="h-9 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                title="تثبيت تطبيق العملاء للأندرويد"
-              >
-                <Smartphone className="w-4 h-4 shrink-0" />
-                <span className="hidden md:inline">تثبيت التطبيق</span>
-              </button>
-            )}
-
             {/* Group Cart Button (only shown inside branch view) */}
             {selectedBranch && (
               <button
