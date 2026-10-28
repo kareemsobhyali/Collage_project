@@ -83,8 +83,8 @@ export async function downloadAndSaveImage(imageUrl: string): Promise<string> {
     const arrayBuffer = await res.arrayBuffer();
     const rawBuffer = Buffer.from(arrayBuffer);
 
-    // التحقق من حجم الصورة (بحد أقصى 20 ميجابايت وبحد أدنى 100 بايت)
-    if (rawBuffer.length < 100 || rawBuffer.length > 20 * 1024 * 1024) {
+    // التحقق من حجم الصورة (بحد أقصى 25 ميجابايت وبحد أدنى 100 بايت)
+    if (rawBuffer.length < 100 || rawBuffer.length > 25 * 1024 * 1024) {
       return trimmed;
     }
 

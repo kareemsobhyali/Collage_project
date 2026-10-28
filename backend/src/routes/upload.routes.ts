@@ -46,7 +46,7 @@ const uploadDir = getUploadDir();
 // تخزين الصور في الذاكرة أولاً لمعالجتها وتحويلها إلى WebP قبل حفظها على القرص
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 12 * 1024 * 1024 }, // نقبل حتى 12 ميجابايت من صور كاميرات الموبايل الحديثة
+  limits: { fileSize: 25 * 1024 * 1024 }, // نقبل حتى 25 ميجابايت
   fileFilter: (_req, file, cb) => {
     const allowed = /^(jpeg|jpg|png|webp|gif|heic|heif)$/i;
     const ext = allowed.test(path.extname(file.originalname).toLowerCase().replace(".", ""));
@@ -64,7 +64,7 @@ router.post("/", authenticateAny, (req: AuthRequest, res: Response) => {
   imageUpload(req, res, async (err: any) => {
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {
-        return res.status(400).json({ error: "حجم الصورة كبير جداً، الحد الأقصى المسموح به هو 12 ميجابايت" });
+        return res.status(400).json({ error: "حجم الصورة كبير جداً، الحد الأقصى المسموح به هو 25 ميجابايت" });
       }
       return res.status(400).json({ error: `خطأ أثناء رفع الملف: ${err.message}` });
     } else if (err) {
