@@ -75,7 +75,7 @@ export async function seedMockDatabase() {
     allowDelivery: true,
     allowPickup: true,
     deliveryFee: 12.0,
-    deliveryType: "ZONES",
+    deliveryType: "FIXED",
   });
 
   try {
@@ -112,17 +112,6 @@ export async function seedMockDatabase() {
         instapayHandle: "burgerfactory@instapay",
         cardEnabled: true,
       },
-    });
-  } catch (_e) {}
-
-  try {
-    await prisma.branchDeliveryZone.deleteMany({ where: { branchId: burgerBranch.id } });
-    await prisma.branchDeliveryZone.createMany({
-      data: [
-        { branchId: burgerBranch.id, name: "كليات الهندسة والعلوم والحاسبات", fee: 10.0 },
-        { branchId: burgerBranch.id, name: "المنطقة السكنية والملاعب", fee: 15.0 },
-        { branchId: burgerBranch.id, name: "المبنى الإداري والعيادات المركزية", fee: 12.0 },
-      ],
     });
   } catch (_e) {}
 

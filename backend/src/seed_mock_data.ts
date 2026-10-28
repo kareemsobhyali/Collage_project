@@ -42,7 +42,7 @@ async function seedMockData() {
       allowDelivery: true,
       allowPickup: true,
       deliveryFee: 12.0,
-      deliveryType: "ZONES",
+      deliveryType: "FIXED",
     },
     create: {
       name: "برجر فاكتوري 🍔",
@@ -57,7 +57,7 @@ async function seedMockData() {
       allowDelivery: true,
       allowPickup: true,
       deliveryFee: 12.0,
-      deliveryType: "ZONES",
+      deliveryType: "FIXED",
     },
   });
 
@@ -88,16 +88,6 @@ async function seedMockData() {
       instapayHandle: "burgerfactory@instapay",
       cardEnabled: true,
     },
-  });
-
-  // مناطق التوصيل لبرجر فاكتوري
-  await prisma.branchDeliveryZone.deleteMany({ where: { branchId: burgerBranch.id } });
-  await prisma.branchDeliveryZone.createMany({
-    data: [
-      { branchId: burgerBranch.id, name: "كليات الهندسة والعلوم والحاسبات", fee: 10.0 },
-      { branchId: burgerBranch.id, name: "سكن الطلاب والملاعب الرياضية", fee: 15.0 },
-      { branchId: burgerBranch.id, name: "المبنى الإداري والعيادات المركزية", fee: 12.0 },
-    ],
   });
 
   // ----------------------------------------------------

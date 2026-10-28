@@ -8101,11 +8101,12 @@ export const AdminPage: React.FC = () => {
       {showAddBranchModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
-              <h3 className="font-black text-base text-slate-900">إضافة فرع مطعم جديد</h3>
+            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-200 shrink-0">
+              <h3 className="font-black text-sm sm:text-base text-slate-900 truncate">إضافة فرع مطعم جديد</h3>
               <button 
+                type="button"
                 onClick={() => setShowAddBranchModal(false)} 
-                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition-colors shrink-0"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -8113,7 +8114,7 @@ export const AdminPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateBranch} className="flex flex-col flex-1 overflow-hidden min-h-0">
-              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar">
               {/* لوجو المطعم */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -8329,17 +8330,17 @@ export const AdminPage: React.FC = () => {
               </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
+              <div className="flex items-center justify-end gap-2.5 p-3.5 sm:p-4 border-t border-slate-200 bg-white/95 backdrop-blur-sm shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddBranchModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
+                  className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/25 transition-all active:scale-95"
                 >
                   إنشاء الفرع
                 </button>
@@ -8353,11 +8354,12 @@ export const AdminPage: React.FC = () => {
       {editingBranch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
-              <h3 className="font-black text-base text-slate-900">تعديل بيانات: {editingBranch.name}</h3>
+            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-200 shrink-0">
+              <h3 className="font-black text-sm sm:text-base text-slate-900 truncate">تعديل بيانات: {editingBranch.name}</h3>
               <button 
+                type="button"
                 onClick={() => setEditingBranch(null)} 
-                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition-colors shrink-0"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -8365,7 +8367,7 @@ export const AdminPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveEditBranch} className="flex flex-col flex-1 overflow-hidden min-h-0">
-              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar">
               {/* لوجو المطعم */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -8542,11 +8544,11 @@ export const AdminPage: React.FC = () => {
                 ) : null}
               </div>
 
-              {/* Delivery Zone & Range Settings (Task 9) */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+              {/* Delivery Zone & Range Settings */}
+              <div className="p-3.5 sm:p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-indigo-700 flex items-center gap-1.5">
-                    <Navigation className="w-3.5 h-3.5 text-indigo-400" />
+                    <Navigation className="w-3.5 h-3.5 text-indigo-500" />
                     <span>نطاق وزون التوصيل والطلب للعملاء 🎯</span>
                   </span>
                   <span className="text-[10px] text-slate-500">
@@ -8556,7 +8558,7 @@ export const AdminPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       نطاق التوصيل الأقصى (بالكيلومتر)
                     </label>
                     <div className="relative">
@@ -8566,21 +8568,21 @@ export const AdminPage: React.FC = () => {
                         step="0.5"
                         value={editDeliveryRadiusKm}
                         onChange={e => setEditDeliveryRadiusKm(e.target.value)}
-                        placeholder="مثال: 5"
-                        className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 font-mono font-bold"
+                        placeholder="مثال: 10"
+                        className="w-full pr-3.5 pl-9 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                       />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">كم</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">كم</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       نظام تسعير ونطاق التوصيل
                     </label>
                     <select
                       value={editDeliveryType}
                       onChange={e => setEditDeliveryType(e.target.value as 'FIXED' | 'ZONES')}
-                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors cursor-pointer"
                     >
                       <option value="FIXED">رسوم موحدة لنطاق المسافة ({editDeliveryFee} ج.م)</option>
                       <option value="ZONES">تخصيص مناطق وأحياء محددة</option>
@@ -8589,49 +8591,87 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 {editDeliveryType === 'ZONES' && (
-                  <div className="space-y-2 pt-2 border-t border-slate-200">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="اسم المنطقة (مثال: الشيخ زايد، حي النصر)"
-                        value={newZoneName}
-                        onChange={e => setNewZoneName(e.target.value)}
-                        className="flex-1 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900"
-                      />
-                      <input
-                        type="number"
-                        placeholder="الرسوم"
-                        value={newZoneFee}
-                        onChange={e => setNewZoneFee(e.target.value)}
-                        className="w-20 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!newZoneName.trim()) return;
-                          setEditDeliveryZones(prev => [...prev, { name: newZoneName.trim(), fee: parseFloat(newZoneFee) || 10 }]);
-                          setNewZoneName('');
-                        }}
-                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shrink-0"
-                      >
-                        + إضافة منطقة
-                      </button>
+                  <div className="space-y-3 pt-3 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700">المناطق المخصصة ورسوم التوصيل:</span>
+                      {editDeliveryZones.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setEditDeliveryZones([])}
+                          className="text-[10px] text-rose-500 hover:text-rose-700 font-bold transition-colors"
+                        >
+                          مسح كافة المناطق
+                        </button>
+                      )}
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {editDeliveryZones.map((z, idx) => (
-                        <span key={idx} className="bg-slate-100 text-indigo-700 border border-indigo-200/60 px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5">
-                          <span>{z.name} ({z.fee} ج.م)</span>
-                          <button
-                            type="button"
-                            onClick={() => setEditDeliveryZones(prev => prev.filter((_, i) => i !== idx))}
-                            className="text-slate-500 hover:text-rose-400 font-bold"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
+                    {/* Responsive Add Zone Box */}
+                    <div className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-2 shadow-2xs">
+                      <input
+                        type="text"
+                        placeholder="اسم المنطقة أو الحي (مثال: وسط البلد، حي النزهة...)"
+                        value={newZoneName}
+                        onChange={e => setNewZoneName(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
+                      />
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder="رسوم التوصيل"
+                            value={newZoneFee}
+                            onChange={e => setNewZoneFee(e.target.value)}
+                            className="w-full pr-3 pl-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors"
+                          />
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold pointer-events-none">
+                            ج.م
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newZoneName.trim()) return;
+                            setEditDeliveryZones(prev => [...prev, { name: newZoneName.trim(), fee: parseFloat(newZoneFee) || 10 }]);
+                            setNewZoneName('');
+                          }}
+                          className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-sm"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>إضافة منطقة</span>
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Added Zones List */}
+                    {editDeliveryZones.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1 max-h-36 overflow-y-auto">
+                        {editDeliveryZones.map((z, idx) => (
+                          <span 
+                            key={idx} 
+                            className="bg-indigo-50/90 text-indigo-900 border border-indigo-200/80 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-2 shadow-2xs"
+                          >
+                            <span>{z.name}</span>
+                            <span className="px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded text-[10px] font-mono">
+                              {z.fee} ج.م
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setEditDeliveryZones(prev => prev.filter((_, i) => i !== idx))}
+                              className="w-4 h-4 rounded-full hover:bg-rose-100 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
+                              title="حذف هذه المنطقة"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 text-center py-2 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
+                        لم يتم إضافة مناطق مخصصة بعد. أضف المناطق وأسعار توصيلها أعلاه.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -8837,17 +8877,17 @@ export const AdminPage: React.FC = () => {
               </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-200 bg-white shrink-0">
+              <div className="flex items-center justify-end gap-2.5 p-3.5 sm:p-4 border-t border-slate-200 bg-white/95 backdrop-blur-sm shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingBranch(null)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
+                  className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/25 transition-all active:scale-95"
                 >
                   حفظ التعديلات
                 </button>
@@ -8861,11 +8901,12 @@ export const AdminPage: React.FC = () => {
       {editingPaymentBranch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
-              <h3 className="font-black text-base text-slate-900">طرق الدفع: {editingPaymentBranch.name}</h3>
+            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-200 shrink-0">
+              <h3 className="font-black text-sm sm:text-base text-slate-900 truncate">طرق الدفع: {editingPaymentBranch.name}</h3>
               <button 
+                type="button"
                 onClick={() => setEditingPaymentBranch(null)} 
-                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition-colors shrink-0"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -8873,7 +8914,7 @@ export const AdminPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSavePaymentSettings} className="flex flex-col flex-1 overflow-hidden min-h-0">
-              <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar">
               {/* Cash */}
               <div className="p-3 bg-slate-100 rounded-xl flex items-center justify-between">
                 <div>
