@@ -128,11 +128,11 @@ export const OrderDriverLiveMap: React.FC<OrderDriverLiveMapProps> = ({
         attributionControl: false
       });
 
-      // استخدام خرائط CARTO Voyager عالية السرعة والجودة المدعومة بـ CDN عالمي وتدعم العربية
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        subdomains: 'abcd',
+      // استخدام خرائط Google Maps عالية الدقة باللغة العربية وبدون أي علامة مائية أو حظر API
+      L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=ar', {
         maxZoom: 20,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: '&copy; Google Maps'
       }).addTo(map);
 
       mapRef.current = map;
