@@ -191,6 +191,15 @@ export const InstallApkPage: React.FC<{
   const isIos = typeof window !== 'undefined' && /iphone|ipad|ipod/i.test(window.navigator.userAgent);
   const isInAppBrowser = typeof window !== 'undefined' && /FBAN|FBAV|Instagram|WhatsApp|TikTok|Snapchat|Line/i.test(window.navigator.userAgent);
 
+  // إذا كان المستخدم على جهاز آيفون، يتم توجيهه مباشرة لمنيو المطعم أو الموقع بدون إظهار صفحة الـ APK
+  useEffect(() => {
+    if (isIos) {
+      const cleanSlug = slug || parseApkRoute().branchSlug;
+      const target = cleanSlug ? `/r/${encodeURIComponent(cleanSlug)}` : '/';
+      window.location.replace(target);
+    }
+  }, [isIos, slug]);
+
   // 1. التقاط ومزامنة حدث التثبيت للـ PWA مع المتصفح
   useEffect(() => {
     // تسجيل Service Worker فوراً لضمان جاهزية متصفح كروم لتثبيت PWA وتوليد WebAPK

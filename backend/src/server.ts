@@ -411,6 +411,10 @@ if (fs.existsSync(customerDistPath)) {
     const segments = cleanPath.split('/').filter(Boolean);
     let targetBranchSlug: string | null = null;
 
+    const isApkRequest = (segments.length >= 2 && ['apk', 'download', 'install'].includes(segments[segments.length - 1].toLowerCase())) ||
+      (segments.length === 1 && ['apk', 'download', 'install'].includes(segments[0].toLowerCase())) ||
+      Boolean(req.query.apk || req.query.download || req.query.install);
+
     if (req.query.branch || req.query.r || req.query.b || req.query.slug) {
       targetBranchSlug = String(req.query.branch || req.query.r || req.query.b || req.query.slug).trim();
     } else if (segments.length >= 2 && ['apk', 'download', 'install'].includes(segments[segments.length - 1].toLowerCase())) {
@@ -419,6 +423,17 @@ if (fs.existsSync(customerDistPath)) {
       targetBranchSlug = segments[1];
     } else if (segments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'pos', 'api', 'socket.io', 'uploads', 'manifest.json', 'favicon.ico', 'sw.js', 'robots.txt'].includes(segments[0].toLowerCase())) {
       targetBranchSlug = segments[0];
+    }
+
+    // إذا كان الزائر على هاتف آيفون (iOS) وطلب رابط تثبيت الـ APK، يتم تحويله مباشرة لصفحة المطعم أو الموقع فوراً
+    const userAgent = String(req.headers['user-agent'] || '');
+    const isIos = /iphone|ipad|ipod/i.test(userAgent);
+    if (isIos && isApkRequest) {
+      if (targetBranchSlug && !['admin', 'driver', 'delivery', 'api'].includes(targetBranchSlug.toLowerCase())) {
+        return res.redirect(302, `/r/${encodeURIComponent(targetBranchSlug)}`);
+      } else {
+        return res.redirect(302, '/');
+      }
     }
 
     let html = fs.readFileSync(indexPath, "utf8");

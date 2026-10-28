@@ -68,6 +68,7 @@ export function App() {
   );
 
   const groupParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('group') : null;
+  const isIosDevice = typeof window !== 'undefined' && /iphone|ipad|ipod/i.test(window.navigator.userAgent);
   const isCurrentlyStandalone = typeof window !== 'undefined' && (
     isRunningInNativeApk() ||
     new URLSearchParams(window.location.search).get('installed') === '1' ||
@@ -77,8 +78,8 @@ export function App() {
     document.referrer.includes('android-app://')
   );
   const apkRouteInfo = parseApkRoute();
-  // إذا كان التطبيق يعمل كـ Standalone ومثبت على شاشة الهاتف، نلغي شاشة التثبيت لأن التطبيق مثبت ومفتوح بالفعل
-  const [isApkRoute, setIsApkRoute] = useState(() => (isCurrentlyStandalone ? false : apkRouteInfo.isApkPage));
+  // إذا كان المستخدم على جهاز آيفون (iOS) أو التطبيق مثبت على الهاتف، نلغي شاشة التثبيت فوراً ونفتح المطعم/الموقع مباشرة
+  const [isApkRoute, setIsApkRoute] = useState(() => (isCurrentlyStandalone || isIosDevice ? false : apkRouteInfo.isApkPage));
   const [apkSlug, setApkSlug] = useState<string | null>(apkRouteInfo.branchSlug);
 
   // مزامنة حالة مسار تثبيت الـ APK مع تغيرات الـ URL والـ Hash والـ History
@@ -94,7 +95,7 @@ export function App() {
         (window.navigator as any).standalone === true ||
         document.referrer.includes('android-app://')
       );
-      setIsApkRoute(isStandalone ? false : info.isApkPage);
+      setIsApkRoute(isStandalone || isIosDevice ? false : info.isApkPage);
       setApkSlug(info.branchSlug);
     };
 
@@ -601,8 +602,8 @@ export function App() {
       );
 
       if (currentApkInfo.isApkPage) {
-        if (isStandaloneMode) {
-          // إذا كان التطبيق يعمل كـ PWA مثبت على الهاتف، نلغي شاشة التثبيت ونفتح منيو المطعم مباشرة
+        if (isStandaloneMode || isIosDevice) {
+          // إذا كان المستخدم على آيفون، أو التطبيق يعمل كـ PWA مثبت على الهاتف، نلغي شاشة التثبيت ونفتح منيو المطعم مباشرة
           setIsApkRoute(false);
         } else {
           if (!isApkRoute) {
