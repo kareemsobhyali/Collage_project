@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import { 
   User, 
@@ -144,7 +144,13 @@ export function App() {
         }
       }
       if (!bParam) {
-        const isStandalone = isRunningInNativeApk() || params.get('installed') === '1';
+        const isStandalone = (
+          isRunningInNativeApk() ||
+          params.get('installed') === '1' ||
+          window.matchMedia('(display-mode: standalone)').matches ||
+          (window.navigator as any).standalone === true ||
+          document.referrer.includes('android-app://')
+        );
         if (isStandalone) {
           bParam = localStorage.getItem('pwa_installed_branch');
         }
@@ -218,6 +224,43 @@ export function App() {
     };
   }, [isAnyModalOpen]);
 
+  // فحص ما إذا كان التطبيق يعمل كتطبيق مخصص ومثبت لمطعم معين (PWA / WebAPK / Standalone / Dedicated Branch App)
+  const isDedicatedRestaurantApp = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const isStandaloneMode = (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://') ||
+        params.get('installed') === '1' ||
+        params.get('app') === '1' ||
+        isRunningInNativeApk()
+      );
+      const savedBranch = (localStorage.getItem('pwa_installed_branch') || '').trim().toLowerCase();
+      const currentBranchKey = (selectedBranch?.slug || selectedBranch?.id || '').trim().toLowerCase();
+
+      // 1. إذا كان التطبيق مثبتاً أو في وضع Standalone وله فرع مسجل أو محدد
+      if (isStandaloneMode && (savedBranch || selectedBranch)) {
+        return true;
+      }
+
+      // 2. إذا كان الفرع الحالي يطابق الفرع المثبت في التخزين
+      if (savedBranch && currentBranchKey && (savedBranch === currentBranchKey || savedBranch.includes(currentBranchKey))) {
+        return true;
+      }
+
+      // 3. إذا كان الرابط يحتوي على وسم التثبيت لمطعم محدد
+      if (params.get('installed') === '1' && (Boolean(params.get('r') || params.get('branch')) || selectedBranch)) {
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  }, [selectedBranch]);
+
   // إدارة زر الرجوع في الهاتف (Android Back Button & In-App Navigation)
   const isHandlingPopstateRef = useRef(false);
   const historyDepthRef = useRef(0);
@@ -265,9 +308,10 @@ export function App() {
       isHandlingPopstateRef.current = true;
       historyDepthRef.current = Math.max(0, historyDepthRef.current - 1);
 
-      // أولاً: إذا كانت نافذة الخروج مفتوحة، أغلقها
+      // أولاً: إذا كانت نافذة الخروج مفتوحة بالفعل ونقر المستخدم زر الرجوع مرة أخرى -> خروج فوري من التطبيق
       if (showExitAppDialog) {
-        setShowExitAppDialog(false);
+        handleConfirmExit();
+        return;
       }
       // ثانياً: إغلاق النوافذ المنبثقة بترتيب أسبقيتها (الأحدث فالأقدم)
       else if (customizingItem) {
@@ -286,11 +330,20 @@ export function App() {
       } else if (showAuthModal) {
         setShowAuthModal(false);
       }
-      // ثالثاً: إذا كان المستخدم داخل منيو فرع، الرجوع لشاشة الفروع الرئيسية
+      // ثالثاً: إذا كان المستخدم داخل تطبيق مطعم مثبت (PWA / WebAPK / Standalone):
+      // نمنع الرجوع لشاشة الموقع الرئيسي نهائياً ونعرض نافذة تأكيد إغلاق التطبيق والخروج
+      else if (selectedBranch && isDedicatedRestaurantApp) {
+        try {
+          window.history.pushState({ uniFoodStep: 1 }, '');
+          historyDepthRef.current = 1;
+        } catch (_e) {}
+        setShowExitAppDialog(true);
+      }
+      // رابعاً: إذا كان تصفحاً عادياً في الموقع الرئيسي للجامعة ودخل لمطعم -> يرجع لقائمة الفروع الرئيسية
       else if (selectedBranch) {
         handleReturnHome();
       }
-      // رابعاً: إذا كان في الشاشة الرئيسية ولا توجد أي شاشة فرعية -> إظهار تأكيد الخروج
+      // خامساً: إذا كان في الشاشة الرئيسية ولا توجد أي شاشة فرعية -> إظهار تأكيد الخروج
       else {
         try {
           window.history.pushState({ uniFoodStep: 1 }, '');
@@ -329,22 +382,40 @@ export function App() {
     trackingOrder,
     showMyOrdersModal,
     showAuthModal,
-    selectedBranch
+    selectedBranch,
+    isDedicatedRestaurantApp
   ]);
 
   const handleConfirmExit = () => {
     setShowExitAppDialog(false);
     if (typeof window !== 'undefined') {
-      if ((window.navigator as any)?.app?.exitApp) {
-        (window.navigator as any).app.exitApp();
-        return;
+      // 1. Android Native Bridge / Cordova / Capacitor
+      if ((window as any).AndroidBridge?.exitApp) {
+        try {
+          (window as any).AndroidBridge.exitApp();
+          return;
+        } catch (_e) {}
       }
+      if ((window.navigator as any)?.app?.exitApp) {
+        try {
+          (window.navigator as any).app.exitApp();
+          return;
+        } catch (_e) {}
+      }
+
+      // 2. محاولة إغلاق النافذة
       try {
         window.close();
       } catch (_e) {}
+
+      // 3. الرجوع للخلف في تاريخ المتصفح للخروج من نافذة الـ PWA / WebAPK إلى الشاشة الرئيسية للهاتف
       try {
-        window.history.go(-10);
-      } catch (_e) {}
+        window.history.go(-(window.history.length || 10));
+      } catch (_e) {
+        try {
+          window.history.back();
+        } catch (_e2) {}
+      }
     }
   };
 
@@ -403,6 +474,12 @@ export function App() {
   }, [pendingOpenGroupCart, user, isAdminRoute, showDriverPortal]);
 
   const handleReturnHome = () => {
+    // إذا كان التطبيق مخصصاً لمطعم مثبت، يمنع الخروج للموقع الرئيسي
+    if (isDedicatedRestaurantApp) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setSelectedBranch(null);
     if (typeof window !== 'undefined') {
       try {
@@ -495,7 +572,14 @@ export function App() {
         // إذا كان التطبيق يعمل في وضع التثبيت (PWA Standalone) أو تم حفظ المطعم المثبت مسبقاً
         if (!branchParam) {
           try {
-            const isStandaloneMode = isRunningInNativeApk() || params.get('installed') === '1' || window.location.search.includes('installed');
+            const isStandaloneMode = (
+              isRunningInNativeApk() ||
+              params.get('installed') === '1' ||
+              window.location.search.includes('installed') ||
+              window.matchMedia('(display-mode: standalone)').matches ||
+              (window.navigator as any).standalone === true ||
+              document.referrer.includes('android-app://')
+            );
             const savedInstalledBranch = localStorage.getItem('pwa_installed_branch');
             if (isStandaloneMode && savedInstalledBranch) {
               branchParam = savedInstalledBranch;
@@ -1008,13 +1092,32 @@ export function App() {
       {/* Top Mobile/Desktop Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-3 sm:px-4 py-2.5 shadow-sm w-full">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">
-          {/* Right: Logo */}
+          {/* Right: Logo & Restaurant Brand */}
           <div
-            onClick={handleReturnHome}
-            className="cursor-pointer shrink-0"
-            title="الرئيسية — منصة UniFood"
+            onClick={() => {
+              if (isDedicatedRestaurantApp) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                handleReturnHome();
+              }
+            }}
+            className="cursor-pointer shrink-0 flex items-center gap-2"
+            title={selectedBranch ? selectedBranch.name : 'الرئيسية — منصة UniFood'}
           >
-            <Logo size="sm" />
+            {isDedicatedRestaurantApp && selectedBranch?.logoUrl ? (
+              <>
+                <img
+                  src={getFullImageUrl(selectedBranch.logoUrl)}
+                  alt={selectedBranch.name}
+                  className="w-8 h-8 rounded-xl object-cover border border-slate-200 shadow-2xs"
+                />
+                <span className="font-black text-xs sm:text-sm text-slate-900 truncate max-w-[150px] sm:max-w-xs">
+                  {selectedBranch.name}
+                </span>
+              </>
+            ) : (
+              <Logo size="sm" />
+            )}
           </div>
 
           {/* Left: User & Orders Tools (All h-9 shrink-0 so nothing ever overlaps) */}
@@ -1183,6 +1286,11 @@ export function App() {
             onOpenMyOrders={() => setShowMyOrdersModal(true)}
             onOpenProfile={() => setShowProfileModal(true)}
           />
+        ) : isDedicatedRestaurantApp ? (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500 py-16 animate-fadeIn">
+            <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-bold text-slate-600">جاري فتح قائمة المطعم...</span>
+          </div>
         ) : (
           <LandingPage
             branches={branches}
@@ -1348,17 +1456,24 @@ export function App() {
 
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-900 text-base">
-                الخروج من تطبيق UniFood
+                {selectedBranch ? `الخروج من تطبيق ${selectedBranch.name}` : 'الخروج من تطبيق UniFood'}
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                هل أنت متأكد من رغبتك في إغلاق التطبيق والخروج الآن؟
+                {selectedBranch
+                  ? `هل أنت متأكد من رغبتك في إغلاق تطبيق ${selectedBranch.name} والخروج الآن؟`
+                  : 'هل أنت متأكد من رغبتك في إغلاق التطبيق والخروج الآن؟'}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setShowExitAppDialog(false)}
+                onClick={() => {
+                  setShowExitAppDialog(false);
+                  try {
+                    window.history.pushState({ uniFoodStep: 1 }, '');
+                  } catch {}
+                }}
                 className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors"
               >
                 البقاء في التطبيق
