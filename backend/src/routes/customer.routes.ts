@@ -293,17 +293,125 @@ router.get("/banners", async (_req: Request, res: Response) => {
   }
 });
 
-// 0.5 التحقق من صلاحية كود الخصم للطلاب (شامل عدد مرات الاستخدام وشرط المرة الواحدة)
+// دوال مساعدة لفحص صلاحية الكوبونات وتخصيص العميل والتطبيق التلقائي
+function normalizeCustomerPromoPhone(phone?: string | null): string {
+  if (!phone) return "";
+  let cleaned = String(phone).replace(/\D/g, "");
+  if (cleaned.startsWith("0020")) cleaned = "0" + cleaned.slice(4);
+  else if (cleaned.startsWith("20") && cleaned.length === 12) cleaned = "0" + cleaned.slice(2);
+  return cleaned;
+}
+
+function sanitizeIncomingPromoCode(raw?: unknown): string {
+  if (typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const lower = trimmed.toLowerCase();
+  if (lower === "null" || lower === "undefined" || lower === "nan" || lower === "false") {
+    return "";
+  }
+  return trimmed.toUpperCase();
+}
+
+function isPromoBoundToSpecificCustomer(promo: any): boolean {
+  return Boolean(
+    (promo?.assignedUserId && String(promo.assignedUserId).trim()) ||
+    (promo?.assignedUserPhone && String(promo.assignedUserPhone).trim())
+  );
+}
+
+function doesCustomerMatchBoundPromo(
+  promo: any,
+  user?: { id: string; phone?: string | null } | null
+): boolean {
+  if (!isPromoBoundToSpecificCustomer(promo)) return true;
+  if (!user) return false;
+
+  if (promo.assignedUserId && String(promo.assignedUserId).trim() === user.id) {
+    return true;
+  }
+
+  const promoPhone = normalizeCustomerPromoPhone(promo.assignedUserPhone);
+  const userPhone = normalizeCustomerPromoPhone(user.phone);
+  if (promoPhone && userPhone && promoPhone === userPhone) {
+    return true;
+  }
+
+  return false;
+}
+
+function isPromoValidForBranch(
+  promo: any,
+  branchId?: string | null,
+  branchSlug?: string | null
+): boolean {
+  if (!promo?.applicableBranchIds) return true;
+  const targetId = branchId ? String(branchId).trim() : "";
+  const targetSlug = branchSlug ? String(branchSlug).trim().toLowerCase() : "";
+
+  try {
+    const allowedBranches: string[] = JSON.parse(promo.applicableBranchIds);
+    if (Array.isArray(allowedBranches) && allowedBranches.length > 0) {
+      if (!targetId && !targetSlug) return false;
+      return allowedBranches.some((b) => {
+        const cleanB = String(b).trim();
+        return (
+          (targetId && cleanB === targetId) ||
+          (targetId && cleanB.toLowerCase() === targetId.toLowerCase()) ||
+          (targetSlug && cleanB.toLowerCase() === targetSlug)
+        );
+      });
+    }
+  } catch (_e) {
+    const allowedBranches = String(promo.applicableBranchIds)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (allowedBranches.length > 0) {
+      if (!targetId && !targetSlug) return false;
+      return allowedBranches.some((cleanB) => {
+        return (
+          (targetId && cleanB === targetId) ||
+          (targetId && cleanB.toLowerCase() === targetId.toLowerCase()) ||
+          (targetSlug && cleanB.toLowerCase() === targetSlug)
+        );
+      });
+    }
+  }
+  return true;
+}
+
+async function extractOptionalCustomerUser(
+  req: Request
+): Promise<{ id: string; phone: string; name: string } | null> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  try {
+    const token = authHeader.split(" ")[1];
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+    if (!decoded?.userId) return null;
+    const u = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, phone: true, name: true },
+    });
+    return u || null;
+  } catch {
+    return null;
+  }
+}
+
+// 0.5 التحقق من صلاحية كود الخصم للطلاب (شامل عدد مرات الاستخدام وشرط المرة الواحدة وتخصيص العميل)
 router.post("/promo-codes/validate", async (req: Request, res: Response) => {
   try {
     const { code, subtotal, branchId } = req.body;
-    if (!code || !code.trim()) {
+    const cleanCode = sanitizeIncomingPromoCode(code);
+    if (!cleanCode) {
       res.status(400).json({ error: "يرجى إدخال كود الخصم" });
       return;
     }
 
     const promo = await prisma.promoCode.findUnique({
-      where: { code: code.trim().toUpperCase() },
+      where: { code: cleanCode },
     });
 
     if (!promo || !promo.isActive) {
@@ -316,50 +424,43 @@ router.post("/promo-codes/validate", async (req: Request, res: Response) => {
       return;
     }
 
-    if (promo.maxUses && promo.usedCount >= promo.maxUses) {
+    if (promo.maxUses !== null && promo.maxUses !== undefined && promo.usedCount >= promo.maxUses) {
       res.status(400).json({ error: "عذراً، تم استنفاد الحد الأقصى لعدد مرات استخدام هذا الكوبون" });
       return;
     }
 
     // التحقق من نطاق الفروع المسموح بها لهذا الكوبون (فروع معينة أو الكل)
-    if (promo.applicableBranchIds) {
-      try {
-        const allowedBranches: string[] = JSON.parse(promo.applicableBranchIds);
-        if (Array.isArray(allowedBranches) && allowedBranches.length > 0) {
-          if (!branchId || !allowedBranches.includes(String(branchId).trim())) {
-            res.status(400).json({ error: "كود الخصم هذا مخصص لمطاعم وفروع محددة فقط ولا ينطبق على هذا المطعم" });
-            return;
-          }
-        }
-      } catch (_e) {
-        const allowedBranches = promo.applicableBranchIds.split(',').map(s => s.trim()).filter(Boolean);
-        if (allowedBranches.length > 0 && (!branchId || !allowedBranches.includes(String(branchId).trim()))) {
-          res.status(400).json({ error: "كود الخصم هذا مخصص لمطاعم وفروع محددة فقط ولا ينطبق على هذا المطعم" });
-          return;
-        }
+    if (!isPromoValidForBranch(promo, branchId)) {
+      res.status(400).json({ error: "كود الخصم هذا مخصص لمطاعم وفروع محددة فقط ولا ينطبق على هذا المطعم" });
+      return;
+    }
+
+    const authUser = await extractOptionalCustomerUser(req);
+
+    // التحقق من ربط الكوبون بعميل محدد (لا يستخدمه غيره)
+    if (isPromoBoundToSpecificCustomer(promo)) {
+      if (!authUser) {
+        res.status(401).json({ error: "هذا الكوبون مخصص لحساب عميل محدد، يرجى تسجيل الدخول أولاً لتطبيقه" });
+        return;
+      }
+      if (!doesCustomerMatchBoundPromo(promo, authUser)) {
+        res.status(403).json({ error: "عذراً، كود الخصم هذا مخصص لعميل محدد ولا يمكن استخدامه من حساب آخر" });
+        return;
       }
     }
 
-    // التحقق من شرط الاستخدام لمرة واحدة لكل طالب إذا كان مسجلاً للدخول
-    if (promo.oncePerUser && req.headers.authorization?.startsWith("Bearer ")) {
-      try {
-        const token = req.headers.authorization.split(" ")[1];
-        const decoded: any = jwt.verify(token, JWT_SECRET);
-        if (decoded?.userId) {
-          const previousUses = await prisma.order.count({
-            where: {
-              userId: decoded.userId,
-              promoCode: promo.code,
-              status: { not: "REJECTED" },
-            },
-          });
-          if (previousUses > 0) {
-            res.status(400).json({ error: "لقد قمت باستخدام كود الخصم هذا مسبقاً (متاح لمرة واحدة لكل عميل)" });
-            return;
-          }
-        }
-      } catch (_e) {
-        // ignore invalid token during pre-login validation
+    // التحقق من شرط الاستخدام لمرة واحدة لكل عميل إذا كان مسجلاً للدخول
+    if (promo.oncePerUser && authUser) {
+      const previousUses = await prisma.order.count({
+        where: {
+          userId: authUser.id,
+          promoCode: { equals: promo.code, mode: "insensitive" },
+          status: { notIn: ["REJECTED", "CANCELLED"] },
+        },
+      });
+      if (previousUses > 0) {
+        res.status(400).json({ error: "لقد قمت باستخدام كود الخصم هذا مسبقاً (متاح لمرة واحدة لكل عميل)" });
+        return;
       }
     }
 
@@ -383,11 +484,127 @@ router.post("/promo-codes/validate", async (req: Request, res: Response) => {
       discount,
       discountType: promo.discountType,
       value: promo.value,
+      minOrder: promo.minOrder,
       maxUses: promo.maxUses,
       usedCount: promo.usedCount,
+      oncePerUser: promo.oncePerUser,
+      autoApply: promo.autoApply,
+      isPersonal: isPromoBoundToSpecificCustomer(promo),
     });
   } catch (error) {
     res.status(500).json({ error: "فشل التحقق من كود الخصم" });
+  }
+});
+
+// 0.6 جلب أفضل كوبون خصم تلقائي (Auto-Apply) مؤهل للعميل والمطعم الحالي في شاشة الدفع
+router.get("/promo-codes/auto-eligible", async (req: Request, res: Response) => {
+  try {
+    const branchId = req.query.branchId ? String(req.query.branchId).trim() : "";
+    const sub = parseFloat(String(req.query.subtotal || "0")) || 0;
+    const now = new Date();
+
+    const authUser = await extractOptionalCustomerUser(req);
+
+    const autoCandidates = await prisma.promoCode.findMany({
+      where: {
+        isActive: true,
+        autoApply: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (autoCandidates.length === 0) {
+      res.json({ success: true, promo: null });
+      return;
+    }
+
+    let usedCodesSet = new Set<string>();
+    if (authUser) {
+      const prevPromoOrders = await prisma.order.findMany({
+        where: {
+          userId: authUser.id,
+          promoCode: { not: null },
+          status: { notIn: ["REJECTED", "CANCELLED"] },
+        },
+        select: { promoCode: true },
+      });
+      usedCodesSet = new Set(
+        prevPromoOrders
+          .map((o) => (o.promoCode ? o.promoCode.trim().toUpperCase() : ""))
+          .filter(Boolean)
+      );
+    }
+
+    const eligible: Array<{ promo: any; discount: number; isPersonal: boolean }> = [];
+
+    for (const p of autoCandidates) {
+      // 1. انتهاء الصلاحية
+      if (p.expiresAt && now > new Date(p.expiresAt)) continue;
+
+      // 2. نفاد العدد المحدد الكلي
+      if (p.maxUses !== null && p.maxUses !== undefined && p.usedCount >= p.maxUses) continue;
+
+      // 3. مطابقة الفرع المسموح
+      if (!isPromoValidForBranch(p, branchId)) continue;
+
+      // 4. إذا كان الكوبون مربوطاً بعميل محدد -> لا ينضاف تلقائياً إلا لهذا العميل تحديداً بعد تسجيل دخوله
+      const isPersonal = isPromoBoundToSpecificCustomer(p);
+      if (isPersonal) {
+        if (!authUser || !doesCustomerMatchBoundPromo(p, authUser)) continue;
+      }
+
+      // 5. إذا كان استخدام لمرة واحدة لكل عميل (أو للعميل المخصص)
+      if (p.oncePerUser) {
+        if (!authUser) {
+          // لا نضيف كوبون المرة الواحدة تلقائياً إلا بعد معرفة حساب العميل للتأكد أنه لم يستخدمه مسبقاً
+          continue;
+        }
+        if (usedCodesSet.has(p.code.trim().toUpperCase())) {
+          continue;
+        }
+      }
+
+      // 6. الحد الأدنى لقيمة السلة
+      if (sub < (p.minOrder || 0)) continue;
+
+      const discount =
+        p.discountType === "PERCENT" || p.discountType === "PERCENTAGE"
+          ? Math.round((sub * p.value) / 100)
+          : Math.min(sub, p.value);
+
+      if (discount <= 0) continue;
+
+      eligible.push({ promo: p, discount, isPersonal });
+    }
+
+    if (eligible.length === 0) {
+      res.json({ success: true, promo: null });
+      return;
+    }
+
+    // الأولوية لكوبون العميل الشخصي المخصص (تعويض)، ثم للكوبون الأعلى توفيراً
+    eligible.sort((a, b) => {
+      if (a.isPersonal !== b.isPersonal) return a.isPersonal ? -1 : 1;
+      return b.discount - a.discount;
+    });
+
+    const best = eligible[0];
+    res.json({
+      success: true,
+      promo: {
+        code: best.promo.code,
+        discount: best.discount,
+        discountType: best.promo.discountType,
+        value: best.promo.value,
+        minOrder: best.promo.minOrder || 0,
+        oncePerUser: Boolean(best.promo.oncePerUser),
+        autoApply: true,
+        isPersonal: best.isPersonal,
+      },
+    });
+  } catch (error) {
+    console.error("Get auto-eligible promo error:", error);
+    res.json({ success: true, promo: null });
   }
 });
 
@@ -463,13 +680,69 @@ function computeBranchCrowdInfo(activeKitchenOrders: number) {
   };
 }
 
-// 0.8 عروض الفلاش الموقوتة وقت البريك (Flash Deals المضافة حصراً من لوحة الإدارة)
-router.get("/flash-deals", async (_req: Request, res: Response) => {
+// 0.8 عروض الفلاش الموقوتة والكوبونات المتاحة في قسم العروض
+router.get("/flash-deals", async (req: Request, res: Response) => {
   try {
     const now = new Date();
+    const authUser = await extractOptionalCustomerUser(req);
+
+    let usedCodesSet = new Set<string>();
+    if (authUser) {
+      try {
+        const prevOrders = await prisma.order.findMany({
+          where: {
+            userId: authUser.id,
+            promoCode: { not: null },
+            status: { notIn: ["REJECTED", "CANCELLED"] },
+          },
+          select: { promoCode: true },
+        });
+        usedCodesSet = new Set(
+          prevOrders
+            .map((o) => sanitizeIncomingPromoCode(o.promoCode))
+            .filter(Boolean)
+        );
+      } catch (_e) {}
+    }
+
+    // جلب كافة أكواد الخصم النشطة لفحص قواعد الظهور في قسم العروض (showInDeals، تخصيص العميل، الحد الأقصى)
+    let allPromos: any[] = [];
+    let allBranchesMap: Record<string, any> = {};
+    try {
+      const [promosList, branchesList] = await Promise.all([
+        prisma.promoCode.findMany({
+          where: { isActive: true },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.branch.findMany({
+          where: { isActive: true },
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        }),
+      ]);
+      allPromos = promosList || [];
+      allBranchesMap = Object.fromEntries((branchesList || []).map((b) => [b.id, b]));
+    } catch (_e) {}
+
+    const promoByCodeMap: Record<string, any> = {};
+    for (const p of allPromos) {
+      const clean = sanitizeIncomingPromoCode(p.code);
+      if (clean) promoByCodeMap[clean] = p;
+    }
+
+    const isPromoVisibleInPublicDeals = (p: any): boolean => {
+      if (!p || !p.isActive) return false;
+      if (p.showInDeals === false) return false;
+      if (p.expiresAt && new Date(p.expiresAt) <= now) return false;
+      if (p.maxUses !== null && p.maxUses !== undefined && p.usedCount >= p.maxUses) return false;
+      if (isPromoBoundToSpecificCustomer(p) && !doesCustomerMatchBoundPromo(p, authUser)) return false;
+      if (p.oncePerUser && authUser && usedCodesSet.has(sanitizeIncomingPromoCode(p.code))) return false;
+      return true;
+    };
 
     // جلب عروض الفلاش المخصصة المدارة حصراً من لوحة الإدارة مع فحص التكرار وساعات العمل
     let customDeals: any[] = [];
+    const flashDealPromoCodesSet = new Set<string>();
+
     try {
       const allActiveDeals = await prisma.flashDeal.findMany({
         where: {
@@ -481,7 +754,18 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
         orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }]
       });
 
-      const activeCustomDeals = allActiveDeals.filter(d => isFlashDealCurrentlyActive(d, now));
+      const activeCustomDeals = allActiveDeals.filter((d) => {
+        if (!isFlashDealCurrentlyActive(d, now)) return false;
+        const cleanDealCode = sanitizeIncomingPromoCode(d.promoCode);
+        if (cleanDealCode) {
+          const linkedPromo = promoByCodeMap[cleanDealCode];
+          // إذا كان الكوبون مسجلاً في جدول الكوبونات ومخفياً من العروض أو مخصصاً لعميل آخر أو مستنفداً -> نخفيه
+          if (linkedPromo && !isPromoVisibleInPublicDeals(linkedPromo)) {
+            return false;
+          }
+        }
+        return true;
+      });
 
       // جلب بيانات الأصناف المرتبطة بالعروض مع الأحجام والإضافات
       const itemIdsToFetch = Array.from(new Set(activeCustomDeals.map(d => d.menuItemId).filter(Boolean))) as string[];
@@ -510,6 +794,9 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
       customDeals = activeCustomDeals.map((d) => {
         const stockInfo = getDealStockInfo(d);
         const linkedItem = d.menuItemId ? fetchedItemsMap[d.menuItemId] : null;
+        const cleanDealCode = sanitizeIncomingPromoCode(d.promoCode) || null;
+        if (cleanDealCode) flashDealPromoCodesSet.add(cleanDealCode);
+
         return {
           id: `custom_${d.id}`,
           dbId: d.id,
@@ -520,8 +807,8 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
           discountPrice: d.discountPrice,
           price: d.discountPrice || d.originalPrice,
           discountPercent: d.discountPercent,
-          promoCode: d.promoCode,
-          code: d.promoCode,
+          promoCode: cleanDealCode,
+          code: cleanDealCode,
           badgeText: d.badgeText || "عرض البريك 🔥",
           imageUrl: d.imageUrl || linkedItem?.imageUrl || null,
           expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
@@ -548,11 +835,74 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
       // Table may not exist yet on initial boot
     }
 
+    // إضافة الكوبونات العامة المفعل لها خيار (إظهار في قسم العروض showInDeals) ولم تُضف مسبقاً كبطاقة FlashDeal
+    const publicPromoCards = allPromos
+      .filter((p) => {
+        const clean = sanitizeIncomingPromoCode(p.code);
+        if (!clean || flashDealPromoCodesSet.has(clean)) return false;
+        return isPromoVisibleInPublicDeals(p);
+      })
+      .map((p) => {
+        const clean = sanitizeIncomingPromoCode(p.code);
+        const isPercent = p.discountType === "PERCENT" || p.discountType === "PERCENTAGE";
+        let targetBranch: any = null;
+        let singleBranchId: string | null = null;
+        if (p.applicableBranchIds) {
+          try {
+            const parsed = JSON.parse(p.applicableBranchIds);
+            if (Array.isArray(parsed) && parsed.length === 1 && allBranchesMap[parsed[0]]) {
+              targetBranch = allBranchesMap[parsed[0]];
+              singleBranchId = parsed[0];
+            }
+          } catch {}
+        }
+        const isUnlimited = !p.maxUses;
+        const remainingUses = isUnlimited ? 999 : Math.max(0, p.maxUses - (p.usedCount || 0));
+
+        return {
+          id: `promo_${p.id}`,
+          dbId: p.id,
+          type: "PROMO",
+          title: isPercent ? `كوبون خصم ${p.value}%` : `كوبون خصم ${p.value} ج.م`,
+          subtitle:
+            p.minOrder > 0
+              ? `للطلبات بقيمة ${p.minOrder} ج.م أو أكثر${targetBranch ? ` • ${targetBranch.name}` : " • متاح للمطاعم المشتركة"}`
+              : targetBranch
+              ? `متاح للطلب من ${targetBranch.name}`
+              : "متاح للاستخدام في شاشة الدفع",
+          originalPrice: null,
+          discountPrice: null,
+          price: null,
+          discountPercent: isPercent ? p.value : null,
+          promoCode: clean,
+          code: clean,
+          badgeText: p.autoApply ? "خصم تلقائي ⚡" : "كوبون خصم 🎟️",
+          imageUrl: null,
+          expiresAt: p.expiresAt ? new Date(p.expiresAt).toISOString() : null,
+          maxUses: isUnlimited ? 9999 : p.maxUses,
+          usedCount: p.usedCount || 0,
+          remainingUses,
+          isUnlimited,
+          maxPerUser: p.oncePerUser ? 1 : null,
+          isRecurring: false,
+          recurringDays: null,
+          dailyStartTime: null,
+          dailyEndTime: null,
+          targetBranch,
+          branchId: singleBranchId,
+          menuItemId: null,
+          item: null,
+        };
+      });
+
+    const combinedDeals = [...customDeals, ...publicPromoCards];
+
     res.json({
-      deals: customDeals,
+      deals: combinedDeals,
       customDeals,
-      promoDeals: customDeals.filter((d) => d.type === "PROMO"),
-      comboDeals: customDeals.filter((d) => d.type !== "PROMO"),
+      publicPromos: publicPromoCards,
+      promoDeals: combinedDeals.filter((d) => d.type === "PROMO"),
+      comboDeals: combinedDeals.filter((d) => d.type !== "PROMO"),
       serverTime: now.toISOString(),
     });
   } catch (error) {
@@ -784,7 +1134,50 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       }),
     ]);
 
-    const liveFlashDeals = (allFlashDeals || []).filter(d => isFlashDealCurrentlyActive(d, now));
+    const authUser = await extractOptionalCustomerUser(req);
+    let usedCodesSet = new Set<string>();
+    if (authUser) {
+      try {
+        const prevOrders = await prisma.order.findMany({
+          where: {
+            userId: authUser.id,
+            promoCode: { not: null },
+            status: { notIn: ["REJECTED", "CANCELLED"] },
+          },
+          select: { promoCode: true },
+        });
+        usedCodesSet = new Set(
+          prevOrders
+            .map((o) => sanitizeIncomingPromoCode(o.promoCode))
+            .filter(Boolean)
+        );
+      } catch (_e) {}
+    }
+
+    const promoMapByCode: Record<string, any> = {};
+    for (const p of allPromos || []) {
+      const clean = sanitizeIncomingPromoCode(p.code);
+      if (clean) promoMapByCode[clean] = p;
+    }
+
+    const isPromoVisibleForDeals = (p: any): boolean => {
+      if (!p || !p.isActive) return false;
+      if (p.showInDeals === false) return false;
+      if (p.expiresAt && new Date(p.expiresAt) <= now) return false;
+      if (p.maxUses !== null && p.maxUses !== undefined && p.usedCount >= p.maxUses) return false;
+      if (isPromoBoundToSpecificCustomer(p) && !doesCustomerMatchBoundPromo(p, authUser)) return false;
+      if (p.oncePerUser && authUser && usedCodesSet.has(sanitizeIncomingPromoCode(p.code))) return false;
+      return true;
+    };
+
+    const liveFlashDeals = (allFlashDeals || []).filter((d) => {
+      if (!isFlashDealCurrentlyActive(d, now)) return false;
+      const cleanDealCode = sanitizeIncomingPromoCode(d.promoCode);
+      if (cleanDealCode && promoMapByCode[cleanDealCode] && !isPromoVisibleForDeals(promoMapByCode[cleanDealCode])) {
+        return false;
+      }
+      return true;
+    });
 
     // استخراج البانرات الخاصة بهذا المطعم أو البانرات العامة
     const branchSlugNorm = (branch.slug || "").toLowerCase();
@@ -797,28 +1190,10 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       );
     });
 
-    // استخراج كوبونات الخصم الصالحة لهذا المطعم
+    // استخراج كوبونات الخصم الصالحة والمسموح بظهورها في قسم العروض لهذا المطعم
     const relevantPromos = (allPromos || []).filter((p: any) => {
-      if (p.expiresAt && new Date(p.expiresAt) <= now) return false;
-      if (p.maxUses && p.usedCount >= p.maxUses) return false;
-      if (!p.applicableBranchIds) return true;
-      try {
-        const allowed = JSON.parse(p.applicableBranchIds);
-        if (Array.isArray(allowed)) {
-          return allowed.some(
-            (id: string) =>
-              id === actualBranchId ||
-              (branchSlugNorm && String(id).toLowerCase() === branchSlugNorm)
-          );
-        }
-      } catch {
-        const allowed = p.applicableBranchIds.split(",").map((s: string) => s.trim().toLowerCase());
-        return (
-          allowed.includes(actualBranchId.toLowerCase()) ||
-          (branchSlugNorm && allowed.includes(branchSlugNorm))
-        );
-      }
-      return true;
+      if (!isPromoVisibleForDeals(p)) return false;
+      return isPromoValidForBranch(p, actualBranchId, branchSlugNorm);
     });
 
     let currentStatus = branch.operationalStatus;
@@ -894,6 +1269,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       })),
       flashDeals: liveFlashDeals.map((d) => {
         const stockInfo = getDealStockInfo(d);
+        const cleanDealCode = sanitizeIncomingPromoCode(d.promoCode) || null;
         return {
           id: `custom_${d.id}`,
           dbId: d.id,
@@ -904,8 +1280,8 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
           discountPrice: d.discountPrice,
           price: d.discountPrice || d.originalPrice,
           discountPercent: d.discountPercent,
-          promoCode: d.promoCode,
-          code: d.promoCode,
+          promoCode: cleanDealCode,
+          code: cleanDealCode,
           badgeText: d.badgeText || "عرض البريك 🔥",
           imageUrl: d.imageUrl,
           expiresAt: d.expiresAt ? d.expiresAt.toISOString() : null,
@@ -1643,40 +2019,51 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // التحقق الفعلي من كود الخصم على السيرفر (شامل حدود الاستخدام)
+    // التحقق من حالة حساب الطالب وعدم حظره من قبل إدارة المنظومة (حظر عام)
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!currentUser || currentUser.isBlocked) {
+      res.status(403).json({
+        error: "عذراً، تم إيقاف هذا الحساب من إرسال طلبات جديدة. يرجى التواصل مع الإدارة.",
+      });
+      return;
+    }
+
+    // التحقق الفعلي من كود الخصم على السيرفر (شامل حدود الاستخدام وتخصيص العميل)
     let discount = 0;
     let verifiedPromoCode: string | null = null;
     let verifiedPromoId: string | null = null;
 
-    if (promoCode && String(promoCode).trim()) {
-      const cleanCode = String(promoCode).trim().toUpperCase();
+    const cleanOrderPromoCode = sanitizeIncomingPromoCode(promoCode);
+    if (cleanOrderPromoCode) {
       const promo = await prisma.promoCode.findUnique({
-        where: { code: cleanCode },
+        where: { code: cleanOrderPromoCode },
       });
 
-      const isUnderLimit = !promo?.maxUses || promo.usedCount < promo.maxUses;
+      if (promo && isPromoBoundToSpecificCustomer(promo) && !doesCustomerMatchBoundPromo(promo, currentUser)) {
+        res.status(403).json({
+          error: "عذراً، كود الخصم هذا مخصص لعميل محدد ولا يمكن استخدامه من هذا الحساب",
+        });
+        return;
+      }
+
+      const isUnderLimit =
+        promo?.maxUses === null || promo?.maxUses === undefined || (promo?.usedCount ?? 0) < promo.maxUses;
       let allowedForUser = true;
       if (promo?.oncePerUser) {
         const previousUses = await prisma.order.count({
-          where: { userId, promoCode: promo.code, status: { not: "REJECTED" } },
+          where: {
+            userId,
+            promoCode: { equals: promo.code, mode: "insensitive" },
+            status: { notIn: ["REJECTED", "CANCELLED"] },
+          },
         });
         if (previousUses > 0) allowedForUser = false;
       }
 
-      let allowedForBranch = true;
-      if (promo?.applicableBranchIds) {
-        try {
-          const allowedBranches: string[] = JSON.parse(promo.applicableBranchIds);
-          if (Array.isArray(allowedBranches) && allowedBranches.length > 0) {
-            allowedForBranch = allowedBranches.includes(branchId);
-          }
-        } catch {
-          const allowedBranches = promo.applicableBranchIds.split(',').map(s => s.trim()).filter(Boolean);
-          if (allowedBranches.length > 0) {
-            allowedForBranch = allowedBranches.includes(branchId);
-          }
-        }
-      }
+      const allowedForBranch = promo ? isPromoValidForBranch(promo, branchId) : false;
 
       if (
         promo &&
@@ -1698,18 +2085,6 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     }
 
     const preWalletTotal = Math.max(0, subtotal + calculatedDeliveryFee - discount);
-
-    // التحقق من حالة حساب الطالب وعدم حظره من قبل إدارة المنظومة (حظر عام)
-    const currentUser = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!currentUser || currentUser.isBlocked) {
-      res.status(403).json({
-        error: "عذراً، تم إيقاف هذا الحساب من إرسال طلبات جديدة. يرجى التواصل مع الإدارة.",
-      });
-      return;
-    }
 
     // التحقق من عدم حظر العميل على مستوى هذا الفرع تحديداً (عزل الحظر على مستوى المطعم)
     const branchCustomerBlock = await prisma.branchBlockedCustomer.findUnique({
@@ -1829,7 +2204,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         throw new Error("DUPLICATE_ORDER_SUBMISSION");
       }
 
-      // التحقق الذري من كود الخصم وشرط المرة الواحدة داخل المعاملة
+      // التحقق الذري من كود الخصم وشرط المرة الواحدة وتخصيص العميل داخل المعاملة
       if (verifiedPromoId && verifiedPromoCode) {
         const freshPromo = await tx.promoCode.findUnique({
           where: { id: verifiedPromoId },
@@ -1837,12 +2212,19 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         if (!freshPromo || !freshPromo.isActive) {
           throw new Error("PROMO_INVALID");
         }
-        if (freshPromo.maxUses && freshPromo.usedCount >= freshPromo.maxUses) {
+        if (isPromoBoundToSpecificCustomer(freshPromo) && !doesCustomerMatchBoundPromo(freshPromo, currentUser)) {
+          throw new Error("PROMO_NOT_ASSIGNED_TO_USER");
+        }
+        if (freshPromo.maxUses !== null && freshPromo.maxUses !== undefined && freshPromo.usedCount >= freshPromo.maxUses) {
           throw new Error("PROMO_EXHAUSTED");
         }
         if (freshPromo.oncePerUser) {
           const usedByUser = await tx.order.count({
-            where: { userId, promoCode: verifiedPromoCode, status: { not: "REJECTED" } },
+            where: {
+              userId,
+              promoCode: { equals: verifiedPromoCode, mode: "insensitive" },
+              status: { notIn: ["REJECTED", "CANCELLED"] },
+            },
           });
           if (usedByUser > 0) {
             throw new Error("PROMO_ALREADY_USED_BY_USER");
@@ -1972,6 +2354,10 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     }
     if (error?.message === "PROMO_ALREADY_USED_BY_USER") {
       res.status(400).json({ error: "لقد قمت باستخدام كود الخصم هذا مسبقاً" });
+      return;
+    }
+    if (error?.message === "PROMO_NOT_ASSIGNED_TO_USER") {
+      res.status(403).json({ error: "عذراً، كود الخصم هذا مخصص لعميل محدد ولا يمكن استخدامه من هذا الحساب" });
       return;
     }
     console.error("Create order error:", error);

@@ -26,8 +26,16 @@ import {
   MapPinOff,
   ChevronDown,
   PowerOff,
+  Map as MapIcon,
+  Home,
+  Building2,
+  Briefcase,
+  GraduationCap,
+  Pencil,
+  Sparkles,
 } from 'lucide-react';
-import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
+import { api, getFullImageUrl, isBranchOpenByHours, sanitizePromoCodeValue } from '../services/api';
+import { LocationPickerModal, type LocationPickerResult } from './LocationPickerModal';
 import { requestPushPermission } from '../services/notifications';
 import {
   formatAddressWithCoordinates,
@@ -91,11 +99,18 @@ function formatTime12Arabic(time24?: string | null): string {
 
 const ADDRESS_QUICK_CHIPS = [
   'بجوار البوابة',
-  'الدور الأرضي',
-  'الدور الأول',
-  'الدور الثاني',
   'أمام الكافتيريا',
+  'مدخل العمارة',
+  'بجوار المسجد',
   'اتصل بي عند الوصول',
+];
+
+const SAVE_ADDRESS_PRESETS = [
+  { id: 'المنزل', label: 'المنزل', emoji: '🏠' },
+  { id: 'السكن', label: 'السكن', emoji: '🏢' },
+  { id: 'العمل', label: 'العمل', emoji: '💼' },
+  { id: 'الجامعة', label: 'الجامعة', emoji: '🎓' },
+  { id: 'أخرى', label: 'اسم آخر', emoji: '📍' },
 ];
 
 const ORDER_NOTE_CHIPS = [
@@ -240,6 +255,18 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [isWritingNewAddress, setIsWritingNewAddress] = useState(false);
 
+  // حقول العنوان الجديد المقسمة بشكل واضح وسهل للعميل بدون أي تكرار
+  const [streetArea, setStreetArea] = useState('');
+  const [userEditedStreet, setUserEditedStreet] = useState(false);
+  const [buildingNo, setBuildingNo] = useState('');
+  const [floorNo, setFloorNo] = useState('');
+  const [apartmentNo, setApartmentNo] = useState('');
+  const [landmarkNote, setLandmarkNote] = useState('');
+  const [selectedLandmarkChips, setSelectedLandmarkChips] = useState<string[]>([]);
+  const [saveLabelPreset, setSaveLabelPreset] = useState<string>('المنزل');
+  const [customSaveLabel, setCustomSaveLabel] = useState<string>('');
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState<boolean>(false);
+
   const [customerPhone, setCustomerPhone] = useState(user?.phone || '');
   const [customerName, setCustomerName] = useState(user?.name || '');
   const [notes, setNotes] = useState('');
@@ -262,12 +289,43 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // تجميع نص العنوان الجديد المقروء من الحقول المقسمة بشكل منظم وواضح للكابتن والفاتورة
+  const composedNewAddressDetails = useMemo(() => {
+    const parts: string[] = [];
+    if (streetArea.trim()) parts.push(streetArea.trim());
+    if (buildingNo.trim()) parts.push(`عمارة/مبنى ${buildingNo.trim()}`);
+    if (floorNo.trim()) parts.push(`الدور ${floorNo.trim()}`);
+    if (apartmentNo.trim()) parts.push(`شقة ${apartmentNo.trim()}`);
+    if (landmarkNote.trim()) parts.push(landmarkNote.trim());
+    if (selectedLandmarkChips.length > 0) {
+      parts.push(selectedLandmarkChips.join(' - '));
+    }
+    return parts.join(' ، ');
+  }, [streetArea, buildingNo, floorNo, apartmentNo, landmarkNote, selectedLandmarkChips]);
+
+  const isUsingSavedAddress = Boolean(
+    selectedAddressId &&
+      !isWritingNewAddress &&
+      savedAddresses.some((a) => a.id === selectedAddressId)
+  );
+
+  // مزامنة addressText تلقائياً عند كتابة عنوان جديد
+  useEffect(() => {
+    if (!isUsingSavedAddress) {
+      if (capturedCoords) {
+        setAddressText(formatAddressWithCoordinates(composedNewAddressDetails, capturedCoords.lat, capturedCoords.lng));
+      } else {
+        setAddressText(composedNewAddressDetails);
+      }
+    }
+  }, [isUsingSavedAddress, composedNewAddressDetails, capturedCoords]);
+
   // فحص نطاق التوصيل الجغرافي للمطعم لموقع العميل الحالي (طلب المستخدم: منع الطلب إذا كان المطعم خارج الزون)
   const effectiveClientCoords = capturedCoords || extractCoordinatesFromAddress(addressText) || getStoredClientCoords();
   const deliveryZoneCheck = isBranchInDeliveryZone(branch, effectiveClientCoords);
   const isOutOfDeliveryZone = orderType === 'DELIVERY' && !!effectiveClientCoords && !deliveryZoneCheck.inZone;
 
-  // دالة التقاط الـ GPS (سواء تلقائياً بالخلفية عند كتابة عنوان أو يدوياً بالزر)
+  // دالة التقاط الـ GPS (سواء تلقائياً بالخلفية عند فتح السلة أو يدوياً بالزر)
   const acquireGpsLocation = useCallback(
     (options?: { silent?: boolean; overwriteWrittenText?: boolean }): Promise<{ lat: number; lng: number } | null> => {
       const silent = options?.silent ?? false;
@@ -294,6 +352,15 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             const place = await getNearestLocationName(lat, lng);
             setDetectedPlaceLabel(place.title);
 
+            setStreetArea((prevStreet) => {
+              if (!prevStreet.trim() || prevStreet === 'موقعي الحالي' || overwriteWrittenText) {
+                return place.details && place.details !== 'تم تحديد موقعي عبر الـ GPS'
+                  ? place.details
+                  : place.title;
+              }
+              return prevStreet;
+            });
+
             setAddressTitle((prevTitle) => {
               if (!prevTitle.trim() || prevTitle === 'موقعي الحالي' || prevTitle === 'مكان التوصيل' || overwriteWrittenText) {
                 return place.title;
@@ -301,23 +368,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               return prevTitle;
             });
 
-            setAddressText((prevText) => {
-              const cleanPrev = cleanAddressText(prevText);
-              const nextDetails =
-                overwriteWrittenText ||
-                !cleanPrev ||
-                cleanPrev === 'موقعي الحالي'
-                  ? place.details || place.title
-                  : cleanPrev;
-              return formatAddressWithCoordinates(nextDetails, lat, lng);
-            });
-
-            setGpsStatusMessage(`تم ربط موقعك بالـ GPS (${place.title})`);
+            setGpsStatusMessage(`تم تحديد موقعك (${place.title})`);
           } catch (_) {
-            setAddressText((prevText) => {
-              const cleanPrev = cleanAddressText(prevText) || 'موقعي الحالي';
-              return formatAddressWithCoordinates(cleanPrev, lat, lng);
-            });
             setGpsStatusMessage('تم تثبيت إحداثيات موقعك بالـ GPS بنجاح');
           } finally {
             setDetectingGps(false);
@@ -333,9 +385,9 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               const errCode = fallbackErr?.code || initialErr?.code;
               if (!silent) {
                 if (errCode === 1) {
-                  setError('يرجى السماح بصلاحية الموقع (GPS) من المتصفح أو الهاتف لربط عنوانك المكتوب بموقعك على الخريطة.');
+                  setError('يرجى السماح بصلاحية الموقع (GPS) أو الضغط على (اختيار من الخريطة) لتحديد موقع التوصيل.');
                 } else {
-                  setError('تعذر التقاط إشارة الـ GPS حالياً، يرجى التأكد من تفعيل الموقع في هاتفك والمحاولة مرة أخرى.');
+                  setError('تعذر التقاط إشارة الـ GPS حالياً، يمكنك تحديد موقعك بسهولة من زر (اختيار من الخريطة).');
                 }
               }
               resolve(null);
@@ -354,7 +406,41 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     []
   );
 
-  // التقاط الـ GPS تلقائياً عند فتح نافذة السلة للتوصيل حتى لو العميل يكتب العنوان يدوياً
+  // تأكيد الموقع المختار يدوياً من الخريطة التفاعلية
+  const handleMapLocationConfirm = useCallback(async (result: LocationPickerResult) => {
+    const { lat, lng, address } = result;
+    setCapturedCoords({ lat, lng });
+    setIsMapPickerOpen(false);
+    setError(null);
+
+    if (address && address.trim()) {
+      const cleanPicked = address.split(',').slice(0, 3).map((s) => s.trim()).join('، ');
+      setDetectedPlaceLabel(cleanPicked);
+      if (!isUsingSavedAddress) {
+        setStreetArea(cleanPicked);
+        setUserEditedStreet(false);
+      } else {
+        setAddressText((prev) => formatAddressWithCoordinates(cleanAddressText(prev), lat, lng));
+      }
+      setGpsStatusMessage(`تم تحديد الموقع من الخريطة (${cleanPicked})`);
+    } else {
+      try {
+        const place = await getNearestLocationName(lat, lng);
+        setDetectedPlaceLabel(place.title);
+        if (!isUsingSavedAddress && !userEditedStreet) {
+          setStreetArea(
+            place.details && place.details !== 'تم تحديد موقعي عبر الـ GPS'
+              ? place.details
+              : place.title
+          );
+        } else if (isUsingSavedAddress) {
+          setAddressText((prev) => formatAddressWithCoordinates(cleanAddressText(prev), lat, lng));
+        }
+      } catch (_) {}
+    }
+  }, [isUsingSavedAddress, userEditedStreet]);
+
+  // التقاط الـ GPS تلقائياً عند فتح نافذة السلة للتوصيل
   useEffect(() => {
     if (orderType === 'DELIVERY' && !capturedCoords) {
       acquireGpsLocation({ silent: true, overwriteWrittenText: false });
@@ -375,7 +461,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           if (Array.isArray(res)) {
             setSavedAddresses(res);
             const def = res.find((a: any) => a.isDefault) || res[0];
-            if (def && !addressText) {
+            if (def && !selectedAddressId && !isWritingNewAddress) {
               const existingSavedCoords = extractCoordinatesFromAddress(def.details);
               if (existingSavedCoords) {
                 setCapturedCoords(existingSavedCoords);
@@ -387,6 +473,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               }
               setAddressTitle(def.title);
               setSelectedAddressId(def.id);
+              setIsWritingNewAddress(false);
             }
           }
         })
@@ -404,12 +491,12 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     }
   }, [user]);
 
-  // إذا تم التقاط إحداثيات الـ GPS وكان المستخدم قد كتب نصاً بدون إحداثيات، نربط الإحداثيات بالنص المكتوب تلقائياً
+  // إذا تم التقاط إحداثيات الـ GPS وكان العنوان المحفوظ بدون إحداثيات، نربط الإحداثيات به تلقائياً
   useEffect(() => {
-    if (capturedCoords && addressText.trim() && !addressText.includes('[GPS:')) {
+    if (isUsingSavedAddress && capturedCoords && addressText.trim() && !addressText.includes('[GPS:')) {
       setAddressText(formatAddressWithCoordinates(addressText, capturedCoords.lat, capturedCoords.lng));
     }
-  }, [capturedCoords, addressText]);
+  }, [isUsingSavedAddress, capturedCoords, addressText]);
 
   const handleDeleteSavedAddress = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -419,14 +506,20 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       const remaining = savedAddresses.filter((a) => a.id !== id);
       setSavedAddresses(remaining);
       if (selectedAddressId === id) {
-        setSelectedAddressId(null);
-        setIsWritingNewAddress(true);
-        if (capturedCoords) {
-          setAddressTitle(detectedPlaceLabel || 'موقعي الحالي');
-          setAddressText(formatAddressWithCoordinates(detectedPlaceLabel || '', capturedCoords.lat, capturedCoords.lng));
+        if (remaining.length > 0) {
+          const nextAddr = remaining[0];
+          setSelectedAddressId(nextAddr.id);
+          setIsWritingNewAddress(false);
+          setAddressTitle(nextAddr.title);
+          const nextCoords = extractCoordinatesFromAddress(nextAddr.details);
+          if (nextCoords) setCapturedCoords(nextCoords);
+          setAddressText(nextAddr.details);
         } else {
-          setAddressTitle('');
-          setAddressText('');
+          setSelectedAddressId(null);
+          setIsWritingNewAddress(true);
+          if (detectedPlaceLabel && !streetArea.trim()) {
+            setStreetArea(detectedPlaceLabel);
+          }
         }
       }
     } catch (err: any) {
@@ -506,7 +599,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     discount: number;
     discountType: string;
     value: number;
+    minOrder?: number;
+    isAutoApplied?: boolean;
+    isPersonal?: boolean;
   } | null>(null);
+  const [dismissedAutoPromo, setDismissedAutoPromo] = useState(false);
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
 
@@ -529,7 +626,23 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     }
   }
 
-  const discount = appliedPromo ? appliedPromo.discount : 0;
+  // حساب قيمة الخصم ديناميكياً عند تغير الأصناف أو الكميات في السلة
+  const discount = useMemo(() => {
+    if (!appliedPromo) return 0;
+    if (appliedPromo.minOrder && subtotal < appliedPromo.minOrder) return 0;
+    if (appliedPromo.discountType === 'PERCENT' || appliedPromo.discountType === 'PERCENTAGE') {
+      return Math.round((subtotal * appliedPromo.value) / 100);
+    }
+    return Math.min(subtotal, appliedPromo.value);
+  }, [appliedPromo, subtotal]);
+
+  // إذا انخفض المجموع الفرعي عن الحد الأدنى للكوبون المطبق، يتم إلغاؤه تلقائياً حتى يعود المجموع للحد المطلوب
+  useEffect(() => {
+    if (appliedPromo && appliedPromo.minOrder && subtotal > 0 && subtotal < appliedPromo.minOrder) {
+      setAppliedPromo(null);
+    }
+  }, [appliedPromo, subtotal]);
+
   const preWalletTotal = Math.max(0, subtotal + deliveryFee - discount);
   const walletDiscount =
     useWallet && walletBalance > 0 ? Math.min(preWalletTotal, walletBalance) : 0;
@@ -591,12 +704,16 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
   // Validate and Apply Promo Code
   const handleApplyPromoCode = async () => {
-    if (!promoCodeInput.trim()) return;
+    const cleanInput = sanitizePromoCodeValue(promoCodeInput);
+    if (!cleanInput) {
+      setPromoCodeInput('');
+      return;
+    }
     setPromoError(null);
     try {
       setPromoLoading(true);
       const res = await api.validatePromoCode(
-        promoCodeInput.trim().toUpperCase(),
+        cleanInput,
         subtotal,
         branch?.id
       );
@@ -606,7 +723,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           discount: res.discount,
           discountType: res.discountType,
           value: res.value,
+          minOrder: res.minOrder || 0,
+          isAutoApplied: false,
+          isPersonal: Boolean(res.isPersonal),
         });
+        setPromoCodeInput('');
         setPromoError(null);
       } else {
         setPromoError(res.error || 'كوبون الخصم غير صالح أو منتهي');
@@ -619,35 +740,90 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   };
 
   const handleRemovePromo = () => {
+    setDismissedAutoPromo(true);
     setAppliedPromo(null);
     setPromoCodeInput('');
     setPromoError(null);
     localStorage.removeItem('unifood_auto_promo');
   };
 
-  // Auto-apply Flash Deal coupon if student tapped one on Home screen
+  // تنظيف أي قيمة غير صالحة مثل "null" من localStorage فوراً، وتطبيق الكوبون المنسوخ أو الكوبون الافتراضي التلقائي (Auto-Apply)
   useEffect(() => {
-    const autoCode = localStorage.getItem('unifood_auto_promo');
-    if (autoCode && !appliedPromo && subtotal > 0) {
-      const normalized = autoCode.trim().toUpperCase();
-      setPromoCodeInput(normalized);
-      api
-        .validatePromoCode(normalized, subtotal, branch?.id)
-        .then((res) => {
-          if (res.valid || res.success) {
+    let isCancelled = false;
+
+    const rawStored = localStorage.getItem('unifood_auto_promo');
+    const cleanStored = sanitizePromoCodeValue(rawStored);
+    if (rawStored !== null && !cleanStored) {
+      localStorage.removeItem('unifood_auto_promo');
+    }
+
+    if (subtotal <= 0) return;
+
+    const runAutoPromoFlow = async () => {
+      // 1. إذا قام العميل بنسخ كوبون من شاشة العروض، نجرب تطبيقه أولاً دون ترك كلمة null أو كود خاطئ في الحقل
+      if (cleanStored && !appliedPromo) {
+        localStorage.removeItem('unifood_auto_promo');
+        try {
+          const res = await api.validatePromoCode(cleanStored, subtotal, branch?.id);
+          if (!isCancelled && (res.valid || res.success)) {
             setAppliedPromo({
               code: res.code,
               discount: res.discount,
               discountType: res.discountType,
               value: res.value,
+              minOrder: res.minOrder || 0,
+              isAutoApplied: false,
+              isPersonal: Boolean(res.isPersonal),
             });
+            setPromoCodeInput('');
             setPromoError(null);
-            localStorage.removeItem('unifood_auto_promo');
+            return;
           }
-        })
-        .catch(() => {});
-    }
-  }, [subtotal, branch?.id, appliedPromo]);
+        } catch {
+          // في حال لم يكن الكوبون المنسوخ صالحاً لهذا الفرع أو مستخدماً من قبل، نترك الحقل فارغاً ونفحص الكوبون التلقائي
+          if (!isCancelled) {
+            setPromoCodeInput('');
+          }
+        }
+      }
+
+      // 2. فحص الكوبون الافتراضي التلقائي (Auto-Apply) مع مراعاة عدم تجاوز العدد المحدد أو الاستخدام لمرة واحدة للعميل
+      if (dismissedAutoPromo) return;
+      if (appliedPromo && !appliedPromo.isAutoApplied) return;
+
+      try {
+        const res = await api.getAutoEligiblePromo(branch?.id, subtotal);
+        if (isCancelled) return;
+
+        if (res?.promo && sanitizePromoCodeValue(res.promo.code)) {
+          setAppliedPromo((prev) => {
+            if (prev && !prev.isAutoApplied) return prev;
+            return {
+              code: res.promo.code,
+              discount: res.promo.discount,
+              discountType: res.promo.discountType,
+              value: res.promo.value,
+              minOrder: res.promo.minOrder || 0,
+              isAutoApplied: true,
+              isPersonal: Boolean(res.promo.isPersonal),
+            };
+          });
+          setPromoError(null);
+        } else if (appliedPromo?.isAutoApplied) {
+          // إذا سجل العميل دخوله واتضح أنه استخدم هذا الكوبون التلقائي مسبقاً، نزيله فوراً
+          setAppliedPromo(null);
+        }
+      } catch {
+        // تجاهل الخطأ بصمت ليبقى حقل الكوبون نظيفاً وفارغاً
+      }
+    };
+
+    runAutoPromoFlow();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [subtotal, branch?.id, user?.id, dismissedAutoPromo]);
 
   // Upload Payment Proof Screenshot
   const handleProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -668,28 +844,10 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     }
   };
 
-  const handleWrittenAddressChange = (newWrittenText: string) => {
-    setSelectedAddressId(null);
-    const coords = capturedCoords || extractCoordinatesFromAddress(addressText);
-    if (coords) {
-      setAddressText(formatAddressWithCoordinates(newWrittenText, coords.lat, coords.lng));
-    } else {
-      setAddressText(newWrittenText);
-      // بمجرد أن يبدأ العميل بكتابة عنوانه، نسحب الـ GPS تلقائياً إذا لم يكن مسحوباً بعد
-      if (!detectingGps) {
-        acquireGpsLocation({ silent: true, overwriteWrittenText: false });
-      }
-    }
-  };
-
-  const handleAppendAddressChip = (chip: string) => {
-    const currentClean = cleanAddressText(addressText);
-    const updatedClean = currentClean
-      ? currentClean.includes(chip)
-        ? currentClean
-        : `${currentClean} - ${chip}`
-      : chip;
-    handleWrittenAddressChange(updatedClean);
+  const handleToggleAddressChip = (chip: string) => {
+    setSelectedLandmarkChips((prev) =>
+      prev.includes(chip) ? prev.filter((c) => c !== chip) : [...prev, chip]
+    );
   };
 
   const handleCheckout = async (e: React.FormEvent) => {
@@ -709,23 +867,25 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       return;
     }
 
-    let finalDeliveryAddress = addressText.trim();
+    let finalDeliveryAddress = isUsingSavedAddress
+      ? addressText.trim()
+      : composedNewAddressDetails.trim();
 
     if (orderType === 'DELIVERY') {
       if (!cleanAddressText(finalDeliveryAddress).trim()) {
-        setError('يرجى كتابة تفاصيل عنوان التوصيل (اسم المبنى / الدور / العلامة المميزة)');
+        setError('يرجى كتابة اسم الشارع أو المنطقة أو رقم المبنى لسهولة وصول الكابتن إليك.');
         return;
       }
 
-      // التأكد من أخذ موقع العميل بالـ GPS حتى لو أدخل عنواناً مكتوباً يدوياً
-      let coords = extractCoordinatesFromAddress(finalDeliveryAddress) || capturedCoords;
+      // التأكد من أخذ موقع العميل بالـ GPS أو الخريطة حتى لو أدخل عنواناً مكتوباً يدوياً
+      let coords = extractCoordinatesFromAddress(addressText) || capturedCoords;
       if (!coords) {
         coords = await acquireGpsLocation({ silent: false, overwriteWrittenText: false });
       }
 
       if (!coords) {
         setError(
-          'لازم يتم تحديد موقعك بالـ GPS بجانب العنوان المكتوب عشان الكابتن يوصلك على الخريطة بدقة. اضغط على زر (سحب موقعي بالـ GPS) أو فعّل الموقع في هاتفك.'
+          'يرجى تحديد موقعك على الخريطة أو تفعيل الـ GPS لتوجيه الكابتن بدقة (يمكنك الضغط على زر اختيار من الخريطة).'
         );
         return;
       }
@@ -739,12 +899,18 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         return;
       }
 
-      const writtenPart = cleanAddressText(finalDeliveryAddress) || addressTitle.trim() || 'موقعي الحالي';
-      const titlePrefix =
-        addressTitle.trim() && !writtenPart.includes(addressTitle.trim())
-          ? `${addressTitle.trim()} - ${writtenPart}`
-          : writtenPart;
-      finalDeliveryAddress = formatAddressWithCoordinates(titlePrefix, coords.lat, coords.lng);
+      if (isUsingSavedAddress) {
+        const savedObj = savedAddresses.find((a) => a.id === selectedAddressId);
+        const writtenPart = cleanAddressText(addressText) || savedObj?.title || 'موقعي الحالي';
+        const titlePrefix =
+          savedObj?.title && !writtenPart.includes(savedObj.title)
+            ? `${savedObj.title} - ${writtenPart}`
+            : writtenPart;
+        finalDeliveryAddress = formatAddressWithCoordinates(titlePrefix, coords.lat, coords.lng);
+      } else {
+        const cleanComposed = composedNewAddressDetails.trim() || detectedPlaceLabel || 'موقعي الحالي';
+        finalDeliveryAddress = formatAddressWithCoordinates(cleanComposed, coords.lat, coords.lng);
+      }
       setAddressText(finalDeliveryAddress);
     }
 
@@ -832,13 +998,16 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         notes: notes.trim() || undefined,
         deliveryZoneName:
           orderType === 'DELIVERY'
-            ? deliveryZoneName || addressTitle.trim() || detectedPlaceLabel || undefined
+            ? deliveryZoneName ||
+              (!isUsingSavedAddress ? streetArea.trim() : addressTitle.trim()) ||
+              detectedPlaceLabel ||
+              undefined
             : undefined,
         deliveryFee: orderType === 'DELIVERY' ? deliveryFee : 0,
         paymentSenderPhone: paymentSenderPhone.trim() || undefined,
         paymentProofUrl: paymentProofUrl.trim() || undefined,
         promoCode: appliedPromo ? appliedPromo.code : undefined,
-        discount: appliedPromo ? appliedPromo.discount : undefined,
+        discount: appliedPromo ? discount : undefined,
         useWallet,
         isScheduled,
         scheduledFor:
@@ -872,13 +1041,12 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         localStorage.setItem('customer_user', JSON.stringify(res.user));
       }
 
-      if (saveAddressToProfile && orderType === 'DELIVERY' && finalDeliveryAddress && user) {
-        const titleToSave =
-          addressTitle.trim() ||
-          detectedPlaceLabel ||
-          cleanAddressText(finalDeliveryAddress).slice(0, 25) ||
-          'عنواني';
-        api.addAddress(titleToSave, finalDeliveryAddress, savedAddresses.length === 0).catch(() => {});
+      if (saveAddressToProfile && !isUsingSavedAddress && orderType === 'DELIVERY' && finalDeliveryAddress && user) {
+        const chosenPresetLabel =
+          saveLabelPreset === 'أخرى'
+            ? customSaveLabel.trim() || streetArea.trim().slice(0, 25) || detectedPlaceLabel || 'عنواني'
+            : saveLabelPreset;
+        api.addAddress(chosenPresetLabel, finalDeliveryAddress, savedAddresses.length === 0).catch(() => {});
       }
 
       onOrderSuccess(res.order);
@@ -1253,9 +1421,10 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             )}
           </section>
 
-          {/* 3. موقع وعنوان التوصيل + الـ GPS المدمج */}
+          {/* 3. موقع وعنوان التوصيل المطور (واضح وسهل بدون تكرار) */}
           {orderType === 'DELIVERY' && (
             <section className="bg-white p-3.5 sm:p-4 rounded-2xl border-2 border-indigo-100 shadow-2xs space-y-3.5">
+              {/* رأس القسم */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="w-5 h-5 rounded-full bg-indigo-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
@@ -1268,25 +1437,24 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 {currentAddressCoords ? (
                   <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full font-black flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-2xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>GPS متصل</span>
+                    <span>الموقع محدد</span>
                     <Check className="w-3 h-3 text-emerald-600 inline -mr-0.5" />
                   </span>
                 ) : (
                   <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0">
-                    بانتظار الـ GPS
+                    يرجى تحديد الموقع
                   </span>
                 )}
               </div>
 
               {/* اختيار منطقة التوصيل إن كان الفرع يعتمد Zones */}
               {hasZones && (
-                <div className="space-y-1.5 pb-2 border-b border-slate-100">
+                <div className="space-y-1.5 pb-2.5 border-b border-slate-100">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>منطقة التوصيل:</span>
+                    <span>منطقة التوصيل لحساب الرسوم:</span>
                   </label>
 
-                  {/* الزر المخصص لفتح قائمة المناطق */}
                   <button
                     type="button"
                     onClick={() => setIsZoneModalOpen(true)}
@@ -1305,49 +1473,81 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                     <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
                   </button>
 
-                  {/* إشعار التحديد التلقائي بالـ GPS إن وُجد */}
                   {autoDetectedZoneName && (
                     <div className="text-[10px] text-emerald-800 font-bold flex items-center gap-1.5 bg-emerald-50/80 border border-emerald-200/80 px-2.5 py-1.5 rounded-xl animate-fadeIn">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                      <span>تم تحديد ({autoDetectedZoneName}) تلقائياً وفقاً لإحداثيات موقعك الجغرافي</span>
+                      <span>تم اختيار منطقة ({autoDetectedZoneName}) تلقائياً حسب موقعك</span>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* العناوين المحفوظة مع إمكانية الحذف المباشر أو إضافة عنوان جديد */}
+              {/* تحذير في حال كان موقع العميل خارج نطاق التوصيل للمطعم */}
+              {isOutOfDeliveryZone && (
+                <div className="p-3 bg-rose-50 border-2 border-rose-200 rounded-2xl flex items-start gap-2.5 text-rose-800 text-xs font-bold animate-fadeIn">
+                  <MapPinOff className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-black text-rose-700">موقعك خارج نطاق التوصيل لهذا المطعم 📍</span>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-900">
+                        المسافة: {deliveryZoneCheck.distKm.toFixed(1)} كم / أقصى نطاق: {deliveryZoneCheck.radiusKm} كم
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-rose-600 font-normal mt-0.5 leading-relaxed">
+                      يمكنك تعديل موقع التوصيل من الخريطة أو التبديل إلى "استلام من الفرع".
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* أزرار اختيار العناوين المحفوظة أو إضافة عنوان جديد */}
               {savedAddresses.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-500">
-                      عناويني المحفوظة ({savedAddresses.length}):
+                    <span className="text-[11px] font-black text-slate-700">
+                      اختر من عناوينك المحفوظة:
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedAddressId(null);
-                        setIsWritingNewAddress(true);
-                        if (capturedCoords) {
-                          setAddressTitle(detectedPlaceLabel || '');
-                          setAddressText(formatAddressWithCoordinates('', capturedCoords.lat, capturedCoords.lng));
-                        } else {
-                          setAddressTitle('');
-                          setAddressText('');
-                          acquireGpsLocation({ silent: false, overwriteWrittenText: false });
-                        }
-                      }}
-                      className="text-[11px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>كتابة عنوان جديد</span>
-                    </button>
+                    {!isWritingNewAddress ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedAddressId(null);
+                          setIsWritingNewAddress(true);
+                          if (!streetArea.trim() && detectedPlaceLabel) {
+                            setStreetArea(detectedPlaceLabel);
+                          } else if (!capturedCoords) {
+                            acquireGpsLocation({ silent: false, overwriteWrittenText: true });
+                          }
+                        }}
+                        className="text-[11px] font-black text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>عنوان جديد</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const firstSaved = savedAddresses[0];
+                          if (firstSaved) {
+                            setIsWritingNewAddress(false);
+                            setSelectedAddressId(firstSaved.id);
+                            setAddressTitle(firstSaved.title);
+                            const savedCoords = extractCoordinatesFromAddress(firstSaved.details);
+                            if (savedCoords) setCapturedCoords(savedCoords);
+                            setAddressText(firstSaved.details);
+                          }
+                        }}
+                        className="text-[11px] font-bold text-slate-600 hover:text-indigo-700 underline cursor-pointer"
+                      >
+                        الرجوع للعناوين المحفوظة
+                      </button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {savedAddresses.map((addr) => {
-                      const isSelected =
-                        !isWritingNewAddress &&
-                        (selectedAddressId === addr.id || addressText === addr.details);
+                      const isSelected = !isWritingNewAddress && selectedAddressId === addr.id;
                       const hasGpsTag = Boolean(extractCoordinatesFromAddress(addr.details));
 
                       return (
@@ -1362,7 +1562,6 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                               setCapturedCoords(savedCoords);
                               setAddressText(addr.details);
                             } else if (capturedCoords) {
-                              // ربط العنوان المحفوظ القديم بإحداثيات الـ GPS الحالية تلقائياً
                               setAddressText(
                                 formatAddressWithCoordinates(
                                   addr.details,
@@ -1378,7 +1577,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                           className={`p-2.5 rounded-2xl text-right border transition-all cursor-pointer flex items-start justify-between gap-2 text-xs ${
                             isSelected
                               ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-200'
-                              : 'bg-slate-50/80 text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30'
+                              : 'bg-slate-50/90 text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40'
                           }`}
                         >
                           <div className="min-w-0 flex-1 space-y-0.5">
@@ -1391,13 +1590,13 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                               <span className="font-black text-xs truncate">{addr.title}</span>
                               {hasGpsTag && (
                                 <span
-                                  className={`text-[9px] px-1.5 py-0.2 rounded font-black shrink-0 ${
+                                  className={`text-[9px] px-1.5 py-0.5 rounded font-black shrink-0 ${
                                     isSelected
                                       ? 'bg-emerald-400/30 text-white'
                                       : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                   }`}
                                 >
-                                  GPS
+                                  خريطة ✓
                                 </span>
                               )}
                             </div>
@@ -1430,150 +1629,302 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* تحذير في حال كان موقع العميل خارج نطاق التوصيل للمطعم (طلب المستخدم) */}
-              {isOutOfDeliveryZone && (
-                <div className="p-3 bg-rose-50 border-2 border-rose-200 rounded-2xl flex items-start gap-2.5 text-rose-800 text-xs font-bold animate-fadeIn">
-                  <MapPinOff className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-black text-rose-700">موقعك الحالي خارج نطاق التوصيل لهذا المطعم 📍</span>
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-900">
-                        المسافة: {deliveryZoneCheck.distKm.toFixed(1)} كم / أقصى نطاق: {deliveryZoneCheck.radiusKm} كم
-                      </span>
+              {/* الحالة (أ): عند اختيار عنوان محفوظ جاهز — بطاقة ملخص نظيفة وواضحة بدون حقول مكررة مربكة */}
+              {isUsingSavedAddress ? (
+                <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2.5 animate-fadeIn">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                        <CheckCircle className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-black text-emerald-800">
+                          سيتم التوصيل إلى ({addressTitle || 'عنوانك المحفوظ'}):
+                        </div>
+                        <p className="text-xs font-bold text-slate-800 leading-relaxed mt-0.5 break-words">
+                          {getDisplayAddress(addressText, addressTitle || 'العنوان المختار')}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-rose-600 font-normal mt-0.5 leading-relaxed">
-                      عذراً، لا يمكن توصيل الطلب لموقعك الحالي لأنه يقع خارج النطاق الجغرافي للمطعم. يمكنك تغيير مكان التوصيل أو التبديل إلى "استلام من الفرع".
-                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-emerald-200/70">
+                    <button
+                      type="button"
+                      onClick={() => setIsMapPickerOpen(true)}
+                      className="flex-1 min-w-[130px] py-1.5 px-2.5 rounded-xl bg-white hover:bg-emerald-100/70 text-emerald-900 border border-emerald-300 text-[11px] font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <MapIcon className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>تعديل الدبوس من الخريطة</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAddressId(null);
+                        setIsWritingNewAddress(true);
+                        if (!streetArea.trim() && detectedPlaceLabel) {
+                          setStreetArea(detectedPlaceLabel);
+                        }
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-black flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>عنوان آخر</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* الحالة (ب): إدخال عنوان توصيل جديد — خطوتان واضحتان بدون أي تكرار */
+                <div className="space-y-3 animate-fadeIn">
+                  {/* الخطوة 1: بطاقة تحديد الموقع الجغرافي (GPS أو اختيار من الخريطة التفاعلية) */}
+                  <div
+                    className={`p-3 rounded-2xl border transition-all space-y-2.5 ${
+                      currentAddressCoords
+                        ? 'bg-emerald-50/75 border-emerald-200'
+                        : 'bg-amber-50/85 border-amber-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                          currentAddressCoords
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-amber-500 text-white'
+                        }`}
+                      >
+                        <Navigation
+                          className={`w-4 h-4 ${detectingGps ? 'animate-spin' : ''}`}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-black text-slate-900 leading-tight">
+                          {detectingGps
+                            ? 'جاري تحديد موقعك الحالي...'
+                            : currentAddressCoords
+                            ? 'تم تحديد موقعك على الخريطة بنجاح ✓'
+                            : 'خطوة 1: حدد موقعك على الخريطة للكابتن'}
+                        </div>
+                        <div className="text-[11px] text-slate-600 font-bold leading-snug mt-0.5 truncate">
+                          {currentAddressCoords
+                            ? detectedPlaceLabel
+                              ? `📍 بالقرب من: ${detectedPlaceLabel}`
+                              : gpsStatusMessage || 'تم ربط إحداثيات التوصيل بدقة'
+                            : 'اختر موقعك الحالي بالـ GPS أو حدد الدبوس من الخريطة'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={detectingGps}
+                        onClick={() => {
+                          setUserEditedStreet(false);
+                          acquireGpsLocation({ silent: false, overwriteWrittenText: true });
+                        }}
+                        className={`py-2 px-2.5 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer ${
+                          currentAddressCoords
+                            ? 'bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        <Crosshair className={`w-3.5 h-3.5 shrink-0 ${detectingGps ? 'animate-spin' : ''}`} />
+                        <span>{detectingGps ? 'جاري التحديد...' : 'موقعي الحالي'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsMapPickerOpen(true)}
+                        className="py-2 px-2.5 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs active:scale-95 cursor-pointer"
+                      >
+                        <MapIcon className="w-3.5 h-3.5 shrink-0" />
+                        <span>اختيار من الخريطة</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* الخطوة 2: تفاصيل المكان مقسمة بوضوح وسهولة تامة بدون تكرار */}
+                  <div className="space-y-2.5 bg-slate-50/70 p-3 rounded-2xl border border-slate-200/80">
+                    {/* اسم الشارع أو المنطقة (خانة واحدة واضحة مع زر مسح سريع) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-black text-slate-800">
+                          الشارع / المنطقة <span className="text-rose-500">*</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          يمكنك تعديله بحرية
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="مثال: الشيخ زايد، المجاورة 3، شارع النزهة..."
+                          value={streetArea}
+                          onFocus={() => {
+                            if (!capturedCoords && !detectingGps) {
+                              acquireGpsLocation({ silent: true, overwriteWrittenText: false });
+                            }
+                          }}
+                          onChange={(e) => {
+                            setStreetArea(e.target.value);
+                            setUserEditedStreet(true);
+                            if (error) setError(null);
+                          }}
+                          className="w-full pr-3 pl-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                          required
+                        />
+                        {streetArea && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStreetArea('');
+                              setUserEditedStreet(true);
+                            }}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-slate-100 transition-colors"
+                            title="مسح النص لكتابة اسم شارع آخر"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* خانات العمارة - الدور - الشقة (جنباً إلى جنب لتسهيل الإدخال في ثانية) */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          العمارة / المبنى
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="مثال: 12"
+                          value={buildingNo}
+                          onChange={(e) => setBuildingNo(e.target.value)}
+                          className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-center focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          الدور
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="مثال: 3"
+                          value={floorNo}
+                          onChange={(e) => setFloorNo(e.target.value)}
+                          className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-center focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          الشقة / الغرفة
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="مثال: 5"
+                          value={apartmentNo}
+                          onChange={(e) => setApartmentNo(e.target.value)}
+                          className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-center focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                        />
+                      </div>
+                    </div>
+
+                    {/* علامة مميزة أو توجيه للكابتن */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                        علامة مميزة للكابتن (اختياري)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="مثال: أمام صيدلية، البوابة الجانبية، عمارة سوبر ماركت..."
+                        value={landmarkNote}
+                        onChange={(e) => setLandmarkNote(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                      />
+
+                      {/* اختصارات سريعة قابلة للتحديد والإلغاء بلمسة واحدة */}
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {ADDRESS_QUICK_CHIPS.map((chip) => {
+                          const isChipActive = selectedLandmarkChips.includes(chip);
+                          return (
+                            <button
+                              key={chip}
+                              type="button"
+                              onClick={() => handleToggleAddressChip(chip)}
+                              className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                                isChipActive
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                                  : 'bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border-slate-200'
+                              }`}
+                            >
+                              {isChipActive ? <Check className="w-2.5 h-2.5" /> : <span>+</span>}
+                              <span>{chip}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* معاينة مريحة لما سيصل للكابتن */}
+                    {composedNewAddressDetails.trim() && (
+                      <div className="p-2 bg-indigo-50/70 border border-indigo-100 rounded-xl text-[11px] text-indigo-950 flex items-start gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <span className="font-black text-indigo-700">العنوان للكابتن: </span>
+                          <span className="font-bold break-words">{composedNewAddressDetails}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* حفظ العنوان في الحساب مع تسمية سريعة (المنزل / السكن / العمل / الجامعة) */}
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <label className="flex items-center gap-2 text-xs text-slate-800 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={saveAddressToProfile}
+                        onChange={(e) => setSaveAddressToProfile(e.target.checked)}
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                      />
+                      <span className="font-bold">حفظ هذا العنوان في عناويني لطلباتك القادمة</span>
+                    </label>
+
+                    {saveAddressToProfile && (
+                      <div className="pr-6 space-y-2 animate-fadeIn">
+                        <div className="flex flex-wrap gap-1.5">
+                          {SAVE_ADDRESS_PRESETS.map((preset) => {
+                            const active = saveLabelPreset === preset.id;
+                            return (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => setSaveLabelPreset(preset.id)}
+                                className={`px-2.5 py-1 rounded-xl text-[11px] font-black border transition-all cursor-pointer flex items-center gap-1 ${
+                                  active
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-indigo-50'
+                                }`}
+                              >
+                                <span>{preset.emoji}</span>
+                                <span>{preset.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {saveLabelPreset === 'أخرى' && (
+                          <input
+                            type="text"
+                            placeholder="اكتب اسماً مميزاً للعنوان (مثال: بيت جدي، النادي...)"
+                            value={customSaveLabel}
+                            onChange={(e) => setCustomSaveLabel(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
-
-              {/* شريط تأكيد الـ GPS المدمج */}
-              <div
-                className={`p-2.5 sm:p-3 rounded-2xl border transition-all ${
-                  currentAddressCoords
-                    ? 'bg-emerald-50/80 border-emerald-200'
-                    : 'bg-amber-50/80 border-amber-200'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                        currentAddressCoords
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-amber-500 text-white'
-                      }`}
-                    >
-                      <Navigation
-                        className={`w-4 h-4 ${detectingGps ? 'animate-spin' : ''}`}
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-black text-slate-900 leading-tight">
-                        {detectingGps
-                          ? 'جاري تحديد موقعك بالـ GPS...'
-                          : currentAddressCoords
-                          ? 'تم ربط موقعك بالخريطة بنجاح'
-                          : 'مطلوب تحديد موقعك عبر الـ GPS'}
-                      </div>
-                      <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
-                        {currentAddressCoords
-                          ? 'سيتم توجيه الكابتن إلى إحداثياتك بدقة'
-                          : 'اضغط على الزر لتحديد موقعك تلقائياً'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      acquireGpsLocation({ silent: false, overwriteWrittenText: false })
-                    }
-                    disabled={detectingGps}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all shrink-0 flex items-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap ${
-                      currentAddressCoords
-                        ? 'bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    }`}
-                  >
-                    <Crosshair className={`w-3.5 h-3.5 ${detectingGps ? 'animate-spin' : ''}`} />
-                    <span>{detectingGps ? 'جاري السحب...' : 'تحديث الموقع'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* حقول كتابة العنوان (اسم المكان + التفاصيل المكتوبة) */}
-              <div className="space-y-2.5">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    اسم المكان أو المنطقة (مثال: الشيخ زايد، شارع النصر، عمارة 4):
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="اكتب اسم المكان أو المعلم الرئيسي القريب منك..."
-                    value={addressTitle}
-                    onChange={(e) => {
-                      setAddressTitle(e.target.value);
-                      if (!capturedCoords && !detectingGps) {
-                        acquireGpsLocation({ silent: true, overwriteWrittenText: false });
-                      }
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between gap-1 mb-1">
-                    <label className="block text-[11px] font-bold text-slate-700">
-                      تفاصيل العنوان المكتوب للكابتن *:
-                    </label>
-                    <span className="text-[10px] text-slate-500 font-normal">
-                      (الشارع / العمارة / الدور / الشقة)
-                    </span>
-                  </div>
-                  <textarea
-                    rows={2}
-                    placeholder="اكتب تفاصيل مكانك (مثال: الشارع - رقم العمارة والشقة أو تفاصيل إضافية)..."
-                    value={cleanWrittenDetails}
-                    onFocus={() => {
-                      if (!capturedCoords && !detectingGps) {
-                        acquireGpsLocation({ silent: true, overwriteWrittenText: false });
-                      }
-                    }}
-                    onChange={(e) => handleWrittenAddressChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                    required
-                  />
-
-                  {/* أزرار سريعة لإضافة تفاصيل شائعة بنقرة واحدة */}
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    {ADDRESS_QUICK_CHIPS.map((chip) => (
-                      <button
-                        key={chip}
-                        type="button"
-                        onClick={() => handleAppendAddressChip(chip)}
-                        className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200/80 text-[10px] font-bold transition-colors"
-                      >
-                        + {chip}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* حفظ العنوان في الحساب */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={saveAddressToProfile}
-                    onChange={(e) => setSaveAddressToProfile(e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                  />
-                  <span className="font-bold">حفظ هذا العنوان مع الـ GPS في عناويني المحفوظة</span>
-                </label>
-              </div>
             </section>
           )}
 
@@ -1879,17 +2230,26 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 كوبون الخصم (Promo Code)
               </label>
               {appliedPromo ? (
-                <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
-                  <div className="flex items-center gap-1.5 text-emerald-800 font-black">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
-                    <span>
-                      تم تطبيق الكوبون {appliedPromo.code} (خصم {appliedPromo.discount} ج.م)
+                <div className="flex items-center justify-between gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs animate-fadeIn">
+                  <div className="flex items-center gap-1.5 text-emerald-800 font-black min-w-0">
+                    {appliedPromo.isAutoApplied ? (
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    )}
+                    <span className="truncate">
+                      {appliedPromo.isPersonal
+                        ? `🎁 تم تطبيق كوبونك الخاص (${appliedPromo.code})`
+                        : appliedPromo.isAutoApplied
+                        ? `⚡ تم تطبيق الخصم التلقائي (${appliedPromo.code})`
+                        : `تم تطبيق الكوبون (${appliedPromo.code})`}{' '}
+                      — خصم {discount} ج.م
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={handleRemovePromo}
-                    className="text-rose-600 hover:text-rose-700 font-bold text-xs"
+                    className="text-rose-600 hover:text-rose-700 font-bold text-xs shrink-0 cursor-pointer"
                   >
                     إلغاء
                   </button>
@@ -1900,17 +2260,21 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                     <Tag className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
                     <input
                       type="text"
-                      placeholder="أدخل كود الخصم (مثال: UNI20)"
-                      value={promoCodeInput}
-                      onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                      placeholder="أدخل كود الخصم (اختياري)"
+                      value={/^(null|undefined)$/i.test(promoCodeInput.trim()) ? '' : promoCodeInput}
+                      onChange={(e) => {
+                        const rawVal = e.target.value.toUpperCase();
+                        setPromoCodeInput(/^(NULL|UNDEFINED)$/i.test(rawVal.trim()) ? '' : rawVal);
+                        if (promoError) setPromoError(null);
+                      }}
                       className="w-full pr-8 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-wider focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
                     />
                   </div>
                   <button
                     type="button"
-                    disabled={promoLoading || !promoCodeInput.trim()}
+                    disabled={promoLoading || !sanitizePromoCodeValue(promoCodeInput)}
                     onClick={handleApplyPromoCode}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-40"
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-40 cursor-pointer"
                   >
                     {promoLoading ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : 'تطبيق'}
                   </button>
@@ -2216,6 +2580,20 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           </div>
         </div>
       )}
+
+      {/* نافذة الخريطة التفاعلية لتحديد موقع التوصيل بدقة */}
+      <LocationPickerModal
+        isOpen={isMapPickerOpen}
+        onClose={() => setIsMapPickerOpen(false)}
+        initialLat={currentAddressCoords?.lat}
+        initialLng={currentAddressCoords?.lng}
+        initialAddress={streetArea || detectedPlaceLabel || ''}
+        title="حدد موقع استلام طلبك على الخريطة"
+        pinLabel="موقع استلام طلبك"
+        confirmText="تأكيد موقع التوصيل"
+        mode="POINT"
+        onConfirm={handleMapLocationConfirm}
+      />
     </div>
   );
 };

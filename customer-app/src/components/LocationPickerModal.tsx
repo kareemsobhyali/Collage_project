@@ -49,6 +49,8 @@ interface LocationPickerModalProps {
   initialLng?: number | null;
   initialAddress?: string;
   title?: string;
+  pinLabel?: string;
+  confirmText?: string;
   mode?: 'POINT' | 'ZONE';
   initialRadius?: number;
   initialDirections?: DirectionalCoverage;
@@ -71,6 +73,8 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   initialLng,
   initialAddress = '',
   title,
+  pinLabel,
+  confirmText,
   mode = 'POINT',
   initialRadius = 1500,
   initialDirections,
@@ -144,13 +148,15 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
 
   // Leaflet custom marker icon
   const createPinIcon = useCallback(() => {
+    const resolvedPinText = pinLabel || (isZoneMode ? 'مركز نطاق التوصيل' : 'موقع المطعم المختار');
+    const resolvedPinEmoji = pinLabel ? '📍' : (isZoneMode ? '🎯' : '🏪');
     return L.divIcon({
       className: 'custom-location-picker-pin',
       html: `
         <div class="relative flex flex-col items-center -translate-x-1/2 -translate-y-full select-none cursor-grab active:cursor-grabbing">
           <div class="px-2.5 py-1 mb-1.5 ${isZoneMode ? 'bg-indigo-900/95 border-indigo-400 text-indigo-100' : 'bg-slate-900/95 border-slate-700 text-white'} font-bold text-[11px] rounded-lg shadow-xl border whitespace-nowrap flex items-center gap-1.5 animate-bounce">
-            <span>${isZoneMode ? '🎯' : '🏪'}</span>
-            <span>${isZoneMode ? 'مركز نطاق التوصيل' : 'موقع المطعم المختار'}</span>
+            <span>${resolvedPinEmoji}</span>
+            <span>${resolvedPinText}</span>
           </div>
           <div class="relative flex items-center justify-center">
             <div class="absolute w-10 h-10 rounded-full ${isZoneMode ? 'bg-indigo-500/30' : 'bg-cyan-500/30'} animate-ping"></div>
@@ -164,7 +170,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
       iconSize: [40, 56],
       iconAnchor: [20, 56],
     });
-  }, [isZoneMode]);
+  }, [isZoneMode, pinLabel]);
 
   // Initialize and tear down map
   useEffect(() => {
@@ -960,7 +966,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               className={`px-5 py-2.5 ${isZoneMode ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-600/25' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-600/25'} text-white rounded-xl text-xs font-black shadow-md active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer`}
             >
               <Check className="w-4 h-4" />
-              <span>{isZoneMode ? 'تثبيت هذا النطاق والموقع' : 'تثبيت هذا الموقع'}</span>
+              <span>{confirmText || (isZoneMode ? 'تثبيت هذا النطاق والموقع' : 'تثبيت هذا الموقع')}</span>
             </button>
           </div>
         </div>

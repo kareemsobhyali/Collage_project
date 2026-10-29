@@ -1263,6 +1263,80 @@ router.delete("/banners/:id", async (req: AuthRequest, res: Response) => {
 // إدارة كوبونات الخصم (Promo Codes)
 // ==========================================
 
+// دالة مساعدة لتوحيد صيغة رقم الهاتف المصري عند ربط الكوبون بعميل محدد
+function normalizeAdminPromoPhone(phone?: string | null): string {
+  if (!phone) return "";
+  let cleaned = String(phone).replace(/\D/g, "");
+  if (cleaned.startsWith("0020")) cleaned = "0" + cleaned.slice(4);
+  else if (cleaned.startsWith("20") && cleaned.length === 12) cleaned = "0" + cleaned.slice(2);
+  return cleaned;
+}
+
+async function resolveAssignedPromoCustomer(
+  assignedUserId?: string | null,
+  assignedUserPhone?: string | null,
+  assignedUserName?: string | null
+): Promise<{
+  assignedUserId: string | null;
+  assignedUserPhone: string | null;
+  assignedUserName: string | null;
+}> {
+  const cleanId = assignedUserId && String(assignedUserId).trim() && String(assignedUserId).trim() !== "null"
+    ? String(assignedUserId).trim()
+    : "";
+  const rawPhone = assignedUserPhone && String(assignedUserPhone).trim() && String(assignedUserPhone).trim() !== "null"
+    ? String(assignedUserPhone).trim()
+    : "";
+  const normPhone = normalizeAdminPromoPhone(rawPhone);
+  const cleanName = assignedUserName && String(assignedUserName).trim() && String(assignedUserName).trim() !== "null"
+    ? String(assignedUserName).trim()
+    : null;
+
+  if (cleanId) {
+    const userById = await prisma.user.findUnique({
+      where: { id: cleanId },
+      select: { id: true, name: true, phone: true },
+    });
+    if (userById) {
+      return {
+        assignedUserId: userById.id,
+        assignedUserPhone: normalizeAdminPromoPhone(userById.phone) || normPhone || null,
+        assignedUserName: userById.name || cleanName,
+      };
+    }
+  }
+
+  if (normPhone) {
+    const userByPhone = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: normPhone },
+          ...(rawPhone !== normPhone ? [{ phone: rawPhone }] : []),
+        ],
+      },
+      select: { id: true, name: true, phone: true },
+    });
+    if (userByPhone) {
+      return {
+        assignedUserId: userByPhone.id,
+        assignedUserPhone: normalizeAdminPromoPhone(userByPhone.phone) || normPhone,
+        assignedUserName: userByPhone.name || cleanName,
+      };
+    }
+    return {
+      assignedUserId: null,
+      assignedUserPhone: normPhone,
+      assignedUserName: cleanName,
+    };
+  }
+
+  return {
+    assignedUserId: null,
+    assignedUserPhone: null,
+    assignedUserName: null,
+  };
+}
+
 // 1. جلب كافة الكوبونات
 router.get("/promo-codes", async (_req: AuthRequest, res: Response) => {
   try {
@@ -1278,9 +1352,26 @@ router.get("/promo-codes", async (_req: AuthRequest, res: Response) => {
 // 2. إنشاء كوبون خصم جديد
 router.post("/promo-codes", async (req: AuthRequest, res: Response) => {
   try {
-    const { code, discountType, value, minOrder, maxUses, oncePerUser, expiresAt, isActive, applicableBranchIds } = req.body;
-    if (!code || value === undefined) {
-      res.status(400).json({ error: "كود الخصم وقيمة الخصم مطلوبان" });
+    const {
+      code,
+      discountType,
+      value,
+      minOrder,
+      maxUses,
+      oncePerUser,
+      autoApply,
+      showInDeals,
+      assignedUserId,
+      assignedUserPhone,
+      assignedUserName,
+      expiresAt,
+      isActive,
+      applicableBranchIds,
+    } = req.body;
+
+    const cleanCode = code ? String(code).trim().toUpperCase() : "";
+    if (!cleanCode || cleanCode === "NULL" || cleanCode === "UNDEFINED" || value === undefined) {
+      res.status(400).json({ error: "يرجى إدخال كود خصم صالح وقيمة الخصم" });
       return;
     }
 
@@ -1303,14 +1394,26 @@ router.post("/promo-codes", async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const resolvedCustomer = await resolveAssignedPromoCustomer(
+      assignedUserId,
+      assignedUserPhone,
+      assignedUserName
+    );
+    const hasAssignedCustomer = Boolean(resolvedCustomer.assignedUserId || resolvedCustomer.assignedUserPhone);
+
     const created = await prisma.promoCode.create({
       data: {
-        code: code.trim().toUpperCase(),
+        code: cleanCode,
         discountType: (discountType === "PERCENT" || discountType === "PERCENTAGE") ? "PERCENT" : "FIXED",
         value: parseFloat(value) || 10,
         minOrder: parseFloat(minOrder) || 0,
         maxUses: parsedMaxUses,
         oncePerUser: Boolean(oncePerUser),
+        autoApply: Boolean(autoApply),
+        showInDeals: showInDeals !== undefined ? Boolean(showInDeals) : !hasAssignedCustomer,
+        assignedUserId: resolvedCustomer.assignedUserId,
+        assignedUserPhone: resolvedCustomer.assignedUserPhone,
+        assignedUserName: resolvedCustomer.assignedUserName,
         applicableBranchIds: formattedBranchIds,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
@@ -1326,15 +1429,35 @@ router.post("/promo-codes", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 3. تعديل كوبون خصم (الكود، القيمة، الحد الأقصى للاستخدام، الفروع المحددة، التفعيل، إلخ)
+// 3. تعديل كوبون خصم (الكود، القيمة، الحد الأقصى للاستخدام، الفروع المحددة، التفعيل، التطبيق التلقائي، تخصيص العميل، إلخ)
 router.put("/promo-codes/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { code, discountType, value, minOrder, maxUses, oncePerUser, expiresAt, isActive, applicableBranchIds } = req.body;
+    const {
+      code,
+      discountType,
+      value,
+      minOrder,
+      maxUses,
+      oncePerUser,
+      autoApply,
+      showInDeals,
+      assignedUserId,
+      assignedUserPhone,
+      assignedUserName,
+      expiresAt,
+      isActive,
+      applicableBranchIds,
+    } = req.body;
 
     const updateData: any = {};
     if (code !== undefined && String(code).trim()) {
-      updateData.code = String(code).trim().toUpperCase();
+      const cleanCode = String(code).trim().toUpperCase();
+      if (cleanCode === "NULL" || cleanCode === "UNDEFINED") {
+        res.status(400).json({ error: "يرجى إدخال كود خصم صالح" });
+        return;
+      }
+      updateData.code = cleanCode;
     }
     if (discountType !== undefined) {
       updateData.discountType = (discountType === "PERCENT" || discountType === "PERCENTAGE") ? "PERCENT" : "FIXED";
@@ -1352,6 +1475,22 @@ router.put("/promo-codes/:id", async (req: AuthRequest, res: Response) => {
     }
     if (oncePerUser !== undefined) {
       updateData.oncePerUser = Boolean(oncePerUser);
+    }
+    if (autoApply !== undefined) {
+      updateData.autoApply = Boolean(autoApply);
+    }
+    if (showInDeals !== undefined) {
+      updateData.showInDeals = Boolean(showInDeals);
+    }
+    if (assignedUserId !== undefined || assignedUserPhone !== undefined) {
+      const resolvedCustomer = await resolveAssignedPromoCustomer(
+        assignedUserId,
+        assignedUserPhone,
+        assignedUserName
+      );
+      updateData.assignedUserId = resolvedCustomer.assignedUserId;
+      updateData.assignedUserPhone = resolvedCustomer.assignedUserPhone;
+      updateData.assignedUserName = resolvedCustomer.assignedUserName;
     }
     if (expiresAt !== undefined) {
       updateData.expiresAt = expiresAt ? new Date(expiresAt) : null;
@@ -1478,7 +1617,9 @@ router.post("/flash-deals", async (req: AuthRequest, res: Response) => {
         originalPrice: origPrice,
         discountPrice: discPrice,
         discountPercent: discPercent,
-        promoCode: promoCode ? promoCode.trim().toUpperCase() : null,
+        promoCode: promoCode && String(promoCode).trim() && !["null", "undefined"].includes(String(promoCode).trim().toLowerCase())
+          ? String(promoCode).trim().toUpperCase()
+          : null,
         badgeText: badgeText ? badgeText.trim() : "عرض البريك 🔥",
         imageUrl: imageUrl ? imageUrl.trim() : null,
         maxQuantity: isUnlimited ? null : (maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : null),
@@ -1560,7 +1701,9 @@ router.put("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
         originalPrice: origPrice,
         discountPrice: discPrice,
         discountPercent: discPercent,
-        promoCode: promoCode ? promoCode.trim().toUpperCase() : null,
+        promoCode: promoCode && String(promoCode).trim() && !["null", "undefined"].includes(String(promoCode).trim().toLowerCase())
+          ? String(promoCode).trim().toUpperCase()
+          : null,
         badgeText: badgeText ? badgeText.trim() : "عرض البريك 🔥",
         imageUrl: imageUrl ? imageUrl.trim() : null,
         maxQuantity: isUnlimited ? null : (maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : null),

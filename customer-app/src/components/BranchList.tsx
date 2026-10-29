@@ -25,7 +25,7 @@ import {
   ChevronRight,
   RefreshCw
 } from 'lucide-react';
-import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
+import { api, getFullImageUrl, isBranchOpenByHours, sanitizePromoCodeValue } from '../services/api';
 import {
   getDisplayAddress,
   CAMPUS_LANDMARKS,
@@ -996,7 +996,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   const hasFlashSection = allFlashDeals.length > 0;
 
   const renderDealCard = (deal: any) => {
-    const rawCode = (deal.promoCode || deal.code)?.trim();
+    const rawCode = sanitizePromoCodeValue(deal.promoCode || deal.code);
     const isPromo = Boolean(rawCode && (deal.type === 'PROMO_CODE' || deal.type === 'PROMO' || !deal.menuItemId));
     const isCopied = Boolean(rawCode && copiedCode && copiedCode === rawCode);
     const isUnlimited = deal.isUnlimited === true;
@@ -1004,7 +1004,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
     const totalQuota = deal.maxUses ?? 50;
     const remainingPercent = isUnlimited ? 100 : (totalQuota > 0 ? Math.min(100, Math.max(0, Math.round((remainingCount / totalQuota) * 100))) : 0);
     const isSoldOut = !isUnlimited && remainingCount <= 0;
-    const targetBranchName = deal.targetBranch?.name || branches.find(b => b.id === deal.branchId)?.name || 'المطعم';
+    const targetBranchName = deal.targetBranch?.name || branches.find(b => b.id === deal.branchId)?.name || 'كافة المطاعم المشتركة';
 
     return (
       <div
@@ -1039,7 +1039,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
           <div className="absolute top-2 left-2 z-10">
             <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-black bg-black/75 text-amber-300 shadow-md backdrop-blur-md flex items-center gap-1 border border-white/15">
               <Clock className="w-3 h-3 text-amber-400" />
-              <span>{formatFlashCountdown(deal.expiresAt)}</span>
+              <span>{deal.expiresAt ? formatFlashCountdown(deal.expiresAt) : 'متاح الآن ✓'}</span>
             </span>
           </div>
 
@@ -1105,11 +1105,11 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                 </span>
               )}
             </div>
-          ) : (deal.promoCode || deal.code) ? (
+          ) : rawCode ? (
             <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2 mt-2 flex items-center justify-between">
               <span className="text-[10px] font-bold text-amber-900">الكود:</span>
               <span className="font-mono font-black text-xs text-amber-950 tracking-wider bg-amber-200/70 px-2 py-0.5 rounded-md">
-                {deal.promoCode || deal.code}
+                {rawCode}
               </span>
             </div>
           ) : null}
@@ -1159,13 +1159,12 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               type="button"
               disabled={isSoldOut}
               onClick={() => {
-                if (isSoldOut) return;
-                const code = deal.promoCode || deal.code;
-                navigator.clipboard?.writeText(code);
+                if (isSoldOut || !rawCode) return;
+                navigator.clipboard?.writeText(rawCode);
                 try {
-                  localStorage.setItem('unifood_auto_promo', code);
+                  localStorage.setItem('unifood_auto_promo', rawCode);
                 } catch {}
-                setCopiedCode(code);
+                setCopiedCode(rawCode);
                 setTimeout(() => setCopiedCode(null), 2500);
                 if (deal.targetBranch) {
                   const found = branches.find((b) => b.id === deal.targetBranch.id);

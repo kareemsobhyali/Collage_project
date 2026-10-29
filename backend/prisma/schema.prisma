@@ -276,14 +276,19 @@ model BranchDeliveryZone {
 }
 
 model PromoCode {
-  id           String    @id @default(uuid())
-  code         String    @unique
-  discountType String    @default("FIXED") // "FIXED" | "PERCENT"
-  value        Float     @default(10.0)
-  minOrder     Float     @default(0.0)
-  maxUses      Int?      // الحد الأقصى لعدد مرات الاستخدام الكلي (null = غير محدود)
+  id                  String    @id @default(uuid())
+  code                String    @unique
+  discountType        String    @default("FIXED") // "FIXED" | "PERCENT"
+  value               Float     @default(10.0)
+  minOrder            Float     @default(0.0)
+  maxUses             Int?      // الحد الأقصى لعدد مرات الاستخدام الكلي (null = غير محدود)
   usedCount           Int       @default(0) // عدد مرات الاستخدام الفعلية حتى الآن
   oncePerUser         Boolean   @default(false) // هل يُسمح باستخدامه مرة واحدة لكل طالب؟
+  autoApply           Boolean   @default(false) // هل يُطبق تلقائياً بشكل افتراضي في شاشة الدفع؟
+  showInDeals         Boolean   @default(true)  // هل يظهر في قسم العروض/الكوبونات للعملاء؟
+  assignedUserId      String?   // معرف العميل المخصص له الكوبون (لا يستخدمه غيره)
+  assignedUserPhone   String?   // رقم هاتف العميل المخصص له الكوبون
+  assignedUserName    String?   // اسم العميل المخصص له الكوبون للعرض السريع
   applicableBranchIds String?   // JSON: قائمة معرّفات الفروع المسموح بها أو null للكل
   isActive            Boolean   @default(true)
   expiresAt           DateTime?

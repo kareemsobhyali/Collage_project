@@ -630,6 +630,11 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "comboItems" TEXT;`,
       `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "displayOrder" INTEGER NOT NULL DEFAULT 0;`,
       `CREATE INDEX IF NOT EXISTS "MenuItem_displayOrder_idx" ON "MenuItem"("displayOrder");`,
+      `ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "autoApply" BOOLEAN NOT NULL DEFAULT false;`,
+      `ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "showInDeals" BOOLEAN NOT NULL DEFAULT true;`,
+      `ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "assignedUserId" TEXT;`,
+      `ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "assignedUserPhone" TEXT;`,
+      `ALTER TABLE "PromoCode" ADD COLUMN IF NOT EXISTS "assignedUserName" TEXT;`,
       `ALTER TABLE "ModifierOption" ADD COLUMN IF NOT EXISTS "unavailableUntil" TIMESTAMP(3);`,
       `CREATE TABLE IF NOT EXISTS "WhatsAppAccount" (
         "id" TEXT PRIMARY KEY,

@@ -32,7 +32,7 @@ import {
   Ticket,
   ImageIcon
 } from 'lucide-react';
-import { api, getFullImageUrl, isBranchOpenByHours } from '../services/api';
+import { api, getFullImageUrl, isBranchOpenByHours, sanitizePromoCodeValue } from '../services/api';
 import { getDisplayAddress, getStoredClientCoords, isBranchInDeliveryZone } from '../services/campusLocations';
 import { getItemFallbackImage } from '../utils/foodImages';
 
@@ -1605,7 +1605,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     {flashDeals.map((deal: any, dIdx: number) => {
-                      const rawCode = (deal.promoCode || deal.code)?.trim();
+                      const rawCode = sanitizePromoCodeValue(deal.promoCode || deal.code);
                       const isPromo = Boolean(rawCode && (deal.type === 'PROMO' || !deal.menuItemId));
                       const isCopied = Boolean(rawCode && copiedPromoCode && copiedPromoCode === rawCode);
 
@@ -1785,12 +1785,14 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                           <button
                             type="button"
                             onClick={() => {
+                              const cleanPromo = sanitizePromoCodeValue(promo.code);
+                              if (!cleanPromo) return;
                               if (navigator.clipboard) {
-                                navigator.clipboard.writeText(promo.code);
+                                navigator.clipboard.writeText(cleanPromo);
                                 try {
-                                  localStorage.setItem('unifood_auto_promo', promo.code);
+                                  localStorage.setItem('unifood_auto_promo', cleanPromo);
                                 } catch {}
-                                setCopiedPromoCode(promo.code);
+                                setCopiedPromoCode(cleanPromo);
                                 setTimeout(() => setCopiedPromoCode(null), 2500);
                               }
                             }}

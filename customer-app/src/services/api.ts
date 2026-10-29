@@ -45,6 +45,17 @@ export const getApiBaseUrl = () => {
 
 export const API_BASE_URL = getApiBaseUrl();
 
+export const sanitizePromoCodeValue = (raw?: unknown): string => {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  const lower = trimmed.toLowerCase();
+  if (lower === 'null' || lower === 'undefined' || lower === 'nan' || lower === 'false') {
+    return '';
+  }
+  return trimmed.toUpperCase();
+};
+
 export const getFullImageUrl = (url?: string | null) => {
   if (!url) return '';
   if (url.startsWith('data:') || url.startsWith('blob:')) return url;
@@ -277,7 +288,9 @@ export const api = {
 
   // 4.5 استعراض عروض الفلاش الموقوتة وقت البريك
   async getFlashDeals() {
-    const res = await fetch(`${API_BASE_URL}/customer/flash-deals`);
+    const res = await fetch(`${API_BASE_URL}/customer/flash-deals`, {
+      headers: getHeaders(),
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل جلب عروض الفلاش');
     return data;
@@ -285,7 +298,9 @@ export const api = {
 
   // 5. استعراض منيو الفرع
   async getBranchMenu(branchId: string) {
-    const res = await fetch(`${API_BASE_URL}/customer/branches/${branchId}/menu`);
+    const res = await fetch(`${API_BASE_URL}/customer/branches/${branchId}/menu`, {
+      headers: getHeaders(),
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل جلب منيو المطعم');
     return data;
@@ -363,6 +378,19 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'كوبون الخصم غير صالح');
+    return data;
+  },
+
+  // 8.9 جلب كوبون الخصم التلقائي الافتراضي المؤهل للعميل والمطعم الحالي
+  async getAutoEligiblePromo(branchId?: string, subtotal: number = 0) {
+    const params = new URLSearchParams();
+    if (branchId) params.set('branchId', branchId);
+    params.set('subtotal', String(subtotal || 0));
+    const res = await fetch(`${API_BASE_URL}/customer/promo-codes/auto-eligible?${params.toString()}`, {
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, promo: null };
     return data;
   },
 

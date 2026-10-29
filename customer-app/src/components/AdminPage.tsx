@@ -350,6 +350,13 @@ export const AdminPage: React.FC = () => {
   const [newPromoMinOrder, setNewPromoMinOrder] = useState('50');
   const [newPromoMaxUses, setNewPromoMaxUses] = useState('');
   const [newPromoOncePerUser, setNewPromoOncePerUser] = useState(false);
+  const [newPromoAutoApply, setNewPromoAutoApply] = useState(false);
+  const [newPromoShowInDeals, setNewPromoShowInDeals] = useState(true);
+  const [newPromoUserMode, setNewPromoUserMode] = useState<'ALL' | 'SPECIFIC'>('ALL');
+  const [newPromoAssignedUserId, setNewPromoAssignedUserId] = useState('');
+  const [newPromoAssignedPhone, setNewPromoAssignedPhone] = useState('');
+  const [newPromoAssignedName, setNewPromoAssignedName] = useState('');
+  const [newPromoUserSearch, setNewPromoUserSearch] = useState('');
   const [newPromoScope, setNewPromoScope] = useState<'ALL' | 'SPECIFIC'>('ALL');
   const [newPromoBranchIds, setNewPromoBranchIds] = useState<string[]>([]);
 
@@ -360,6 +367,13 @@ export const AdminPage: React.FC = () => {
   const [editPromoMinOrder, setEditPromoMinOrder] = useState('50');
   const [editPromoMaxUses, setEditPromoMaxUses] = useState('');
   const [editPromoOncePerUser, setEditPromoOncePerUser] = useState(false);
+  const [editPromoAutoApply, setEditPromoAutoApply] = useState(false);
+  const [editPromoShowInDeals, setEditPromoShowInDeals] = useState(true);
+  const [editPromoUserMode, setEditPromoUserMode] = useState<'ALL' | 'SPECIFIC'>('ALL');
+  const [editPromoAssignedUserId, setEditPromoAssignedUserId] = useState('');
+  const [editPromoAssignedPhone, setEditPromoAssignedPhone] = useState('');
+  const [editPromoAssignedName, setEditPromoAssignedName] = useState('');
+  const [editPromoUserSearch, setEditPromoUserSearch] = useState('');
   const [editPromoActive, setEditPromoActive] = useState(true);
   const [editPromoScope, setEditPromoScope] = useState<'ALL' | 'SPECIFIC'>('ALL');
   const [editPromoBranchIds, setEditPromoBranchIds] = useState<string[]>([]);
@@ -2051,15 +2065,28 @@ export const AdminPage: React.FC = () => {
   // Promo Code Handlers
   const handleCreatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPromoCode.trim()) return;
+    const cleanCode = newPromoCode.trim().toUpperCase();
+    if (!cleanCode || cleanCode === 'NULL' || cleanCode === 'UNDEFINED') {
+      alert('يرجى إدخال كود خصم صالح');
+      return;
+    }
+    if (newPromoUserMode === 'SPECIFIC' && !newPromoAssignedUserId && !newPromoAssignedPhone.trim()) {
+      alert('يرجى اختيار العميل المخصص له الكوبون أو كتابة رقم هاتفه');
+      return;
+    }
     try {
       const res = await api.createAdminPromoCode({
-        code: newPromoCode.trim().toUpperCase(),
+        code: cleanCode,
         discountType: newPromoType,
         value: parseFloat(newPromoValue) || 10,
         minOrder: parseFloat(newPromoMinOrder) || 0,
         maxUses: newPromoMaxUses.trim() ? parseInt(newPromoMaxUses) : null,
         oncePerUser: newPromoOncePerUser,
+        autoApply: newPromoAutoApply,
+        showInDeals: newPromoShowInDeals,
+        assignedUserId: newPromoUserMode === 'SPECIFIC' ? (newPromoAssignedUserId || null) : null,
+        assignedUserPhone: newPromoUserMode === 'SPECIFIC' ? (newPromoAssignedPhone.trim() || null) : null,
+        assignedUserName: newPromoUserMode === 'SPECIFIC' ? (newPromoAssignedName.trim() || null) : null,
         applicableBranchIds: newPromoScope === 'SPECIFIC' && newPromoBranchIds.length > 0 ? newPromoBranchIds : null,
       });
       if (res.promoCode) {
@@ -2070,6 +2097,13 @@ export const AdminPage: React.FC = () => {
         setNewPromoMinOrder('50');
         setNewPromoMaxUses('');
         setNewPromoOncePerUser(false);
+        setNewPromoAutoApply(false);
+        setNewPromoShowInDeals(true);
+        setNewPromoUserMode('ALL');
+        setNewPromoAssignedUserId('');
+        setNewPromoAssignedPhone('');
+        setNewPromoAssignedName('');
+        setNewPromoUserSearch('');
         setNewPromoScope('ALL');
         setNewPromoBranchIds([]);
       }
@@ -2086,6 +2120,15 @@ export const AdminPage: React.FC = () => {
     setEditPromoMinOrder(String(promo.minOrder ?? 0));
     setEditPromoMaxUses(promo.maxUses ? String(promo.maxUses) : '');
     setEditPromoOncePerUser(Boolean(promo.oncePerUser));
+    setEditPromoAutoApply(Boolean(promo.autoApply));
+    const hasBoundUser = Boolean(promo.assignedUserId || promo.assignedUserPhone);
+    setEditPromoShowInDeals(promo.showInDeals !== undefined ? Boolean(promo.showInDeals) : !hasBoundUser);
+    setEditPromoUserMode(hasBoundUser ? 'SPECIFIC' : 'ALL');
+    setEditPromoAssignedUserId(promo.assignedUserId || '');
+    setEditPromoAssignedPhone(promo.assignedUserPhone || '');
+    const matchedStudent = promo.assignedUserId ? students.find((s: any) => s.id === promo.assignedUserId) : null;
+    setEditPromoAssignedName(promo.assignedUserName || matchedStudent?.name || '');
+    setEditPromoUserSearch('');
     setEditPromoActive(promo.isActive !== false);
 
     let parsedBranchIds: string[] = [];
@@ -2108,15 +2151,25 @@ export const AdminPage: React.FC = () => {
 
   const handleSaveEditPromo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingPromo || !editPromoCode.trim()) return;
+    const cleanCode = editPromoCode.trim().toUpperCase();
+    if (!editingPromo || !cleanCode || cleanCode === 'NULL' || cleanCode === 'UNDEFINED') return;
+    if (editPromoUserMode === 'SPECIFIC' && !editPromoAssignedUserId && !editPromoAssignedPhone.trim()) {
+      alert('يرجى اختيار العميل المخصص له الكوبون أو كتابة رقم هاتفه');
+      return;
+    }
     try {
       const res = await api.updateAdminPromoCode(editingPromo.id, {
-        code: editPromoCode.trim().toUpperCase(),
+        code: cleanCode,
         discountType: editPromoType,
         value: parseFloat(editPromoValue) || 10,
         minOrder: parseFloat(editPromoMinOrder) || 0,
         maxUses: editPromoMaxUses.trim() ? parseInt(editPromoMaxUses) : null,
         oncePerUser: editPromoOncePerUser,
+        autoApply: editPromoAutoApply,
+        showInDeals: editPromoShowInDeals,
+        assignedUserId: editPromoUserMode === 'SPECIFIC' ? (editPromoAssignedUserId || null) : null,
+        assignedUserPhone: editPromoUserMode === 'SPECIFIC' ? (editPromoAssignedPhone.trim() || null) : null,
+        assignedUserName: editPromoUserMode === 'SPECIFIC' ? (editPromoAssignedName.trim() || null) : null,
         isActive: editPromoActive,
         applicableBranchIds: editPromoScope === 'SPECIFIC' ? editPromoBranchIds : null,
       });
@@ -6769,10 +6822,17 @@ export const AdminPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {promos.map((p) => {
                   const isExhausted = p.maxUses && (p.usedCount || 0) >= p.maxUses;
+                  const boundStudent = p.assignedUserId ? students.find((s: any) => s.id === p.assignedUserId) : null;
+                  const hasBoundCustomer = Boolean(p.assignedUserId || p.assignedUserPhone);
+                  const boundLabel = [
+                    p.assignedUserName || boundStudent?.name,
+                    p.assignedUserPhone || boundStudent?.phone,
+                  ].filter(Boolean).join(' • ');
+
                   return (
                     <div key={p.id} className="p-4 bg-white border border-slate-200 rounded-2xl flex items-start justify-between shadow-lg gap-3">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-mono font-black text-base text-purple-700 tracking-wider bg-purple-50 px-2.5 py-0.5 rounded-lg border border-purple-200">
                             {p.code}
                           </span>
@@ -6780,22 +6840,36 @@ export const AdminPage: React.FC = () => {
                             onClick={() => handleTogglePromoStatus(p.id, p.isActive !== false)}
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
                               p.isActive !== false && !isExhausted
-                                ? 'text-emerald-400 bg-emerald-50 border-emerald-200'
-                                : 'text-rose-300 bg-rose-50 border-rose-200'
+                                ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                : 'text-rose-600 bg-rose-50 border-rose-200'
                             }`}
                           >
                             {isExhausted ? 'مكتمل العدد' : p.isActive !== false ? 'نشط' : 'معطل'}
                           </button>
+                          {p.autoApply && (
+                            <span className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-black">
+                              ⚡ تطبيق تلقائي بالدفع
+                            </span>
+                          )}
                           {p.oncePerUser && (
                             <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full font-bold">
                               مرة واحدة للعميل
+                            </span>
+                          )}
+                          {p.showInDeals === false ? (
+                            <span className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full font-bold">
+                              🔒 مخفي من العروض
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full font-bold">
+                              🎟️ يظهر في العروض
                             </span>
                           )}
                         </div>
                         <p className="text-xs text-slate-800 font-bold">
                           قيمة الخصم: {p.value} {p.discountType === 'PERCENT' || p.discountType === 'PERCENTAGE' ? '%' : 'ج.م'}
                         </p>
-                        <div className="flex items-center gap-3 text-[11px] text-slate-500 font-mono">
+                        <div className="flex items-center gap-3 text-[11px] text-slate-500 font-mono flex-wrap">
                           <span>
                             الاستخدام: <strong className="text-slate-900">{p.usedCount ?? 0}</strong> / {p.maxUses ? p.maxUses : '∞ غير محدود'}
                           </span>
@@ -6803,6 +6877,13 @@ export const AdminPage: React.FC = () => {
                             <span>• حد أدنى: {p.minOrder} ج.م</span>
                           )}
                         </div>
+
+                        {hasBoundCustomer && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-rose-800 bg-rose-50 border border-rose-200/80 px-2.5 py-1 rounded-lg w-fit mt-1 font-bold">
+                            <span>👤</span>
+                            <span>مخصص حصرياً لـ: {boundLabel || 'عميل محدد'}</span>
+                          </div>
+                        )}
 
                         {(() => {
                           let branchNames: string[] = [];
@@ -11551,18 +11632,174 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <label className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-100 transition-colors">
+                <label className="flex items-center gap-2.5 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-200/60 transition-colors">
                   <input
                     type="checkbox"
                     checked={newPromoOncePerUser}
                     onChange={e => setNewPromoOncePerUser(e.target.checked)}
-                    className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
+                    className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer shrink-0"
                   />
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">متاح للاستخدام مرة واحدة فقط لكل عميل</span>
                     <span className="text-[10px] text-slate-500">يمنع نفس العميل من استخدام الكوبون أكثر من مرة</span>
                   </div>
                 </label>
+
+                <label className="flex items-center gap-2.5 p-3 bg-indigo-50/70 rounded-xl cursor-pointer border border-indigo-200/80 hover:bg-indigo-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={newPromoAutoApply}
+                    onChange={e => setNewPromoAutoApply(e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-0 w-4 h-4 accent-indigo-600 cursor-pointer shrink-0"
+                  />
+                  <div>
+                    <span className="text-xs font-black text-indigo-950 block">⚡ تطبيق تلقائي افتراضياً في شاشة الدفع</span>
+                    <span className="text-[10px] text-indigo-700/80 leading-relaxed block">
+                      ينضاف تلقائياً للعميل عند فتح السلة، ويتوقف تلقائياً فور نفاد العدد المحدد أو إذا استخدمه العميل من قبل
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2.5 p-3 bg-teal-50/70 rounded-xl cursor-pointer border border-teal-200/80 hover:bg-teal-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={newPromoShowInDeals}
+                    onChange={e => setNewPromoShowInDeals(e.target.checked)}
+                    className="rounded text-teal-600 focus:ring-0 w-4 h-4 accent-teal-600 cursor-pointer shrink-0"
+                  />
+                  <div>
+                    <span className="text-xs font-black text-teal-950 block">🎟️ إظهار الكوبون في قسم العروض (قائمة الكوبونات)</span>
+                    <span className="text-[10px] text-teal-700/80 leading-relaxed block">
+                      ألغِ التفعيل لإخفاء الكوبون من قسم العروض للعملاء (مفيد لكوبونات التعويض أو الأكواد الخاصة)
+                    </span>
+                  </div>
+                </label>
+
+                {/* تخصيص الكوبون لعميل محدد (تعويض / خاص) */}
+                <div className="p-3.5 bg-slate-100 rounded-xl space-y-2.5 border border-slate-200">
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    العملاء المسموح لهم باستخدام الكوبون
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewPromoUserMode('ALL');
+                        setNewPromoAssignedUserId('');
+                        setNewPromoAssignedPhone('');
+                        setNewPromoAssignedName('');
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                        newPromoUserMode === 'ALL'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>👥</span>
+                      <span>جميع العملاء</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewPromoUserMode('SPECIFIC');
+                        setNewPromoShowInDeals(false);
+                        setNewPromoOncePerUser(true);
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                        newPromoUserMode === 'SPECIFIC'
+                          ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>👤</span>
+                      <span>عميل محدد فقط</span>
+                    </button>
+                  </div>
+
+                  {newPromoUserMode === 'SPECIFIC' && (
+                    <div className="pt-2 border-t border-slate-200 mt-2 space-y-2">
+                      {(newPromoAssignedUserId || newPromoAssignedPhone) ? (
+                        <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between gap-2">
+                          <div className="text-xs min-w-0">
+                            <span className="font-black text-rose-950 block truncate">
+                              👤 {newPromoAssignedName || 'عميل مخصص بالرقم'}
+                            </span>
+                            {newPromoAssignedPhone && (
+                              <span className="font-mono text-[11px] text-rose-700 font-bold block">
+                                {newPromoAssignedPhone}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewPromoAssignedUserId('');
+                              setNewPromoAssignedPhone('');
+                              setNewPromoAssignedName('');
+                            }}
+                            className="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-black shrink-0"
+                          >
+                            تغيير
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            placeholder="ابحث باسم العميل أو رقم هاتفه لاختياره..."
+                            value={newPromoUserSearch}
+                            onChange={(e) => setNewPromoUserSearch(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                          />
+                          <div className="max-h-36 overflow-y-auto space-y-1 p-1 bg-white rounded-xl border border-slate-200 custom-scrollbar">
+                            {students
+                              .filter((s: any) => {
+                                if (s.role === 'SUPERADMIN') return false;
+                                const q = newPromoUserSearch.trim().toLowerCase();
+                                if (!q) return true;
+                                return (
+                                  (s.name && s.name.toLowerCase().includes(q)) ||
+                                  (s.phone && String(s.phone).includes(q))
+                                );
+                              })
+                              .slice(0, 30)
+                              .map((s: any) => (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setNewPromoAssignedUserId(s.id);
+                                    setNewPromoAssignedPhone(s.phone || '');
+                                    setNewPromoAssignedName(s.name || '');
+                                    setNewPromoUserSearch('');
+                                  }}
+                                  className="w-full text-right px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-between gap-2 text-xs"
+                                >
+                                  <span className="font-bold text-slate-800 truncate">{s.name || 'عميل'}</span>
+                                  <span className="font-mono text-[11px] text-slate-500 shrink-0">{s.phone}</span>
+                                </button>
+                              ))}
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                              أو اكتب رقم هاتف العميل مباشرة (حتى لو غير ظاهر في البحث):
+                            </label>
+                            <input
+                              type="tel"
+                              placeholder="مثال: 01012345678"
+                              value={newPromoAssignedPhone}
+                              onChange={(e) => setNewPromoAssignedPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                            />
+                          </div>
+                        </>
+                      )}
+                      <p className="text-[10px] text-rose-700 font-bold">
+                        🔒 لن يتمكن أي حساب آخر من تفعيل أو استخدام هذا الكوبون نهائياً.
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Branch Applicability Scope */}
                 <div className="p-3.5 bg-slate-100 rounded-xl space-y-2.5 border border-slate-200">
@@ -11745,12 +11982,12 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </div>
 
-                <label className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-100 transition-colors">
+                <label className="flex items-center gap-2.5 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-200/60 transition-colors">
                   <input
                     type="checkbox"
                     checked={editPromoOncePerUser}
                     onChange={e => setEditPromoOncePerUser(e.target.checked)}
-                    className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
+                    className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer shrink-0"
                   />
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">متاح للاستخدام مرة واحدة فقط لكل عميل</span>
@@ -11758,12 +11995,167 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </label>
 
-                <label className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-100 transition-colors">
+                <label className="flex items-center gap-2.5 p-3 bg-indigo-50/70 rounded-xl cursor-pointer border border-indigo-200/80 hover:bg-indigo-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={editPromoAutoApply}
+                    onChange={e => setEditPromoAutoApply(e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-0 w-4 h-4 accent-indigo-600 cursor-pointer shrink-0"
+                  />
+                  <div>
+                    <span className="text-xs font-black text-indigo-950 block">⚡ تطبيق تلقائي افتراضياً في شاشة الدفع</span>
+                    <span className="text-[10px] text-indigo-700/80 leading-relaxed block">
+                      ينضاف تلقائياً للعميل عند فتح السلة، ويتوقف تلقائياً فور نفاد العدد المحدد أو إذا استخدمه العميل من قبل
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2.5 p-3 bg-teal-50/70 rounded-xl cursor-pointer border border-teal-200/80 hover:bg-teal-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={editPromoShowInDeals}
+                    onChange={e => setEditPromoShowInDeals(e.target.checked)}
+                    className="rounded text-teal-600 focus:ring-0 w-4 h-4 accent-teal-600 cursor-pointer shrink-0"
+                  />
+                  <div>
+                    <span className="text-xs font-black text-teal-950 block">🎟️ إظهار الكوبون في قسم العروض (قائمة الكوبونات)</span>
+                    <span className="text-[10px] text-teal-700/80 leading-relaxed block">
+                      ألغِ التفعيل لإخفاء الكوبون من قسم العروض للعملاء (مفيد لكوبونات التعويض أو الأكواد الخاصة)
+                    </span>
+                  </div>
+                </label>
+
+                {/* تخصيص الكوبون لعميل محدد (تعويض / خاص) */}
+                <div className="p-3.5 bg-slate-100 rounded-xl space-y-2.5 border border-slate-200">
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    العملاء المسموح لهم باستخدام الكوبون
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditPromoUserMode('ALL');
+                        setEditPromoAssignedUserId('');
+                        setEditPromoAssignedPhone('');
+                        setEditPromoAssignedName('');
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                        editPromoUserMode === 'ALL'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>👥</span>
+                      <span>جميع العملاء</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditPromoUserMode('SPECIFIC');
+                        setEditPromoShowInDeals(false);
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                        editPromoUserMode === 'SPECIFIC'
+                          ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>👤</span>
+                      <span>عميل محدد فقط</span>
+                    </button>
+                  </div>
+
+                  {editPromoUserMode === 'SPECIFIC' && (
+                    <div className="pt-2 border-t border-slate-200 mt-2 space-y-2">
+                      {(editPromoAssignedUserId || editPromoAssignedPhone) ? (
+                        <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between gap-2">
+                          <div className="text-xs min-w-0">
+                            <span className="font-black text-rose-950 block truncate">
+                              👤 {editPromoAssignedName || 'عميل مخصص بالرقم'}
+                            </span>
+                            {editPromoAssignedPhone && (
+                              <span className="font-mono text-[11px] text-rose-700 font-bold block">
+                                {editPromoAssignedPhone}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditPromoAssignedUserId('');
+                              setEditPromoAssignedPhone('');
+                              setEditPromoAssignedName('');
+                            }}
+                            className="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-black shrink-0"
+                          >
+                            تغيير
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            placeholder="ابحث باسم العميل أو رقم هاتفه لاختياره..."
+                            value={editPromoUserSearch}
+                            onChange={(e) => setEditPromoUserSearch(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                          />
+                          <div className="max-h-36 overflow-y-auto space-y-1 p-1 bg-white rounded-xl border border-slate-200 custom-scrollbar">
+                            {students
+                              .filter((s: any) => {
+                                if (s.role === 'SUPERADMIN') return false;
+                                const q = editPromoUserSearch.trim().toLowerCase();
+                                if (!q) return true;
+                                return (
+                                  (s.name && s.name.toLowerCase().includes(q)) ||
+                                  (s.phone && String(s.phone).includes(q))
+                                );
+                              })
+                              .slice(0, 30)
+                              .map((s: any) => (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setEditPromoAssignedUserId(s.id);
+                                    setEditPromoAssignedPhone(s.phone || '');
+                                    setEditPromoAssignedName(s.name || '');
+                                    setEditPromoUserSearch('');
+                                  }}
+                                  className="w-full text-right px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-between gap-2 text-xs"
+                                >
+                                  <span className="font-bold text-slate-800 truncate">{s.name || 'عميل'}</span>
+                                  <span className="font-mono text-[11px] text-slate-500 shrink-0">{s.phone}</span>
+                                </button>
+                              ))}
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                              أو اكتب رقم هاتف العميل مباشرة:
+                            </label>
+                            <input
+                              type="tel"
+                              placeholder="مثال: 01012345678"
+                              value={editPromoAssignedPhone}
+                              onChange={(e) => setEditPromoAssignedPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                            />
+                          </div>
+                        </>
+                      )}
+                      <p className="text-[10px] text-rose-700 font-bold">
+                        🔒 لن يتمكن أي حساب آخر من تفعيل أو استخدام هذا الكوبون نهائياً.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <label className="flex items-center gap-2.5 p-3 bg-slate-100 rounded-xl cursor-pointer border border-slate-200 hover:bg-slate-200/60 transition-colors">
                   <input
                     type="checkbox"
                     checked={editPromoActive}
                     onChange={e => setEditPromoActive(e.target.checked)}
-                    className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer"
+                    className="rounded text-purple-600 focus:ring-0 w-4 h-4 accent-purple-600 cursor-pointer shrink-0"
                   />
                   <span className="text-xs font-bold text-slate-800">تفعيل الكوبون للعملاء</span>
                 </label>
