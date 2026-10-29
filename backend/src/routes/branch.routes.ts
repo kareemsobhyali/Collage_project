@@ -11,7 +11,8 @@ import {
   notifyMenuItemAvailabilityChanged,
   notifyDriverUnassigned,
   latestDriverLocations,
-  isDriverOnline
+  isDriverOnline,
+  notifySupportTicketUpdated
 } from "../sockets/socketManager.js";
 import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert, getRestaurantLocationSettings } from "../services/settings.service.js";
 import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
@@ -2169,6 +2170,8 @@ router.put("/support-tickets/:id", async (req: AuthRequest, res: Response) => {
       where: { key: `support_ticket_${id}` },
       data: { value: JSON.stringify(ticket) },
     });
+
+    notifySupportTicketUpdated(ticket);
 
     res.json({ success: true, ticket });
   } catch (error) {

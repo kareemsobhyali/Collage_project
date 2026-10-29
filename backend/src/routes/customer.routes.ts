@@ -3,7 +3,13 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import prisma from "../prisma.js";
 import { authenticateUser, AuthRequest, JWT_SECRET } from "../middleware/auth.js";
-import { notifyBranchNewOrder, notifyOrderStatusChanged, notifyGroupCartUpdated, isBranchOnline } from "../sockets/socketManager.js";
+import { 
+  notifyBranchNewOrder, 
+  notifyOrderStatusChanged, 
+  notifyGroupCartUpdated, 
+  isBranchOnline,
+  notifySupportTicketCreated 
+} from "../sockets/socketManager.js";
 import { getLoyaltySettings, awardLoyaltyPointsIfCompleted, getRestaurantLocationSettings, getContactChannelsSettings } from "../services/settings.service.js";
 import { isOrderAcceptedByDriver } from "../services/driver.service.js";
 import { 
@@ -2445,6 +2451,12 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // إذا كانت الشكوى متعلقة بطلب سابق أو بالدفع، فاختيار الطلب إجباري
+    if ((category === "ORDER_ISSUE" || category === "PAYMENT_ISSUE") && (!orderNumber || !String(orderNumber).trim())) {
+      res.status(400).json({ error: "يرجى تحديد أو كتابة رقم الطلب المعني بهذه المشكلة لمتابعتها والتحقق منها (إجباري)" });
+      return;
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, phone: true },
@@ -2466,6 +2478,9 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
 
     let branchId: string | undefined = undefined;
     let branchName: string | undefined = undefined;
+    let orderTotal: number | undefined = undefined;
+    let orderStatus: string | undefined = undefined;
+    let orderCreatedAt: string | undefined = undefined;
 
     if (orderNumber) {
       const cleanNum = String(orderNumber).replace('#', '').trim();
@@ -2482,6 +2497,9 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
         if (matchedOrder) {
           branchId = matchedOrder.branchId;
           branchName = matchedOrder.branch?.name;
+          orderTotal = matchedOrder.total;
+          orderStatus = matchedOrder.status;
+          orderCreatedAt = matchedOrder.createdAt.toISOString();
         }
       } catch (_e) {
         // Continue without blocking ticket creation
@@ -2498,9 +2516,12 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
       subject: subject.trim(),
       message: message.trim(),
       orderNumber: orderNumber ? String(orderNumber).trim() : undefined,
+      orderTotal,
+      orderStatus,
+      orderCreatedAt,
       branchId,
       branchName,
-      status: "OPEN", // "OPEN" | "IN_PROGRESS" | "RESOLVED"
+      status: "OPEN", // "OPEN" | "IN_PROGRESS" | "RESOLVED" | "REJECTED"
       adminNotes: "",
       branchNotes: "",
       createdAt: new Date().toISOString(),
@@ -2516,6 +2537,9 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    // إشعار فوري لجميع الواجهات المتصلة (الأدمن، المطعم، والعميل)
+    notifySupportTicketCreated(ticketData);
+
     res.json({
       success: true,
       message: "تم إرسال بلاغك لإدارة المنظومة بنجاح، وسيتم مراجعته والتواصل معك قريباً.",
@@ -2524,6 +2548,33 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Submit support ticket error:", error);
     res.status(500).json({ error: "فشل إرسال رسالة الدعم" });
+  }
+});
+
+// 14.5 استعلام شكاوى وبلاغات العميل الحالية وحالتها اللحظية
+router.get("/support-tickets", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+
+    const settings = await prisma.systemSetting.findMany({
+      where: { key: { startsWith: "support_ticket_" } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const userTickets = settings
+      .map((s) => {
+        try {
+          return JSON.parse(s.value);
+        } catch {
+          return null;
+        }
+      })
+      .filter((t: any) => t && t.userId === userId);
+
+    res.json({ success: true, tickets: userTickets });
+  } catch (error) {
+    console.error("Get customer support tickets error:", error);
+    res.status(500).json({ error: "فشل استرجاع سجل الشكاوى" });
   }
 });
 

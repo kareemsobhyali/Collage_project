@@ -638,4 +638,45 @@ export function notifyRestaurantLocationChanged(locationSettings: any): void {
   }
 }
 
+export function notifySupportTicketCreated(ticket: any): void {
+  if (io) {
+    // بث فوري وشامل لجميع الواجهات المفتوحة (العميل، الإدارة، والمطعم)
+    io.emit("support_ticket_created", ticket);
+    if (ticket.userId) {
+      io.to(`user_${ticket.userId}`).emit("support_ticket_created", ticket);
+    }
+    if (ticket.branchId) {
+      io.to(`branch_${ticket.branchId}`).emit("support_ticket_created", ticket);
+    }
+    io.to("admin_dashboard").emit("support_ticket_created", ticket);
+  }
+}
+
+export function notifySupportTicketUpdated(ticket: any): void {
+  if (io) {
+    // بث التحديث اللحظي لحالة الشكوى أو رد المشرف/المطعم
+    io.emit("support_ticket_updated", ticket);
+    if (ticket.userId) {
+      io.to(`user_${ticket.userId}`).emit("support_ticket_updated", ticket);
+    }
+    if (ticket.branchId) {
+      io.to(`branch_${ticket.branchId}`).emit("support_ticket_updated", ticket);
+    }
+    io.to("admin_dashboard").emit("support_ticket_updated", ticket);
+  }
+}
+
+export function notifySupportTicketDeleted(ticketId: string, branchId?: string, userId?: string): void {
+  if (io) {
+    io.emit("support_ticket_deleted", { id: ticketId });
+    if (userId) {
+      io.to(`user_${userId}`).emit("support_ticket_deleted", { id: ticketId });
+    }
+    if (branchId) {
+      io.to(`branch_${branchId}`).emit("support_ticket_deleted", { id: ticketId });
+    }
+    io.to("admin_dashboard").emit("support_ticket_deleted", { id: ticketId });
+  }
+}
+
 

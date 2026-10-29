@@ -26,7 +26,12 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
-  Receipt
+  Receipt,
+  Clock,
+  RotateCw,
+  ShieldCheck,
+  Store,
+  Inbox
 } from 'lucide-react';
 import { api } from '../services/api';
 import { 
@@ -52,6 +57,7 @@ const SUPPORT_CATEGORIES = [
 
 interface ProfileModalProps {
   user: any;
+  socket?: any;
   onUpdateUser: (updatedUser: any) => void;
   onClose: () => void;
   onLogout?: () => void;
@@ -59,6 +65,7 @@ interface ProfileModalProps {
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
   user,
+  socket,
   onUpdateUser,
   onClose,
   onLogout,
@@ -92,6 +99,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   // Support Ticket State
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportModalTab, setSupportModalTab] = useState<'NEW' | 'LIST'>('NEW');
   const [supportCategory, setSupportCategory] = useState<'GENERAL' | 'ORDER_ISSUE' | 'PAYMENT_ISSUE' | 'TECH_ISSUE' | 'SUGGESTION'>('GENERAL');
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
@@ -104,6 +112,58 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     whatsappUrl: 'https://wa.me/201016629986',
   });
 
+  // Customer Tickets History State
+  const [myTickets, setMyTickets] = useState<any[]>([]);
+  const [loadingMyTickets, setLoadingMyTickets] = useState<boolean>(false);
+
+  const fetchMyTickets = async () => {
+    try {
+      setLoadingMyTickets(true);
+      const data = await api.getMySupportTickets();
+      setMyTickets(data || []);
+    } catch (err) {
+      console.error('Failed to load my support tickets:', err);
+    } finally {
+      setLoadingMyTickets(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMyTickets();
+  }, []);
+
+  // الاستماع اللحظي لتحديثات وتذاكر الدعم الفني
+  useEffect(() => {
+    if (!socket) return;
+    const onTicketCreated = (newTicket: any) => {
+      if (newTicket && (newTicket.userId === user?.id || newTicket.userPhone === user?.phone)) {
+        setMyTickets(prev => [newTicket, ...prev.filter(t => t.id !== newTicket.id)]);
+      }
+    };
+    const onTicketUpdated = (updatedTicket: any) => {
+      if (updatedTicket && (updatedTicket.userId === user?.id || updatedTicket.userPhone === user?.phone)) {
+        setMyTickets(prev => prev.map(t => t.id === updatedTicket.id ? updatedTicket : t));
+      }
+    };
+    const onTicketDeleted = (data: { id: string }) => {
+      if (data?.id) {
+        setMyTickets(prev => prev.filter(t => t.id !== data.id));
+      }
+    };
+
+    socket.on('support_ticket_created', onTicketCreated);
+    socket.on('support_ticket_updated', onTicketUpdated);
+    socket.on('support_ticket_deleted', onTicketDeleted);
+
+    return () => {
+      socket.off('support_ticket_created', onTicketCreated);
+      socket.off('support_ticket_updated', onTicketUpdated);
+      socket.off('support_ticket_deleted', onTicketDeleted);
+    };
+  }, [socket, user?.id, user?.phone]);
+
+  const isOrderRequired = supportCategory === 'ORDER_ISSUE' || supportCategory === 'PAYMENT_ISSUE';
+
   // Customer Orders for Support Modal Combobox
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [loadingCustomerOrders, setLoadingCustomerOrders] = useState(false);
@@ -111,9 +171,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [isOrderDropdownOpen, setIsOrderDropdownOpen] = useState(false);
   const [manualOrderInputMode, setManualOrderInputMode] = useState(false);
 
-  // Fetch customer orders when ORDER_ISSUE is selected
+  // Fetch customer orders when ORDER_ISSUE or PAYMENT_ISSUE is selected
   useEffect(() => {
-    if (showSupportModal && supportCategory === 'ORDER_ISSUE' && customerOrders.length === 0 && !loadingCustomerOrders) {
+    if (showSupportModal && isOrderRequired && customerOrders.length === 0 && !loadingCustomerOrders) {
       setLoadingCustomerOrders(true);
       api.getMyOrders()
         .then((orders) => {
@@ -128,7 +188,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           setLoadingCustomerOrders(false);
         });
     }
-  }, [showSupportModal, supportCategory]);
+  }, [showSupportModal, isOrderRequired]);
 
   const handleSelectOrder = (order: any) => {
     setSelectedOrder(order);
@@ -171,6 +231,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       setSupportErrorMsg('يرجى كتابة عنوان المشكلة وتفاصيل الرسالة.');
       return;
     }
+    if (isOrderRequired && !supportOrderNumber.trim()) {
+      setSupportErrorMsg('يرجى اختيار وتحديد الطلب المعني بهذه المشكلة من القائمة لمتابعة الشكوى وحلها (حقل إجباري).');
+      return;
+    }
     try {
       setSendingSupport(true);
       setSupportErrorMsg(null);
@@ -181,6 +245,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         orderNumber: supportOrderNumber.trim() || undefined,
       });
       setSupportSuccessMsg(res.message || 'تم إرسال بلاغك لإدارة المنظومة بنجاح!');
+      if (res.ticket) {
+        setMyTickets(prev => [res.ticket, ...prev.filter(t => t.id !== res.ticket.id)]);
+      }
       setSupportSubject('');
       setSupportMessage('');
       setSupportOrderNumber('');
@@ -188,9 +255,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       setIsOrderDropdownOpen(false);
       setManualOrderInputMode(false);
       setTimeout(() => {
-        setShowSupportModal(false);
         setSupportSuccessMsg(null);
-      }, 2200);
+        setSupportModalTab('LIST');
+      }, 1300);
     } catch (err: any) {
       setSupportErrorMsg(err.message || 'فشل إرسال رسالة الدعم');
     } finally {
@@ -856,32 +923,64 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   <p className="text-[10px] text-slate-500">واجهتك مشكلة أو لديك استفسار؟ فريق الإدارة في خدمتك</p>
                 </div>
               </div>
+
+              {myTickets.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSupportModalTab('LIST');
+                    setShowSupportModal(true);
+                  }}
+                  className="px-2 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-[10px] font-black flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95"
+                >
+                  <Inbox className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>شكاواي ({myTickets.length})</span>
+                  {myTickets.some(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS') && (
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  )}
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => {
+                  setSupportModalTab('NEW');
                   setSupportErrorMsg(null);
                   setSupportSuccessMsg(null);
                   setShowSupportModal(true);
                 }}
-                className="w-full py-2.5 px-3 bg-white hover:bg-indigo-50/60 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-xs transition-all active:scale-98"
+                className="w-full py-2.5 px-3 bg-white hover:bg-indigo-50/60 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-xs transition-all active:scale-98 cursor-pointer"
               >
                 <MessageSquarePlus className="w-4 h-4 text-indigo-600" />
-                <span>إرسال بلاغ أو مشكلة للإدارة</span>
+                <span>إرسال بلاغ أو شكوى جديدة</span>
               </button>
 
-              <a
-                href={supportWhatsappData.whatsappUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98"
+              <button
+                type="button"
+                onClick={() => {
+                  setSupportModalTab('LIST');
+                  setSupportErrorMsg(null);
+                  setSupportSuccessMsg(null);
+                  setShowSupportModal(true);
+                }}
+                className="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98 cursor-pointer"
               >
-                <MessageCircle className="w-4 h-4" />
-                <span>محادثة واتساب مباشرة للدعم</span>
-              </a>
+                <Inbox className="w-4 h-4" />
+                <span>سجل شكاواي ومتابعة حالتها ({myTickets.length})</span>
+              </button>
             </div>
+
+            <a
+              href={supportWhatsappData.whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98 block text-center cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4 inline-block ml-1" />
+              <span>محادثة واتساب مباشرة للدعم السريع ({supportWhatsappData.whatsappPhone})</span>
+            </a>
           </div>
 
           {/* Account Security & Deletion Section */}
@@ -936,7 +1035,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             }}
           >
             <div 
-              className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[92dvh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+              className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[92dvh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Mobile drag handle */}
@@ -949,8 +1048,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     <LifeBuoy className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900">إرسال بلاغ أو مشكلة للإدارة</h4>
-                    <p className="text-[10px] text-slate-500 font-medium">فريق الدعم في خدمتك وحل المشكلة فوراً</p>
+                    <h4 className="text-sm font-black text-slate-900">مركز البلاغات والدعم الفني</h4>
+                    <p className="text-[10px] text-slate-500 font-medium">متابعة فورية وحل سريع لجميع مشاكلك</p>
                   </div>
                 </div>
                 <button
@@ -962,8 +1061,198 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </button>
               </div>
 
-              {/* Form Content - Scrollable */}
-              <form onSubmit={handleSubmitSupport} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              {/* Top Navigation Tabs: New Ticket vs Tickets History */}
+              <div className="flex border-b border-slate-200 bg-slate-100/70 p-1.5 gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSupportModalTab('NEW')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    supportModalTab === 'NEW'
+                      ? 'bg-white text-indigo-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
+                >
+                  <MessageSquarePlus className="w-4 h-4" />
+                  <span>تقديم بلاغ جديد</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSupportModalTab('LIST')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    supportModalTab === 'LIST'
+                      ? 'bg-white text-indigo-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
+                >
+                  <Inbox className="w-4 h-4" />
+                  <span>سجل شكاواي</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                    supportModalTab === 'LIST'
+                      ? 'bg-indigo-100 text-indigo-800'
+                      : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {myTickets.length}
+                  </span>
+                  {myTickets.some(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS') && (
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  )}
+                </button>
+              </div>
+
+              {supportModalTab === 'LIST' ? (
+                /* Tickets List View */
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  <div className="p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
+                    <span className="text-[11px] font-bold text-slate-500">
+                      يتم تحديث الشكاوى والردود لحظياً فور اعتمادها ⚡
+                    </span>
+                    <button
+                      type="button"
+                      onClick={fetchMyTickets}
+                      disabled={loadingMyTickets}
+                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                      title="تحديث القائمة"
+                    >
+                      <RotateCw className={`w-3.5 h-3.5 ${loadingMyTickets ? 'animate-spin text-indigo-600' : ''}`} />
+                      <span>تحديث</span>
+                    </button>
+                  </div>
+
+                  <div className="p-4 space-y-3 overflow-y-auto modal-scroll flex-1">
+                    {loadingMyTickets ? (
+                      <div className="text-center py-12 text-slate-400 space-y-2">
+                        <RotateCw className="w-6 h-6 animate-spin mx-auto text-indigo-600" />
+                        <p className="text-xs font-bold">جاري تحميل شكاواك...</p>
+                      </div>
+                    ) : myTickets.length === 0 ? (
+                      <div className="p-8 text-center bg-slate-50/70 border border-dashed border-slate-200 rounded-3xl space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                          <Inbox className="w-6 h-6" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-slate-800 font-black">لا توجد شكاوى مسجلة حتى الآن</p>
+                          <p className="text-[11px] text-slate-500">
+                            إذا واجهتك أي مشكلة في طلب أو في الدفع، يمكنك تقديم بلاغ جديد فوراً وسيقوم المشرف بمتابعتها.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSupportModalTab('NEW')}
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer"
+                        >
+                          تقديم بلاغ جديد الآن
+                        </button>
+                      </div>
+                    ) : (
+                      myTickets.map((ticket) => {
+                        const statusConfig = 
+                          ticket.status === 'RESOLVED' ? { text: 'تم الحل والمعالجة', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200', dot: 'bg-emerald-500' } :
+                          ticket.status === 'IN_PROGRESS' ? { text: 'جاري المتابعة والحل', bg: 'bg-blue-50 text-blue-800 border-blue-200', dot: 'bg-blue-500' } :
+                          ticket.status === 'REJECTED' ? { text: 'مرفوضة / مغلقة', bg: 'bg-rose-50 text-rose-800 border-rose-200', dot: 'bg-rose-500' } :
+                          { text: 'قيد المراجعة والانتظار', bg: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500 animate-pulse' };
+
+                        const formattedDate = new Date(ticket.createdAt).toLocaleString('ar-EG', {
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: 'numeric',
+                        });
+
+                        return (
+                          <div
+                            key={ticket.id}
+                            className="p-3.5 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 shadow-2xs hover:border-indigo-200 transition-all text-right"
+                          >
+                            <div className="flex items-start justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${statusConfig.bg}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                                  <span>{statusConfig.text}</span>
+                                </span>
+                                {ticket.categoryLabel && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                    {ticket.categoryLabel}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{formattedDate}</span>
+                              </span>
+                            </div>
+
+                            <div>
+                              <h5 className="text-xs font-black text-slate-900 leading-snug">{ticket.subject}</h5>
+                              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                {ticket.message}
+                              </p>
+                            </div>
+
+                            {/* Order Details Pill if linked */}
+                            {ticket.orderNumber && (
+                              <div className="p-2 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between gap-2 text-[11px]">
+                                <div className="flex items-center gap-2 text-indigo-950 font-bold min-w-0 truncate">
+                                  <Receipt className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                  <span>طلب رقم: #{ticket.orderNumber}</span>
+                                  {ticket.branchName && (
+                                    <span className="text-slate-500 font-normal truncate">• {ticket.branchName}</span>
+                                  )}
+                                </div>
+                                {ticket.orderTotal && (
+                                  <span className="font-black text-indigo-700 font-mono shrink-0">
+                                    {ticket.orderTotal} ج.م
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Admin Reply */}
+                            {ticket.adminNotes && (
+                              <div className="p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1">
+                                <div className="flex items-center gap-1.5 text-emerald-900 text-[10px] font-black">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>رد إدارة التطبيق:</span>
+                                </div>
+                                <p className="text-[11px] text-emerald-950 font-medium leading-relaxed">
+                                  {ticket.adminNotes}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Branch Reply */}
+                            {ticket.branchNotes && (
+                              <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded-xl space-y-1">
+                                <div className="flex items-center gap-1.5 text-purple-900 text-[10px] font-black">
+                                  <Store className="w-3.5 h-3.5 text-purple-600" />
+                                  <span>رد المطعم:</span>
+                                </div>
+                                <p className="text-[11px] text-purple-950 font-medium leading-relaxed">
+                                  {ticket.branchNotes}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Bottom Tab Switch Button */}
+                  <div className="p-3.5 border-t border-slate-100 bg-slate-50 flex items-center gap-2.5 shrink-0 pb-safe">
+                    <button
+                      type="button"
+                      onClick={() => setSupportModalTab('NEW')}
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/25 active:scale-98 cursor-pointer"
+                    >
+                      <MessageSquarePlus className="w-4 h-4" />
+                      <span>تقديم بلاغ جديد</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Form Content - Scrollable */
+                <form onSubmit={handleSubmitSupport} className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <div className="p-4 space-y-3.5 overflow-y-auto modal-scroll flex-1">
                   {/* WhatsApp Fast Track Banner */}
                   <a
@@ -1067,12 +1356,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     />
                   </div>
 
-                  {/* Combobox for Order Selection */}
-                  {supportCategory === 'ORDER_ISSUE' && (
+                  {/* Combobox for Order Selection - Mandatory for ORDER_ISSUE and PAYMENT_ISSUE */}
+                  {isOrderRequired && (
                     <div className="space-y-1.5 animate-fadeIn">
                       <div className="flex items-center justify-between">
-                        <label className="block text-[11px] font-black text-slate-700">
-                          الطلب المراد تقديم البلاغ عنه:
+                        <label className="block text-[11px] font-black text-slate-800">
+                          {supportCategory === 'PAYMENT_ISSUE' 
+                            ? 'الطلب المتعلق بمشكلة الدفع أو الخصم' 
+                            : 'الطلب المراد تقديم البلاغ عنه'}: <span className="text-rose-600 font-bold">* (إجباري)</span>
                         </label>
                         <button
                           type="button"
@@ -1097,9 +1388,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                               setSelectedOrder(null);
                             }}
                             className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all placeholder:font-sans placeholder:text-slate-400"
+                            required={isOrderRequired}
                           />
                           <p className="text-[10px] text-slate-400">
-                            يمكنك كتابة رقم الطلب يدوياً إذا كان الطلب مسجلاً برقم آخر أو حساب مختلف.
+                            يرجى كتابة رقم الطلب بدقة حتى يتمكن فريق الإدارة من مراجعة تفاصيله وحل المشكلة.
                           </p>
                         </div>
                       ) : loadingCustomerOrders ? (
@@ -1111,7 +1403,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-2">
                           <div className="flex items-center gap-2">
                             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                            <p className="font-bold text-[11px]">لم يتم العثور على طلبات سابقة مسجلة بحسابك.</p>
+                            <p className="font-bold text-[11px]">لم يتم العثور على طلبات سابقة مسجلة بحسابك، يرجى كتابة رقم الطلب يدوياً:</p>
                           </div>
                           <input
                             type="text"
@@ -1119,6 +1411,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             value={supportOrderNumber}
                             onChange={(e) => setSupportOrderNumber(e.target.value)}
                             className="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                            required={isOrderRequired}
                           />
                         </div>
                       ) : (
@@ -1320,6 +1613,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </button>
                 </div>
               </form>
+              )}
             </div>
           </div>
         )}

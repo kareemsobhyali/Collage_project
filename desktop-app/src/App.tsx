@@ -330,6 +330,29 @@ export function App() {
       }
     });
 
+    // تحديث عداد الشكاوى الحية لحظياً عند تسجيل شكوى جديدة أو تغيير حالتها
+    socket.on('support_ticket_created', (ticket: any) => {
+      if (!ticket.branchId || ticket.branchId === branch?.id) {
+        setOpenComplaintsCount(prev => prev + 1);
+      }
+    });
+
+    socket.on('support_ticket_updated', () => {
+      api.getSupportTickets().then((list: any[]) => {
+        if (Array.isArray(list)) {
+          setOpenComplaintsCount(list.filter((t: any) => t.status === 'OPEN').length);
+        }
+      }).catch(() => {});
+    });
+
+    socket.on('support_ticket_deleted', () => {
+      api.getSupportTickets().then((list: any[]) => {
+        if (Array.isArray(list)) {
+          setOpenComplaintsCount(list.filter((t: any) => t.status === 'OPEN').length);
+        }
+      }).catch(() => {});
+    });
+
     return () => {
       clearInterval(heartbeatInterval);
       if (typeof document !== 'undefined') {
@@ -711,7 +734,7 @@ export function App() {
         )}
 
         {activeTab === 'SUPPORT' && (
-          <BranchSupportView />
+          <BranchSupportView socket={socketRef.current} branchId={branch?.id} />
         )}
 
         {activeTab === 'PROFILE' && (

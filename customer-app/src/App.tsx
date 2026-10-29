@@ -1652,6 +1652,7 @@ export function App() {
       {showProfileModal && user && (
         <ProfileModal
           user={user}
+          socket={socketRef.current}
           onUpdateUser={(updated) => setUser(updated)}
           onClose={() => setShowProfileModal(false)}
           onLogout={handleLogout}

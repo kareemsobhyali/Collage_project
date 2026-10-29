@@ -460,6 +460,16 @@ export const api = {
     return data;
   },
 
+  // استعلام سجل بلاغات وشكاوى العميل ومتابعة حالتها اللحظية
+  async getMySupportTickets() {
+    const res = await fetch(`${API_BASE_URL}/customer/support-tickets`, {
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع سجل الشكاوى');
+    return data?.tickets || [];
+  },
+
   // 12. لوحة الإدارة (Banners & Promo Codes)
   async getAdminBanners() {
     const res = await fetch(`${API_BASE_URL}/admin/banners`, {

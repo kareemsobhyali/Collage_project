@@ -27,7 +27,9 @@ import {
   notifyFlashDealsUpdated,
   notifyUserUpdated,
   notifySoundSettingsChanged,
-  notifyRestaurantLocationChanged
+  notifyRestaurantLocationChanged,
+  notifySupportTicketUpdated,
+  notifySupportTicketDeleted
 } from "../sockets/socketManager.js";
 import { 
   getDriverBranchConfig, 
@@ -2812,6 +2814,9 @@ router.put("/support-tickets/:id", async (req: AuthRequest, res: Response) => {
       data: { value: JSON.stringify(ticket) },
     });
 
+    // إشعار فوري لجميع الأطراف بتحديث الشكوى
+    notifySupportTicketUpdated(ticket);
+
     res.json({ success: true, ticket });
   } catch (error) {
     console.error("Admin update support-ticket error:", error);
@@ -2826,6 +2831,9 @@ router.delete("/support-tickets/:id", async (req: AuthRequest, res: Response) =>
     await prisma.systemSetting.deleteMany({
       where: { key: `support_ticket_${id}` },
     });
+
+    notifySupportTicketDeleted(String(id));
+
     res.json({ success: true, message: "تم حذف التذكرة بنجاح" });
   } catch (error) {
     console.error("Admin delete support-ticket error:", error);

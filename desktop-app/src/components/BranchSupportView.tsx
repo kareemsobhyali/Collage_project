@@ -42,7 +42,12 @@ interface SupportTicket {
   orderItemsSummary?: string;
 }
 
-export const BranchSupportView: React.FC = () => {
+interface BranchSupportViewProps {
+  socket?: any;
+  branchId?: string;
+}
+
+export const BranchSupportView: React.FC<BranchSupportViewProps> = ({ socket, branchId }) => {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -77,6 +82,36 @@ export const BranchSupportView: React.FC = () => {
   useEffect(() => {
     fetchTickets();
   }, []);
+
+  // الاستماع اللحظي لتحديثات وإشعارات الشكاوى عبر Socket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCreated = (newTicket: any) => {
+      if (!newTicket.branchId || newTicket.branchId === branchId) {
+        setTickets(prev => [newTicket, ...prev.filter(t => t.id !== newTicket.id)]);
+        toast.info('وصلت شكوى جديدة من أحد العملاء!');
+      }
+    };
+
+    const handleUpdated = (updatedTicket: any) => {
+      setTickets(prev => prev.map(t => (t.id === updatedTicket.id ? { ...t, ...updatedTicket } : t)));
+    };
+
+    const handleDeleted = (data: { id: string }) => {
+      setTickets(prev => prev.filter(t => t.id !== data.id));
+    };
+
+    socket.on('support_ticket_created', handleCreated);
+    socket.on('support_ticket_updated', handleUpdated);
+    socket.on('support_ticket_deleted', handleDeleted);
+
+    return () => {
+      socket.off('support_ticket_created', handleCreated);
+      socket.off('support_ticket_updated', handleUpdated);
+      socket.off('support_ticket_deleted', handleDeleted);
+    };
+  }, [socket, branchId]);
 
   const handleUpdateStatus = async (ticketId: string, newStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED') => {
     try {

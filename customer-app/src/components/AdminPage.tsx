@@ -79,6 +79,7 @@ import {
 } from 'lucide-react';
 
 
+import { io } from 'socket.io-client';
 import { API_BASE_URL, api, getFullImageUrl } from '../services/api';
 import { isRunningInNativeApk, openExternalLink } from '../services/notifications';
 import { Logo } from './Logo';
@@ -2398,6 +2399,44 @@ export const AdminPage: React.FC = () => {
     if (adminUser) {
       fetchDashboardData();
     }
+  }, [adminUser]);
+
+  // Real-time support tickets updates via Socket.IO
+  useEffect(() => {
+    if (!adminUser) return;
+    const socketHost = API_BASE_URL.replace('/api', '');
+    const token = localStorage.getItem('admin_token') || localStorage.getItem('customer_token') || '';
+    const socket = io(socketHost, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+    });
+
+    const onTicketCreated = (newTicket: any) => {
+      setSupportTickets((prev) => [newTicket, ...prev.filter((t) => t.id !== newTicket.id)]);
+    };
+
+    const onTicketUpdated = (updatedTicket: any) => {
+      setSupportTickets((prev) =>
+        prev.map((t) => (t.id === updatedTicket.id ? { ...t, ...updatedTicket } : t))
+      );
+    };
+
+    const onTicketDeleted = (data: { id: string }) => {
+      setSupportTickets((prev) => prev.filter((t) => t.id !== data.id));
+    };
+
+    socket.on('support_ticket_created', onTicketCreated);
+    socket.on('support_ticket_updated', onTicketUpdated);
+    socket.on('support_ticket_deleted', onTicketDeleted);
+
+    return () => {
+      socket.off('support_ticket_created', onTicketCreated);
+      socket.off('support_ticket_updated', onTicketUpdated);
+      socket.off('support_ticket_deleted', onTicketDeleted);
+      socket.disconnect();
+    };
   }, [adminUser]);
 
   useEffect(() => {
