@@ -511,6 +511,7 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
       instapayEnabled,
       instapayHandle,
       cardEnabled,
+      requirePaymentProof,
     } = req.body;
 
     const updatedConfig = await prisma.branchPaymentConfig.upsert({
@@ -522,6 +523,7 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : undefined,
         instapayHandle: instapayHandle !== undefined ? instapayHandle : undefined,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : undefined,
+        requirePaymentProof: requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : undefined,
       },
       create: {
         branchId: id,
@@ -531,6 +533,7 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : false,
         instapayHandle: instapayHandle || null,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : false,
+        requirePaymentProof: requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : true,
       },
     });
 

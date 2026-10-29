@@ -1058,8 +1058,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   {dOrder.paymentMethod === 'CASH' && '💵 نقداً عند الاستلام'}
                   {dOrder.paymentMethod === 'WALLET' && '💳 محفظة إلكترونية'}
                   {dOrder.paymentMethod === 'ONLINE' && '💳 دفع إلكتروني'}
-                  {dOrder.paymentMethod === 'VODAFONE_CASH' && '📱 فودافون كاش'}
-                  {dOrder.paymentMethod === 'INSTAPAY' && '⚡ إنستاباي'}
+                  {dOrder.paymentMethod === 'VODAFONE_CASH' && (!dOrder.paymentProofUrl && !dOrder.paymentSenderPhone ? '📱 فودافون كاش (تحويل عند الاستلام)' : '📱 فودافون كاش (مدفوع بإيصال)')}
+                  {dOrder.paymentMethod === 'INSTAPAY' && (!dOrder.paymentProofUrl && !dOrder.paymentSenderPhone ? '⚡ إنستاباي (تحويل عند الاستلام)' : '⚡ إنستاباي (مدفوع بإيصال)')}
                   {!['CASH', 'WALLET', 'ONLINE', 'VODAFONE_CASH', 'INSTAPAY'].includes(dOrder.paymentMethod) && (dOrder.paymentMethod || 'نقداً')}
                 </span>
               </div>
@@ -1529,9 +1529,17 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
                     {/* Electronic Payment Proof Bar on Card */}
                     {(order.paymentMethod === 'VODAFONE_CASH' || order.paymentMethod === 'INSTAPAY' || order.paymentSenderPhone || order.paymentProofUrl) && (
-                      <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2 flex items-center justify-between gap-1.5 text-xs">
+                      <div className={`border rounded-xl p-2 flex items-center justify-between gap-1.5 text-xs ${
+                        !order.paymentProofUrl && !order.paymentSenderPhone 
+                          ? 'bg-indigo-50/80 border-indigo-200/90' 
+                          : 'bg-amber-50/90 border-amber-200/90'
+                      }`}>
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-amber-200 text-amber-950 shrink-0">
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md shrink-0 ${
+                            !order.paymentProofUrl && !order.paymentSenderPhone
+                              ? 'bg-indigo-200 text-indigo-950'
+                              : 'bg-amber-200 text-amber-950'
+                          }`}>
                             {order.paymentMethod === 'INSTAPAY' ? '⚡ إنستاباي' : '📱 فودافون كاش'}
                           </span>
                           {order.paymentSenderPhone ? (
@@ -1539,7 +1547,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                               {order.paymentSenderPhone}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-amber-700 italic">بدون رقم</span>
+                            <span className="text-[10px] text-indigo-800 font-bold">تحويل عند الاستلام مع الكابتن 🛵</span>
                           )}
                         </div>
 
@@ -1711,39 +1719,58 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             <div className="p-5 overflow-y-auto space-y-5 flex-1">
               {/* Payment Verification Banner for Cashier */}
               {(acceptingOrder.paymentMethod === 'VODAFONE_CASH' || acceptingOrder.paymentMethod === 'INSTAPAY' || acceptingOrder.paymentProofUrl || acceptingOrder.paymentSenderPhone) && (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
+                !acceptingOrder.paymentProofUrl && !acceptingOrder.paymentSenderPhone ? (
+                  <div className="bg-indigo-50/90 border border-indigo-200 rounded-2xl p-3.5 space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-base">⚠️</span>
+                      <span className="text-base">🛵</span>
                       <div>
-                        <span className="text-xs font-black text-amber-950 block">
-                          تأكيد استلام التحويل الإلكتروني
+                        <span className="text-xs font-black text-indigo-950 block">
+                          الدفع والتحويل عند الاستلام مع الكابتن
                         </span>
-                        <span className="text-[11px] font-bold text-amber-800">
+                        <span className="text-[11px] font-bold text-indigo-800">
                           {acceptingOrder.paymentMethod === 'INSTAPAY' ? '⚡ إنستاباي' : '📱 فودافون كاش / محفظة'}
                         </span>
                       </div>
                     </div>
-                    {acceptingOrder.paymentProofUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setViewingProofUrl(acceptingOrder.paymentProofUrl)}
-                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all"
-                      >
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        <span>معاينة الإيصال</span>
-                      </button>
+                    <div className="p-2.5 bg-white/90 rounded-xl border border-indigo-200 text-xs text-indigo-900 font-bold leading-relaxed">
+                      💡 اختار العميل التحويل المباشر عند وصول كابتن التوصيل. يقوم الكابتن بمحاسبته والتأكد من نجاح التحويل قبل تسليم الوجبة.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">⚠️</span>
+                        <div>
+                          <span className="text-xs font-black text-amber-950 block">
+                            تأكيد استلام التحويل الإلكتروني
+                          </span>
+                          <span className="text-[11px] font-bold text-amber-800">
+                            {acceptingOrder.paymentMethod === 'INSTAPAY' ? '⚡ إنستاباي' : '📱 فودافون كاش / محفظة'}
+                          </span>
+                        </div>
+                      </div>
+                      {acceptingOrder.paymentProofUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setViewingProofUrl(acceptingOrder.paymentProofUrl)}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          <span>معاينة الإيصال</span>
+                        </button>
+                      )}
+                    </div>
+                    {acceptingOrder.paymentSenderPhone && (
+                      <div className="flex items-center justify-between text-xs bg-white/90 px-3 py-2 rounded-xl border border-amber-200">
+                        <span className="text-slate-600 font-bold">رقم / حساب المحوّل:</span>
+                        <span className="font-mono font-black text-amber-950 text-sm tracking-wider dir-ltr">
+                          {acceptingOrder.paymentSenderPhone}
+                        </span>
+                      </div>
                     )}
                   </div>
-                  {acceptingOrder.paymentSenderPhone && (
-                    <div className="flex items-center justify-between text-xs bg-white/90 px-3 py-2 rounded-xl border border-amber-200">
-                      <span className="text-slate-600 font-bold">رقم / حساب المحوّل:</span>
-                      <span className="font-mono font-black text-amber-950 text-sm tracking-wider dir-ltr">
-                        {acceptingOrder.paymentSenderPhone}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                )
               )}
 
               {/* 1. Prep Time Selection */}

@@ -26,7 +26,8 @@ import {
   Calendar,
   Link2,
   Copy,
-  Lock
+  Lock,
+  Receipt
 } from 'lucide-react';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
@@ -85,6 +86,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [instapayEnabled, setInstapayEnabled] = useState<boolean>(p?.instapayEnabled ?? false);
   const [instapayHandle, setInstapayHandle] = useState<string>(p?.instapayHandle || '');
   const [cardEnabled, setCardEnabled] = useState<boolean>(p?.cardEnabled ?? false);
+  const [requirePaymentProof, setRequirePaymentProof] = useState<boolean>(p?.requirePaymentProof ?? true);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -127,6 +129,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       setInstapayEnabled(payment?.instapayEnabled ?? false);
       setInstapayHandle(payment?.instapayHandle || '');
       setCardEnabled(payment?.cardEnabled ?? false);
+      setRequirePaymentProof(payment?.requirePaymentProof ?? true);
     }
   }, [branch]);
 
@@ -275,6 +278,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         vodafoneCashEnabled,
         instapayEnabled,
         cardEnabled,
+        requirePaymentProof,
       });
 
       if (res.branch) {
@@ -895,6 +899,59 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* تحصيل المحافظ الإلكترونية وإنستاباي (إلزام إيصال مسبق أم تحويل عند الاستلام) */}
+              {(vodafoneCashEnabled || instapayEnabled) && (
+                <div className="p-4 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/50 to-amber-50/30 space-y-3 shadow-2xs transition-all">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                        <Receipt className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="font-bold text-xs text-slate-900 block">
+                          طريقة تحصيل المحافظ الإلكترونية وإنستاباي
+                        </span>
+                        <span className="text-[11px] text-slate-600 block leading-tight mt-0.5">
+                          {requirePaymentProof
+                            ? 'إلزام العميل بإرفاق صورة إيصال التحويل ورقم المحفظة مسبقاً أثناء الطلب'
+                            : 'الدفع عند الاستلام مع الطيار (يتم عرض رقم المحفظة/إنستاباي للعميل ويتم التحويل عند وصول الطيار)'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={requirePaymentProof}
+                      onClick={() => setRequirePaymentProof(!requirePaymentProof)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                        requirePaymentProof ? 'bg-indigo-600' : 'bg-slate-300'
+                      }`}
+                      dir="ltr"
+                      title={requirePaymentProof ? 'تغيير إلى: الدفع عند الاستلام' : 'تغيير إلى: إلزام إرفاق الإيصال'}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                          requirePaymentProof ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="pt-2 border-t border-indigo-100/80 flex items-center gap-2 text-[11px] flex-wrap">
+                    <span className="font-bold text-slate-700">الحالة المختارة:</span>
+                    {requirePaymentProof ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
+                        🔒 إلزامي إرفاق سكرين شوت الإيصال ورقم المحفظة قبل تأكيد الطلب
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        🛵 مسموح بالدفع والتحويل عند وصول كابتن التوصيل للعميل
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </form>
           </div>
 

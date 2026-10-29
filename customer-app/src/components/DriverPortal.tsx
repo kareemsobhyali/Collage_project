@@ -1442,7 +1442,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                         {new Date(order.driverDeliveredAt || order.updatedAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       <span className="font-black text-slate-900">
-                        {order.total} ج.م {order.paymentMethod === 'CASH' ? '💵' : '💳'}
+                        {order.total} ج.م {order.paymentMethod === 'CASH' ? '💵' : ((order.paymentMethod === 'VODAFONE_CASH' || order.paymentMethod === 'INSTAPAY') && !order.paymentProofUrl && !order.paymentSenderPhone) ? '📱' : '💳'}
                       </span>
                     </div>
                   </div>
@@ -1987,11 +1987,21 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
                 <div>
                   <span className="text-[10px] text-emerald-800 font-bold block">المبلغ المطلوب تحصيله من العميل:</span>
                   <span className="text-xl font-black text-emerald-700 font-mono">
-                    {selectedOrder.paymentMethod === 'CASH' ? `${selectedOrder.total} ج.م` : '0.00 ج.م (مدفوع أونلاين)'}
+                    {selectedOrder.paymentMethod === 'CASH'
+                      ? `${selectedOrder.total} ج.م`
+                      : ((selectedOrder.paymentMethod === 'VODAFONE_CASH' || selectedOrder.paymentMethod === 'INSTAPAY') && !selectedOrder.paymentProofUrl && !selectedOrder.paymentSenderPhone)
+                      ? `${selectedOrder.total} ج.م (تحويل عند الاستلام)`
+                      : '0.00 ج.م (مدفوع مسبقاً)'}
                   </span>
                 </div>
                 <div className="text-left font-bold text-xs text-emerald-900">
-                  <span className="block">{selectedOrder.paymentMethod === 'CASH' ? '💵 تحصيل نقدي' : '💳 مدفوع إلكترونياً'}</span>
+                  <span className="block">
+                    {selectedOrder.paymentMethod === 'CASH'
+                      ? '💵 تحصيل نقدي'
+                      : ((selectedOrder.paymentMethod === 'VODAFONE_CASH' || selectedOrder.paymentMethod === 'INSTAPAY') && !selectedOrder.paymentProofUrl && !selectedOrder.paymentSenderPhone)
+                      ? (selectedOrder.paymentMethod === 'VODAFONE_CASH' ? '📱 فودافون كاش (تحويل مباشر)' : '⚡ إنستاباي (تحويل مباشر)')
+                      : '💳 مدفوع إلكترونياً بإيصال'}
+                  </span>
                   <span className="text-[10px] text-emerald-700">إجمالي الفاتورة: {selectedOrder.total} ج.م</span>
                 </div>
               </div>

@@ -748,7 +748,9 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       setAddressText(finalDeliveryAddress);
     }
 
-    if ((paymentMethod === 'VODAFONE_CASH' || paymentMethod === 'INSTAPAY') && total > 0) {
+    const requirePaymentProof = paymentConfig?.requirePaymentProof !== false;
+
+    if (requirePaymentProof && (paymentMethod === 'VODAFONE_CASH' || paymentMethod === 'INSTAPAY') && total > 0) {
       if (paymentMethod === 'VODAFONE_CASH') {
         const cleanSender = paymentSenderPhone.trim();
         if (!cleanSender) {
@@ -772,6 +774,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           setError('يرجى رفع صورة إيصال التحويل (Screenshot) لتأكيد دفع إنستاباي.');
           return;
         }
+      }
+    } else if (!requirePaymentProof && paymentMethod === 'VODAFONE_CASH' && paymentSenderPhone.trim()) {
+      if (!/^01[0125][0-9]{8}$/.test(paymentSenderPhone.trim())) {
+        setError('رقم المحفظة الذي أدخلته غير صحيح. يرجى إدخال 11 رقماً يبدأ بـ (010, 011, 012, 015) أو مسح الحقل.');
+        return;
       }
     }
 
@@ -1739,8 +1746,25 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               )}
             </div>
 
-            {/* إثبات التحويل في حالة فودافون كاش أو إنستاباي */}
-            {(paymentMethod === 'VODAFONE_CASH' || paymentMethod === 'INSTAPAY') && (
+            {/* في حال تفعيل خيار الدفع والتحويل عند استلام الطلب مع الكابتن */}
+            {paymentConfig?.requirePaymentProof === false && (paymentMethod === 'VODAFONE_CASH' || paymentMethod === 'INSTAPAY') && (
+              <div className="p-3.5 bg-indigo-50/90 rounded-2xl border border-indigo-200/90 space-y-2 animate-fadeIn">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 bg-indigo-100 text-indigo-700 rounded-xl text-base shrink-0">🛵</span>
+                  <div>
+                    <h4 className="text-xs font-black text-indigo-950">
+                      الدفع والتحويل عند استلام الطلب مع الكابتن
+                    </h4>
+                    <p className="text-[11px] text-indigo-800 leading-relaxed mt-0.5">
+                      يمكنك نسخ {paymentMethod === 'VODAFONE_CASH' ? 'رقم المحفظة' : 'معرف إنستاباي'} الموضح أعلاه، والتحويل المباشر بمبلغ <strong className="font-mono text-indigo-950 font-black">({total} ج.م)</strong> فور وصول كابتن التوصيل إلى بابك دون الحاجة لرفع إيصال الآن.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* إثبات التحويل الإلزامي في حالة فودافون كاش أو إنستاباي عند إلزام إرفاق الإيصال */}
+            {paymentConfig?.requirePaymentProof !== false && (paymentMethod === 'VODAFONE_CASH' || paymentMethod === 'INSTAPAY') && (
               <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-2.5 animate-fadeIn">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">

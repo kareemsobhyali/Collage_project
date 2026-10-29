@@ -164,10 +164,11 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
     `;
   }).join('');
 
+  const isDirectTransferOnDelivery = (order.paymentMethod === 'VODAFONE_CASH' || order.paymentMethod === 'INSTAPAY') && !order.paymentProofUrl && !order.paymentSenderPhone;
   const paymentLabel = escapeHtml(
     order.paymentMethod === 'CASH' ? 'كاش عند الاستلام' :
-    order.paymentMethod === 'VODAFONE_CASH' ? 'محفظة كاش' :
-    order.paymentMethod === 'INSTAPAY' ? 'إنستاباي' :
+    order.paymentMethod === 'VODAFONE_CASH' ? (isDirectTransferOnDelivery ? 'محفظة كاش (عند الاستلام)' : 'محفظة كاش') :
+    order.paymentMethod === 'INSTAPAY' ? (isDirectTransferOnDelivery ? 'إنستاباي (عند الاستلام)' : 'إنستاباي') :
     order.paymentMethod === 'CARD' ? 'بطاقة دفع' : (order.paymentMethod || 'نقدي')
   );
 

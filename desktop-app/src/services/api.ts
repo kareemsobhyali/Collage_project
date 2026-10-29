@@ -198,6 +198,7 @@ export const api = {
     instapayEnabled?: boolean;
     instapayHandle?: string;
     cardEnabled?: boolean;
+    requirePaymentProof?: boolean;
   }) {
     const res = await fetch(`${API_BASE_URL}/branch/payment-methods`, {
       method: 'PUT',

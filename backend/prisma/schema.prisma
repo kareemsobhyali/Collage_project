@@ -86,6 +86,7 @@ model BranchPaymentConfig {
   instapayEnabled     Boolean  @default(false)
   instapayHandle      String?
   cardEnabled         Boolean  @default(false)
+  requirePaymentProof Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

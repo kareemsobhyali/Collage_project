@@ -761,6 +761,7 @@ export const AdminPage: React.FC = () => {
   const [instapayEnabled, setInstapayEnabled] = useState(false);
   const [instapayHandle, setInstapayHandle] = useState('');
   const [cardEnabled, setCardEnabled] = useState(false);
+  const [requirePaymentProof, setRequirePaymentProof] = useState(true);
 
   // Credentials Form
   const [credUsername, setCredUsername] = useState('');
@@ -2860,6 +2861,7 @@ export const AdminPage: React.FC = () => {
     setInstapayEnabled(p?.instapayEnabled ?? false);
     setInstapayHandle(p?.instapayHandle ?? '');
     setCardEnabled(p?.cardEnabled ?? false);
+    setRequirePaymentProof(p?.requirePaymentProof ?? true);
   };
 
   const handleSavePaymentSettings = async (e: React.FormEvent) => {
@@ -2877,6 +2879,7 @@ export const AdminPage: React.FC = () => {
           instapayEnabled,
           instapayHandle: instapayHandle.trim() || null,
           cardEnabled,
+          requirePaymentProof,
         }),
       });
       if (!res.ok) throw new Error('فشل حفظ طرق الدفع');
@@ -10327,6 +10330,37 @@ export const AdminPage: React.FC = () => {
                   onChange={e => setCardEnabled(e.target.checked)}
                   className="w-4 h-4 rounded text-emerald-600"
                 />
+              </div>
+
+              {/* تحصيل المحافظ الإلكترونية وإنستاباي (إلزام إيصال أم تحصيل عند الاستلام) */}
+              <div className="p-3.5 bg-indigo-50/70 border border-indigo-200/80 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-xs text-indigo-950 block">طريقة تحصيل المحافظ وإنستاباي</span>
+                    <span className="text-[11px] text-indigo-800 leading-tight block mt-0.5">
+                      {requirePaymentProof
+                        ? 'إلزام العميل برفع سكرين شوت الإيصال ورقم المحفظة أثناء الطلب'
+                        : 'الدفع عند الاستلام مع الكابتن (عرض رقم المحفظة/إنستاباي فقط بدون إيصال)'}
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={requirePaymentProof}
+                    onChange={e => setRequirePaymentProof(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600"
+                  />
+                </div>
+                <div className="text-[10px] font-bold">
+                  {requirePaymentProof ? (
+                    <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 inline-block">
+                      🔒 إلزامي إرفاق إيصال ورقم المحفظة مسبقاً
+                    </span>
+                  ) : (
+                    <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
+                      🛵 تحويل ودفع مباشر عند وصول الطيار للعميل
+                    </span>
+                  )}
+                </div>
               </div>
               </div>
 

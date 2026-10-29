@@ -69,8 +69,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, branchName, o
               <span>طريقة الدفع:</span>
               <span className="font-bold">
                 {order.paymentMethod === 'CASH' && 'كاش عند الاستلام'}
-                {order.paymentMethod === 'VODAFONE_CASH' && 'محفظة كاش'}
-                {order.paymentMethod === 'INSTAPAY' && 'إنستاباي'}
+                {order.paymentMethod === 'VODAFONE_CASH' && (!order.paymentProofUrl && !order.paymentSenderPhone ? 'محفظة كاش (عند الاستلام)' : 'محفظة كاش')}
+                {order.paymentMethod === 'INSTAPAY' && (!order.paymentProofUrl && !order.paymentSenderPhone ? 'إنستاباي (عند الاستلام)' : 'إنستاباي')}
                 {order.paymentMethod === 'CARD' && 'بطاقة دفع'}
               </span>
             </div>
