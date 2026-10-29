@@ -1729,7 +1729,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
 
     // التحقق الصارم من صحة رقم المحفظة المصري وإلزامية إرفاق صورة التحويل (إذا كان المطعم يلزم إرفاق الإيصال مسبقاً)
     let validatedPaymentSender = paymentSenderPhone ? String(paymentSenderPhone).trim() : null;
-    const requirePaymentProof = branch.paymentConfig?.requirePaymentProof !== false;
+    const requirePaymentProof = (branch.paymentConfig as any)?.requirePaymentProof !== false;
 
     if (total > 0) {
       if (paymentMethod === "VODAFONE_CASH") {

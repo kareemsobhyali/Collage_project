@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "test": "echo \"No tests specified\"",
     "start": "node --max-old-space-size=384 dist/server.js",
     "prisma:generate": "prisma generate",

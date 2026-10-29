@@ -287,7 +287,7 @@ router.put("/payment-methods", async (req: AuthRequest, res: Response) => {
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : undefined,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : undefined,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : undefined,
-        requirePaymentProof: requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : undefined,
+        requirePaymentProof: (requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : undefined) as any,
       },
       create: {
         branchId,
@@ -295,7 +295,7 @@ router.put("/payment-methods", async (req: AuthRequest, res: Response) => {
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : false,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : false,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : false,
-        requirePaymentProof: requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : true,
+        requirePaymentProof: (requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : true) as any,
       },
     });
 

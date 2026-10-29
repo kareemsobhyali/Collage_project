@@ -523,7 +523,7 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : undefined,
         instapayHandle: instapayHandle !== undefined ? instapayHandle : undefined,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : undefined,
-        requirePaymentProof: requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : undefined,
+        requirePaymentProof: (requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : undefined) as any,
       },
       create: {
         branchId: id,
@@ -533,7 +533,7 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : false,
         instapayHandle: instapayHandle || null,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : false,
-        requirePaymentProof: requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : true,
+        requirePaymentProof: (requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : true) as any,
       },
     });
 
