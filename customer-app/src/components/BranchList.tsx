@@ -98,7 +98,7 @@ const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
     return () => clearInterval(interval);
   }, [branch.closedUntil, branch.operationalStatus]);
 
-  if (branch.isOnline === false) {
+  if (branch.isOnline !== true) {
     return (
       <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-800 text-rose-300 backdrop-blur-md shadow-sm border border-rose-500/30 shrink-0 flex items-center gap-1">
         <PowerOff className="w-3 h-3 text-rose-400" />
@@ -869,7 +869,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   // إحصائيات الفروع المرئية للمستخدم فقط حسب النطاق الجغرافي (طلب المستخدم: فلتر الكل يظهر فقط المطاعم الظاهرة لي)
   const totalVisibleBranchesCount = zoneBranches.length;
   const openBranchesCount = zoneBranches.filter(
-    b => b.isOnline !== false && b.operationalStatus === 'OPEN' && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
+    b => b.isOnline === true && b.operationalStatus === 'OPEN' && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
   ).length;
   const favBranchesCount = zoneBranches.filter(b => favBranchIds.includes(b.id)).length;
   const deliveryBranchesCount = zoneBranches.filter(b => b.allowDelivery === true).length;
@@ -887,7 +887,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
 
       if (activeFilter === 'OPEN') {
         return (
-          b.isOnline !== false &&
+          b.isOnline === true &&
           b.operationalStatus === 'OPEN' &&
           isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours)
         );
@@ -909,12 +909,12 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   // 2. ترتيب المطاعم: المفتوح أولاً ثم المشغول ثم المغلق في الأسفل (طلب المستخدم)
   const sortedFilteredBranches = useMemo(() => {
     return [...filteredBranches].sort((a, b) => {
-      const isAOffline = a.isOnline === false;
+      const isAOffline = a.isOnline !== true;
       const isAClosed = a.operationalStatus === 'CLOSED' || isAOffline;
       const isABusy = a.operationalStatus === 'BUSY';
       const isAOpen = !isAOffline && !isAClosed && !isABusy && isBranchOpenByHours(a.openingTime, a.closingTime, a.isWithinWorkingHours);
 
-      const isBOffline = b.isOnline === false;
+      const isBOffline = b.isOnline !== true;
       const isBClosed = b.operationalStatus === 'CLOSED' || isBOffline;
       const isBBusy = b.operationalStatus === 'BUSY';
       const isBOpen = !isBOffline && !isBClosed && !isBBusy && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours);
@@ -1610,7 +1610,7 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               const payment = branch.paymentConfig;
               const gradientClass = BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length];
               const emoji = FOOD_EMOJIS[idx % FOOD_EMOJIS.length];
-              const isOffline = branch.isOnline === false;
+              const isOffline = branch.isOnline !== true;
               const isClosed = branch.operationalStatus === 'CLOSED';
               const isBusy = branch.operationalStatus === 'BUSY';
               const isOpenNow =

@@ -236,6 +236,8 @@ export function App() {
   const requestedBranchKey = useMemo(() => getRequestedBranchKeyFromUrl(), []);
   const enteredDirectlyRef = useRef(Boolean(requestedBranchKey));
   const isMountedTimeRef = useRef(Date.now());
+  const socketRef = useRef<any>(null);
+  const selectedBranchRef = useRef<any>(null);
 
   const [selectedBranch, setSelectedBranch] = useState<any | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -243,7 +245,10 @@ export function App() {
       // 0. التحقق أولاً من الفرع المحقون مسبقاً من السيرفر (Server Injected Branch) لفتح المنيو فوراً بدون تأخير
       const serverInjected = (window as any).__UNIFOOD_INITIAL_BRANCH__;
       if (serverInjected && (serverInjected.slug || serverInjected.id)) {
-        return serverInjected;
+        return {
+          ...serverInjected,
+          isOnline: Boolean(serverInjected.isOnline),
+        };
       }
 
       const bParam = getRequestedBranchKeyFromUrl();
@@ -257,7 +262,12 @@ export function App() {
               const found = parsed.find(
                 (b: any) => b.id === bParam || (b.slug && b.slug.toLowerCase() === normalized) || (b.name && b.name.toLowerCase() === normalized)
               );
-              if (found) return found;
+              if (found) {
+                return {
+                  ...found,
+                  isOnline: Boolean(found.isOnline),
+                };
+              }
             }
           }
         } catch (_err) {}
@@ -266,6 +276,19 @@ export function App() {
     return null;
   });
   const [branchCategories, setBranchCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    selectedBranchRef.current = selectedBranch;
+  }, [selectedBranch]);
+
+  useEffect(() => {
+    if (!selectedBranch?.id || !socketRef.current?.connected) return;
+    socketRef.current.emit('check_branch_presence', selectedBranch.id, (isOnline: boolean) => {
+      setSelectedBranch((prev: any) =>
+        prev && prev.id === selectedBranch.id ? { ...prev, isOnline: Boolean(isOnline) } : prev
+      );
+    });
+  }, [selectedBranch?.id]);
 
   // جلب فوري ومباشر لقائمة المطعم عند وجود فرع بالرابط لمنع أي وميض أو ظهور للصفحة الرئيسية
   useEffect(() => {
@@ -818,6 +841,7 @@ export function App() {
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
     });
+    socketRef.current = socket;
 
     const getStoredUserId = (): string | null => {
       if (user?.id) return user.id;
@@ -852,6 +876,12 @@ export function App() {
         if (currentToken) {
           registerNativeBackgroundSession(currentToken, 'STUDENT', currentUid);
         }
+      }
+      const curBranch = selectedBranchRef.current;
+      if (curBranch?.id) {
+        socket.emit('check_branch_presence', curBranch.id, (isOnline: boolean) => {
+          setSelectedBranch((prev: any) => (prev && prev.id === curBranch.id ? { ...prev, isOnline: Boolean(isOnline) } : prev));
+        });
       }
     });
 

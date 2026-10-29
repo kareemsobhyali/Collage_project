@@ -206,6 +206,19 @@ export function App() {
       document.addEventListener('visibilitychange', handleVisibility);
     }
 
+    const handleBeforeUnload = () => {
+      try {
+        if (socket.connected && branch?.id) {
+          socket.emit('app_state', { role: 'BRANCH', id: branch.id, state: 'background' });
+          socket.disconnect();
+        }
+      } catch (_e) {}
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('pagehide', handleBeforeUnload);
+    }
+
     const heartbeatInterval = setInterval(() => {
       if (socket.connected && branch?.id) {
         socket.emit('heartbeat', {
@@ -214,7 +227,7 @@ export function App() {
           state: typeof document !== 'undefined' && document.visibilityState === 'visible' ? 'foreground' : 'background'
         });
       }
-    }, 15000);
+    }, 4000);
 
     socket.on('connect', () => {
       setSocketConnected(true);
@@ -321,6 +334,10 @@ export function App() {
       clearInterval(heartbeatInterval);
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibility);
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        window.removeEventListener('pagehide', handleBeforeUnload);
       }
       socketRef.current = null;
       socket.disconnect();

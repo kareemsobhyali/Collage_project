@@ -74,7 +74,7 @@ export function removeAppSessionSocket(socketId: string): void {
       const normId = parts.slice(1).join("_");
 
       if (session.socketIds.size === 0) {
-        // مهلة أمان 6 ثوانٍ لتفادي وميض الحالة عند إعادة تحميل الصفحة أو تحديث الاتصال السريع
+        // مهلة أمان قصيرة (2 ثانية) لتفادي وميض الحالة عند إعادة تحميل الصفحة السريعة
         if (disconnectTimers.has(key)) {
           clearTimeout(disconnectTimers.get(key)!);
         }
@@ -85,7 +85,7 @@ export function removeAppSessionSocket(socketId: string): void {
             appSessions.delete(key);
             broadcastPresenceChange(normRole, normId, false);
           }
-        }, 6000);
+        }, 2000);
         disconnectTimers.set(key, timer);
       }
     }
@@ -100,15 +100,22 @@ export function isBranchOnline(branchId: string): boolean {
   if (!session || session.socketIds.size === 0) return false;
 
   if (io) {
-    for (const sid of session.socketIds) {
+    let hasConnected = false;
+    for (const sid of Array.from(session.socketIds)) {
       const sock = io.sockets.sockets.get(sid);
       if (sock && sock.connected) {
-        return true;
+        hasConnected = true;
+      } else {
+        session.socketIds.delete(sid);
       }
     }
-    return false;
+    if (!hasConnected) {
+      appSessions.delete(key);
+      return false;
+    }
+    return true;
   }
-  return true;
+  return false;
 }
 
 export function isDriverOnline(driverId: string): boolean {
@@ -119,15 +126,22 @@ export function isDriverOnline(driverId: string): boolean {
   if (!session || session.socketIds.size === 0) return false;
 
   if (io) {
-    for (const sid of session.socketIds) {
+    let hasConnected = false;
+    for (const sid of Array.from(session.socketIds)) {
       const sock = io.sockets.sockets.get(sid);
       if (sock && sock.connected) {
-        return true;
+        hasConnected = true;
+      } else {
+        session.socketIds.delete(sid);
       }
     }
-    return false;
+    if (!hasConnected) {
+      appSessions.delete(key);
+      return false;
+    }
+    return true;
   }
-  return true;
+  return false;
 }
 
 export function isAppRunningInForeground(role: "BRANCH" | "STUDENT" | "DRIVER", id: string): boolean {
@@ -156,6 +170,8 @@ export function initSocket(server: any): SocketIOServer {
       origin: "*",
       methods: ["GET", "POST", "PUT", "DELETE"],
     },
+    pingInterval: 4000,
+    pingTimeout: 5000,
   });
 
   // فحص هوية المتصل وتحديد صلاحياته في الغرف الخاصة
@@ -546,8 +562,13 @@ export function notifyGroupCartUpdated(shareCode: string, cartData: any): void {
 
 export function notifyBranchStatusChanged(branchId: string, statusData: any): void {
   if (io) {
+    const payload = {
+      branchId,
+      isOnline: isBranchOnline(branchId),
+      ...statusData,
+    };
     // بث عام لجميع العملاء وتطبيق الديسكتوب
-    io.emit("branch_status_updated", { branchId, ...statusData });
+    io.emit("branch_status_updated", payload);
   }
 }
 

@@ -164,8 +164,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     );
   }, [branch.operationalStatus, branch.closedUntil]);
   const isBranchFullyClosed = branch.operationalStatus === 'CLOSED';
-  const isBranchOffline = branch.isOnline === false;
-  const isBranchClosed = isBranchFullyClosed || isBranchBusy || isBranchClosedByHours || isBranchOffline;
+  const isBranchOffline = branch.isOnline !== true;
+  const isBranchClosed = branch.isActive === false || isBranchFullyClosed || isBranchBusy || isBranchClosedByHours || isBranchOffline;
 
   // مواعيد مقترحة للحجز المسبق تتوافق مع ساعات عمل الفرع
   const scheduledTimePresets = useMemo(() => {
@@ -195,19 +195,19 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     return checkIsTimeInBranchHours(scheduledTime, branch.openingTime, branch.closingTime);
   }, [isScheduled, scheduledTime, branch.openingTime, branch.closingTime]);
 
-  // إذا كان المطعم خارج مواعيد العمل الحالية، تفعيل وضع الحجز المسبق تلقائياً إذا كان الفرع غير مغلق نهائياً
+  // إذا كان المطعم خارج مواعيد العمل الحالية، تفعيل وضع الحجز المسبق فقط إذا كان الفرع متصلاً وغير مغلق
   useEffect(() => {
-    if (isBranchClosedByHours && !isBranchFullyClosed && !isBranchBusy) {
+    if (isBranchClosedByHours && !isBranchFullyClosed && !isBranchBusy && !isBranchOffline && branch.isActive !== false) {
       setIsScheduled(true);
     }
-  }, [isBranchClosedByHours, isBranchFullyClosed, isBranchBusy]);
+  }, [isBranchClosedByHours, isBranchFullyClosed, isBranchBusy, isBranchOffline, branch.isActive]);
 
-  // إذا تم إغلاق الفرع كلياً، إيقاف وضع الحجز المسبق
+  // إذا تم إغلاق الفرع أو انقطع الاتصال، إيقاف وضع الحجز المسبق
   useEffect(() => {
-    if (isBranchFullyClosed && isScheduled) {
+    if ((isBranchFullyClosed || isBranchOffline || branch.isActive === false) && isScheduled) {
       setIsScheduled(false);
     }
-  }, [isBranchFullyClosed, isScheduled]);
+  }, [isBranchFullyClosed, isBranchOffline, branch.isActive, isScheduled]);
 
   // ضبط وقت الحجز المسبق الافتراضي ليكون ضمن ساعات عمل المطعم
   useEffect(() => {
@@ -2043,15 +2043,19 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             onClick={handleCheckout}
             disabled={
               loading ||
+              branch.isActive === false ||
               isBranchFullyClosed ||
               isBranchOffline ||
+              isBranchBusy ||
               (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
               isOutOfDeliveryZone
             }
             className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black shadow-lg transition-all flex items-center justify-between ${
               loading ||
+              branch.isActive === false ||
               isBranchFullyClosed ||
               isBranchOffline ||
+              isBranchBusy ||
               (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
               isOutOfDeliveryZone
                 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
@@ -2064,10 +2068,14 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   ? 'جاري إرسال الطلب وتثبيت الموقع...'
                   : isOutOfDeliveryZone
                   ? 'المطعم خارج نطاق التوصيل'
+                  : branch.isActive === false
+                  ? 'المطعم موقوف حالياً'
                   : isBranchOffline
                   ? 'المطعم غير متصل بالإنترنت حالياً'
                   : isBranchFullyClosed
                   ? 'المطعم مغلق حالياً'
+                  : isBranchBusy
+                  ? 'المطعم في فترة استراحة وتجهيز'
                   : isScheduled && !isScheduledTimeValid
                   ? 'المطعم مغلق في هذا التوقيت - اختر موعداً متاحاً'
                   : !isScheduled && isBranchClosed

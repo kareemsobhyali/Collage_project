@@ -573,6 +573,19 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       document.addEventListener('visibilitychange', handleVisibility);
     }
 
+    const handleBeforeUnload = () => {
+      try {
+        if (socket.connected && driver?.id) {
+          socket.emit('app_state', { role: 'DRIVER', id: driver.id, state: 'background' });
+          socket.disconnect();
+        }
+      } catch (_e) {}
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('pagehide', handleBeforeUnload);
+    }
+
     const heartbeatInterval = setInterval(() => {
       if (socket.connected && driver?.id) {
         socket.emit('heartbeat', {
@@ -581,7 +594,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
           state: typeof document !== 'undefined' && document.visibilityState === 'visible' ? 'foreground' : 'background'
         });
       }
-    }, 15000);
+    }, 4000);
 
     socket.on('connect', () => {
       socket.emit('join_driver', driver.id);
@@ -667,6 +680,10 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({ onClose }) => {
       clearInterval(heartbeatInterval);
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibility);
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        window.removeEventListener('pagehide', handleBeforeUnload);
       }
       socket.disconnect();
       socketRef.current = null;

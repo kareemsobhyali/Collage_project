@@ -560,9 +560,9 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     };
   }, [branch?.id, branch?.slug]);
 
-  // فحص ذكي وسريع لحالة اتصال المطعم كل 8 ثوانٍ إذا كان الفرع مغلقاً/غير متصل لتحديثه تلقائياً فور عودته دون ريفريش
+  // فحص ذكي وسريع لحالة اتصال المطعم كل 4 ثوانٍ إذا كان الفرع مغلقاً/غير متصل لتحديثه تلقائياً فور عودته دون ريفريش
   useEffect(() => {
-    if (branch?.isOnline !== false) return;
+    if (branch?.isOnline === true) return;
     const interval = setInterval(async () => {
       try {
         const directKey = branch?.slug || branch?.id;
@@ -576,7 +576,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
           );
         }
       } catch (_e) {}
-    }, 8000);
+    }, 4000);
     return () => clearInterval(interval);
   }, [branch?.isOnline, branch?.id, branch?.slug]);
 
@@ -692,10 +692,10 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   );
 
   const isBranchOpen =
-    branch?.isActive !== false &&
-    branch?.isOnline !== false &&
+    Boolean(branch?.isActive) &&
+    branch?.isOnline === true &&
     (branch?.operationalStatus === 'OPEN' ||
-      !branch?.operationalStatus ||
+      (!branch?.operationalStatus && isWithinWorkingHours) ||
       (branch?.operationalStatus === 'BUSY' && secondsLeft <= 0)) &&
     isWithinWorkingHours;
 
@@ -840,7 +840,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       return;
     }
     if (!isBranchOpen) {
-      if (branch?.isOnline === false) {
+      if (branch?.isOnline !== true) {
         alert('عذراً، سيستم استقبال الطلبات في المطعم غير متصل حالياً (انقطاع إنترنت أو إغلاق التطبيق). لا يمكن إضافة أصناف أو إرسال طلبات حتى يعود اتصال المطعم.');
       } else if (branch?.isActive === false) {
         alert('عذراً، هذا المطعم موقوف حالياً من قِبل إدارة المنظومة.');
@@ -1085,7 +1085,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                 <div className="text-xs sm:text-sm font-black whitespace-nowrap">
                   {branch?.isActive === false
                     ? 'موقوف'
-                    : branch?.isOnline === false
+                    : branch?.isOnline !== true
                     ? 'غير متصل'
                     : branch.operationalStatus === 'CLOSED'
                     ? 'مغلق'
@@ -1096,7 +1096,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                     : 'مفتوح للطلب'}
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 block mt-0.5 whitespace-nowrap">
-                  {branch?.isOnline === false
+                  {branch?.isOnline !== true
                     ? 'انقطاع الاتصال'
                     : branch.operationalStatus === 'BUSY' && secondsLeft > 0
                     ? formatCountdown(secondsLeft)
@@ -1192,7 +1192,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
           )}
 
           {/* بانر انقطاع اتصال المطعم بالإنترنت أو إغلاق السيستم */}
-          {branch?.isOnline === false && (
+          {branch?.isOnline !== true && (
             <div className="bg-slate-850 bg-slate-900 text-white p-4 rounded-3xl shadow-lg flex items-center gap-3 border border-slate-700">
               <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0">
                 <PowerOff className="w-5 h-5 text-rose-400" />

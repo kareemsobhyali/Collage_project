@@ -12,7 +12,7 @@ if (fs.existsSync(backendEnvPath)) {
   dotenv.config({ path: backendEnvPath, override: true });
 }
 
-import { initSocket } from "./sockets/socketManager.js";
+import { initSocket, isBranchOnline } from "./sockets/socketManager.js";
 import authRoutes from "./routes/auth.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import branchRoutes from "./routes/branch.routes.js";
@@ -513,6 +513,10 @@ if (fs.existsSync(customerDistPath)) {
             address: branch.address,
             openingTime: branch.openingTime,
             closingTime: branch.closingTime,
+            workingDays: branch.workingDays,
+            closedUntil: branch.closedUntil,
+            isActive: branch.isActive,
+            isOnline: isBranchOnline(branch.id),
           });
           const iosAppleTags = `
             <meta name="apple-mobile-web-app-title" content="${safeBranchName}">
