@@ -813,6 +813,10 @@ export function App() {
     const token = localStorage.getItem('customer_token');
     const socket = io(socketHost, {
       auth: { token: token || '' },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
     });
 
     const getStoredUserId = (): string | null => {
@@ -864,14 +868,18 @@ export function App() {
       }).catch(() => {});
     }
 
-    // 1. تحديث حالة وتفاصيل الفرع لحظياً (مواعيد العمل، الإغلاق/الفتح، الرسوم، طرق الدفع)
+    // 1. تحديث حالة وتفاصيل الفرع لحظياً (مواعيد العمل، الإغلاق/الفتح، الرسوم، طرق الدفع، التواجد)
     socket.on('branch_status_updated', (data: any) => {
+      if (!data) return;
+      const targetId = data.branchId;
+      const targetSlug = data.slug;
       setBranches(prev => prev.map(b => {
-        if (b.id === data.branchId) {
+        if (b.id === targetId || (targetSlug && b.slug === targetSlug) || b.slug === targetId) {
           const { branchId: _branchId, ...rest } = data;
           return {
             ...b,
             ...rest,
+            isOnline: data.isOnline !== undefined ? data.isOnline : b.isOnline,
             paymentConfig: rest.paymentConfig ? { ...b.paymentConfig, ...rest.paymentConfig } : b.paymentConfig,
           };
         }
@@ -879,7 +887,14 @@ export function App() {
       }));
 
       setSelectedBranch((prev: any) => {
-        if (prev && prev.id === data.branchId) {
+        if (!prev) return prev;
+        const matches =
+          prev.id === targetId ||
+          (targetSlug && prev.slug === targetSlug) ||
+          prev.slug === targetId ||
+          (prev.id && targetId && String(prev.id).toLowerCase() === String(targetId).toLowerCase());
+
+        if (matches) {
           if (data.isDeleted) {
             return null;
           }
@@ -887,6 +902,7 @@ export function App() {
           return {
             ...prev,
             ...rest,
+            isOnline: data.isOnline !== undefined ? data.isOnline : prev.isOnline,
             paymentConfig: rest.paymentConfig ? { ...prev.paymentConfig, ...rest.paymentConfig } : prev.paymentConfig,
           };
         }
@@ -895,10 +911,49 @@ export function App() {
     });
 
     // تحديث اتصال الفرع الحي بالإنترنت لحظياً (فتح/إغلاق السيستم أو انقطاع النت)
-    socket.on('branch_presence_changed', ({ branchId, isOnline }: { branchId: string; isOnline: boolean }) => {
-      setBranches(prev => prev.map(b => (b.id === branchId ? { ...b, isOnline } : b)));
-      setSelectedBranch((prev: any) => (prev && prev.id === branchId ? { ...prev, isOnline } : prev));
-    });
+    const handleBranchPresence = ({ branchId, slug, isOnline }: { branchId: string; slug?: string; isOnline: boolean }) => {
+      setBranches(prev => prev.map(b => (b.id === branchId || (slug && b.slug === slug) || b.slug === branchId ? { ...b, isOnline } : b)));
+      setSelectedBranch((prev: any) => {
+        if (!prev) return prev;
+        const matches =
+          prev.id === branchId ||
+          (slug && prev.slug === slug) ||
+          prev.slug === branchId ||
+          (prev.id && branchId && String(prev.id).toLowerCase() === String(branchId).toLowerCase());
+
+        if (matches) {
+          const updated = { ...prev, isOnline };
+          // عند عودة المطعم أونلاين، يتم استدعاء بيانات المنيو تلقائياً في الخلفية لتحديث الأصناف والحالة فوراً دون الحاجة لريفريش
+          if (isOnline) {
+            const directKey = prev.slug || prev.id || branchId;
+            api.getBranchMenu(directKey).then((data) => {
+              if (data && data.branch) {
+                setSelectedBranch((latest: any) => {
+                  if (!latest) return data.branch;
+                  return {
+                    ...latest,
+                    ...data.branch,
+                    isOnline: true,
+                    reviews: data.reviews || latest.reviews || [],
+                    banners: data.banners || latest.banners || [],
+                    flashDeals: data.flashDeals || latest.flashDeals || [],
+                    promos: data.promos || latest.promos || [],
+                  };
+                });
+                if (data.categories && Array.isArray(data.categories)) {
+                  setBranchCategories(data.categories);
+                }
+              }
+            }).catch(() => {});
+          }
+          return updated;
+        }
+        return prev;
+      });
+      window.dispatchEvent(new CustomEvent('branch_presence_changed', { detail: { branchId, slug, isOnline } }));
+    };
+
+    socket.on('branch_presence_changed', handleBranchPresence);
 
     // 2. تحديث قائمة الفروع فورياً عند إضافة أو حذف فرع من لوحة الإدارة
     socket.on('branches_list_changed', () => {

@@ -996,8 +996,9 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   const hasFlashSection = allFlashDeals.length > 0;
 
   const renderDealCard = (deal: any) => {
-    const isPromo = deal.type === 'PROMO_CODE' || deal.type === 'PROMO';
-    const isCopied = copiedCode === (deal.promoCode || deal.code);
+    const rawCode = (deal.promoCode || deal.code)?.trim();
+    const isPromo = Boolean(rawCode && (deal.type === 'PROMO_CODE' || deal.type === 'PROMO' || !deal.menuItemId));
+    const isCopied = Boolean(rawCode && copiedCode && copiedCode === rawCode);
     const isUnlimited = deal.isUnlimited === true;
     const remainingCount = isUnlimited ? 999 : Math.max(0, deal.remainingUses ?? 15);
     const totalQuota = deal.maxUses ?? 50;
@@ -1182,12 +1183,12 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               ) : isCopied ? (
                 <>
                   <Check className="w-4 h-4 text-emerald-300" />
-                  <span>{`تم نسخ الكود (${deal.promoCode || deal.code}) ✓`}</span>
+                  <span>{`تم نسخ الكود (${rawCode}) ✓`}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  <span>نسخ الكود وتطبيق الخصم</span>
+                  <span>{rawCode ? `نسخ الكود (${rawCode}) وتطبيق الخصم` : 'نسخ كود الخصم'}</span>
                 </>
               )}
             </button>

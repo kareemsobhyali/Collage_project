@@ -560,6 +560,26 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     };
   }, [branch?.id, branch?.slug]);
 
+  // فحص ذكي وسريع لحالة اتصال المطعم كل 8 ثوانٍ إذا كان الفرع مغلقاً/غير متصل لتحديثه تلقائياً فور عودته دون ريفريش
+  useEffect(() => {
+    if (branch?.isOnline !== false) return;
+    const interval = setInterval(async () => {
+      try {
+        const directKey = branch?.slug || branch?.id;
+        if (!directKey) return;
+        const res = await api.getBranchMenu(directKey);
+        if (res?.branch?.isOnline) {
+          window.dispatchEvent(
+            new CustomEvent('branch_presence_changed', {
+              detail: { branchId: res.branch.id, slug: res.branch.slug, isOnline: true }
+            })
+          );
+        }
+      } catch (_e) {}
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [branch?.isOnline, branch?.id, branch?.slug]);
+
   // إجمالي العروض والبانرات والكوبونات المتاحة
   const totalOffersCount = flashDeals.length + branchBanners.length + branchPromos.length;
 
@@ -1572,14 +1592,16 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     {flashDeals.map((deal: any, dIdx: number) => {
-                      const isPromo = deal.type === 'PROMO' || Boolean(deal.promoCode || deal.code);
-                      const isCopied = copiedPromoCode === (deal.promoCode || deal.code);
+                      const rawCode = (deal.promoCode || deal.code)?.trim();
+                      const isPromo = Boolean(rawCode && (deal.type === 'PROMO' || !deal.menuItemId));
+                      const isCopied = Boolean(rawCode && copiedPromoCode && copiedPromoCode === rawCode);
 
                       // استخراج الصنف المرتبط بالعرض
                       const linkedItem = deal.item || (() => {
-                        if (!deal.menuItemId) return null;
-                        for (const cat of displayedCategories || []) {
-                          const it = (cat.items || []).find((i: any) => i.id === deal.menuItemId);
+                        const targetId = deal.menuItemId || deal.itemId;
+                        if (!targetId) return null;
+                        for (const cat of displayedCategories || categories || []) {
+                          const it = (cat.items || []).find((i: any) => i.id === targetId);
                           if (it) return it;
                         }
                         return null;
@@ -1648,13 +1670,13 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const code = deal.promoCode || deal.code;
+                                  if (!rawCode) return;
                                   if (navigator.clipboard) {
-                                    navigator.clipboard.writeText(code);
+                                    navigator.clipboard.writeText(rawCode);
                                     try {
-                                      localStorage.setItem('unifood_auto_promo', code);
+                                      localStorage.setItem('unifood_auto_promo', rawCode);
                                     } catch {}
-                                    setCopiedPromoCode(code);
+                                    setCopiedPromoCode(rawCode);
                                     setTimeout(() => setCopiedPromoCode(null), 2500);
                                   }
                                 }}
@@ -1663,12 +1685,12 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                                 {isCopied ? (
                                   <>
                                     <Check className="w-4 h-4 text-emerald-300" />
-                                    <span>{`تم نسخ الكود (${deal.promoCode || deal.code}) ✓`}</span>
+                                    <span>{`تم نسخ الكود (${rawCode}) ✓`}</span>
                                   </>
                                 ) : (
                                   <>
                                     <Copy className="w-4 h-4" />
-                                    <span>{`نسخ كود الخصم (${deal.promoCode || deal.code})`}</span>
+                                    <span>{`نسخ كود الخصم (${rawCode})`}</span>
                                   </>
                                 )}
                               </button>
@@ -1676,8 +1698,17 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (linkedItem) {
-                                    handleItemSelection(linkedItem);
+                                  const itemToOrder = linkedItem || (deal.menuItemId ? {
+                                    id: deal.menuItemId,
+                                    name: deal.title,
+                                    basePrice: deal.discountPrice || deal.price || 0,
+                                    originalBasePrice: deal.originalPrice,
+                                    imageUrl: deal.imageUrl,
+                                    isAvailable: true,
+                                  } : null);
+
+                                  if (itemToOrder) {
+                                    handleItemSelection(itemToOrder);
                                   } else {
                                     setBranchTab('RESTAURANT');
                                   }

@@ -2278,15 +2278,18 @@ export const AdminPage: React.FC = () => {
       return;
     }
 
+    const cleanPromo = dealPromoCode ? dealPromoCode.trim().toUpperCase() : null;
+    const finalDealType = cleanPromo ? dealType : (dealType === 'PROMO' ? 'COMBO' : dealType);
+
     const payload = {
       title: dealTitle.trim(),
       subtitle: dealSubtitle.trim() || null,
-      dealType,
+      dealType: finalDealType,
       branchId: dealBranchId || null,
       menuItemId: dealMenuItemId || null,
       originalPrice: dealOriginalPrice ? parseFloat(dealOriginalPrice) : null,
       discountPrice: dealDiscountPrice ? parseFloat(dealDiscountPrice) : null,
-      promoCode: dealPromoCode ? dealPromoCode.trim().toUpperCase() : null,
+      promoCode: cleanPromo,
       badgeText: dealBadge.trim() || 'عرض البريك 🔥',
       imageUrl: dealImageUrl.trim() || null,
       maxQuantity: dealIsUnlimited ? null : (dealMaxQuantity ? parseInt(dealMaxQuantity) : null),

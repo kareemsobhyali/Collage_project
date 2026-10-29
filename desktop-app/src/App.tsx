@@ -21,7 +21,7 @@ import {
   LifeBuoy,
   X
 } from 'lucide-react';
-import { api, syncRemoteServerConfig } from './services/api';
+import { api, syncRemoteServerConfig, getPublicWebUrl } from './services/api';
 import { soundNotifier } from './services/audioAlert';
 import { LoginModal } from './components/LoginModal';
 import { OrdersView } from './components/OrdersView';
@@ -166,11 +166,17 @@ export function App() {
 
     const isElectronFile = typeof window !== 'undefined' && (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null');
     const socketUrl = isElectronFile
-      ? 'http://localhost:5000'
+      ? getPublicWebUrl()
       : (window.location.port === '5173' || window.location.port === '5174' || window.location.port === '3000')
         ? `http://${window.location.hostname || 'localhost'}:5000`
         : window.location.origin;
-    const socket: Socket = io(socketUrl, { auth: { token } });
+    const socket: Socket = io(socketUrl, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+    });
     socketRef.current = socket;
 
     // استقبال تحديث موقع الطيار الحي على الخريطة وبثه لشاشة استقبال الطلبات

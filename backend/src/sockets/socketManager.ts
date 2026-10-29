@@ -18,7 +18,18 @@ function broadcastPresenceChange(role: "BRANCH" | "STUDENT" | "DRIVER", id: stri
   if (!io) return;
   if (role === "BRANCH") {
     console.log(`[Presence] Branch ${id} is now ${isOnline ? "ONLINE 🟢" : "OFFLINE 🔴"}`);
-    io.emit("branch_presence_changed", { branchId: id, isOnline });
+    prisma.branch.findUnique({
+      where: { id },
+      select: { slug: true }
+    }).then((b) => {
+      const payload = { branchId: id, slug: b?.slug || undefined, isOnline };
+      io?.emit("branch_presence_changed", payload);
+      io?.emit("branch_status_updated", payload);
+    }).catch(() => {
+      const payload = { branchId: id, isOnline };
+      io?.emit("branch_presence_changed", payload);
+      io?.emit("branch_status_updated", payload);
+    });
   } else if (role === "DRIVER") {
     console.log(`[Presence] Driver ${id} is now ${isOnline ? "ONLINE 🟢" : "OFFLINE 🔴"}`);
     io.emit("driver_presence_changed", { driverId: id, isOnline });
