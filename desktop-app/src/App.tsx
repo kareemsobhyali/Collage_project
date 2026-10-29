@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { 
   Store, 
@@ -253,7 +253,7 @@ export function App() {
       // تشغيل جرس التنبيه المستمر
       soundNotifier.startRepeatingAlarm();
 
-      // الرجوع فوراً لشاشة الطلبات الجديدة وإغلاق أي شاشات أو نوافذ منبثقة مفتوحة
+      // الرجوع لشاشة الطلبات الجديدة لمرة واحدة فقط عند وصول الطلب الجديد
       setActiveTab('ORDERS');
       setTargetedDetailedOrder(null);
       setIsOrderDetailsOpen(false);
@@ -262,7 +262,7 @@ export function App() {
       setShowPrinterSettings(false);
       setDriverRejectionAlert(null);
       setDriverReturnAlert(null);
-      setNewOrderTrigger(prev => prev + 1);
+      setNewOrderTrigger(Date.now());
 
       // طباعة تلقائية فورية للبون دون أي تدخل يدوي إن كانت مفعلة
       if (getAutoPrintOnNewOrder()) {
@@ -419,6 +419,14 @@ export function App() {
     const muted = soundNotifier.toggleMute();
     setIsMuted(muted);
   };
+
+  const handleClearDetailedOrder = useCallback(() => {
+    setTargetedDetailedOrder(null);
+  }, []);
+
+  const handleDetailedOrderOpenChange = useCallback((isOpen: boolean) => {
+    setIsOrderDetailsOpen(isOpen);
+  }, []);
 
   if (!token || !branch) {
     return <LoginModal onLoginSuccess={handleLoginSuccess} />;
@@ -720,8 +728,8 @@ export function App() {
             liveDriverLocations={liveDriverLocations}
             onRefreshOrders={loadData}
             initialDetailedOrder={targetedDetailedOrder}
-            onClearDetailedOrder={() => setTargetedDetailedOrder(null)}
-            onDetailedOrderOpenChange={setIsOrderDetailsOpen}
+            onClearDetailedOrder={handleClearDetailedOrder}
+            onDetailedOrderOpenChange={handleDetailedOrderOpenChange}
             newOrderTrigger={newOrderTrigger}
           />
         )}

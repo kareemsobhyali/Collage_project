@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Clock, 
   CheckCircle, 
@@ -116,38 +116,22 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [showDriverPicker, setShowDriverPicker] = useState<boolean>(false);
   const [trackingOrderMap, setTrackingOrderMap] = useState<any | null>(null);
 
-  // عند استلام طلب جديد: إغلاق أي نافذة مفتوحة والرجوع فوراً لشاشة الطلبات الجديدة
+  // مرجع لتسجيل وقت آخر طلب جديد تم التوجيه له، لضمان التحويل مرة واحدة فقط وعدم تكرار الإغلاق
+  const lastHandledNewOrderRef = useRef<number>(0);
+
+  // عند وصول طلب جديد فعلياً: يتم إرجاع الكاشير لشاشة الطلبات الجديدة لمرة واحدة فقط
   useEffect(() => {
-    if (newOrderTrigger && newOrderTrigger > 0) {
+    if (newOrderTrigger && newOrderTrigger > lastHandledNewOrderRef.current) {
+      lastHandledNewOrderRef.current = newOrderTrigger;
+      // يحدث لمرة واحدة فقط لحظة استلام طلب جديد فعلي
       setDetailedOrder(null);
-      onClearDetailedOrder?.();
-      onDetailedOrderOpenChange?.(false);
       setTrackingOrderMap(null);
       setAcceptingOrder(null);
       setRejectingOrder(null);
       setSelectedTab('PENDING');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [newOrderTrigger, onClearDetailedOrder, onDetailedOrderOpenChange]);
-
-  // استماع لحدث الطلب الجديد عبر السوكيت كطبقة حماية لحظية إضافية
-  useEffect(() => {
-    if (!socket) return;
-    const handleNewOrder = () => {
-      setDetailedOrder(null);
-      onClearDetailedOrder?.();
-      onDetailedOrderOpenChange?.(false);
-      setTrackingOrderMap(null);
-      setAcceptingOrder(null);
-      setRejectingOrder(null);
-      setSelectedTab('PENDING');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-    socket.on('new_order', handleNewOrder);
-    return () => {
-      socket.off('new_order', handleNewOrder);
-    };
-  }, [socket, onClearDetailedOrder, onDetailedOrderOpenChange]);
+  }, [newOrderTrigger]);
 
   // عند فتح تفاصيل الطلب أو خريطة التتبع، ننضم لغرفة السوكيت ونطلب موقع الطيار اللحظي
   useEffect(() => {
