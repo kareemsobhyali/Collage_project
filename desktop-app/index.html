@@ -2,8 +2,47 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <script>
+      // ضمان وجود الشرطة المائلة النهائية (/branch/) لكي تعمل المسارات النسبية والـ PWA Scope بدقة 100%
+      (function () {
+        try {
+          var p = window.location.pathname;
+          if ((p === '/branch' || p === '/pos') && window.location.protocol !== 'file:') {
+            window.location.replace(p + '/' + window.location.search + window.location.hash);
+            return;
+          }
+        } catch (_e) {}
+
+        // التقاط حدث التثبيت على الويندوز والموبايل فور إطلاقه قبل تحميل حزمة React
+        window.__deferredBranchPwaPrompt = null;
+        window.addEventListener('beforeinstallprompt', function (e) {
+          e.preventDefault();
+          window.__deferredBranchPwaPrompt = e;
+          window.dispatchEvent(new Event('branch-pwa-installable'));
+        });
+        window.addEventListener('appinstalled', function () {
+          window.__deferredBranchPwaPrompt = null;
+          window.dispatchEvent(new Event('branch-pwa-installed'));
+        });
+
+        // تسجيل الـ Service Worker الخاص بتطبيق الفرع لتفعيل تثبيت الـ PWA على الويندوز والأجهزة الذكية
+        if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+          window.addEventListener('load', function () {
+            navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(function () {});
+          });
+        }
+      })();
+    </script>
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
+    <link rel="manifest" href="./manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="application-name" content="UniFood Branch" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="UniFood Branch" />
     <title>UniFood Branch | نظام استقبال وتجهيز طلبات الفروع</title>
   </head>
   <body class="bg-slate-100 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">

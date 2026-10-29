@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, User, ArrowLeft, AlertCircle } from 'lucide-react';
 import { api, syncRemoteServerConfig } from '../services/api';
 import { Logo } from './Logo';
+import { InstallAppButton } from './InstallAppButton';
 
 interface LoginModalProps {
   onLoginSuccess: (branchData: any, token: string) => void;
@@ -96,7 +97,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+        <InstallAppButton variant="login" />
+
+        <div className="mt-6 pt-5 border-t border-slate-100 text-center">
           <p className="text-xs text-slate-400">يتم إنشاء وتعيين حسابات الفروع من لوحة الإدارة المركزية</p>
         </div>
       </div>

@@ -366,15 +366,27 @@ app.get("/api/public/server-config", (_req, res) => {
   });
 });
 
-// مسارات شاشة فروع المطاعم والـ POS (desktop-app)
+// مسارات شاشة فروع المطاعم والـ POS (desktop-app) مع دعم التثبيت كتطبيق ويندوز وموبايل مستقل (PWA)
 const desktopDistPath = resolvePath("../desktop-app/dist", "desktop-app/dist");
 if (fs.existsSync(desktopDistPath)) {
+  const desktopStaticOptions = {
+    setHeaders: (res: express.Response, filePath: string) => {
+      if (filePath.endsWith("manifest.json")) {
+        res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+        res.setHeader("Cache-Control", "no-cache");
+      } else if (filePath.endsWith("sw.js") || filePath.endsWith("index.html")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      }
+    },
+  };
+
   // خدمة الملفات الثابتة لشاشة الفرع والـ POS (تتضمن التوجيه التلقائي لـ /branch/ وخدمة index.html)
-  app.use("/branch", express.static(desktopDistPath));
-  app.use("/pos", express.static(desktopDistPath));
+  app.use("/branch", express.static(desktopDistPath, desktopStaticOptions));
+  app.use("/pos", express.static(desktopDistPath, desktopStaticOptions));
 
   // توجيه أي مسار داخلي ضمن /branch/{*splat} أو /pos/{*splat} لصفحة index.html
   app.get(["/branch/{*splat}", "/pos/{*splat}"], (_req, res) => {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.sendFile(path.join(desktopDistPath, "index.html"));
   });
 }

@@ -33,6 +33,7 @@ import { QuickStockModal } from './components/QuickStockModal';
 import { BranchProfileView } from './components/BranchProfileView';
 import { BranchStatusModal } from './components/BranchStatusModal';
 import { PrinterSettingsModal } from './components/PrinterSettingsModal';
+import { InstallAppButton } from './components/InstallAppButton';
 import { getAutoPrintOnNewOrder, printOrderReceipt } from './services/printer';
 import { Logo } from './components/Logo';
 import { ToastContainer, toast } from './utils/toast';
@@ -429,7 +430,12 @@ export function App() {
   }, []);
 
   if (!token || !branch) {
-    return <LoginModal onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <>
+        <ToastContainer />
+        <LoginModal onLoginSuccess={handleLoginSuccess} />
+      </>
+    );
   }
 
   const pendingCount = orders.filter(o => o.status === 'PENDING').length;
@@ -542,6 +548,9 @@ export function App() {
                 {branch.operationalStatus === 'CLOSED' ? 'المطعم مغلق' : ''}
               </span>
             </button>
+
+            {/* Install on Windows / Mobile PWA Button (auto-hides once installed) */}
+            <InstallAppButton variant="header" />
 
             {/* Printer Settings Button */}
             <button
