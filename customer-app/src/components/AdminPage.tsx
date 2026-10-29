@@ -38,6 +38,8 @@ import {
   Smartphone,
   Info,
   Upload,
+  UserX,
+  Unlock,
   Image as ImageIcon,
   Tag,
   Timer,
@@ -391,6 +393,10 @@ export const AdminPage: React.FC = () => {
   const [editingBranch, setEditingBranch] = useState<any | null>(null);
   const [editingPaymentBranch, setEditingPaymentBranch] = useState<any | null>(null);
   const [editingCredentialsBranch, setEditingCredentialsBranch] = useState<any | null>(null);
+  const [viewingBlockedBranch, setViewingBlockedBranch] = useState<any | null>(null);
+  const [branchBlockedList, setBranchBlockedList] = useState<any[]>([]);
+  const [loadingBranchBlocked, setLoadingBranchBlocked] = useState(false);
+  const [unblockingBranchUserId, setUnblockingBranchUserId] = useState<string | null>(null);
   const [bulkImportBranch, setBulkImportBranch] = useState<any | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
   const [adminCancellingOrder, setAdminCancellingOrder] = useState<any | null>(null);
@@ -2921,6 +2927,43 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const handleOpenBlockedCustomers = async (branch: any) => {
+    setViewingBlockedBranch(branch);
+    try {
+      setLoadingBranchBlocked(true);
+      const res = await fetch(`${API_BASE_URL}/admin/branches/${branch.id}/blocked-customers`, {
+        headers: getAdminHeaders(),
+      });
+      const data = await res.json();
+      setBranchBlockedList(data?.blockedCustomers || []);
+    } catch (err: any) {
+      alert(err.message || 'فشل جلب قائمة المحظورين للفرع');
+    } finally {
+      setLoadingBranchBlocked(false);
+    }
+  };
+
+  const handleAdminUnblockCustomer = async (userId: string, userName: string) => {
+    if (!viewingBlockedBranch) return;
+    if (!window.confirm(`هل أنت متأكد من فك الحظر عن العميل "${userName}" لمطعم "${viewingBlockedBranch.name}"؟`)) return;
+
+    try {
+      setUnblockingBranchUserId(userId);
+      const res = await fetch(`${API_BASE_URL}/admin/branches/${viewingBlockedBranch.id}/customers/${userId}/unblock`, {
+        method: 'POST',
+        headers: getAdminHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل إلغاء الحظر');
+      alert(`تم إلغاء الحظر عن العميل "${userName}" بنجاح!`);
+      setBranchBlockedList(prev => prev.filter(c => c.userId !== userId));
+    } catch (err: any) {
+      alert(err.message || 'خطأ أثناء فك الحظر');
+    } finally {
+      setUnblockingBranchUserId(null);
+    }
+  };
+
   const handleAdminUpdateOrderStatus = async (orderId: string, newStatus: string, reason?: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/status`, {
@@ -3602,9 +3645,9 @@ export const AdminPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Action buttons (Responsive 2-col on mobile, 6-col on desktop) */}
+                    {/* Action buttons (Responsive 2-col on mobile, 7-col on desktop) */}
                     <div className="pt-2.5 border-t border-slate-100">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 sm:gap-2">
                         <button
                           type="button"
                           onClick={() => handleOpenEditBranch(branch)}
@@ -3680,6 +3723,16 @@ export const AdminPage: React.FC = () => {
                         >
                           <Smartphone className="w-3.5 h-3.5 shrink-0 text-sky-600" />
                           <span>تطبيق المطعم</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenBlockedCustomers(branch)}
+                          className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-rose-50/70 hover:bg-rose-100 text-rose-800 rounded-xl text-xs font-bold transition-all border border-rose-200 shadow-2xs active:scale-95"
+                          title="عرض وإلغاء حظر العملاء لهذا المطعم"
+                        >
+                          <UserX className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span>المحظورون</span>
                         </button>
                       </div>
                     </div>
@@ -10442,6 +10495,105 @@ export const AdminPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: View & Unblock Branch Blocked Customers */}
+      {viewingBlockedBranch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-200 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
+                  <UserX className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm sm:text-base text-slate-900 truncate">
+                    العملاء المحظورون: {viewingBlockedBranch.name}
+                  </h3>
+                  <span className="text-[11px] text-slate-400">
+                    {branchBlockedList.length} عميل محظور في هذا الفرع
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingBlockedBranch(null)}
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition-colors shrink-0"
+                title="إغلاق"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1 custom-scrollbar">
+              {loadingBranchBlocked ? (
+                <div className="p-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                  <RotateCw className="w-4 h-4 animate-spin text-rose-600" />
+                  <span>جاري تحميل العملاء المحظورين...</span>
+                </div>
+              ) : branchBlockedList.length === 0 ? (
+                <div className="p-8 text-center bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-1.5">
+                  <CheckCircle className="w-8 h-8 text-emerald-600 mx-auto" />
+                  <p className="text-xs font-black text-emerald-950">لا يوجد عملاء محظورين في هذا المطعم</p>
+                  <p className="text-[11px] text-emerald-800">جميع العملاء يمكنهم الطلب من هذا الفرع دون أي قيود.</p>
+                </div>
+              ) : (
+                branchBlockedList.map((customer: any) => (
+                  <div
+                    key={customer.userId}
+                    className="p-3.5 bg-rose-50/30 border border-rose-200 rounded-2xl flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-black text-xs text-slate-900">{customer.name}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
+                          🚫 محظور
+                        </span>
+                        {customer.orderCount > 0 && (
+                          <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
+                            {customer.orderCount} طلبات
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] font-mono font-bold text-slate-600 dir-ltr text-right">
+                        {customer.phone}
+                      </div>
+                      {customer.notes && (
+                        <div className="text-[11px] text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
+                          ملاحظة: {customer.notes}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAdminUnblockCustomer(customer.userId, customer.name)}
+                      disabled={unblockingBranchUserId === customer.userId}
+                      className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 border border-emerald-300 rounded-xl text-xs font-black flex items-center gap-1 shrink-0 shadow-2xs transition-all active:scale-95"
+                    >
+                      {unblockingBranchUserId === customer.userId ? (
+                        <RotateCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                      ) : (
+                        <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+                      )}
+                      <span>فك الحظر</span>
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex items-center justify-end p-4 border-t border-slate-200 bg-white shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewingBlockedBranch(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+              >
+                إغلاق
+              </button>
+            </div>
           </div>
         </div>
       )}

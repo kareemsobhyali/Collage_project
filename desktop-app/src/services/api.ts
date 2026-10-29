@@ -554,6 +554,27 @@ export const api = {
     return data;
   },
 
+  // استرجاع قائمة العملاء المحظورين للفرع
+  async getBlockedCustomers() {
+    const res = await fetch(`${API_BASE_URL}/branch/customers/blocked`, {
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع قائمة العملاء المحظورين');
+    return data?.blockedCustomers || [];
+  },
+
+  // فك الحظر عن عميل لهذا الفرع
+  async unblockCustomer(userId: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/customers/${userId}/unblock`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إلغاء حظر العميل');
+    return data;
+  },
+
   // استعلام طابعات الويندوز من السيرفر (عند تشغيله محلياً)
   async getSystemPrinters() {
     try {

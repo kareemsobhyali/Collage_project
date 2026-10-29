@@ -27,7 +27,11 @@ import {
   Link2,
   Copy,
   Lock,
-  Receipt
+  Receipt,
+  UserX,
+  Unlock,
+  Search,
+  Users
 } from 'lucide-react';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
@@ -99,6 +103,53 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [hoursLoading, setHoursLoading] = useState(false);
   const [hoursSuccess, setHoursSuccess] = useState(false);
   const [hoursError, setHoursError] = useState<string | null>(null);
+
+  // 4. Blocked Customers State
+  interface BlockedCustomerItem {
+    id: string;
+    userId: string;
+    name: string;
+    phone: string;
+    notes?: string | null;
+    blockedAt: string;
+    orderCount: number;
+  }
+  const [blockedCustomers, setBlockedCustomers] = useState<BlockedCustomerItem[]>([]);
+  const [loadingBlocked, setLoadingBlocked] = useState(false);
+  const [blockedSearchQuery, setBlockedSearchQuery] = useState('');
+  const [confirmUnblockUser, setConfirmUnblockUser] = useState<BlockedCustomerItem | null>(null);
+  const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
+
+  const fetchBlockedCustomers = async () => {
+    try {
+      setLoadingBlocked(true);
+      const data = await api.getBlockedCustomers();
+      setBlockedCustomers(data || []);
+    } catch (err: any) {
+      console.error('Failed to fetch blocked customers:', err);
+    } finally {
+      setLoadingBlocked(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBlockedCustomers();
+  }, []);
+
+  const handleExecuteUnblock = async () => {
+    if (!confirmUnblockUser) return;
+    try {
+      setUnblockingUserId(confirmUnblockUser.userId);
+      await api.unblockCustomer(confirmUnblockUser.userId);
+      toast.success(`تم إلغاء الحظر عن العميل "${confirmUnblockUser.name}" بنجاح! يمكنه الطلب من الفرع الآن.`);
+      setBlockedCustomers(prev => prev.filter(c => c.userId !== confirmUnblockUser.userId));
+      setConfirmUnblockUser(null);
+    } catch (err: any) {
+      toast.error(err.message || 'فشل إلغاء حظر العميل');
+    } finally {
+      setUnblockingUserId(null);
+    }
+  };
 
   // Delivery Zone Delete State
   const [confirmDeleteZone, setConfirmDeleteZone] = useState<{ id: string; name: string } | null>(null);
@@ -1151,6 +1202,170 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
           </div>
         </form>
       </div>
+
+      {/* 5. Blocked Customers Card */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+              <UserX className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900">العملاء المحظورون من الطلب</h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
+                  {blockedCustomers.length} {blockedCustomers.length === 1 ? 'عميل محظور' : 'عملاء محظورين'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                قائمة العملاء الموقوفين عن إرسال طلبات جديدة لمطعمك مع إمكانية رفع الحظر عنهم فوراً
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={fetchBlockedCustomers}
+            disabled={loadingBlocked}
+            className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2 self-start sm:self-auto shadow-2xs"
+            title="تحديث قائمة المحظورين"
+          >
+            <RotateCw className={`w-3.5 h-3.5 text-slate-500 ${loadingBlocked ? 'animate-spin' : ''}`} />
+            <span>تحديث القائمة</span>
+          </button>
+        </div>
+
+        {/* Search input when there are items */}
+        {blockedCustomers.length > 0 && (
+          <div className="relative max-w-sm">
+            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={blockedSearchQuery}
+              onChange={e => setBlockedSearchQuery(e.target.value)}
+              placeholder="البحث باسم العميل أو رقم الهاتف..."
+              className="w-full pr-10 pl-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            />
+          </div>
+        )}
+
+        {/* Content list or Empty State */}
+        {loadingBlocked && blockedCustomers.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+            <RotateCw className="w-4 h-4 animate-spin text-indigo-600" />
+            <span>جاري استرجاع قائمة العملاء المحظورين...</span>
+          </div>
+        ) : blockedCustomers.length === 0 ? (
+          <div className="p-8 sm:p-10 bg-emerald-50/40 border border-emerald-200/70 rounded-2xl text-center space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-sm">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h4 className="text-xs font-black text-emerald-950">سجل الحظر نظيف تماماً!</h4>
+            <p className="text-[11px] text-emerald-800 max-w-md mx-auto leading-relaxed">
+              لا يوجد أي عميل محظور في فرعك حالياً. عندما تقوم بحظر أي عميل من شاشة تفاصيل الطلبات، سيظهر هنا مع إمكانية فك الحظر عنه في أي وقت.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {blockedCustomers
+              .filter(c => {
+                if (!blockedSearchQuery.trim()) return true;
+                const q = blockedSearchQuery.trim().toLowerCase();
+                return (
+                  c.name?.toLowerCase().includes(q) ||
+                  c.phone?.toLowerCase().includes(q) ||
+                  c.notes?.toLowerCase().includes(q)
+                );
+              })
+              .map((customer) => (
+                <div
+                  key={customer.userId}
+                  className="p-4 rounded-2xl border border-rose-200/80 bg-rose-50/20 hover:bg-rose-50/40 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 font-black text-sm border border-rose-200">
+                      {customer.name ? customer.name.slice(0, 1) : <UserX className="w-5 h-5" />}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-black text-xs text-slate-900">{customer.name}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
+                          🚫 محظور
+                        </span>
+                        {customer.orderCount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                            {customer.orderCount} طلبات سابقة
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 flex-wrap">
+                        <div className="flex items-center gap-1 font-mono font-bold text-slate-700">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          <span dir="ltr">{customer.phone}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(customer.phone);
+                              toast.success('تم نسخ رقم الهاتف');
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                            title="نسخ الرقم"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <span>•</span>
+                        <span className="text-[10px] text-slate-400">
+                          تاريخ الحظر: {new Date(customer.blockedAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+
+                      {customer.notes ? (
+                        <div className="text-[11px] text-amber-900 bg-amber-50/80 px-2.5 py-1 rounded-lg border border-amber-200/70 inline-block font-bold">
+                          <span className="text-amber-700 ml-1">سبب الحظر / الملاحظة:</span>
+                          <span>{customer.notes}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 italic block">
+                          لا توجد ملاحظة إضافية مسجلة
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmUnblockUser(customer)}
+                    disabled={unblockingUserId === customer.userId}
+                    className="px-4 py-2 bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 border border-emerald-300 hover:border-emerald-400 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-2xs active:scale-95 shrink-0 self-end sm:self-center"
+                    title="فك الحظر عن هذا العميل"
+                  >
+                    {unblockingUserId === customer.userId ? (
+                      <RotateCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                    <span>إلغاء الحظر 🔓</span>
+                  </button>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+
+      {/* تأكيد فك الحظر عن العميل */}
+      <ConfirmModal
+        isOpen={!!confirmUnblockUser}
+        title="إلغاء الحظر عن العميل"
+        message={`هل أنت متأكد من رغبتك في إلغاء الحظر عن العميل "${confirmUnblockUser?.name}" (${confirmUnblockUser?.phone})؟ سيتمكن من إرسال طلبات جديدة لمطعمك فوراً.`}
+        confirmText="نعم، إلغاء الحظر"
+        cancelText="تراجع"
+        variant="primary"
+        loading={!!unblockingUserId}
+        onConfirm={handleExecuteUnblock}
+        onClose={() => !unblockingUserId && setConfirmUnblockUser(null)}
+      />
 
       {/* تأكيد حذف منطقة التوصيل */}
       <ConfirmModal

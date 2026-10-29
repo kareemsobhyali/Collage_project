@@ -546,6 +546,73 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
   }
 });
 
+// استرجاع قائمة العملاء المحظورين لفرع معين
+router.get("/branches/:id/blocked-customers", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.params.id as string;
+    const blockedRecords = await prisma.branchBlockedCustomer.findMany({
+      where: { branchId, isBlocked: true },
+      include: {
+        user: { select: { id: true, name: true, phone: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    const userIds = blockedRecords.map((b) => b.userId);
+    const orderCounts = await prisma.order.groupBy({
+      by: ["userId"],
+      where: { branchId, userId: { in: userIds } },
+      _count: { id: true },
+    });
+
+    const countMap = new Map<string, number>();
+    for (const oc of orderCounts) {
+      countMap.set(oc.userId, oc._count.id);
+    }
+
+    res.json({
+      success: true,
+      blockedCustomers: blockedRecords.map((rec) => ({
+        id: rec.id,
+        userId: rec.userId,
+        name: rec.user.name,
+        phone: rec.user.phone,
+        notes: rec.notes,
+        blockedAt: rec.updatedAt,
+        orderCount: countMap.get(rec.userId) || 0,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ error: "فشل استرجاع العملاء المحظورين للفرع" });
+  }
+});
+
+// فك حظر عميل لفرع معين من لوحة الإدارة
+router.post("/branches/:id/customers/:userId/unblock", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.params.id as string;
+    const userId = req.params.userId as string;
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, phone: true },
+    });
+
+    await prisma.branchBlockedCustomer.upsert({
+      where: { branchId_userId: { branchId, userId } },
+      update: { isBlocked: false },
+      create: { branchId, userId, isBlocked: false },
+    });
+
+    res.json({
+      success: true,
+      message: `تم إلغاء حظر العميل "${targetUser?.name || ''}" بنجاح`,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "فشل إلغاء الحظر عن العميل" });
+  }
+});
+
 // إحصائيات عامة وتحليلات مفصلة
 router.get("/stats", async (_req: AuthRequest, res: Response) => {
   try {

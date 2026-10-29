@@ -1156,19 +1156,20 @@ router.put("/customers/:userId/crm", async (req: AuthRequest, res: Response) => 
       return;
     }
 
-    // التحقق من أن العميل لديه طلبات سابقة لدى هذا الفرع
+    // التحقق من أن العميل لديه طلبات سابقة لدى هذا الفرع أو لديه سجل CRM سابق
     const branchOrderCount = await prisma.order.count({
       where: { userId, branchId },
     });
-    if (branchOrderCount === 0) {
-      res.status(403).json({ error: "لا يمكن تعديل بيانات عميل لم يقم بالطلب من هذا الفرع" });
-      return;
-    }
 
     // إدارة الحظر والملاحظات على مستوى هذا الفرع تحديداً دون المساس بحساب العميل العام في باقي المطاعم
     const existingCrm = await prisma.branchBlockedCustomer.findUnique({
       where: { branchId_userId: { branchId, userId } },
     });
+
+    if (branchOrderCount === 0 && !existingCrm) {
+      res.status(403).json({ error: "لا يمكن تعديل بيانات عميل لم يقم بالطلب من هذا الفرع" });
+      return;
+    }
 
     const newIsBlocked = isBlocked !== undefined ? Boolean(isBlocked) : (existingCrm ? existingCrm.isBlocked : false);
     const newNotes = restaurantNotes !== undefined
@@ -1203,6 +1204,104 @@ router.put("/customers/:userId/crm", async (req: AuthRequest, res: Response) => 
   } catch (error) {
     console.error("Update customer CRM error:", error);
     res.status(500).json({ error: "فشل تحديث بيانات وملاحظات العميل" });
+  }
+});
+
+// 16.6 استرجاع قائمة جميع العملاء المحظورين لهذا الفرع
+router.get("/customers/blocked", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+
+    const blockedRecords = await prisma.branchBlockedCustomer.findMany({
+      where: {
+        branchId,
+        isBlocked: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    const userIds = blockedRecords.map((b) => b.userId);
+
+    // حساب عدد طلبات كل عميل من هذا الفرع
+    const orderCounts = await prisma.order.groupBy({
+      by: ["userId"],
+      where: {
+        branchId,
+        userId: { in: userIds },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    const countMap = new Map<string, number>();
+    for (const oc of orderCounts) {
+      countMap.set(oc.userId, oc._count.id);
+    }
+
+    const blockedCustomers = blockedRecords.map((rec) => ({
+      id: rec.id,
+      userId: rec.userId,
+      name: rec.user.name,
+      phone: rec.user.phone,
+      notes: rec.notes,
+      blockedAt: rec.updatedAt,
+      orderCount: countMap.get(rec.userId) || 0,
+    }));
+
+    res.json({ success: true, blockedCustomers });
+  } catch (error) {
+    console.error("Get branch blocked customers error:", error);
+    res.status(500).json({ error: "فشل استرجاع قائمة العملاء المحظورين" });
+  }
+});
+
+// 16.7 فك الحظر عن عميل لهذا الفرع
+router.post("/customers/:userId/unblock", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.params.userId as string;
+    const branchId = req.branch!.branchId;
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, phone: true },
+    });
+
+    if (!targetUser) {
+      res.status(404).json({ error: "حساب العميل غير موجود" });
+      return;
+    }
+
+    const updated = await prisma.branchBlockedCustomer.upsert({
+      where: { branchId_userId: { branchId, userId } },
+      update: { isBlocked: false },
+      create: { branchId, userId, isBlocked: false },
+    });
+
+    res.json({
+      success: true,
+      message: `تم إلغاء الحظر عن العميل "${targetUser.name}" بنجاح`,
+      customer: {
+        id: targetUser.id,
+        name: targetUser.name,
+        phone: targetUser.phone,
+        isBlocked: updated.isBlocked,
+        notes: updated.notes,
+      },
+    });
+  } catch (error) {
+    console.error("Unblock branch customer error:", error);
+    res.status(500).json({ error: "فشل إلغاء حظر العميل" });
   }
 });
 
