@@ -50,6 +50,7 @@ export function App() {
   const [categories, setCategories] = useState<any[]>([]);
   const [modifierGroups, setModifierGroups] = useState<any[]>([]);
   const [openComplaintsCount, setOpenComplaintsCount] = useState<number>(0);
+  const [newOrderTrigger, setNewOrderTrigger] = useState<number>(0);
   const [socketConnected, setSocketConnected] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -251,6 +252,17 @@ export function App() {
       setOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
       // تشغيل جرس التنبيه المستمر
       soundNotifier.startRepeatingAlarm();
+
+      // الرجوع فوراً لشاشة الطلبات الجديدة وإغلاق أي شاشات أو نوافذ منبثقة مفتوحة
+      setActiveTab('ORDERS');
+      setTargetedDetailedOrder(null);
+      setIsOrderDetailsOpen(false);
+      setShowQuickStock(false);
+      setShowStatusModal(false);
+      setShowPrinterSettings(false);
+      setDriverRejectionAlert(null);
+      setDriverReturnAlert(null);
+      setNewOrderTrigger(prev => prev + 1);
 
       // طباعة تلقائية فورية للبون دون أي تدخل يدوي إن كانت مفعلة
       if (getAutoPrintOnNewOrder()) {
@@ -710,6 +722,7 @@ export function App() {
             initialDetailedOrder={targetedDetailedOrder}
             onClearDetailedOrder={() => setTargetedDetailedOrder(null)}
             onDetailedOrderOpenChange={setIsOrderDetailsOpen}
+            newOrderTrigger={newOrderTrigger}
           />
         )}
 

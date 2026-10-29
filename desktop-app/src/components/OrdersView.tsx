@@ -58,6 +58,7 @@ interface OrdersViewProps {
   initialDetailedOrder?: any | null;
   onClearDetailedOrder?: () => void;
   onDetailedOrderOpenChange?: (isOpen: boolean) => void;
+  newOrderTrigger?: number;
 }
 
 // دالات مساعدة لحساب الفترات الزمنية وتنسيقها
@@ -101,7 +102,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   onRefreshOrders,
   initialDetailedOrder,
   onClearDetailedOrder,
-  onDetailedOrderOpenChange
+  onDetailedOrderOpenChange,
+  newOrderTrigger
 }) => {
   const [selectedTab, setSelectedTab] = useState<string>('PENDING');
   const [sortBy, setSortBy] = useState<'NEWEST' | 'OLDEST'>('NEWEST');
@@ -113,6 +115,39 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [copiedPhone, setCopiedPhone] = useState<boolean>(false);
   const [showDriverPicker, setShowDriverPicker] = useState<boolean>(false);
   const [trackingOrderMap, setTrackingOrderMap] = useState<any | null>(null);
+
+  // عند استلام طلب جديد: إغلاق أي نافذة مفتوحة والرجوع فوراً لشاشة الطلبات الجديدة
+  useEffect(() => {
+    if (newOrderTrigger && newOrderTrigger > 0) {
+      setDetailedOrder(null);
+      onClearDetailedOrder?.();
+      onDetailedOrderOpenChange?.(false);
+      setTrackingOrderMap(null);
+      setAcceptingOrder(null);
+      setRejectingOrder(null);
+      setSelectedTab('PENDING');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [newOrderTrigger, onClearDetailedOrder, onDetailedOrderOpenChange]);
+
+  // استماع لحدث الطلب الجديد عبر السوكيت كطبقة حماية لحظية إضافية
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewOrder = () => {
+      setDetailedOrder(null);
+      onClearDetailedOrder?.();
+      onDetailedOrderOpenChange?.(false);
+      setTrackingOrderMap(null);
+      setAcceptingOrder(null);
+      setRejectingOrder(null);
+      setSelectedTab('PENDING');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    socket.on('new_order', handleNewOrder);
+    return () => {
+      socket.off('new_order', handleNewOrder);
+    };
+  }, [socket, onClearDetailedOrder, onDetailedOrderOpenChange]);
 
   // عند فتح تفاصيل الطلب أو خريطة التتبع، ننضم لغرفة السوكيت ونطلب موقع الطيار اللحظي
   useEffect(() => {
@@ -378,6 +413,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     soundNotifier.stopRepeatingAlarm();
     setDetailedOrder(null);
     onClearDetailedOrder?.();
+    onDetailedOrderOpenChange?.(false);
+    setSelectedTab('PENDING');
     await handleUpdateStatus(orderToReject.id, 'REJECTED', undefined, finalReason);
   };
 
@@ -388,9 +425,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     const driverToAssign = acceptDriverId;
     setAcceptingOrder(null);
 
-    // إغلاق شاشة تفاصيل الأوردر والرجوع فوراً لشاشة الأوردرات الرئيسية
+    // إغلاق شاشة تفاصيل الأوردر والرجوع فوراً لشاشة الطلبات الجديدة
     setDetailedOrder(null);
     onClearDetailedOrder?.();
+    onDetailedOrderOpenChange?.(false);
+    setSelectedTab('PENDING');
 
     // إيقاف صوت التنبيه فور قبول الطلب
     soundNotifier.stopRepeatingAlarm();
@@ -487,41 +526,113 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         const isPickedUpByDriver = Boolean(dOrder.driverPickedUpAt);
 
         return (
-          <div className="space-y-3 sm:space-y-4 max-w-3xl mx-auto animate-fadeIn pb-1.5 sm:pb-2">
-            {/* Top Navigation Bar with Back Button & Order ID */}
-            <div className="bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between gap-3 sticky top-14 sm:top-20 z-20">
-              <button
-                type="button"
-                onClick={() => {
-                  setDetailedOrder(null);
-                  onClearDetailedOrder?.();
-                  onDetailedOrderOpenChange?.(false);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs sm:text-sm transition-all active:scale-95 shrink-0"
-              >
-                <ArrowRight className="w-4 h-4 shrink-0 text-slate-600" />
-                <span>رجوع للأوردرات</span>
-              </button>
+          <div className="space-y-3 sm:space-y-4 max-w-5xl mx-auto animate-fadeIn pb-24 md:pb-12">
+            {/* Top Navigation Bar with Back Button, Order ID & Sticky Quick Action Buttons */}
+            <div className="bg-white/95 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between gap-2 sm:gap-3 sticky top-14 sm:top-20 z-20">
+              <div className="flex items-center gap-2 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailedOrder(null);
+                    onClearDetailedOrder?.();
+                    onDetailedOrderOpenChange?.(false);
+                    if (isPending) setSelectedTab('PENDING');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs sm:text-sm transition-all active:scale-95 shrink-0"
+                >
+                  <ArrowRight className="w-4 h-4 shrink-0 text-slate-600" />
+                  <span className="hidden xs:inline">رجوع للأوردرات</span>
+                  <span className="xs:hidden">رجوع</span>
+                </button>
 
-              <div className="flex items-center gap-2 text-right min-w-0">
-                <span className="font-mono font-black text-base sm:text-lg text-slate-900 whitespace-nowrap">
-                  طلب #{dOrder.orderNumber}
-                </span>
-                <span className={`text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full font-black whitespace-nowrap shrink-0 flex items-center gap-1 ${
-                  dOrder.orderType === 'DELIVERY' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'
-                }`}>
-                  {dOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'}
-                </span>
-                <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono hidden xs:inline whitespace-nowrap">
-                  • {new Date(dOrder.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                </span>
+                <div className="flex items-center gap-1.5 sm:gap-2 text-right min-w-0">
+                  <span className="font-mono font-black text-sm sm:text-base text-slate-900 whitespace-nowrap">
+                    #{dOrder.orderNumber}
+                  </span>
+                  <span className={`text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 rounded-full font-black whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                    dOrder.orderType === 'DELIVERY' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'
+                  }`}>
+                    {dOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'}
+                  </span>
+                  <span className="font-mono font-black text-xs sm:text-sm text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 whitespace-nowrap">
+                    {dOrder.total} ج.م
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons in Sticky Header */}
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                {isPending && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRejectingOrder(dOrder);
+                        setRejectionReason('نفاد المكونات المطلوبة');
+                      }}
+                      className="px-2.5 sm:px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1"
+                      title="رفض الطلب"
+                    >
+                      <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                      <span className="hidden sm:inline">رفض الطلب</span>
+                      <span className="sm:hidden">رفض</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAcceptingOrder(dOrder);
+                        setPrepMinutes(15);
+                        setAcceptDriverId(dOrder.driverId || '');
+                      }}
+                      className="px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
+                      title="قبول وبدء التجهيز"
+                    >
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>قبول وبدء التجهيز</span>
+                    </button>
+                  </>
+                )}
+
+                {isPreparing && (
+                  <button
+                    type="button"
+                    disabled={updatingId === dOrder.id}
+                    onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
+                    className="px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>جاهز للتسليم</span>
+                  </button>
+                )}
+
+                {isReady && (
+                  <button
+                    type="button"
+                    disabled={updatingId === dOrder.id}
+                    onClick={() => handleUpdateStatus(dOrder.id, 'COMPLETED')}
+                    className="px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>تأكيد التسليم</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setPrintingOrder(dOrder)}
+                  className="p-1.5 sm:px-2.5 sm:py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
+                  title="طباعة بون"
+                >
+                  <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                  <span className="hidden md:inline">طباعة</span>
+                </button>
               </div>
             </div>
 
-            {/* Status & Timing Banner */}
-            <div className={`p-3 sm:p-3.5 rounded-2xl text-white shadow-xs flex items-center justify-between gap-3 ${
+            {/* Status & Timing Banner with Direct Quick Actions */}
+            <div className={`p-3 sm:p-4 rounded-2xl text-white shadow-xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 ${
               isPending
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600'
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 border border-amber-400/40 shadow-amber-500/10'
                 : isPreparing
                 ? isOverdue ? 'bg-gradient-to-r from-rose-600 to-rose-700' : 'bg-gradient-to-r from-indigo-600 to-indigo-700'
                 : isReady
@@ -531,100 +642,245 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 : 'bg-gradient-to-r from-slate-600 to-slate-700'
             }`}>
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 shadow-inner">
-                  {isPending && <Clock className="w-4 h-4 animate-spin" />}
-                  {isPreparing && <ChefHat className="w-4 h-4" />}
-                  {isReady && <Truck className="w-4 h-4" />}
-                  {isCompleted && <CheckCircle className="w-4 h-4" />}
-                  {isRejected && <XCircle className="w-4 h-4" />}
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 shadow-inner">
+                  {isPending && <Clock className="w-5 h-5 animate-spin" />}
+                  {isPreparing && <ChefHat className="w-5 h-5" />}
+                  {isReady && <Truck className="w-5 h-5" />}
+                  {isCompleted && <CheckCircle className="w-5 h-5" />}
+                  {isRejected && <XCircle className="w-5 h-5" />}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-black text-xs sm:text-sm leading-tight truncate">
+                  <div className="font-black text-sm sm:text-base leading-tight truncate">
                     {isPending && 'طلب جديد بانتظار استجابتك وقبوله'}
                     {isPreparing && (isOverdue ? `⚠️ متأخر في التحضير بـ ${overdueMins} دقيقة!` : 'الطلب قيد التحضير في المطبخ')}
                     {isReady && 'الطلب جاهز للتسليم / خروج مع الطيار'}
                     {isCompleted && 'تم تسليم الطلب وإكماله بنجاح'}
                     {isRejected && `الطلب ملغي / مرفوض (${dOrder.rejectionReason || 'بدون سبب'})`}
                   </div>
-                  <div className="text-[10px] sm:text-xs opacity-90 font-mono mt-0.5">
-                    {isPending && `بانتظار الموافقة منذ: ${formatDuration(waitMins)}`}
+                  <div className="text-[11px] sm:text-xs opacity-90 font-mono mt-0.5">
+                    {isPending && `بانتظار الموافقة منذ: ${formatDuration(waitMins)} • المطلوب تحصيله: ${dOrder.total} ج.م`}
                     {isPreparing && `المحدد: ${dOrder.estimatedMinutes || 15} د • مضى: ${formatDuration(prepMins)}`}
                     {isReady && `في انتظار الاستلام منذ: ${formatDuration(deliveryMins)}`}
                     {isCompleted && `استغرق إجمالاً: ${formatDuration(totalMins)}`}
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Customer Information Card */}
-            <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 font-black text-sm flex items-center justify-center shrink-0 border border-indigo-200/60 shadow-2xs">
-                    {(dOrder.customerName || 'ط').charAt(0)}
-                  </div>
-                  <div className="min-w-0">
-                    <span className="block font-black text-slate-900 text-xs sm:text-sm leading-tight truncate">
-                      {dOrder.customerName || 'عميل'}
-                    </span>
-                    <span className="text-[11px] font-mono font-bold text-slate-500 mt-0.5 block" dir="ltr">
-                      {customerPhone || 'بدون رقم هاتف'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {customerPhone && (
-                    <>
-                      <a
-                        href={`tel:${customerPhone}`}
-                        className="p-2 sm:px-2.5 sm:py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs active:scale-95"
-                        title="اتصال"
-                      >
-                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="hidden sm:inline">اتصال</span>
-                      </a>
-                      <a
-                        href={`https://wa.me/${whatsappNumber}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2 sm:px-2.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs active:scale-95"
-                        title="واتساب"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">واتساب</span>
-                      </a>
-                    </>
-                  )}
+              {/* Action Buttons inside Banner for High Contrast & Immediate Reach */}
+              {isPending && (
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-white/20">
                   <button
                     type="button"
-                    onClick={() => handleOpenCustomerCRM(dOrder, customerOrderCount)}
-                    className="p-2 sm:px-2.5 sm:py-1.5 text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 rounded-xl transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs"
-                    title="سجل وملاحظات العميل"
+                    onClick={() => {
+                      setRejectingOrder(dOrder);
+                      setRejectionReason('نفاد المكونات المطلوبة');
+                    }}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 bg-black/20 hover:bg-black/30 text-white rounded-xl text-xs font-bold border border-white/30 transition-all active:scale-95"
                   >
-                    <User className="w-3.5 h-3.5 text-indigo-600" />
-                    <span className="hidden sm:inline">السجل ({customerOrderCount})</span>
+                    رفض الطلب
                   </button>
-                </div>
-              </div>
-
-              {(dOrder.deliveryLocation || dOrder.deliveryZoneName || dOrder.addressText) && (
-                <div className="bg-slate-50 border border-slate-200/80 p-2.5 rounded-xl text-xs flex items-center gap-2 text-slate-700">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                  <span className="font-bold truncate">
-                    {dOrder.deliveryZoneName ? `${dOrder.deliveryZoneName} • ` : ''}
-                    {getDisplayAddress(dOrder.deliveryLocation || dOrder.addressText, 'موقع العميل')}
-                  </span>
-                </div>
-              )}
-
-              {(dOrder.notes || dOrder.orderNotes) && (
-                <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl text-amber-900 text-xs">
-                  <span className="font-black block mb-0.5">📝 ملاحظات خاصة مع الطلب:</span>
-                  <p className="font-medium leading-relaxed">{dOrder.notes || dOrder.orderNotes}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAcceptingOrder(dOrder);
+                      setPrepMinutes(15);
+                      setAcceptDriverId(dOrder.driverId || '');
+                    }}
+                    className="flex-1 sm:flex-initial px-5 py-2.5 bg-white text-amber-900 hover:bg-amber-50 rounded-xl text-xs sm:text-sm font-black shadow-lg transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
+                    <span>قبول وبدء التجهيز</span>
+                  </button>
                 </div>
               )}
             </div>
+
+            {/* Main Content Layout: Responsive 2-Column Grid on Desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-start">
+              {/* Right Column (Items, Notes under items, Group Bags) - 7 cols on lg */}
+              <div className="lg:col-span-7 space-y-3 sm:space-y-4">
+                {/* Full Items Breakdown */}
+                <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <h4 className="text-xs font-black text-slate-800 flex items-center gap-2">
+                      <ShoppingBag className="w-4 h-4 text-indigo-600" />
+                      <span>الأصناف المطلوبة في الأوردر ({dOrder.items?.length || 0})</span>
+                    </h4>
+                  </div>
+
+                  <div className="space-y-2">
+                    {dOrder.items?.map((item: any, idx: number) => {
+                      const itemTitle = item.item?.name || item.itemName || 'صنف';
+                      return (
+                        <div key={idx} className="p-3 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-200/80 text-xs shadow-2xs space-y-1.5 transition-colors">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-2.5 min-w-0">
+                              <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-mono font-black flex items-center justify-center shrink-0 shadow-xs text-xs">
+                                {item.quantity}×
+                              </span>
+                              <div className="min-w-0">
+                                <div className="font-black text-slate-900 text-xs sm:text-sm leading-tight truncate">
+                                  {itemTitle}
+                                  {item.sizeName && (
+                                    <span className="mr-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
+                                      {item.sizeName}
+                                    </span>
+                                  )}
+                                </div>
+                                {item.itemPrice && (
+                                  <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
+                                    سعر القطعة: {item.itemPrice} ج.م
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <span className="font-mono font-black text-slate-900 text-xs sm:text-sm shrink-0">
+                              {item.totalPrice} ج.م
+                            </span>
+                          </div>
+
+                          {item.modifiers && item.modifiers.length > 0 && (
+                            <div className="mr-8 pr-2 border-r-2 border-indigo-200 space-y-1">
+                              <span className="text-[10px] font-bold text-indigo-700 block">الإضافات والخيارات:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {item.modifiers.map((mod: any, mIdx: number) => (
+                                  <span key={mIdx} className="text-[10px] bg-white text-slate-700 px-2 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
+                                    +{mod.optionName} {mod.price > 0 && `(${mod.price} ج.م)`}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {item.notes && (
+                            <div className="mr-8 text-[11px] text-amber-900 bg-amber-50 p-2 rounded-lg border border-amber-200 font-medium">
+                              <span className="font-black">ملاحظات على الصنف: </span>
+                              <span>{item.notes}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* ملاحظات العميل على الطلب (تظهر تحت الأصناف مباشرة في شاشة استقبال الطلب) */}
+                  {(dOrder.notes || dOrder.orderNotes) && (
+                    <div className="mt-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl shadow-xs">
+                      <div className="flex items-center gap-2 mb-1.5 text-amber-900 font-black text-xs sm:text-sm">
+                        <span className="text-base">📝</span>
+                        <span>ملاحظات العميل مع الطلب:</span>
+                      </div>
+                      <div className="bg-white/95 p-2.5 rounded-lg border border-amber-200/80 text-xs sm:text-sm font-black text-amber-950 leading-relaxed whitespace-pre-wrap select-text shadow-2xs">
+                        {dOrder.notes || dOrder.orderNotes}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Group Cart Details if present */}
+                {dOrder.groupCartDetails && (() => {
+                  try {
+                    const details = typeof dOrder.groupCartDetails === 'string' ? JSON.parse(dOrder.groupCartDetails) : dOrder.groupCartDetails;
+                    if (Array.isArray(details) && details.length > 0) {
+                      return (
+                        <div className="p-3.5 sm:p-4 rounded-2xl bg-purple-50 border border-purple-200 space-y-2.5 text-xs">
+                          <div className="flex items-center gap-2 font-black text-purple-900">
+                            <Users className="w-4 h-4 text-purple-700" />
+                            <span>تقسيم أكياس وحقائب الطلب الجماعي ({details.length} أفراد):</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {details.map((group: any, gIdx: number) => (
+                              <div key={gIdx} className="bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs">
+                                <div className="flex items-center justify-between font-black text-purple-800 border-b border-purple-50 pb-1 mb-1">
+                                  <span>🛍️ كيس: {group.studentName}</span>
+                                  {group.subtotal !== undefined && <span>{group.subtotal} ج.م</span>}
+                                </div>
+                                <div className="space-y-0.5 text-slate-600">
+                                  {(group.items || []).map((gi: any, giIdx: number) => (
+                                    <div key={giIdx} className="flex justify-between">
+                                      <span>{gi.quantity} × {gi.itemName} {gi.sizeName ? `(${gi.sizeName})` : ''}</span>
+                                      <span className="font-mono">{gi.totalPrice} ج.م</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  } catch (e) {
+                    return null;
+                  }
+                  return null;
+                })()}
+              </div>
+
+              {/* Left Column (Customer Info, Driver Assignment, Financial Summary) - 5 cols on lg */}
+              <div className="lg:col-span-5 space-y-3 sm:space-y-4">
+                {/* Customer Information Card */}
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0 border border-indigo-200/60 shadow-2xs">
+                        {(dOrder.customerName || 'ط').charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="block font-black text-slate-900 text-xs sm:text-sm leading-tight truncate">
+                          {dOrder.customerName || 'عميل'}
+                        </span>
+                        <span className="text-[11px] font-mono font-bold text-slate-500 mt-0.5 block" dir="ltr">
+                          {customerPhone || 'بدون رقم هاتف'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {customerPhone && (
+                        <>
+                          <a
+                            href={`tel:${customerPhone}`}
+                            className="p-1.5 sm:px-2 sm:py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs active:scale-95"
+                            title="اتصال"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="hidden sm:inline text-[11px]">اتصال</span>
+                          </a>
+                          <a
+                            href={`https://wa.me/${whatsappNumber}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 sm:px-2 sm:py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs active:scale-95"
+                            title="واتساب"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline text-[11px]">واتساب</span>
+                          </a>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCustomerCRM(dOrder, customerOrderCount)}
+                        className="p-1.5 sm:px-2 sm:py-1 text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 rounded-xl transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs"
+                        title="سجل وملاحظات العميل"
+                      >
+                        <User className="w-3.5 h-3.5 text-indigo-600" />
+                        <span className="hidden sm:inline text-[11px]">السجل ({customerOrderCount})</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {(dOrder.deliveryLocation || dOrder.deliveryZoneName || dOrder.addressText) && (
+                    <div className="bg-slate-50 border border-slate-200/80 p-2.5 rounded-xl text-xs flex items-center gap-2 text-slate-700">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span className="font-bold truncate">
+                        {dOrder.deliveryZoneName ? `${dOrder.deliveryZoneName} • ` : ''}
+                        {getDisplayAddress(dOrder.deliveryLocation || dOrder.addressText, 'موقع العميل')}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
             {/* Delivery Driver Assignment Section: Only shown after order is accepted AND orderType is DELIVERY */}
             {!isPending && dOrder.orderType === 'DELIVERY' && (
@@ -933,123 +1189,6 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             </div>
             )}
 
-            {/* Group Cart Details if present */}
-            {dOrder.groupCartDetails && (() => {
-              try {
-                const details = typeof dOrder.groupCartDetails === 'string' ? JSON.parse(dOrder.groupCartDetails) : dOrder.groupCartDetails;
-                if (Array.isArray(details) && details.length > 0) {
-                  return (
-                    <div className="p-4 rounded-3xl bg-purple-50 border border-purple-200 space-y-3 text-xs">
-                      <div className="flex items-center gap-2 font-black text-purple-900">
-                        <Users className="w-5 h-5 text-purple-700" />
-                        <span>تقسيم أكياس وحقائب الطلب الجماعي ({details.length} أفراد):</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {details.map((group: any, gIdx: number) => (
-                          <div key={gIdx} className="bg-white p-3 rounded-2xl border border-purple-100 shadow-2xs">
-                            <div className="flex items-center justify-between font-black text-purple-800 border-b border-purple-50 pb-1 mb-1.5">
-                              <span>🛍️ كيس: {group.studentName}</span>
-                              {group.subtotal !== undefined && <span>{group.subtotal} ج.م</span>}
-                            </div>
-                            <div className="space-y-1 text-slate-600">
-                              {(group.items || []).map((gi: any, giIdx: number) => (
-                                <div key={giIdx} className="flex justify-between">
-                                  <span>{gi.quantity} × {gi.itemName} {gi.sizeName ? `(${gi.sizeName})` : ''}</span>
-                                  <span className="font-mono">{gi.totalPrice} ج.م</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-              } catch (e) {
-                return null;
-              }
-              return null;
-            })()}
-
-            {/* Full Items Breakdown */}
-            <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-3.5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h4 className="text-xs font-black text-slate-800 flex items-center gap-2">
-                  <ShoppingBag className="w-4 h-4 text-indigo-600" />
-                  <span>الأصناف المطلوبة في الأوردر ({dOrder.items?.length || 0})</span>
-                </h4>
-              </div>
-
-              <div className="space-y-2.5">
-                {dOrder.items?.map((item: any, idx: number) => {
-                  const itemTitle = item.item?.name || item.itemName || 'صنف';
-                  return (
-                    <div key={idx} className="p-3.5 sm:p-4 bg-slate-50/70 hover:bg-slate-50 rounded-2xl border border-slate-200/80 text-xs shadow-2xs space-y-2 transition-colors">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-2.5 min-w-0">
-                          <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white font-mono font-black flex items-center justify-center shrink-0 shadow-xs text-xs">
-                            {item.quantity}×
-                          </span>
-                          <div className="min-w-0">
-                            <div className="font-black text-slate-900 text-sm sm:text-base leading-tight truncate">
-                              {itemTitle}
-                              {item.sizeName && (
-                                <span className="mr-2 text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-lg">
-                                  {item.sizeName}
-                                </span>
-                              )}
-                            </div>
-                            {item.itemPrice && (
-                              <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
-                                سعر القطعة: {item.itemPrice} ج.م
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <span className="font-mono font-black text-slate-900 text-sm sm:text-base shrink-0">
-                          {item.totalPrice} ج.م
-                        </span>
-                      </div>
-
-                      {item.modifiers && item.modifiers.length > 0 && (
-                        <div className="mr-9 pr-2 border-r-2 border-indigo-200 space-y-1">
-                          <span className="text-[10px] font-bold text-indigo-700 block">الإضافات والخيارات:</span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {item.modifiers.map((mod: any, mIdx: number) => (
-                              <span key={mIdx} className="text-[11px] bg-white text-slate-700 px-2.5 py-1 rounded-xl border border-slate-200 shadow-2xs">
-                                +{mod.optionName} {mod.price > 0 && `(${mod.price} ج.م)`}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {item.notes && (
-                        <div className="mr-9 text-[11px] text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200 font-medium">
-                          <span className="font-black">ملاحظات على الصنف: </span>
-                          <span>{item.notes}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* ملاحظات العميل على الطلب (تظهر تحت الأصناف مباشرة في شاشة استقبال الطلب) */}
-              {(dOrder.notes || dOrder.orderNotes) && (
-                <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl shadow-xs">
-                  <div className="flex items-center gap-2 mb-2 text-amber-900 font-black text-xs sm:text-sm">
-                    <span className="text-base sm:text-lg">📝</span>
-                    <span>ملاحظات العميل مع الطلب:</span>
-                  </div>
-                  <div className="bg-white/95 p-3 rounded-xl border border-amber-200/80 text-xs sm:text-sm font-black text-amber-950 leading-relaxed whitespace-pre-wrap select-text shadow-2xs">
-                    {dOrder.notes || dOrder.orderNotes}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Financial Summary & Payment */}
             <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-3 text-xs">
               <div className="flex justify-between items-center text-slate-600 border-b border-slate-100 pb-2.5">
@@ -1188,6 +1327,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        </div>
 
             {/* Action Controls Bar (Sticky Floating Card at bottom) */}
             <div className="p-3 sm:p-3.5 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] flex items-center justify-between gap-2.5 sticky bottom-2.5 sm:bottom-4 z-30">
@@ -1208,24 +1349,25 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        setAcceptingOrder(dOrder);
-                        setPrepMinutes(15);
-                        setAcceptDriverId(dOrder.driverId || '');
+                        setRejectingOrder(dOrder);
+                        setRejectionReason('نفاد المكونات المطلوبة');
                       }}
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
+                      className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors active:scale-95 flex items-center gap-1"
                     >
-                      <Check className="w-4 h-4" />
-                      <span>قبول وبدء التجهيز</span>
+                      <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                      <span>رفض الطلب</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        setRejectingOrder(dOrder);
-                        setRejectionReason('نفاد المكونات المطلوبة');
+                        setAcceptingOrder(dOrder);
+                        setPrepMinutes(15);
+                        setAcceptDriverId(dOrder.driverId || '');
                       }}
-                      className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition-colors"
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/30 transition-all active:scale-95 flex items-center gap-1.5"
                     >
-                      رفض الطلب
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>قبول وبدء التجهيز</span>
                     </button>
                   </>
                 )}
@@ -1672,6 +1814,34 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         </div>
                       );
                     })()}
+
+                    {/* Quick Acceptance Action Buttons on Card for PENDING orders */}
+                    {isPending && (
+                      <div className="pt-2 flex items-center gap-1.5 border-t border-amber-200/80" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAcceptingOrder(order);
+                            setPrepMinutes(15);
+                            setAcceptDriverId(order.driverId || '');
+                          }}
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-1 active:scale-95 transition-all"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>قبول وبدء التجهيز</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRejectingOrder(order);
+                            setRejectionReason('نفاد المكونات المطلوبة');
+                          }}
+                          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold active:scale-95 transition-all"
+                        >
+                          رفض
+                        </button>
+                      </div>
+                    )}
 
                     {/* 4. Footer link to open */}
                     <div className="pt-1 flex items-center justify-between text-[11px] font-black text-indigo-600 group-hover:text-indigo-700 border-t border-slate-100">
