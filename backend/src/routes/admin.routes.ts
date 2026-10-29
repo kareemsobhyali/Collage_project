@@ -516,6 +516,11 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
       requirePaymentProof,
     } = req.body;
 
+    // التأكد التلقائي من وجود عمود requirePaymentProof في قاعدة البيانات لتفادي أي خطأ
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "requirePaymentProof" BOOLEAN NOT NULL DEFAULT true;`
+    ).catch(() => {});
+
     const updatedConfig = await prisma.branchPaymentConfig.upsert({
       where: { branchId: id },
       update: {

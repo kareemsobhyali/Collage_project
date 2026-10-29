@@ -562,6 +562,11 @@ router.get("/flash-deals", async (_req: Request, res: Response) => {
 // 1. استعراض الفروع النشطة للطلاب (شامل مؤشر زحمة المطبخ الحي + تقييمات الطلاب)
 router.get("/branches", async (_req: Request, res: Response) => {
   try {
+    // التأكد التلقائي من وجود عمود requirePaymentProof لتفادي أي خطأ 500 في السيرفر السحابي
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "requirePaymentProof" BOOLEAN NOT NULL DEFAULT true;`
+    ).catch(() => {});
+
     const [branches, activeOrderCounts, ratingAggregates] = await Promise.all([
       prisma.branch.findMany({
         where: { isActive: true },

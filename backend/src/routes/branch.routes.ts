@@ -275,18 +275,28 @@ router.put("/payment-methods", async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
     const {
+      cashEnabled,
       vodafoneCashEnabled,
+      vodafoneCashNumber,
       instapayEnabled,
+      instapayHandle,
       cardEnabled,
       requirePaymentProof,
     } = req.body;
+
+    // التأكد التلقائي من وجود عمود requirePaymentProof في قاعدة البيانات
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "requirePaymentProof" BOOLEAN NOT NULL DEFAULT true;`
+    ).catch(() => {});
 
     const updatedConfig = await prisma.branchPaymentConfig.upsert({
       where: { branchId },
       update: {
         cashEnabled: true, // الدفع كاش إجباري دائم في كل المطاعم ولا يمكن إيقافه
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : undefined,
+        vodafoneCashNumber: vodafoneCashNumber !== undefined ? (vodafoneCashNumber ? String(vodafoneCashNumber).trim() : null) : undefined,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : undefined,
+        instapayHandle: instapayHandle !== undefined ? (instapayHandle ? String(instapayHandle).trim() : null) : undefined,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : undefined,
         requirePaymentProof: (requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : undefined) as any,
       },
@@ -294,7 +304,9 @@ router.put("/payment-methods", async (req: AuthRequest, res: Response) => {
         branchId,
         cashEnabled: true, // إجباري دائم
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : false,
+        vodafoneCashNumber: vodafoneCashNumber ? String(vodafoneCashNumber).trim() : null,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : false,
+        instapayHandle: instapayHandle ? String(instapayHandle).trim() : null,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : false,
         requirePaymentProof: (requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : true) as any,
       },

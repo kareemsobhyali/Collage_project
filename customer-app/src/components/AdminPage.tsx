@@ -2913,6 +2913,16 @@ export const AdminPage: React.FC = () => {
     e.preventDefault();
     if (!editingPaymentBranch) return;
 
+    if (vodafoneCashEnabled && !vodafoneCashNumber.trim()) {
+      alert('يرجى كتابة رقم فودافون كاش أو إلغاء تفعيلها');
+      return;
+    }
+
+    if (instapayEnabled && !instapayHandle.trim()) {
+      alert('يرجى كتابة معرف إنستاباي أو إلغاء تفعيلها');
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/admin/branches/${editingPaymentBranch.id}/payment-methods`, {
         method: 'PUT',
@@ -2927,7 +2937,8 @@ export const AdminPage: React.FC = () => {
           requirePaymentProof,
         }),
       });
-      if (!res.ok) throw new Error('فشل حفظ طرق الدفع');
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || data?.message || 'فشل حفظ طرق الدفع');
       setEditingPaymentBranch(null);
       fetchDashboardData();
     } catch (err: any) {

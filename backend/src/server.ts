@@ -654,6 +654,13 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "BranchBlockedCustomer" ADD COLUMN IF NOT EXISTS "notes" TEXT;`,
       `ALTER TABLE "GroupCart" ADD COLUMN IF NOT EXISTS "hostToken" TEXT;`,
       `ALTER TABLE "GroupCartItem" ADD COLUMN IF NOT EXISTS "deleteKey" TEXT;`,
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "requirePaymentProof" BOOLEAN NOT NULL DEFAULT true;`,
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "vodafoneCashNumber" TEXT;`,
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "instapayHandle" TEXT;`,
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "cashEnabled" BOOLEAN DEFAULT true;`,
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "vodafoneCashEnabled" BOOLEAN DEFAULT false;`,
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "instapayEnabled" BOOLEAN DEFAULT false;`,
+      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "cardEnabled" BOOLEAN DEFAULT false;`,
       `CREATE UNIQUE INDEX IF NOT EXISTS "BranchBlockedCustomer_branchId_userId_key" ON "BranchBlockedCustomer"("branchId", "userId");`,
       `CREATE INDEX IF NOT EXISTS "BranchBlockedCustomer_branchId_idx" ON "BranchBlockedCustomer"("branchId");`,
       `CREATE INDEX IF NOT EXISTS "BranchBlockedCustomer_userId_idx" ON "BranchBlockedCustomer"("userId");`
