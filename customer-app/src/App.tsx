@@ -338,21 +338,25 @@ export function App() {
     showExitAppDialog
   );
 
+  const lockedScrollYRef = useRef<number>(0);
+
   useEffect(() => {
     if (isAnyModalOpen) {
-      document.documentElement.classList.add('modal-open');
+      lockedScrollYRef.current = window.scrollY || document.documentElement.scrollTop || 0;
       document.body.classList.add('modal-open');
       document.body.style.overflow = 'hidden';
       document.body.style.overscrollBehavior = 'none';
     } else {
-      document.documentElement.classList.remove('modal-open');
       document.body.classList.remove('modal-open');
       document.body.style.overflow = '';
       document.body.style.overscrollBehavior = '';
+      const targetY = lockedScrollYRef.current;
+      if (targetY > 0 && Math.abs((window.scrollY || 0) - targetY) > 2) {
+        window.scrollTo({ top: targetY, behavior: 'instant' as ScrollBehavior });
+      }
     }
 
     return () => {
-      document.documentElement.classList.remove('modal-open');
       document.body.classList.remove('modal-open');
       document.body.style.overflow = '';
       document.body.style.overscrollBehavior = '';
@@ -1231,30 +1235,15 @@ export function App() {
   const restoreItemScroll = () => {
     if (typeof window === 'undefined') return;
     const savedYStr = sessionStorage.getItem('unifood_last_item_scroll_y');
-    const savedItemId = sessionStorage.getItem('unifood_last_item_id') || savedItemIdRef.current;
     const savedY = savedYStr ? parseInt(savedYStr, 10) : savedItemScrollYRef.current;
 
     const performRestore = () => {
-      if (savedY > 0) {
-        window.scrollTo({ top: savedY, behavior: 'instant' });
-        document.documentElement.scrollTop = savedY;
-        document.body.scrollTop = savedY;
-      }
-      if (savedItemId) {
-        const el = document.getElementById(`menu-item-card-${savedItemId}`);
-        if (el) {
-          el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
-        }
+      if (savedY >= 0 && Math.abs((window.scrollY || 0) - savedY) > 2) {
+        window.scrollTo({ top: savedY, behavior: 'instant' as ScrollBehavior });
       }
     };
 
-    performRestore();
-    requestAnimationFrame(() => {
-      performRestore();
-      setTimeout(performRestore, 40);
-      setTimeout(performRestore, 120);
-      setTimeout(performRestore, 250);
-    });
+    requestAnimationFrame(performRestore);
   };
 
   const handleAddToCart = async (itemToAdd: any) => {
@@ -1278,7 +1267,6 @@ export function App() {
       }
     }
     setCart([...cart, { ...itemToAdd, branchId: selectedBranch.id }]);
-    restoreItemScroll();
   };
 
   const handleReorder = async (order: any) => {

@@ -75,7 +75,8 @@ import {
   Zap,
   Copy,
   ExternalLink,
-  Crosshair
+  Crosshair,
+  ArrowUpDown
 } from 'lucide-react';
 
 
@@ -86,6 +87,7 @@ import { Logo } from './Logo';
 import { cleanAddressText, getDisplayAddress, extractCoordinatesFromAddress, formatAddressWithCoordinates, CAMPUS_LANDMARKS, setStoredRestaurantCoords, type CampusLandmark, extractZoneGeo, cleanZoneName, formatZoneWithGeo, type DirectionalCoverage, formatDistance, isCustomerWithinZoneGeo } from '../services/campusLocations';
 import { LocationPickerModal } from './LocationPickerModal';
 import { BulkMenuImportModal } from './BulkMenuImportModal';
+import { AdminMenuReorderModal } from './AdminMenuReorderModal';
 const QUICK_ADMIN_CANCEL_REASONS = [
   'المطعم مغلق حالياً',
   'نفاد الكمية في المطعم',
@@ -399,6 +401,7 @@ export const AdminPage: React.FC = () => {
   const [loadingBranchBlocked, setLoadingBranchBlocked] = useState(false);
   const [unblockingBranchUserId, setUnblockingBranchUserId] = useState<string | null>(null);
   const [bulkImportBranch, setBulkImportBranch] = useState<any | null>(null);
+  const [reorderMenuBranch, setReorderMenuBranch] = useState<any | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
   const [adminCancellingOrder, setAdminCancellingOrder] = useState<any | null>(null);
   const [adminCancelReason, setAdminCancelReason] = useState<string>('');
@@ -472,6 +475,7 @@ export const AdminPage: React.FC = () => {
     showAddFlashDealModal ||
     showAddDriverModal ||
     editingDriver ||
+    reorderMenuBranch ||
     showAdminExitDialog
   );
 
@@ -3736,6 +3740,16 @@ export const AdminPage: React.FC = () => {
                         >
                           <FileSpreadsheet className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
                           <span>استيراد منيو</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setReorderMenuBranch(branch)}
+                          className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-800 rounded-xl text-xs font-bold transition-all border border-indigo-200 shadow-2xs active:scale-95 cursor-pointer"
+                          title="التحكم في ترتيب عرض الأقسام والأصناف داخل منيو هذا المطعم"
+                        >
+                          <ArrowUpDown className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
+                          <span>ترتيب المنيو</span>
                         </button>
 
                         <button
@@ -10656,6 +10670,17 @@ export const AdminPage: React.FC = () => {
         onClose={() => setBulkImportBranch(null)}
         onSuccess={() => {
           setBulkImportBranch(null);
+          fetchDashboardData();
+        }}
+      />
+
+      {/* D3. Menu Reorder Modal (Categories & Items Display Order) */}
+      <AdminMenuReorderModal
+        branch={reorderMenuBranch}
+        branches={branches}
+        isOpen={!!reorderMenuBranch}
+        onClose={() => setReorderMenuBranch(null)}
+        onSuccess={() => {
           fetchDashboardData();
         }}
       />

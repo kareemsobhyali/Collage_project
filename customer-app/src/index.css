@@ -17,7 +17,6 @@ body,
   background-color: #f8fafc;
   color: #0f172a;
   -webkit-tap-highlight-color: transparent;
-  scroll-behavior: smooth;
   min-height: 100%;
 }
 
@@ -26,13 +25,9 @@ body {
   position: relative;
 }
 
-html.modal-open,
 body.modal-open {
   overflow: hidden !important;
-  height: 100% !important;
-  max-height: 100dvh !important;
   overscroll-behavior: none !important;
-  touch-action: none;
 }
 
 /* تحسين السكرول في الهواتف وحاويات النوافذ المنبثقة */

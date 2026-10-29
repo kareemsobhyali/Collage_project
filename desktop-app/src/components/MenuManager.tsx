@@ -14,13 +14,17 @@ import {
   FileSpreadsheet,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
 import { ConfirmModal } from './ConfirmModal';
 import { BulkMenuImportModal } from './BulkMenuImportModal';
 import { BulkItemEditorModal } from './BulkItemEditorModal';
+import { MenuReorderModal } from './MenuReorderModal';
 import { useLockBodyScroll } from '../utils/scrollLock';
 
 interface MenuManagerProps {
@@ -38,6 +42,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   
   // Category Form Modal
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [categoryName, setCategoryName] = useState('');
   
   // Item Form Modal
@@ -48,6 +53,12 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
 
   // Bulk Items Full Editor Modal (تعديل سريع لكافة الأصناف)
   const [showBulkEditorModal, setShowBulkEditorModal] = useState(false);
+
+  // نافذة ترتيب عرض الأقسام والأصناف
+  const [showReorderModal, setShowReorderModal] = useState(false);
+  const [reorderInitialTab, setReorderInitialTab] = useState<'CATEGORIES' | 'ITEMS'>('CATEGORIES');
+  const [reorderCategoryId, setReorderCategoryId] = useState<string | undefined>(undefined);
+  const [reorderingBusy, setReorderingBusy] = useState(false);
 
   // الأقسام المطوية (المغلقة) لتسهيل التصفح وعدم بقاء كل الأقسام مفتوحة
   const [collapsedCategoryIds, setCollapsedCategoryIds] = useState<Set<string>>(new Set());
@@ -75,7 +86,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     setCollapsedCategoryIds(new Set());
   };
 
-  useLockBodyScroll(showCategoryModal || showItemModal || showBulkImportModal || showBulkEditorModal || !!confirmDelete);
+  useLockBodyScroll(showCategoryModal || showItemModal || showBulkImportModal || showBulkEditorModal || showReorderModal || !!confirmDelete);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [itemName, setItemName] = useState('');
   const [itemCategoryId, setItemCategoryId] = useState('');
@@ -144,28 +155,20 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     setShowItemModal(true);
   };
 
-  // استعادة موضع السكرول ومكان الصنف تلقائياً عند إغلاق النافذة أو بعد حفظ التعديلات
+  // استعادة موضع السكرول مرة واحدة فقط بعد إغلاق نافذة إضافة/تعديل الصنف ثم مسح الموضع المحفوظ
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || showItemModal) return;
     const savedYStr = sessionStorage.getItem('desktop_menu_scroll_y');
     if (!savedYStr) return;
+    sessionStorage.removeItem('desktop_menu_scroll_y');
+    sessionStorage.removeItem('desktop_menu_item_id');
     const y = parseInt(savedYStr, 10);
     if (!isNaN(y) && y > 0) {
       requestAnimationFrame(() => {
-        window.scrollTo({ top: y, behavior: 'instant' });
-        setTimeout(() => {
-          window.scrollTo({ top: y, behavior: 'instant' });
-          const savedItemId = sessionStorage.getItem('desktop_menu_item_id');
-          if (savedItemId) {
-            const el = document.getElementById(`menu-item-${savedItemId}`);
-            if (el) {
-              el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-            }
-          }
-        }, 50);
+        window.scrollTo({ top: y, behavior: 'instant' as ScrollBehavior });
       });
     }
-  }, [categories, showItemModal]);
+  }, [showItemModal]);
 
   // رفع صورة للصنف
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,7 +187,14 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     }
   };
 
-  // حفظ قسم جديد
+  // فتح نافذة تعديل اسم القسم
+  const handleOpenEditCategory = (cat: any) => {
+    setEditingCategory(cat);
+    setCategoryName(cat.name || '');
+    setShowCategoryModal(true);
+  };
+
+  // حفظ قسم (جديد أو تعديل)
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoryName.trim()) {
@@ -192,13 +202,68 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
       return;
     }
     try {
-      await api.createCategory(categoryName.trim());
+      if (editingCategory) {
+        await api.updateCategory(editingCategory.id, categoryName.trim(), editingCategory.displayOrder ?? 0);
+        toast.success('تم تعديل اسم القسم بنجاح');
+      } else {
+        await api.createCategory(categoryName.trim());
+        toast.success('تمت إضافة قسم المنيو بنجاح');
+      }
+      setEditingCategory(null);
       setCategoryName('');
       setShowCategoryModal(false);
-      toast.success('تمت إضافة قسم المنيو بنجاح');
       onRefresh();
     } catch (err: any) {
-      toast.error(err.message || 'فشل إضافة القسم');
+      toast.error(err.message || 'فشل حفظ القسم');
+    }
+  };
+
+  // تحريك سريع لقسم للأعلى أو للأسفل بضغطة واحدة
+  const handleQuickMoveCategory = async (catId: string, delta: -1 | 1) => {
+    if (reorderingBusy) return;
+    const idx = categories.findIndex((c) => c.id === catId);
+    if (idx < 0) return;
+    const targetIdx = idx + delta;
+    if (targetIdx < 0 || targetIdx >= categories.length) return;
+
+    const nextIds = categories.map((c) => c.id);
+    const [moved] = nextIds.splice(idx, 1);
+    nextIds.splice(targetIdx, 0, moved);
+
+    try {
+      setReorderingBusy(true);
+      await api.reorderMenu({ categoryIds: nextIds });
+      toast.success('تم تحديث ترتيب القسم');
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تحديث ترتيب القسم');
+    } finally {
+      setReorderingBusy(false);
+    }
+  };
+
+  // تحريك سريع لصنف داخل القسم للأعلى أو للأسفل بضغطة واحدة
+  const handleQuickMoveItem = async (cat: any, itemId: string, delta: -1 | 1) => {
+    if (reorderingBusy) return;
+    const list: any[] = Array.isArray(cat.items) ? cat.items : [];
+    const idx = list.findIndex((it) => it.id === itemId);
+    if (idx < 0) return;
+    const targetIdx = idx + delta;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+
+    const nextIds = list.map((it) => it.id);
+    const [moved] = nextIds.splice(idx, 1);
+    nextIds.splice(targetIdx, 0, moved);
+
+    try {
+      setReorderingBusy(true);
+      await api.reorderMenu({ itemsByCategory: { [cat.id]: nextIds } });
+      toast.success('تم تحديث ترتيب الصنف');
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تحديث ترتيب الصنف');
+    } finally {
+      setReorderingBusy(false);
     }
   };
 
@@ -380,6 +445,22 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
             </button>
           )}
 
+          {categories.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setReorderInitialTab(activeCategoryId !== 'ALL' ? 'ITEMS' : 'CATEGORIES');
+                setReorderCategoryId(activeCategoryId !== 'ALL' ? activeCategoryId : categories[0]?.id);
+                setShowReorderModal(true);
+              }}
+              className="flex-1 lg:flex-initial h-9 flex items-center justify-center gap-1.5 px-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all shadow-sm whitespace-nowrap cursor-pointer active:scale-95"
+              title="التحكم في ترتيب ظهور الأقسام وترتيب الأصناف داخل كل قسم في منيو العملاء"
+            >
+              <ArrowUpDown className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span>ترتيب الأقسام والأصناف</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setShowBulkEditorModal(true)}
@@ -401,7 +482,11 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
           </button>
           <button
             type="button"
-            onClick={() => setShowCategoryModal(true)}
+            onClick={() => {
+              setEditingCategory(null);
+              setCategoryName('');
+              setShowCategoryModal(true);
+            }}
             className="flex-1 lg:flex-initial h-9 flex items-center justify-center gap-1.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors whitespace-nowrap"
           >
             <FolderPlus className="w-4 h-4 text-indigo-600 shrink-0" />
@@ -447,17 +532,23 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
         <div className="space-y-6">
           {displayedCategories.map(cat => {
             const isCollapsed = collapsedCategoryIds.has(cat.id);
+            const catGlobalIdx = categories.findIndex((c) => c.id === cat.id);
             return (
               <div key={cat.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs transition-all">
                 {/* Collapsible Category Header */}
                 <div 
                   onClick={() => toggleCategoryCollapse(cat.id)}
-                  className="flex items-center justify-between p-3.5 sm:p-4 bg-slate-50/80 hover:bg-slate-100/80 transition-colors cursor-pointer select-none border-b border-slate-100"
+                  className="flex flex-wrap items-center justify-between gap-2 p-3.5 sm:p-4 bg-slate-50/80 hover:bg-slate-100/80 transition-colors cursor-pointer select-none border-b border-slate-100"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-transform shrink-0 ${isCollapsed ? '-rotate-90 text-slate-400 bg-slate-200/60' : 'text-indigo-600 bg-indigo-100/60'}`}>
                       <ChevronDown className="w-4 h-4" />
                     </div>
+                    {catGlobalIdx >= 0 && (
+                      <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono text-xs font-black shrink-0" title="ترتيب ظهور القسم في المنيو">
+                        #{catGlobalIdx + 1}
+                      </span>
+                    )}
                     <h3 className="text-base font-black text-slate-800 flex items-center gap-2 truncate">
                       <span>{cat.name}</span>
                       <span className="text-xs text-slate-400 font-normal">({cat.items?.length || 0} صنف)</span>
@@ -469,7 +560,52 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    {categories.length > 1 && (
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+                        <button
+                          type="button"
+                          disabled={reorderingBusy || catGlobalIdx <= 0}
+                          onClick={() => handleQuickMoveCategory(cat.id, -1)}
+                          className="p-1 rounded text-slate-600 hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          title="تقديم القسم للأعلى في العرض"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reorderingBusy || catGlobalIdx < 0 || catGlobalIdx >= categories.length - 1}
+                          onClick={() => handleQuickMoveCategory(cat.id, 1)}
+                          className="p-1 rounded text-slate-600 hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          title="تأخير القسم للأسفل في العرض"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    {(cat.items?.length || 0) > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReorderInitialTab('ITEMS');
+                          setReorderCategoryId(cat.id);
+                          setShowReorderModal(true);
+                        }}
+                        className="px-2.5 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-200 cursor-pointer flex items-center gap-1"
+                        title={`ترتيب الأصناف داخل قسم "${cat.name}"`}
+                      >
+                        <ArrowUpDown className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">ترتيب الأصناف</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditCategory(cat)}
+                      className="px-2 py-1 text-xs font-bold text-slate-600 hover:text-indigo-700 bg-white hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer"
+                      title="تعديل اسم القسم"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => toggleCategoryCollapse(cat.id)}
@@ -498,7 +634,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {cat.items?.map((item: any) => (
+                        {cat.items?.map((item: any, itemIdx: number) => (
                   <div
                     key={item.id}
                     id={`menu-item-${item.id}`}
@@ -520,8 +656,16 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                             <ImageIcon className="w-6 h-6" />
                           </div>
                         )}
-                        <div className="flex-1">
-                          <h4 className="font-black text-sm text-slate-900">{item.name}</h4>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <h4 className="font-black text-sm text-slate-900">{item.name}</h4>
+                            <span
+                              className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-mono text-[10px] font-black shrink-0"
+                              title="ترتيب الصنف داخل القسم"
+                            >
+                              #{itemIdx + 1}
+                            </span>
+                          </div>
                           <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{item.description}</p>
                           <div className="text-sm font-black text-indigo-700 mt-1">
                             {item.basePrice} ج.م
@@ -585,6 +729,28 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                         </button>
 
                         <div className="flex items-center gap-1">
+                          {(cat.items?.length || 0) > 1 && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={reorderingBusy || itemIdx <= 0}
+                                onClick={() => handleQuickMoveItem(cat, item.id, -1)}
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                title="تقديم الصنف في الترتيب داخل القسم"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={reorderingBusy || itemIdx >= (cat.items?.length || 1) - 1}
+                                onClick={() => handleQuickMoveItem(cat, item.id, 1)}
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                title="تأخير الصنف في الترتيب داخل القسم"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleCopyItemLink(item)}
@@ -650,15 +816,20 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
 </div>
 )}
 
-      {/* Modal: Add Category */}
+      {/* Modal: Add/Edit Category */}
       {showCategoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl w-full max-w-sm p-5 sm:p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <h3 className="text-sm sm:text-base font-black text-slate-800">إضافة قسم منيو جديد</h3>
+              <h3 className="text-sm sm:text-base font-black text-slate-800">
+                {editingCategory ? 'تعديل اسم القسم' : 'إضافة قسم منيو جديد'}
+              </h3>
               <button
                 type="button"
-                onClick={() => setShowCategoryModal(false)}
+                onClick={() => {
+                  setEditingCategory(null);
+                  setShowCategoryModal(false);
+                }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -1052,6 +1223,18 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
         onClose={() => setShowBulkEditorModal(false)}
         onSuccess={() => {
           setShowBulkEditorModal(false);
+          onRefresh();
+        }}
+      />
+
+      {/* نافذة ترتيب عرض الأقسام والأصناف */}
+      <MenuReorderModal
+        isOpen={showReorderModal}
+        categories={categories}
+        initialTab={reorderInitialTab}
+        initialCategoryId={reorderCategoryId}
+        onClose={() => setShowReorderModal(false)}
+        onSuccess={() => {
           onRefresh();
         }}
       />

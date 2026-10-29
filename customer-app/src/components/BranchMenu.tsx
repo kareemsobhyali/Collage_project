@@ -141,10 +141,11 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   const isTouching = useRef<boolean>(false);
   const isNormalizing = useRef<boolean>(false);
   const isProgrammaticScroll = useRef<boolean>(false);
+  const hasInitializedKeyRef = useRef<string | null>(null);
   const normalizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const programmaticScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // إعادة المحاذاة غير المرئية إلى المجموعة المركزية بدون أي قفز بصري
+  // إعادة المحاذاة غير المرئية إلى المجموعة المركزية بدون أي قفز بصري أو تحريك تلقائي
   const normalizeToMiddleSet = (fromIndex?: number) => {
     if (items.length <= 1 || isTouching.current || isProgrammaticScroll.current) return;
     const container = scrollRef.current;
@@ -169,9 +170,12 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
 
       if (Math.abs(diff) > 2) {
         isNormalizing.current = true;
-        container.scrollLeft += diff;
+        const prevSnap = container.style.scrollSnapType;
+        container.style.scrollSnapType = 'none';
+        container.scrollTo({ left: container.scrollLeft + diff, behavior: 'instant' as ScrollBehavior });
         setActiveIndex(targetCardIdx);
         requestAnimationFrame(() => {
+          container.style.scrollSnapType = prevSnap;
           isNormalizing.current = false;
         });
       }
@@ -185,9 +189,11 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
     }, 450);
   };
 
-  // تهيئة المسار إلى المجموعة المركزية فور التحميل
+  // تهيئة المسار إلى المجموعة المركزية مرة واحدة فقط فور التحميل بدون إعادة تحريك عند تحديث السلة
   useEffect(() => {
     if (items.length <= 1) return;
+    const initKey = `${category.id}-${items.length}-${middleSetStartIndex}`;
+    if (hasInitializedKeyRef.current === initKey) return;
     const container = scrollRef.current;
     if (!container) return;
 
@@ -195,21 +201,27 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
       const cards = container.querySelectorAll('[data-carousel-card="true"]');
       const targetCard = cards[middleSetStartIndex] as HTMLElement | undefined;
       if (targetCard) {
+        hasInitializedKeyRef.current = initKey;
         const containerWidth = container.clientWidth;
         const cardWidth = targetCard.offsetWidth;
         const targetLeft = targetCard.offsetLeft - (containerWidth / 2 - cardWidth / 2);
         isNormalizing.current = true;
-        container.scrollLeft = targetLeft;
+        const prevSnap = container.style.scrollSnapType;
+        container.style.scrollSnapType = 'none';
+        container.scrollTo({ left: targetLeft, behavior: 'instant' as ScrollBehavior });
         setActiveIndex(middleSetStartIndex);
-        setTimeout(() => {
-          isNormalizing.current = false;
-        }, 100);
+        requestAnimationFrame(() => {
+          container.style.scrollSnapType = prevSnap;
+          setTimeout(() => {
+            isNormalizing.current = false;
+          }, 80);
+        });
       }
     };
 
-    const timer = setTimeout(initPos, 80);
+    const timer = setTimeout(initPos, 50);
     return () => clearTimeout(timer);
-  }, [items.length, middleSetStartIndex]);
+  }, [category.id, items.length, middleSetStartIndex]);
 
   // مراقبة السكرول وتحديث البطاقة النشطة بدقة
   const handleScroll = () => {
@@ -334,18 +346,19 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
           isTouching.current = false;
           scheduleNormalization();
         }}
-        className="flex items-stretch gap-3 overflow-x-auto no-scrollbar py-2 px-1 scroll-smooth snap-x snap-mandatory"
+        className="flex items-stretch gap-3 overflow-x-auto no-scrollbar py-2 px-1 snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {displayCards.map(({ item, uniqueKey }, idx) => {
           const isItemActive = idx === activeIndex;
           const isFav = favItemIds.includes(item.id);
+          const isMiddleCopy = items.length <= 1 || Math.floor(idx / items.length) === middleSetIndex;
 
           return (
             <div
               key={uniqueKey}
               data-carousel-card="true"
-              id={`menu-item-card-${item.id}`}
+              id={isMiddleCopy ? `menu-item-card-${item.id}` : undefined}
               onClick={() => onItemClick(item)}
               className={`snap-center shrink-0 w-[240px] sm:w-[260px] bg-white rounded-3xl p-3 border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none group relative ${
                 isItemActive

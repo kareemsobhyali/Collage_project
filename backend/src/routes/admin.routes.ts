@@ -502,6 +502,91 @@ router.post("/branches/:id/menu/import-bulk", async (req: AuthRequest, res: Resp
   }
 });
 
+// جلب منيو فرع كامل (بما في ذلك الأصناف المتوقفة مؤقتاً) لغرض الترتيب والإدارة من لوحة التحكم
+router.get("/branches/:id/menu", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.params.id as string;
+    const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+    if (!branch) {
+      res.status(404).json({ error: "المطعم غير موجود" });
+      return;
+    }
+
+    const categories = await prisma.menuCategory.findMany({
+      where: { branchId },
+      include: {
+        items: {
+          orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
+          include: { sizes: true },
+        },
+      },
+      orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
+    });
+
+    res.json({ branch, categories });
+  } catch (error) {
+    console.error("Admin get branch menu error:", error);
+    res.status(500).json({ error: "فشل جلب منيو المطعم" });
+  }
+});
+
+// إعادة ترتيب عرض الأقسام والأصناف لفرع محدد من لوحة الإدارة
+router.put("/branches/:id/menu/reorder", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.params.id as string;
+    const { categoryIds, itemsByCategory } = req.body as {
+      categoryIds?: string[];
+      itemsByCategory?: Record<string, string[]>;
+    };
+
+    const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+    if (!branch) {
+      res.status(404).json({ error: "المطعم غير موجود" });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+        for (let idx = 0; idx < categoryIds.length; idx++) {
+          await tx.menuCategory.updateMany({
+            where: { id: String(categoryIds[idx]), branchId },
+            data: { displayOrder: idx },
+          });
+        }
+      }
+
+      if (itemsByCategory && typeof itemsByCategory === "object") {
+        const validCategories = await tx.menuCategory.findMany({
+          where: { branchId },
+          select: { id: true },
+        });
+        const validCatSet = new Set(validCategories.map((c) => c.id));
+
+        for (const [catId, itemIds] of Object.entries(itemsByCategory)) {
+          if (!Array.isArray(itemIds)) continue;
+          const isValidTargetCat = validCatSet.has(catId);
+          for (let idx = 0; idx < itemIds.length; idx++) {
+            await tx.menuItem.updateMany({
+              where: { id: String(itemIds[idx]), branchId },
+              data: {
+                displayOrder: idx,
+                ...(isValidTargetCat ? { categoryId: catId } : {}),
+              },
+            });
+          }
+        }
+      }
+    });
+
+    notifyBranchMenuChanged(branchId);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Admin reorder branch menu error:", error);
+    res.status(500).json({ error: "فشل حفظ ترتيب المنيو" });
+  }
+});
+
 // ضبط وتخصيص طرق الدفع المتاحة لكل فرع
 router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Response) => {
   try {

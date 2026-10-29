@@ -275,6 +275,17 @@ export const api = {
     return data;
   },
 
+  async reorderMenu(payload: { categoryIds?: string[]; itemsByCategory?: Record<string, string[]> }) {
+    const res = await fetch(`${API_BASE_URL}/branch/menu/reorder`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ ترتيب الأقسام والأصناف');
+    return data;
+  },
+
   // الأصناف
   async createItem(itemData: any) {
     const res = await fetch(`${API_BASE_URL}/branch/items`, {

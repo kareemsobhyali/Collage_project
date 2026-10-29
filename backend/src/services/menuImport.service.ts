@@ -223,6 +223,16 @@ export async function importBulkMenu(
       categoriesCreated++;
     }
 
+    // تحديد الترتيب التالي لأصناف هذا القسم للحفاظ على نفس تسلسل ملف الاستيراد
+    const existingItemMax = await prisma.menuItem.aggregate({
+      where: { categoryId: categoryRecord.id },
+      _max: { displayOrder: true },
+    });
+    let nextItemOrder =
+      existingItemMax._max.displayOrder !== null && existingItemMax._max.displayOrder !== undefined
+        ? existingItemMax._max.displayOrder + 1
+        : 0;
+
     // إنشاء أصناف هذا القسم
     for (const item of catItems) {
       const cleanName = (item.name || "").trim();
@@ -245,6 +255,7 @@ export async function importBulkMenu(
           description: item.description ? String(item.description).trim() : null,
           basePrice,
           imageUrl: item.imageUrl || null,
+          displayOrder: nextItemOrder++,
           isAvailable: true,
           sizes: validSizes.length > 0 ? {
             create: validSizes.map((s) => ({

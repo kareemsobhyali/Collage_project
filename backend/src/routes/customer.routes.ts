@@ -219,10 +219,12 @@ const getApkMetaHandler = async (req: Request, res: Response) => {
       },
       include: {
         categories: {
+          orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
           take: 3,
           include: {
             items: {
               where: { isAvailable: true },
+              orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
               take: 4
             }
           }
@@ -705,6 +707,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         include: {
           items: {
             where: { isAvailable: true },
+            orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
             include: {
               sizes: true,
               modifierGroupLinks: {
@@ -721,7 +724,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
             },
           },
         },
-        orderBy: { displayOrder: "asc" },
+        orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
       }),
       prisma.order.count({
         where: {

@@ -113,6 +113,7 @@ model MenuItem {
   description        String?
   basePrice          Float
   imageUrl           String?
+  displayOrder       Int                     @default(0)
   isAvailable        Boolean                 @default(true)
   unavailableUntil   DateTime?               // موعد إعادة التفعيل التلقائي في حال النفاد المؤقت
   comboItems         String?                 // JSON: عروض كومبو أو مكملات مقترحة
@@ -122,6 +123,7 @@ model MenuItem {
 
   @@index([branchId])
   @@index([categoryId])
+  @@index([displayOrder])
   @@index([isAvailable])
 }
 

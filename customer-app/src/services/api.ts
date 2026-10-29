@@ -617,6 +617,29 @@ export const api = {
     return data;
   },
 
+  async getAdminBranchMenu(branchId: string) {
+    const res = await fetch(`${API_BASE_URL}/admin/branches/${branchId}/menu`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب منيو المطعم');
+    return data;
+  },
+
+  async reorderAdminBranchMenu(
+    branchId: string,
+    payload: { categoryIds?: string[]; itemsByCategory?: Record<string, string[]> }
+  ) {
+    const res = await fetch(`${API_BASE_URL}/admin/branches/${branchId}/menu/reorder`, {
+      method: 'PUT',
+      headers: getAdminHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ ترتيب الأقسام والأصناف');
+    return data;
+  },
+
   async getAdminReviews(params?: { branchId?: string; rating?: string; hasText?: boolean }) {
     const query = new URLSearchParams();
     if (params?.branchId) query.set('branchId', params.branchId);

@@ -628,6 +628,8 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "FlashDeal" ADD COLUMN IF NOT EXISTS "dailyEndTime" TEXT;`,
       `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "unavailableUntil" TIMESTAMP(3);`,
       `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "comboItems" TEXT;`,
+      `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "displayOrder" INTEGER NOT NULL DEFAULT 0;`,
+      `CREATE INDEX IF NOT EXISTS "MenuItem_displayOrder_idx" ON "MenuItem"("displayOrder");`,
       `ALTER TABLE "ModifierOption" ADD COLUMN IF NOT EXISTS "unavailableUntil" TIMESTAMP(3);`,
       `CREATE TABLE IF NOT EXISTS "WhatsAppAccount" (
         "id" TEXT PRIMARY KEY,

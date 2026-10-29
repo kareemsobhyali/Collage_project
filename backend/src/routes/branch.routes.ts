@@ -361,6 +361,7 @@ router.get("/menu", async (req: AuthRequest, res: Response) => {
       where: { branchId },
       include: {
         items: {
+          orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
           include: {
             sizes: true,
             modifierGroupLinks: {
@@ -373,7 +374,7 @@ router.get("/menu", async (req: AuthRequest, res: Response) => {
           },
         },
       },
-      orderBy: { displayOrder: "asc" },
+      orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
     });
 
     const modifierGroups = await prisma.modifierGroup.findMany({
@@ -388,24 +389,100 @@ router.get("/menu", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 3.5 إعادة ترتيب عرض الأقسام والأصناف داخل المنيو دفعة واحدة
+router.put("/menu/reorder", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const { categoryIds, itemsByCategory } = req.body as {
+      categoryIds?: string[];
+      itemsByCategory?: Record<string, string[]>;
+    };
+
+    const hasCategories = Array.isArray(categoryIds) && categoryIds.length > 0;
+    const hasItems =
+      itemsByCategory &&
+      typeof itemsByCategory === "object" &&
+      Object.keys(itemsByCategory).length > 0;
+
+    if (!hasCategories && !hasItems) {
+      res.status(400).json({ error: "لم يتم إرسال بيانات ترتيب للأقسام أو الأصناف" });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (hasCategories && Array.isArray(categoryIds)) {
+        for (let idx = 0; idx < categoryIds.length; idx++) {
+          const catId = String(categoryIds[idx]);
+          await tx.menuCategory.updateMany({
+            where: { id: catId, branchId },
+            data: { displayOrder: idx },
+          });
+        }
+      }
+
+      if (hasItems && itemsByCategory) {
+        const validCategories = await tx.menuCategory.findMany({
+          where: { branchId },
+          select: { id: true },
+        });
+        const validCatSet = new Set(validCategories.map((c) => c.id));
+
+        for (const [catId, itemIds] of Object.entries(itemsByCategory)) {
+          if (!Array.isArray(itemIds)) continue;
+          const isValidTargetCat = validCatSet.has(catId);
+          for (let idx = 0; idx < itemIds.length; idx++) {
+            const itemId = String(itemIds[idx]);
+            await tx.menuItem.updateMany({
+              where: { id: itemId, branchId },
+              data: {
+                displayOrder: idx,
+                ...(isValidTargetCat ? { categoryId: catId } : {}),
+              },
+            });
+          }
+        }
+      }
+    });
+
+    notifyBranchMenuChanged(branchId);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Reorder branch menu error:", error);
+    res.status(500).json({ error: "فشل حفظ ترتيب الأقسام والأصناف" });
+  }
+});
+
 // 4. إنشاء قسم منيو جديد
 router.post("/categories", async (req: AuthRequest, res: Response) => {
   try {
+    const branchId = req.branch!.branchId;
     const { name, displayOrder } = req.body;
     if (!name) {
       res.status(400).json({ error: "اسم القسم مطلوب" });
       return;
     }
 
+    let finalOrder = 0;
+    if (displayOrder !== undefined && !isNaN(Number(displayOrder))) {
+      finalOrder = parseInt(displayOrder, 10);
+    } else {
+      const agg = await prisma.menuCategory.aggregate({
+        where: { branchId },
+        _max: { displayOrder: true },
+      });
+      finalOrder = agg._max.displayOrder !== null && agg._max.displayOrder !== undefined ? agg._max.displayOrder + 1 : 0;
+    }
+
     const category = await prisma.menuCategory.create({
       data: {
-        branchId: req.branch!.branchId,
+        branchId,
         name: name.trim(),
-        displayOrder: displayOrder !== undefined ? parseInt(displayOrder) : 0,
+        displayOrder: finalOrder,
       },
     });
 
-    notifyBranchMenuChanged(req.branch!.branchId);
+    notifyBranchMenuChanged(branchId);
 
     res.status(201).json(category);
   } catch (error) {
@@ -489,6 +566,7 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
       description,
       basePrice,
       imageUrl,
+      displayOrder,
       comboItems,
       sizes, // [{ name: "كبير", price: 50 }]
       modifierGroupIds, // ["group-uuid-1", "group-uuid-2"]
@@ -506,6 +584,18 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
     if (!validCat) {
       res.status(403).json({ error: "القسم المحدد غير صالح أو لا يتبع هذا الفرع" });
       return;
+    }
+
+    // تحديد ترتيب الصنف الجديد في نهاية القسم ما لم يتم تمرير ترتيب صريح
+    let finalItemOrder = 0;
+    if (displayOrder !== undefined && !isNaN(Number(displayOrder))) {
+      finalItemOrder = parseInt(displayOrder, 10);
+    } else {
+      const agg = await prisma.menuItem.aggregate({
+        where: { branchId, categoryId: String(categoryId) },
+        _max: { displayOrder: true },
+      });
+      finalItemOrder = agg._max.displayOrder !== null && agg._max.displayOrder !== undefined ? agg._max.displayOrder + 1 : 0;
     }
 
     // التحقق من ملكية مجموعات الإضافات للفرع
@@ -533,6 +623,7 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
         description: description ? description.trim() : null,
         basePrice: parseFloat(basePrice),
         imageUrl: imageUrl || null,
+        displayOrder: finalItemOrder,
         comboItems: serializedCombos,
         isAvailable: true,
         sizes: sizes && Array.isArray(sizes) && sizes.length > 0 ? {
@@ -680,7 +771,7 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const branchId = req.branch!.branchId;
-    const { categoryId, name, description, basePrice, imageUrl, isAvailable, comboItems, sizes } = req.body;
+    const { categoryId, name, description, basePrice, imageUrl, isAvailable, comboItems, sizes, displayOrder } = req.body;
 
     const existing = await prisma.menuItem.findFirst({
       where: { id, branchId },
@@ -730,6 +821,7 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
         description: description !== undefined ? description : undefined,
         basePrice: basePrice !== undefined ? parseFloat(basePrice) : undefined,
         imageUrl: imageUrl !== undefined ? imageUrl : undefined,
+        displayOrder: displayOrder !== undefined && !isNaN(Number(displayOrder)) ? parseInt(displayOrder, 10) : undefined,
         comboItems: serializedCombos,
         isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : undefined,
       },
