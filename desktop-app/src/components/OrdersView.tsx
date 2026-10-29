@@ -510,210 +510,133 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         const isPickedUpByDriver = Boolean(dOrder.driverPickedUpAt);
 
         return (
-          <div className="space-y-3 sm:space-y-4 max-w-5xl mx-auto animate-fadeIn pb-24 md:pb-12">
-            {/* Top Navigation Bar with Back Button, Order ID & Sticky Quick Action Buttons */}
-            <div className="bg-white/95 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl border border-slate-200/90 shadow-xs flex items-center justify-between gap-2 sm:gap-3 sticky top-14 sm:top-20 z-20">
-              <div className="flex items-center gap-2 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDetailedOrder(null);
-                    onClearDetailedOrder?.();
-                    onDetailedOrderOpenChange?.(false);
-                    if (isPending) setSelectedTab('PENDING');
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs sm:text-sm transition-all active:scale-95 shrink-0"
-                >
-                  <ArrowRight className="w-4 h-4 shrink-0 text-slate-600" />
-                  <span className="hidden xs:inline">رجوع للأوردرات</span>
-                  <span className="xs:hidden">رجوع</span>
-                </button>
+          <div className="max-w-3xl mx-auto animate-fadeIn pb-8">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-900/5">
+              {/* 1. Unified Receipt Ticket Header */}
+              <div className="bg-slate-900 text-white rounded-t-3xl px-4 sm:px-6 py-4 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDetailedOrder(null);
+                      onClearDetailedOrder?.();
+                      onDetailedOrderOpenChange?.(false);
+                      if (isPending) setSelectedTab('PENDING');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs transition-all active:scale-95 shrink-0"
+                    title="رجوع لقائمة الأوردرات"
+                  >
+                    <ArrowRight className="w-4 h-4 shrink-0 text-slate-300" />
+                    <span>رجوع</span>
+                  </button>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 text-right min-w-0">
-                  <span className="font-mono font-black text-sm sm:text-base text-slate-900 whitespace-nowrap">
-                    #{dOrder.orderNumber}
-                  </span>
-                  <span className={`text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 rounded-full font-black whitespace-nowrap shrink-0 flex items-center gap-1 ${
-                    dOrder.orderType === 'DELIVERY' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-black text-base sm:text-xl text-white">
+                        طلب رقم #{dOrder.orderNumber}
+                      </span>
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                        dOrder.orderType === 'DELIVERY'
+                          ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-400/30'
+                          : 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/30'
+                      }`}>
+                        {dOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'}
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                      {isPending && <span>منذ {formatDuration(waitMins)}</span>}
+                      {isPreparing && <span>المحدد: {dOrder.estimatedMinutes || 15} د • مضى {formatDuration(prepMins)}</span>}
+                      {isReady && <span>في انتظار الاستلام منذ {formatDuration(deliveryMins)}</span>}
+                      {isCompleted && <span>استغرق إجمالاً {formatDuration(totalMins)}</span>}
+                      {isRejected && <span>السبب: {dOrder.rejectionReason || 'بدون سبب'}</span>}
+                      <span className="text-slate-600">•</span>
+                      <span>مطلوب تحصيل <strong className="font-mono text-white font-black">{dOrder.total} ج.م</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Badge in Ticket Header */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap ${
+                    isPending
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
+                      : isPreparing
+                      ? isOverdue
+                        ? 'bg-rose-500/25 text-rose-300 border border-rose-400/40'
+                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30'
+                      : isReady
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30'
+                      : isCompleted
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
                   }`}>
-                    {dOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'}
+                    {isPending && <Clock className="w-3.5 h-3.5 animate-spin" />}
+                    {isPreparing && <ChefHat className="w-3.5 h-3.5" />}
+                    {isReady && <Truck className="w-3.5 h-3.5" />}
+                    {isCompleted && <CheckCircle className="w-3.5 h-3.5" />}
+                    {isRejected && <XCircle className="w-3.5 h-3.5" />}
+                    <span>
+                      {isPending && 'بانتظار الموافقة'}
+                      {isPreparing && (isOverdue ? `متأخر بـ ${overdueMins} د` : 'قيد التحضير')}
+                      {isReady && 'جاهز للتسليم'}
+                      {isCompleted && 'مكتمل'}
+                      {isRejected && 'ملغي / مرفوض'}
+                    </span>
                   </span>
-                  <span className="font-mono font-black text-xs sm:text-sm text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 whitespace-nowrap">
-                    {dOrder.total} ج.م
-                  </span>
                 </div>
               </div>
 
-              {/* Action Buttons in Sticky Header */}
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                {isPending && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRejectingOrder(dOrder);
-                        setRejectionReason('نفاد المكونات المطلوبة');
-                      }}
-                      className="px-2.5 sm:px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1"
-                      title="رفض الطلب"
-                    >
-                      <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                      <span className="hidden sm:inline">رفض الطلب</span>
-                      <span className="sm:hidden">رفض</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAcceptingOrder(dOrder);
-                        setPrepMinutes(15);
-                        setAcceptDriverId(dOrder.driverId || '');
-                      }}
-                      className="px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
-                      title="قبول وبدء التجهيز"
-                    >
-                      <Check className="w-4 h-4 stroke-[3]" />
-                      <span>قبول وبدء التجهيز</span>
-                    </button>
-                  </>
-                )}
-
-                {isPreparing && (
-                  <button
-                    type="button"
-                    disabled={updatingId === dOrder.id}
-                    onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
-                    className="px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>جاهز للتسليم</span>
-                  </button>
-                )}
-
-                {isReady && (
-                  <button
-                    type="button"
-                    disabled={updatingId === dOrder.id}
-                    onClick={() => handleUpdateStatus(dOrder.id, 'COMPLETED')}
-                    className="px-3 sm:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>تأكيد التسليم</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setPrintingOrder(dOrder)}
-                  className="p-1.5 sm:px-2.5 sm:py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
-                  title="طباعة بون"
-                >
-                  <Printer className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="hidden md:inline">طباعة</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Status & Timing Banner with Direct Quick Actions */}
-            <div className={`p-3 sm:p-4 rounded-2xl text-white shadow-xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 ${
-              isPending
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 border border-amber-400/40 shadow-amber-500/10'
-                : isPreparing
-                ? isOverdue ? 'bg-gradient-to-r from-rose-600 to-rose-700' : 'bg-gradient-to-r from-indigo-600 to-indigo-700'
-                : isReady
-                ? 'bg-gradient-to-r from-purple-600 to-purple-700'
-                : isCompleted
-                ? 'bg-gradient-to-r from-emerald-600 to-emerald-700'
-                : 'bg-gradient-to-r from-slate-600 to-slate-700'
-            }`}>
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 shadow-inner">
-                  {isPending && <Clock className="w-5 h-5 animate-spin" />}
-                  {isPreparing && <ChefHat className="w-5 h-5" />}
-                  {isReady && <Truck className="w-5 h-5" />}
-                  {isCompleted && <CheckCircle className="w-5 h-5" />}
-                  {isRejected && <XCircle className="w-5 h-5" />}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-black text-sm sm:text-base leading-tight truncate">
-                    {isPending && 'طلب جديد بانتظار استجابتك وقبوله'}
-                    {isPreparing && (isOverdue ? `⚠️ متأخر في التحضير بـ ${overdueMins} دقيقة!` : 'الطلب قيد التحضير في المطبخ')}
-                    {isReady && 'الطلب جاهز للتسليم / خروج مع الطيار'}
-                    {isCompleted && 'تم تسليم الطلب وإكماله بنجاح'}
-                    {isRejected && `الطلب ملغي / مرفوض (${dOrder.rejectionReason || 'بدون سبب'})`}
-                  </div>
-                  <div className="text-[11px] sm:text-xs opacity-90 font-mono mt-0.5">
-                    {isPending && `بانتظار الموافقة منذ: ${formatDuration(waitMins)} • المطلوب تحصيله: ${dOrder.total} ج.م`}
-                    {isPreparing && `المحدد: ${dOrder.estimatedMinutes || 15} د • مضى: ${formatDuration(prepMins)}`}
-                    {isReady && `في انتظار الاستلام منذ: ${formatDuration(deliveryMins)}`}
-                    {isCompleted && `استغرق إجمالاً: ${formatDuration(totalMins)}`}
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons inside Banner for High Contrast & Immediate Reach */}
-              {isPending && (
-                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-white/20">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRejectingOrder(dOrder);
-                      setRejectionReason('نفاد المكونات المطلوبة');
-                    }}
-                    className="flex-1 sm:flex-initial px-3.5 py-2 bg-black/20 hover:bg-black/30 text-white rounded-xl text-xs font-bold border border-white/30 transition-all active:scale-95"
-                  >
-                    رفض الطلب
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAcceptingOrder(dOrder);
-                      setPrepMinutes(15);
-                      setAcceptDriverId(dOrder.driverId || '');
-                    }}
-                    className="flex-1 sm:flex-initial px-5 py-2.5 bg-white text-amber-900 hover:bg-amber-50 rounded-xl text-xs sm:text-sm font-black shadow-lg transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                  >
-                    <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
-                    <span>قبول وبدء التجهيز</span>
-                  </button>
+              {/* Flush Alert Strip under Header (only when Overdue or Rejected) */}
+              {isPreparing && isOverdue && (
+                <div className="px-4 sm:px-6 py-2.5 bg-rose-50 border-b border-rose-200 text-rose-800 flex items-center gap-2 text-xs font-bold">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>تنبيه: هذا الطلب متأخر عن وقت التجهيز المحدد بـ {overdueMins} دقيقة — يرجى سرعة إنهائه.</span>
                 </div>
               )}
-            </div>
+              {isRejected && (
+                <div className="px-4 sm:px-6 py-2.5 bg-rose-50/70 border-b border-rose-200 text-rose-800 flex items-center gap-2 text-xs font-bold">
+                  <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>تم رفض / إلغاء هذا الطلب ({dOrder.rejectionReason || 'بدون سبب'})</span>
+                </div>
+              )}
 
-            {/* Main Content Layout: Responsive 2-Column Grid on Desktop */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-start">
-              {/* Right Column (Items, Notes under items, Group Bags) - 7 cols on lg */}
-              <div className="lg:col-span-7 space-y-3 sm:space-y-4">
-                {/* Full Items Breakdown */}
-                <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                    <h4 className="text-xs font-black text-slate-800 flex items-center gap-2">
-                      <ShoppingBag className="w-4 h-4 text-indigo-600" />
-                      <span>الأصناف المطلوبة في الأوردر ({dOrder.items?.length || 0})</span>
+              {/* 2. Unified Receipt Ticket Body */}
+              <div className="p-4 sm:p-6 space-y-5">
+                {/* A. Items Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <h4 className="text-xs font-black text-slate-500 flex items-center gap-1.5">
+                      <ShoppingBag className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>الأصناف المطلوبة ({dOrder.items?.length || 0}):</span>
                     </h4>
+                    <span className="text-xs font-mono font-bold text-slate-400">
+                      {formatTimeOnly(dOrder.createdAt)}
+                    </span>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-white">
                     {dOrder.items?.map((item: any, idx: number) => {
                       const itemTitle = item.item?.name || item.itemName || 'صنف';
                       return (
-                        <div key={idx} className="p-3 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-200/80 text-xs shadow-2xs space-y-1.5 transition-colors">
+                        <div key={idx} className="p-3 sm:p-3.5 hover:bg-slate-50/60 transition-colors space-y-1.5">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-2.5 min-w-0">
-                              <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-mono font-black flex items-center justify-center shrink-0 shadow-xs text-xs">
+                              <span className="px-2 py-0.5 rounded-lg bg-indigo-600 text-white font-mono font-black text-xs flex items-center justify-center shrink-0">
                                 {item.quantity}×
                               </span>
                               <div className="min-w-0">
-                                <div className="font-black text-slate-900 text-xs sm:text-sm leading-tight truncate">
-                                  {itemTitle}
+                                <div className="font-black text-slate-900 text-xs sm:text-sm leading-snug flex items-center gap-1.5 flex-wrap">
+                                  <span>{itemTitle}</span>
                                   {item.sizeName && (
-                                    <span className="mr-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
+                                    <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
                                       {item.sizeName}
                                     </span>
                                   )}
                                 </div>
-                                {item.itemPrice && (
-                                  <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
-                                    سعر القطعة: {item.itemPrice} ج.م
+                                {item.itemPrice && Number(item.quantity) > 1 && (
+                                  <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
+                                    سعر الواحدة: {item.itemPrice} ج.م
                                   </span>
                                 )}
                               </div>
@@ -725,21 +648,18 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           </div>
 
                           {item.modifiers && item.modifiers.length > 0 && (
-                            <div className="mr-8 pr-2 border-r-2 border-indigo-200 space-y-1">
-                              <span className="text-[10px] font-bold text-indigo-700 block">الإضافات والخيارات:</span>
-                              <div className="flex flex-wrap gap-1">
-                                {item.modifiers.map((mod: any, mIdx: number) => (
-                                  <span key={mIdx} className="text-[10px] bg-white text-slate-700 px-2 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
-                                    +{mod.optionName} {mod.price > 0 && `(${mod.price} ج.م)`}
-                                  </span>
-                                ))}
-                              </div>
+                            <div className="mr-8 flex flex-wrap gap-1 pt-0.5">
+                              {item.modifiers.map((mod: any, mIdx: number) => (
+                                <span key={mIdx} className="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200 font-medium">
+                                  + {mod.optionName} {mod.price > 0 && `(${mod.price} ج.م)`}
+                                </span>
+                              ))}
                             </div>
                           )}
 
                           {item.notes && (
-                            <div className="mr-8 text-[11px] text-amber-900 bg-amber-50 p-2 rounded-lg border border-amber-200 font-medium">
-                              <span className="font-black">ملاحظات على الصنف: </span>
+                            <div className="mr-8 text-[11px] text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1.5 rounded-lg font-bold">
+                              <span>ملاحظة: </span>
                               <span>{item.notes}</span>
                             </div>
                           )}
@@ -748,644 +668,593 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     })}
                   </div>
 
-                  {/* ملاحظات العميل على الطلب (تظهر تحت الأصناف مباشرة في شاشة استقبال الطلب) */}
+                  {/* General Customer Note on Order */}
                   {(dOrder.notes || dOrder.orderNotes) && (
-                    <div className="mt-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl shadow-xs">
-                      <div className="flex items-center gap-2 mb-1.5 text-amber-900 font-black text-xs sm:text-sm">
-                        <span className="text-base">📝</span>
-                        <span>ملاحظات العميل مع الطلب:</span>
-                      </div>
-                      <div className="bg-white/95 p-2.5 rounded-lg border border-amber-200/80 text-xs sm:text-sm font-black text-amber-950 leading-relaxed whitespace-pre-wrap select-text shadow-2xs">
+                    <div className="mt-3 p-3.5 bg-amber-50 border border-amber-300 rounded-2xl text-xs space-y-1">
+                      <span className="font-black text-amber-900 flex items-center gap-1.5">
+                        <span>📝</span>
+                        <span>ملاحظة العميل مع الطلب:</span>
+                      </span>
+                      <p className="font-bold text-amber-950 leading-relaxed whitespace-pre-wrap select-text">
                         {dOrder.notes || dOrder.orderNotes}
-                      </div>
+                      </p>
                     </div>
                   )}
-                </div>
 
-                {/* Group Cart Details if present */}
-                {dOrder.groupCartDetails && (() => {
-                  try {
-                    const details = typeof dOrder.groupCartDetails === 'string' ? JSON.parse(dOrder.groupCartDetails) : dOrder.groupCartDetails;
-                    if (Array.isArray(details) && details.length > 0) {
-                      return (
-                        <div className="p-3.5 sm:p-4 rounded-2xl bg-purple-50 border border-purple-200 space-y-2.5 text-xs">
-                          <div className="flex items-center gap-2 font-black text-purple-900">
-                            <Users className="w-4 h-4 text-purple-700" />
-                            <span>تقسيم أكياس وحقائب الطلب الجماعي ({details.length} أفراد):</span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {details.map((group: any, gIdx: number) => (
-                              <div key={gIdx} className="bg-white p-2.5 rounded-xl border border-purple-100 shadow-2xs">
-                                <div className="flex items-center justify-between font-black text-purple-800 border-b border-purple-50 pb-1 mb-1">
-                                  <span>🛍️ كيس: {group.studentName}</span>
-                                  {group.subtotal !== undefined && <span>{group.subtotal} ج.م</span>}
+                  {/* Group Cart Bags Breakdown */}
+                  {dOrder.groupCartDetails && (() => {
+                    try {
+                      const details = typeof dOrder.groupCartDetails === 'string' ? JSON.parse(dOrder.groupCartDetails) : dOrder.groupCartDetails;
+                      if (Array.isArray(details) && details.length > 0) {
+                        return (
+                          <div className="mt-3 p-3.5 rounded-2xl bg-purple-50/80 border border-purple-200 space-y-2.5 text-xs">
+                            <div className="flex items-center gap-2 font-black text-purple-900">
+                              <Users className="w-4 h-4 text-purple-700" />
+                              <span>تقسيم أكياس الطلب الجماعي ({details.length} أفراد):</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {details.map((group: any, gIdx: number) => (
+                                <div key={gIdx} className="bg-white p-2.5 rounded-xl border border-purple-100">
+                                  <div className="flex items-center justify-between font-black text-purple-800 border-b border-purple-50 pb-1 mb-1">
+                                    <span>🛍️ كيس: {group.studentName}</span>
+                                    {group.subtotal !== undefined && <span className="font-mono">{group.subtotal} ج.م</span>}
+                                  </div>
+                                  <div className="space-y-0.5 text-slate-600">
+                                    {(group.items || []).map((gi: any, giIdx: number) => (
+                                      <div key={giIdx} className="flex justify-between">
+                                        <span>{gi.quantity}× {gi.itemName} {gi.sizeName ? `(${gi.sizeName})` : ''}</span>
+                                        <span className="font-mono">{gi.totalPrice} ج.م</span>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                                <div className="space-y-0.5 text-slate-600">
-                                  {(group.items || []).map((gi: any, giIdx: number) => (
-                                    <div key={giIdx} className="flex justify-between">
-                                      <span>{gi.quantity} × {gi.itemName} {gi.sizeName ? `(${gi.sizeName})` : ''}</span>
-                                      <span className="font-mono">{gi.totalPrice} ج.م</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      );
+                        );
+                      }
+                    } catch (e) {
+                      return null;
                     }
-                  } catch (e) {
                     return null;
-                  }
-                  return null;
-                })()}
-              </div>
-
-              {/* Left Column (Customer Info, Driver Assignment, Financial Summary) - 5 cols on lg */}
-              <div className="lg:col-span-5 space-y-3 sm:space-y-4">
-                {/* Customer Information Card */}
-                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0 border border-indigo-200/60 shadow-2xs">
-                        {(dOrder.customerName || 'ط').charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <span className="block font-black text-slate-900 text-xs sm:text-sm leading-tight truncate">
-                          {dOrder.customerName || 'عميل'}
-                        </span>
-                        <span className="text-[11px] font-mono font-bold text-slate-500 mt-0.5 block" dir="ltr">
-                          {customerPhone || 'بدون رقم هاتف'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {customerPhone && (
-                        <>
-                          <a
-                            href={`tel:${customerPhone}`}
-                            className="p-1.5 sm:px-2 sm:py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs active:scale-95"
-                            title="اتصال"
-                          >
-                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                            <span className="hidden sm:inline text-[11px]">اتصال</span>
-                          </a>
-                          <a
-                            href={`https://wa.me/${whatsappNumber}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1.5 sm:px-2 sm:py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs active:scale-95"
-                            title="واتساب"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline text-[11px]">واتساب</span>
-                          </a>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenCustomerCRM(dOrder, customerOrderCount)}
-                        className="p-1.5 sm:px-2 sm:py-1 text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 rounded-xl transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs"
-                        title="سجل وملاحظات العميل"
-                      >
-                        <User className="w-3.5 h-3.5 text-indigo-600" />
-                        <span className="hidden sm:inline text-[11px]">السجل ({customerOrderCount})</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {(dOrder.deliveryLocation || dOrder.deliveryZoneName || dOrder.addressText) && (
-                    <div className="bg-slate-50 border border-slate-200/80 p-2.5 rounded-xl text-xs flex items-center gap-2 text-slate-700">
-                      <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                      <span className="font-bold truncate">
-                        {dOrder.deliveryZoneName ? `${dOrder.deliveryZoneName} • ` : ''}
-                        {getDisplayAddress(dOrder.deliveryLocation || dOrder.addressText, 'موقع العميل')}
-                      </span>
-                    </div>
-                  )}
+                  })()}
                 </div>
 
-            {/* Delivery Driver Assignment Section: Only shown after order is accepted AND orderType is DELIVERY */}
-            {!isPending && dOrder.orderType === 'DELIVERY' && (
-              <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between text-xs flex-wrap gap-2 border-b border-slate-100 pb-3">
-                <span className="font-black text-slate-800 flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span>كابتن التوصيل (الطيار)</span>
-                </span>
-
-                {assignedDriver && !isCompleted && !isRejected && (
-                  <button
-                    type="button"
-                    onClick={() => setShowDriverPicker(!showDriverPicker)}
-                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold px-2.5 py-1 rounded-xl bg-indigo-50 border border-indigo-200 transition-colors"
-                  >
-                    {showDriverPicker ? 'إغلاق تغيير الطيار' : 'تغيير الطيار ▾'}
-                  </button>
-                )}
-              </div>
-
-              {assignedDriver ? (
-                <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black shrink-0 border border-indigo-200/60 shadow-2xs text-lg">
-                        🛵
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-black text-slate-900 text-sm sm:text-base">
-                            {cleanDriverName(assignedDriver.name)}
-                          </span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${
-                            assignedDriver.isGeneralDriver || assignedDriver.name?.includes('طيار عام')
-                              ? 'bg-sky-100 text-sky-800 border border-sky-200'
-                              : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
-                          }`}>
-                            {assignedDriver.isGeneralDriver || assignedDriver.name?.includes('طيار عام') ? '🌐 طيار عام' : '🛵 طيار الفرع'}
-                          </span>
-                        </div>
-                        <span className="text-xs font-mono font-bold text-slate-600 mt-0.5 block" dir="ltr">
-                          {assignedDriver.phone}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {assignedDriver.phone && (
-                        <>
-                          <a
-                            href={`tel:${assignedDriver.phone}`}
-                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1 font-bold text-xs"
-                            title="اتصال بالطيار"
-                          >
-                            <Phone className="w-3.5 h-3.5" />
-                            <span>اتصال</span>
-                          </a>
-                          <a
-                            href={`https://wa.me/${assignedDriver.phone.replace(/[^0-9]/g, '').startsWith('0') ? `20${assignedDriver.phone.replace(/[^0-9]/g, '').slice(1)}` : assignedDriver.phone.replace(/[^0-9]/g, '')}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors flex items-center gap-1 font-bold text-xs shadow-2xs"
-                            title="واتساب الطيار"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>واتساب</span>
-                          </a>
-                        </>
-                      )}
-                      {!isCompleted && !isRejected && (
+                {/* B. Customer & Delivery Logistics (Equal 2-Column Row) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-stretch">
+                  {/* Card 1: Customer Information */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs flex flex-col justify-between gap-3">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-400 text-[11px]">بيانات العميل:</span>
                         <button
                           type="button"
-                          onClick={() => handleAssignDriver(dOrder.id, null)}
-                          className="text-xs text-rose-600 hover:text-rose-800 font-bold px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 transition-colors"
+                          onClick={() => handleOpenCustomerCRM(dOrder, customerOrderCount)}
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+                          title="سجل وملاحظات العميل"
                         >
-                          إلغاء التعيين
+                          <History className="w-3 h-3" />
+                          <span>السجل ({customerOrderCount})</span>
                         </button>
-                      )}
-                    </div>
-                  </div>
+                      </div>
 
-                  <div className="text-xs">
-                    {isPickedUpByDriver ? (
-                      <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-2xl border border-emerald-300 font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <CheckCircle className="w-4 h-4 text-emerald-700 shrink-0" />
-                          <span className="truncate">استلم الطيار الوجبة من الفرع وخرج للتوصيل ({formatTimeOnly(dOrder.driverPickedUpAt)})</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="font-black text-slate-900 text-sm block truncate">
+                            {dOrder.customerName || 'عميل'}
+                          </span>
+                          <span className="font-mono font-bold text-slate-500 text-xs mt-0.5 block" dir="ltr">
+                            {customerPhone || 'بدون رقم هاتف'}
+                          </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenReturnModal(dOrder)}
-                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-xs transition-all active:scale-95 shrink-0 flex items-center justify-center gap-1.5"
-                          title="عرض رمز الاستلام المكون من 4 أرقام أو استلام الوجبة من الكابتن"
-                        >
-                          <KeyRound className="w-3.5 h-3.5" />
-                          <span>استلام من الطيار (PIN)</span>
-                        </button>
-                      </div>
-                    ) : dOrder.isDriverAccepted ? (
-                      <div className="p-2.5 bg-indigo-50 text-indigo-900 rounded-2xl border border-indigo-300 font-bold flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-indigo-700 shrink-0" />
-                        <span>قبل الطيار الطلب وفي طريقه للفرع لاستلام الوجبة 🛵</span>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 bg-amber-50 text-amber-900 rounded-2xl border border-amber-300 font-bold flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-amber-700 shrink-0 animate-pulse" />
-                        <span>مسند للطيار • بانتظار استلامه للوجبة من الفرع</span>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* الخريطة الحية لتتبع مكان الطيار والمسافة والوقت المتبقي */}
-                  <div className="pt-2">
-                    <OrderDriverLiveMap
-                      order={dOrder}
-                      branch={branch || { name: branchName }}
-                      liveDriverCoords={liveDriverLocations?.[assignedDriver.id] || null}
-                      onRefreshLocation={() => {
-                        if (socket && assignedDriver?.id) {
-                          socket.emit('get_driver_location', assignedDriver.id);
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              ) : isCompleted ? (
-                <div className="p-3 bg-emerald-50 text-emerald-800 rounded-2xl font-bold border border-emerald-200 text-xs flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>تم التسليم المباشر عبر الفرع</span>
-                </div>
-              ) : (
-                <div className="p-3 bg-amber-50 text-amber-900 rounded-2xl font-bold border border-amber-200 text-xs flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>لم يتم تعيين طيار لهذا الطلب بعد</span>
-                </div>
-              )}
-
-              {/* Interactive Driver Cards Picker (Shows if no driver assigned or user clicked change) */}
-              {(!assignedDriver || showDriverPicker) && !isCompleted && !isRejected && (() => {
-                const currentSelectedDriverId = selectedDriverMap[dOrder.id] !== undefined
-                  ? selectedDriverMap[dOrder.id]
-                  : (dOrder.driverId || '');
-                const activeDriversCount = drivers.filter((d: any) => d.isActive).length;
-
-                return (
-                  <div className="pt-3 border-t border-slate-100 space-y-3">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <span className="text-xs font-black text-slate-800">
-                        {assignedDriver ? 'اختر طياراً بديلاً لهذا الطلب:' : 'اختر كابتن التوصيل لإسناد الطلب:'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                          {activeDriversCount} طيار متاح
-                        </span>
-                        {activeDriversCount > 0 && dOrder.status !== 'PENDING' && (
-                          <button
-                            type="button"
-                            disabled={assigningDriverOrderId === dOrder.id}
-                            onClick={async () => {
-                              await handleAssignDriver(dOrder.id, 'AUTO');
-                              setShowDriverPicker(false);
-                            }}
-                            className="px-3 py-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-black shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
-                          >
-                            <span>🤖 إسناد تلقائي ذكي لأقرب طيار متفرغ ⚡</span>
-                          </button>
+                        {customerPhone && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <a
+                              href={`tel:${customerPhone}`}
+                              className="px-2.5 py-1.5 bg-white hover:bg-emerald-50 text-emerald-700 rounded-xl border border-slate-200 hover:border-emerald-200 transition-colors flex items-center gap-1 font-bold"
+                              title="اتصال بالعميل"
+                            >
+                              <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>اتصال</span>
+                            </a>
+                            <a
+                              href={`https://wa.me/${whatsappNumber}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors flex items-center gap-1 font-bold"
+                              title="مراسلة واتساب"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>واتساب</span>
+                            </a>
+                          </div>
                         )}
                       </div>
                     </div>
 
-                    {drivers.length === 0 ? (
-                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xs text-slate-500 font-bold">
-                        لا يوجد طيارون مسجلون حالياً في الفرع.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-0.5">
-                        {drivers.map((d: any) => {
-                          const isSelected = currentSelectedDriverId === d.id;
-                          const isGeneral = Boolean(d.isGeneralDriver || d.name?.includes('طيار عام'));
-                          const driverActiveOrders = orders.filter(
-                            (o: any) =>
-                              o.driverId === d.id &&
-                              (o.status === 'PREPARING' || o.status === 'ACCEPTED' || o.status === 'READY')
-                          ).length;
+                    <div className="pt-2.5 border-t border-slate-200/80 flex items-start gap-1.5 text-slate-700 font-bold">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                      <span className="leading-snug">
+                        {dOrder.orderType === 'PICKUP'
+                          ? 'استلام شخصي من الفرع'
+                          : `${dOrder.deliveryZoneName ? `${dOrder.deliveryZoneName} • ` : ''}${getDisplayAddress(dOrder.deliveryLocation || dOrder.addressText, 'موقع العميل')}`}
+                      </span>
+                    </div>
+                  </div>
 
-                          return (
-                            <button
-                              key={d.id}
-                              type="button"
-                              disabled={!d.isActive}
-                              onClick={() => setSelectedDriverMap({ ...selectedDriverMap, [dOrder.id]: d.id })}
-                              className={`w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
-                                !d.isActive
-                                  ? 'bg-slate-100/70 border-slate-200 opacity-55 cursor-not-allowed'
-                                  : isSelected
-                                  ? 'bg-indigo-50/90 border-indigo-600 ring-2 ring-indigo-500/25 shadow-sm'
-                                  : 'bg-slate-50/70 hover:bg-white border-slate-200/90 hover:border-indigo-300'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-base shrink-0 border transition-colors ${
-                                  isSelected
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                    : isGeneral
-                                    ? 'bg-sky-100 text-sky-700 border-sky-200'
-                                    : 'bg-white text-slate-700 border-slate-200'
+                  {/* Card 2: Delivery & Driver Assignment */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs flex flex-col justify-between gap-3">
+                    {dOrder.orderType !== 'DELIVERY' ? (
+                      <>
+                        <div className="space-y-1.5">
+                          <span className="font-bold text-slate-400 text-[11px] block">طريقة الاستلام:</span>
+                          <span className="font-black text-slate-900 text-sm block">🛍️ استلام شخصي من المطعم</span>
+                          <span className="text-slate-500 block leading-relaxed">
+                            يحضر العميل لاستلام الطلب مباشرة من الفرع دون الحاجة لكابتن توصيل.
+                          </span>
+                        </div>
+                        <div className="pt-2.5 border-t border-slate-200/80 text-emerald-700 font-bold flex items-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>بدون رسوم توصيل</span>
+                        </div>
+                      </>
+                    ) : assignedDriver && !showDriverPicker ? (
+                      <>
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-400 text-[11px]">كابتن التوصيل المعين:</span>
+                            <div className="flex items-center gap-2">
+                              {!isCompleted && !isRejected && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowDriverPicker(true)}
+                                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
+                                  >
+                                    تغيير
+                                  </button>
+                                  <span className="text-slate-300">|</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAssignDriver(dOrder.id, null)}
+                                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800"
+                                  >
+                                    إلغاء
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-black text-slate-900 text-sm truncate">
+                                  🛵 {cleanDriverName(assignedDriver.name)}
+                                </span>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                  assignedDriver.isGeneralDriver || assignedDriver.name?.includes('طيار عام')
+                                    ? 'bg-sky-100 text-sky-800'
+                                    : 'bg-indigo-100 text-indigo-800'
                                 }`}>
-                                  {isGeneral ? '🌐' : '🛵'}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-black text-xs sm:text-sm text-slate-900 truncate">
-                                      {cleanDriverName(d.name)}
-                                    </span>
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap ${
-                                      isGeneral
-                                        ? 'bg-sky-100 text-sky-800'
-                                        : 'bg-indigo-100 text-indigo-800'
-                                    }`}>
-                                      {isGeneral ? 'طيار عام' : 'طيار الفرع'}
-                                    </span>
-                                    {d.isOnline ? (
-                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        متصل الآن
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                        غير متصل
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                    <span className="text-[11px] font-mono font-bold text-slate-500" dir="ltr">
-                                      {d.phone}
-                                    </span>
-                                    {!d.isActive ? (
-                                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-                                        غير متاح
-                                      </span>
-                                    ) : driverActiveOrders === 0 ? (
-                                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                                        متفرغ الآن ✓
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-                                        معه {driverActiveOrders} طلب
-                                      </span>
-                                    )}
-                                    {d.distanceKm !== null && d.distanceKm !== undefined && (
-                                      <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-mono">
-                                        📍 {d.distanceKm} كم
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
+                                  {assignedDriver.isGeneralDriver || assignedDriver.name?.includes('طيار عام') ? 'عام' : 'الفرع'}
+                                </span>
                               </div>
+                              <span className="font-mono font-bold text-slate-500 text-xs mt-0.5 block" dir="ltr">
+                                {assignedDriver.phone}
+                              </span>
+                            </div>
 
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border transition-all ${
-                                isSelected
-                                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
-                                  : 'border-slate-300 bg-white'
-                              }`}>
-                                {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            {assignedDriver.phone && (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <a
+                                  href={`tel:${assignedDriver.phone}`}
+                                  className="p-1.5 bg-white hover:bg-emerald-50 text-emerald-700 rounded-xl border border-slate-200 hover:border-emerald-200 transition-colors"
+                                  title="اتصال بالطيار"
+                                >
+                                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                                </a>
+                                <a
+                                  href={`https://wa.me/${assignedDriver.phone.replace(/[^0-9]/g, '').startsWith('0') ? `20${assignedDriver.phone.replace(/[^0-9]/g, '').slice(1)}` : assignedDriver.phone.replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors"
+                                  title="واتساب الطيار"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                </a>
                               </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-2.5 border-t border-slate-200/80 space-y-2">
+                          {isPickedUpByDriver ? (
+                            <div className="flex items-center justify-between gap-2 text-emerald-800 font-bold">
+                              <span className="flex items-center gap-1.5 min-w-0 truncate">
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span className="truncate">استلم الوجبة ({formatTimeOnly(dOrder.driverPickedUpAt)})</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReturnModal(dOrder)}
+                                className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-black shrink-0 flex items-center gap-1"
+                              >
+                                <KeyRound className="w-3 h-3" />
+                                <span>رمز PIN</span>
+                              </button>
+                            </div>
+                          ) : dOrder.isDriverAccepted ? (
+                            <div className="text-indigo-800 font-bold flex items-center gap-1.5">
+                              <CheckCircle className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              <span>قبل الطلب وفي طريقه للفرع</span>
+                            </div>
+                          ) : (
+                            <div className="text-amber-800 font-bold flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0 animate-pulse" />
+                              <span>مسند للطيار • بانتظار استلام الوجبة</span>
+                            </div>
+                          )}
+
+                          {!isCompleted && !isRejected && (
+                            <button
+                              type="button"
+                              onClick={() => setTrackingOrderMap(dOrder)}
+                              className="w-full py-1.5 px-3 bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-xl font-bold transition-colors flex items-center justify-center gap-1.5"
+                            >
+                              <Navigation className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>تتبع موقع الطيار مباشرة على الخريطة</span>
                             </button>
-                          );
-                        })}
+                          )}
+                        </div>
+                      </>
+                    ) : isPending ? (
+                      <>
+                        <div className="space-y-1.5">
+                          <span className="font-bold text-slate-400 text-[11px] block">كابتن التوصيل:</span>
+                          <span className="font-black text-slate-900 text-sm block">⏳ يُعين عند قبول الطلب</span>
+                          <span className="text-slate-500 block leading-relaxed">
+                            عند الضغط على قبول الطلب يمكنك تحديد وقت التحضير وإسناد الطيار فوراً.
+                          </span>
+                        </div>
+                        <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-slate-700 font-bold">
+                          <span>{dOrder.deliveryZoneName || 'توصيل دليفري'}</span>
+                          <span className="font-mono text-indigo-700">
+                            {dOrder.deliveryFee ? `${dOrder.deliveryFee} ج.م توصيل` : 'توصيل مجاني'}
+                          </span>
+                        </div>
+                      </>
+                    ) : isCompleted || isRejected ? (
+                      <>
+                        <div className="space-y-1.5">
+                          <span className="font-bold text-slate-400 text-[11px] block">كابتن التوصيل:</span>
+                          <span className="font-black text-slate-900 text-sm block">
+                            {isCompleted ? '✓ تم التسليم المباشر عبر الفرع' : '✕ لم يتم تعيين طيار'}
+                          </span>
+                        </div>
+                        <div className="pt-2.5 border-t border-slate-200/80 text-slate-500 font-bold">
+                          {isCompleted ? 'أُكمل الطلب بنجاح' : 'الطلب ملغي / مرفوض'}
+                        </div>
+                      </>
+                    ) : (
+                      /* Compact Inline Driver Picker (when accepted order has no driver or user clicked "تغيير") */
+                      (() => {
+                        const currentSelectedDriverId = selectedDriverMap[dOrder.id] !== undefined
+                          ? selectedDriverMap[dOrder.id]
+                          : (dOrder.driverId || '');
+                        const activeDriversCount = drivers.filter((d: any) => d.isActive).length;
+
+                        return (
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-slate-500 text-[11px]">
+                                {assignedDriver ? 'اختر طياراً بديلاً:' : `اختر كابتن التوصيل (${activeDriversCount} متاح):`}
+                              </span>
+                              {activeDriversCount > 0 && (
+                                <button
+                                  type="button"
+                                  disabled={assigningDriverOrderId === dOrder.id}
+                                  onClick={async () => {
+                                    await handleAssignDriver(dOrder.id, 'AUTO');
+                                    setShowDriverPicker(false);
+                                  }}
+                                  className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-black transition-all active:scale-95"
+                                >
+                                  ⚡ إسناد ذكي تلقائي
+                                </button>
+                              )}
+                            </div>
+
+                            {drivers.length === 0 ? (
+                              <div className="p-3 bg-white border border-slate-200 rounded-xl text-center text-slate-500 font-bold">
+                                لا يوجد طيارون مسجلون حالياً في الفرع.
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                                {drivers.map((d: any) => {
+                                  const isSelected = currentSelectedDriverId === d.id;
+                                  const isGeneral = Boolean(d.isGeneralDriver || d.name?.includes('طيار عام'));
+                                  const driverActiveOrders = orders.filter(
+                                    (o: any) =>
+                                      o.driverId === d.id &&
+                                      (o.status === 'PREPARING' || o.status === 'ACCEPTED' || o.status === 'READY')
+                                  ).length;
+
+                                  return (
+                                    <button
+                                      key={d.id}
+                                      type="button"
+                                      disabled={!d.isActive}
+                                      onClick={() => setSelectedDriverMap({ ...selectedDriverMap, [dOrder.id]: d.id })}
+                                      className={`w-full text-right px-2.5 py-2 rounded-xl border transition-all flex items-center justify-between gap-2 ${
+                                        !d.isActive
+                                          ? 'bg-slate-100 opacity-50 cursor-not-allowed border-slate-200'
+                                          : isSelected
+                                          ? 'bg-indigo-50 border-indigo-600'
+                                          : 'bg-white hover:border-indigo-300 border-slate-200'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${d.isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                                        <span className="font-black text-slate-900 truncate">
+                                          {cleanDriverName(d.name)}
+                                        </span>
+                                        {isGeneral && (
+                                          <span className="text-[10px] font-bold bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded">
+                                            عام
+                                          </span>
+                                        )}
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                                          !d.isActive
+                                            ? 'bg-rose-50 text-rose-600'
+                                            : driverActiveOrders === 0
+                                            ? 'bg-emerald-50 text-emerald-700'
+                                            : 'bg-amber-50 text-amber-700'
+                                        }`}>
+                                          {!d.isActive ? 'غير متاح' : driverActiveOrders === 0 ? 'متفرغ' : `معه ${driverActiveOrders}`}
+                                        </span>
+                                        {d.distanceKm !== null && d.distanceKm !== undefined && (
+                                          <span className="text-[10px] font-mono font-bold text-slate-500 shrink-0">
+                                            {d.distanceKm} كم
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <span className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${
+                                        isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
+                                      }`}>
+                                        {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-end gap-1.5 pt-1">
+                              {showDriverPicker && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowDriverPicker(false)}
+                                  className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold transition-colors"
+                                >
+                                  إلغاء
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                disabled={assigningDriverOrderId === dOrder.id || !currentSelectedDriverId}
+                                onClick={async () => {
+                                  await handleAssignDriver(dOrder.id, currentSelectedDriverId);
+                                  setShowDriverPicker(false);
+                                }}
+                                className="flex-1 py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-black transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                              >
+                                <Truck className="w-3.5 h-3.5" />
+                                <span>
+                                  {assigningDriverOrderId === dOrder.id
+                                    ? 'جاري الحفظ...'
+                                    : assignedDriver
+                                    ? 'تأكيد التغيير'
+                                    : 'إسناد الكابتن المختار'}
+                                </span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
+
+                {/* C. Financial Breakdown & Total Due Strip */}
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-indigo-100 overflow-hidden">
+                    {Boolean(
+                      (dOrder.deliveryFee && Number(dOrder.deliveryFee) > 0) ||
+                      (dOrder.discount && Number(dOrder.discount) > 0) ||
+                      (dOrder.walletDiscount && Number(dOrder.walletDiscount) > 0)
+                    ) && (
+                      <div className="bg-slate-50/70 px-4 py-2.5 space-y-1.5 border-b border-indigo-100 text-xs">
+                        {dOrder.subtotal !== undefined && (
+                          <div className="flex justify-between text-slate-600">
+                            <span>المجموع الفرعي للأصناف:</span>
+                            <span className="font-mono font-bold text-slate-800">{dOrder.subtotal} ج.م</span>
+                          </div>
+                        )}
+                        {Boolean(dOrder.deliveryFee && Number(dOrder.deliveryFee) > 0) && (
+                          <div className="flex justify-between text-slate-600">
+                            <span>رسوم التوصيل:</span>
+                            <span className="font-mono font-bold text-slate-800">{dOrder.deliveryFee} ج.م</span>
+                          </div>
+                        )}
+                        {Boolean(dOrder.discount && Number(dOrder.discount) > 0) && (
+                          <div className="flex justify-between text-emerald-700 font-bold">
+                            <span>🎟️ خصم الكوبون ({dOrder.promoCode || 'ترويجي'}):</span>
+                            <span className="font-mono font-black">-{dOrder.discount} ج.م</span>
+                          </div>
+                        )}
+                        {Boolean(dOrder.walletDiscount && Number(dOrder.walletDiscount) > 0) && (
+                          <div className="flex justify-between text-purple-700 font-bold">
+                            <span>💳 خصم من محفظة العميل:</span>
+                            <span className="font-mono font-black">-{dOrder.walletDiscount} ج.م</span>
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    <div className="flex items-center justify-end gap-2 pt-1">
-                      {showDriverPicker && (
-                        <button
-                          type="button"
-                          onClick={() => setShowDriverPicker(false)}
-                          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
-                        >
-                          إلغاء
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={assigningDriverOrderId === dOrder.id || !currentSelectedDriverId}
-                        onClick={async () => {
-                          await handleAssignDriver(dOrder.id, currentSelectedDriverId);
-                          setShowDriverPicker(false);
-                        }}
-                        className="flex-1 sm:flex-none px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-indigo-600/20 shrink-0 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                      >
-                        <Truck className="w-4 h-4" />
-                        <span>
-                          {assigningDriverOrderId === dOrder.id
-                            ? 'جاري الحفظ...'
-                            : assignedDriver
-                            ? 'تأكيد تغيير الطيار'
-                            : 'إسناد الطلب للكابتن المختار'}
+                    <div className="bg-indigo-50/80 px-4 py-3.5 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-black text-indigo-950 text-sm">الإجمالي النهائي المطلوب:</span>
+                        <span className="text-xs font-bold bg-white text-slate-800 border border-indigo-200/80 px-2.5 py-0.5 rounded-lg">
+                          {dOrder.paymentMethod === 'CASH' && '💵 نقداً عند الاستلام'}
+                          {dOrder.paymentMethod === 'WALLET' && '💳 محفظة إلكترونية'}
+                          {dOrder.paymentMethod === 'ONLINE' && '💳 دفع إلكتروني'}
+                          {dOrder.paymentMethod === 'VODAFONE_CASH' && (!dOrder.paymentProofUrl && !dOrder.paymentSenderPhone ? '📱 فودافون كاش (عند الاستلام)' : '📱 فودافون كاش (بإيصال)')}
+                          {dOrder.paymentMethod === 'INSTAPAY' && (!dOrder.paymentProofUrl && !dOrder.paymentSenderPhone ? '⚡ إنستاباي (عند الاستلام)' : '⚡ إنستاباي (بإيصال)')}
+                          {!['CASH', 'WALLET', 'ONLINE', 'VODAFONE_CASH', 'INSTAPAY'].includes(dOrder.paymentMethod) && (dOrder.paymentMethod || 'نقداً')}
                         </span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-            )}
-
-            {/* Financial Summary & Payment */}
-            <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-3 text-xs">
-              <div className="flex justify-between items-center text-slate-600 border-b border-slate-100 pb-2.5">
-                <span className="font-bold text-slate-700">طريقة الدفع:</span>
-                <span className="font-black text-slate-900 text-sm px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200">
-                  {dOrder.paymentMethod === 'CASH' && '💵 نقداً عند الاستلام'}
-                  {dOrder.paymentMethod === 'WALLET' && '💳 محفظة إلكترونية'}
-                  {dOrder.paymentMethod === 'ONLINE' && '💳 دفع إلكتروني'}
-                  {dOrder.paymentMethod === 'VODAFONE_CASH' && (!dOrder.paymentProofUrl && !dOrder.paymentSenderPhone ? '📱 فودافون كاش (تحويل عند الاستلام)' : '📱 فودافون كاش (مدفوع بإيصال)')}
-                  {dOrder.paymentMethod === 'INSTAPAY' && (!dOrder.paymentProofUrl && !dOrder.paymentSenderPhone ? '⚡ إنستاباي (تحويل عند الاستلام)' : '⚡ إنستاباي (مدفوع بإيصال)')}
-                  {!['CASH', 'WALLET', 'ONLINE', 'VODAFONE_CASH', 'INSTAPAY'].includes(dOrder.paymentMethod) && (dOrder.paymentMethod || 'نقداً')}
-                </span>
-              </div>
-
-              {dOrder.subtotal !== undefined && (
-                <div className="flex justify-between text-slate-600">
-                  <span>المجموع الفرعي للأصناف:</span>
-                  <span className="font-mono font-bold text-slate-800">{dOrder.subtotal} ج.م</span>
-                </div>
-              )}
-
-              {dOrder.deliveryFee !== undefined && dOrder.deliveryFee > 0 && (
-                <div className="flex justify-between text-slate-600">
-                  <span>رسوم التوصيل:</span>
-                  <span className="font-mono font-bold text-slate-800">{dOrder.deliveryFee} ج.م</span>
-                </div>
-              )}
-
-              {/* تفاصيل الخصومات المطبقة (كوبون / رصيد المحفظة) */}
-              {Boolean(dOrder.discount && Number(dOrder.discount) > 0) && (
-                <div className="flex justify-between text-emerald-700 font-bold bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
-                  <span className="flex items-center gap-1.5">
-                    <span>🎟️</span>
-                    <span>خصم الكوبون ({dOrder.promoCode || 'كود ترويجي'}):</span>
-                  </span>
-                  <span className="font-mono font-black">-{dOrder.discount} ج.م</span>
-                </div>
-              )}
-
-              {Boolean(dOrder.walletDiscount && Number(dOrder.walletDiscount) > 0) && (
-                <div className="flex justify-between text-purple-800 font-bold bg-purple-50 p-2.5 rounded-xl border border-purple-200">
-                  <span className="flex items-center gap-1.5">
-                    <span>💳</span>
-                    <span>خصم مسحوب من محفظة العميل:</span>
-                  </span>
-                  <span className="font-mono font-black">-{dOrder.walletDiscount} ج.م</span>
-                </div>
-              )}
-
-              {Boolean((Number(dOrder.discount) || 0) + (Number(dOrder.walletDiscount) || 0) > 0) && (
-                <div className="flex justify-between text-slate-500 text-[11px] font-semibold pr-1">
-                  <span>إجمالي الخصومات المطبقة:</span>
-                  <span className="font-mono font-bold text-rose-600">
-                    -{((Number(dOrder.discount) || 0) + (Number(dOrder.walletDiscount) || 0)).toFixed(1)} ج.م
-                  </span>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center text-sm sm:text-base font-black text-slate-900 pt-2.5 border-t border-slate-200">
-                <span>الإجمالي المطلوب تحصيله:</span>
-                <span className="text-xl sm:text-2xl font-black text-indigo-700 font-mono">{dOrder.total} ج.م</span>
-              </div>
-
-              {/* تفاصيل إثبات تحويل المحفظة / إنستاباي */}
-              {(dOrder.paymentMethod === 'VODAFONE_CASH' || dOrder.paymentMethod === 'INSTAPAY' || dOrder.paymentSenderPhone || dOrder.paymentProofUrl) && (
-                <div className="mt-3 p-3.5 bg-gradient-to-br from-amber-50 to-orange-50/70 border border-amber-200/90 rounded-2xl space-y-2.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-black text-amber-950">
-                      <span className="text-sm">{dOrder.paymentMethod === 'INSTAPAY' ? '⚡' : '📱'}</span>
-                      <span>بيانات تحويل {dOrder.paymentMethod === 'INSTAPAY' ? 'إنستاباي' : 'المحفظة'}</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-amber-800 bg-amber-200/60 px-2 py-0.5 rounded-md">
-                      تأكيد الدفع
-                    </span>
-                  </div>
-
-                  {/* رقم / حساب المحول منه */}
-                  <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-amber-200/80">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-500 block">
-                        {dOrder.paymentMethod === 'INSTAPAY' ? 'اسم الحساب أو الرقم المحول منه:' : 'رقم المحفظة المحول منها:'}
-                      </span>
-                      <span className="font-mono font-black text-slate-900 text-sm select-all">
-                        {dOrder.paymentSenderPhone || 'لم يحدد العميل رقم'}
+                      </div>
+                      <span className="font-mono font-black text-indigo-700 text-xl sm:text-2xl">
+                        {dOrder.total} ج.م
                       </span>
                     </div>
-                    {dOrder.paymentSenderPhone && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(dOrder.paymentSenderPhone);
-                          toast.success('تم نسخ الرقم');
-                        }}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
-                        title="نسخ"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>نسخ</span>
-                      </button>
-                    )}
                   </div>
 
-                  {/* صورة إيصال التحويل */}
-                  {dOrder.paymentProofUrl ? (
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold text-slate-500 block">صورة إيصال التحويل (Screenshot):</span>
-                      <div
-                        onClick={() => setViewingProofUrl(dOrder.paymentProofUrl)}
-                        className="cursor-pointer group relative rounded-xl overflow-hidden border-2 border-amber-300 bg-black/5 hover:border-indigo-500 transition-all max-h-48 flex items-center justify-center p-1"
-                      >
-                        <img
-                          src={getFullImageUrl(dOrder.paymentProofUrl)}
-                          alt="إيصال التحويل"
-                          className="max-h-44 w-auto object-contain rounded-lg shadow-2xs group-hover:scale-[1.01] transition-transform"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white font-bold text-xs rounded-lg backdrop-blur-2xs">
-                          <Eye className="w-4 h-4" />
-                          <span>اضغط لتكبير صورة الإيصال</span>
+                  {/* Electronic Transfer Verification (Vodafone Cash / InstaPay Proof) */}
+                  {(dOrder.paymentSenderPhone || dOrder.paymentProofUrl) && (
+                    <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="space-y-1 min-w-0">
+                        <span className="text-[11px] font-bold text-amber-800 block">
+                          {dOrder.paymentMethod === 'INSTAPAY' ? '⚡ حساب إنستاباي المحول منه:' : '📱 رقم المحفظة المحول منها:'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-slate-900 text-sm select-all">
+                            {dOrder.paymentSenderPhone || 'لم يحدد العميل رقماً'}
+                          </span>
+                          {dOrder.paymentSenderPhone && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(dOrder.paymentSenderPhone);
+                                toast.success('تم نسخ الرقم');
+                              }}
+                              className="px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-amber-200 rounded-lg font-bold transition-colors flex items-center gap-1"
+                            >
+                              <Copy className="w-3 h-3" />
+                              <span>نسخ</span>
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setViewingProofUrl(dOrder.paymentProofUrl)}
-                        className="w-full py-1.5 bg-white hover:bg-amber-100/50 text-amber-900 rounded-xl font-bold border border-amber-300 transition-colors flex items-center justify-center gap-1.5 text-xs shadow-2xs"
-                      >
-                        <ImageIcon className="w-3.5 h-3.5 text-amber-700" />
-                        <span>معاينة الإيصال بالحجم الكامل</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="p-2 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      <span>لم يقم العميل بإرفاق صورة إيصال التحويل!</span>
+
+                      {dOrder.paymentProofUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setViewingProofUrl(dOrder.paymentProofUrl)}
+                          className="flex items-center gap-2.5 px-3 py-2 bg-white hover:bg-amber-50 text-amber-950 rounded-xl font-bold border border-amber-300 transition-colors shrink-0"
+                        >
+                          <img
+                            src={getFullImageUrl(dOrder.paymentProofUrl)}
+                            alt="إيصال التحويل"
+                            className="w-9 h-9 object-cover rounded-lg border border-amber-200"
+                          />
+                          <div className="text-right">
+                            <span className="block font-black text-xs">معاينة صورة الإيصال</span>
+                            <span className="block text-[10px] text-amber-700">اضغط للتكبير</span>
+                          </div>
+                          <Eye className="w-4 h-4 text-amber-700 mr-1" />
+                        </button>
+                      ) : (
+                        <span className="px-2.5 py-1.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 font-bold flex items-center gap-1.5 shrink-0">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>بدون صورة إيصال</span>
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
+              </div>
 
-            {/* Action Controls Bar (Sticky Floating Card at bottom) */}
-            <div className="p-3 sm:p-3.5 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] flex items-center justify-between gap-2.5 sticky bottom-2.5 sm:bottom-4 z-30">
-              <div className="flex items-center gap-2 shrink-0">
+              {/* 3. Unified Ticket Footer Action Strip (Sticky at bottom when ticket is tall, flush when short) */}
+              <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-md border-t border-slate-200 rounded-b-3xl px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 shadow-[0_-8px_24px_rgba(15,23,42,0.05)]">
                 <button
                   type="button"
                   onClick={() => setPrintingOrder(dOrder)}
-                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300/80 rounded-xl text-xs font-bold transition-colors shadow-2xs active:scale-95"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
                 >
                   <Printer className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span>طباعة بون</span>
+                  <span>طباعة الفاتورة</span>
                 </button>
-              </div>
 
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                {isPending && (
-                  <>
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {isPending && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRejectingOrder(dOrder);
+                          setRejectionReason('نفاد المكونات المطلوبة');
+                        }}
+                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
+                      >
+                        <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                        <span>رفض الطلب</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAcceptingOrder(dOrder);
+                          setPrepMinutes(15);
+                          setAcceptDriverId(dOrder.driverId || '');
+                        }}
+                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
+                      >
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>قبول وتجهيز الطلب</span>
+                      </button>
+                    </>
+                  )}
+
+                  {isPreparing && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setRejectingOrder(dOrder);
-                        setRejectionReason('نفاد المكونات المطلوبة');
-                      }}
-                      className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors active:scale-95 flex items-center gap-1"
+                      disabled={updatingId === dOrder.id}
+                      onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2"
                     >
-                      <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                      <span>رفض الطلب</span>
+                      <CheckCircle className="w-4 h-4" />
+                      <span>جاهز للاستلام / انتهى التحضير</span>
                     </button>
+                  )}
+
+                  {isReady && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setAcceptingOrder(dOrder);
-                        setPrepMinutes(15);
-                        setAcceptDriverId(dOrder.driverId || '');
-                      }}
-                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/30 transition-all active:scale-95 flex items-center gap-1.5"
+                      disabled={updatingId === dOrder.id}
+                      onClick={() => handleUpdateStatus(dOrder.id, 'COMPLETED')}
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2"
                     >
-                      <Check className="w-4 h-4 stroke-[3]" />
-                      <span>قبول وبدء التجهيز</span>
+                      <CheckCircle className="w-4 h-4" />
+                      <span>تأكيد التسليم (مكتمل)</span>
                     </button>
-                  </>
-                )}
+                  )}
 
-                {isPreparing && (
-                  <button
-                    type="button"
-                    disabled={updatingId === dOrder.id}
-                    onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
-                    className="w-full sm:w-auto justify-center px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>جاهز للاستلام / تم انتهاء التحضير</span>
-                  </button>
-                )}
+                  {isCompleted && (
+                    <div className="px-3.5 py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-black text-xs flex items-center gap-1.5">
+                      <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      <span>تم إكمال وتسليم الطلب بنجاح</span>
+                    </div>
+                  )}
 
-                {isReady && (
-                  <button
-                    type="button"
-                    disabled={updatingId === dOrder.id}
-                    onClick={() => handleUpdateStatus(dOrder.id, 'COMPLETED')}
-                    className="w-full sm:w-auto justify-center px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>تأكيد التسليم (مكتمل)</span>
-                  </button>
-                )}
-
-                {isCompleted && (
-                  <div className="px-4 py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl font-black text-xs flex items-center gap-1.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
-                    <span>تم إكمال وتسليم هذا الطلب بنجاح</span>
-                  </div>
-                )}
+                  {isRejected && (
+                    <div className="px-3.5 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl font-black text-xs flex items-center gap-1.5">
+                      <XCircle className="w-4 h-4 text-rose-600" />
+                      <span>الطلب مرفوض / ملغي</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1854,7 +1723,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   <Timer className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-black text-slate-900 text-sm">تحديد وقت التجهيز والطيار</h4>
+                  <h4 className="font-black text-slate-900 text-sm">
+                    {acceptingOrder.orderType === 'DELIVERY' ? 'تحديد وقت التجهيز والطيار' : 'تحديد وقت تجهيز الطلب'}
+                  </h4>
                   <span className="text-[11px] font-bold text-slate-400">
                     طلب العميل #{acceptingOrder.orderNumber} ({acceptingOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'})
                   </span>
@@ -1969,7 +1840,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
               </div>
 
-              {/* 2. Interactive Driver Cards Selector */}
+              {/* 2. Interactive Driver Cards Selector (Delivery orders only) */}
+              {acceptingOrder.orderType === 'DELIVERY' && (
               <div className="space-y-2.5 pt-3 border-t border-slate-100">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
@@ -2159,6 +2031,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   })}
                 </div>
               </div>
+              )}
             </div>
 
             {/* Footer */}

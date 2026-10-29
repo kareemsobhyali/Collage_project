@@ -435,7 +435,7 @@ export function App() {
   const pendingCount = orders.filter(o => o.status === 'PENDING').length;
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 flex flex-col font-sans">
       {/* Top Application Header (Two-tier responsive layout) */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm w-full">
         {/* Tier 1: Brand Identity & Quick Operational Actions */}
