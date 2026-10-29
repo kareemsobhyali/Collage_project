@@ -283,7 +283,7 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
             ${order.orderType === 'DELIVERY' && order.deliveryZoneName ? `<div><strong>منطقة التوصيل:</strong> ${escapeHtml(order.deliveryZoneName)}</div>` : ''}
             ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${escapeHtml(getDisplayAddress(order.addressText, 'مقر العميل'))}</div>` : ''}
             ${order.paymentSenderPhone ? `<div><strong>رقم المحول منه:</strong> ${escapeHtml(order.paymentSenderPhone)}</div>` : ''}
-            ${order.notes ? `<div style="font-weight: 900; margin-top: 2px;"><strong>ملاحظات:</strong> ${escapeHtml(order.notes)}</div>` : ''}
+            ${(order.notes || order.orderNotes) ? `<div style="font-weight: 900; margin-top: 2px;"><strong>ملاحظات:</strong> ${escapeHtml(order.notes || order.orderNotes)}</div>` : ''}
           </div>
 
           <div class="solid"></div>
@@ -294,6 +294,10 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
               <span class="price-val">المبلغ</span>
             </div>
             ${itemsHtml}
+            ${(order.notes || order.orderNotes) ? `
+            <div style="margin-top: 5px; padding: 4px; border: 1.5px solid #000; border-radius: 4px; font-size: 11px; font-weight: 900; background: #fff;">
+              <strong>ملاحظات العميل:</strong> ${escapeHtml(order.notes || order.orderNotes)}
+            </div>` : ''}
           </div>
 
           <div class="dashed"></div>

@@ -90,8 +90,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, branchName, o
               {order.orderType === 'DELIVERY' && (
                 <div><span className="font-bold">عنوان التوصيل:</span> {getDisplayAddress(order.addressText, 'مقر العميل')}</div>
               )}
-              {order.notes && (
-                <div><span className="font-bold text-amber-700">ملاحظات:</span> {order.notes}</div>
+              {(order.notes || order.orderNotes) && (
+                <div><span className="font-bold text-amber-700">ملاحظات:</span> {order.notes || order.orderNotes}</div>
               )}
             </div>
 
@@ -131,6 +131,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, branchName, o
                 );
               })}
             </div>
+
+            {(order.notes || order.orderNotes) && (
+              <div className="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-xs text-amber-950 mb-3 text-right">
+                <span className="font-bold text-amber-900 block mb-0.5">📝 ملاحظات العميل:</span>
+                <span className="font-bold">{order.notes || order.orderNotes}</span>
+              </div>
+            )}
 
             <div className="border-b border-dashed border-slate-300 my-2"></div>
 

@@ -618,10 +618,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
               )}
 
-              {dOrder.orderNotes && (
+              {(dOrder.notes || dOrder.orderNotes) && (
                 <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl text-amber-900 text-xs">
                   <span className="font-black block mb-0.5">📝 ملاحظات خاصة مع الطلب:</span>
-                  <p className="font-medium leading-relaxed">{dOrder.orderNotes}</p>
+                  <p className="font-medium leading-relaxed">{dOrder.notes || dOrder.orderNotes}</p>
                 </div>
               )}
             </div>
@@ -1035,6 +1035,19 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   );
                 })}
               </div>
+
+              {/* ملاحظات العميل على الطلب (تظهر تحت الأصناف مباشرة في شاشة استقبال الطلب) */}
+              {(dOrder.notes || dOrder.orderNotes) && (
+                <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl shadow-xs">
+                  <div className="flex items-center gap-2 mb-2 text-amber-900 font-black text-xs sm:text-sm">
+                    <span className="text-base sm:text-lg">📝</span>
+                    <span>ملاحظات العميل مع الطلب:</span>
+                  </div>
+                  <div className="bg-white/95 p-3 rounded-xl border border-amber-200/80 text-xs sm:text-sm font-black text-amber-950 leading-relaxed whitespace-pre-wrap select-text shadow-2xs">
+                    {dOrder.notes || dOrder.orderNotes}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Financial Summary & Payment */}
@@ -1582,6 +1595,19 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         </span>
                       </div>
                     </div>
+
+                    {/* ملاحظات العميل تظهر مباشرة على بطاقة الأوردر في شاشة الاستقبال */}
+                    {(order.notes || order.orderNotes) && (
+                      <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-950 flex items-start gap-2 shadow-2xs">
+                        <span className="text-base shrink-0">📝</span>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] font-black text-amber-800 block mb-0.5">ملاحظات العميل:</span>
+                          <p className="text-[11px] font-bold text-slate-800 line-clamp-2 leading-relaxed" title={order.notes || order.orderNotes}>
+                            {order.notes || order.orderNotes}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* شريط تتبع الطيار الحي على بطاقة الطلب (قبل الاستلام وبعد الاستلام) */}
                     {order.orderType === 'DELIVERY' && (order.driver || order.driverId) && !isCompleted && !isRejected && (() => {

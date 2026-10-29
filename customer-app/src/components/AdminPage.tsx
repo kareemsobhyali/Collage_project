@@ -10772,6 +10772,19 @@ export const AdminPage: React.FC = () => {
                       );
                     })}
                   </div>
+
+                  {/* ملاحظات العميل على الطلب تظهر تحت الأصناف */}
+                  {(selectedOrderDetails.notes || selectedOrderDetails.orderNotes) && (
+                    <div className="mt-3.5 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50/80 border-2 border-amber-300 rounded-2xl text-amber-950 text-xs shadow-2xs">
+                      <div className="flex items-center gap-1.5 font-black text-amber-900 mb-1">
+                        <span>📝</span>
+                        <span>ملاحظات العميل على الطلب:</span>
+                      </div>
+                      <div className="bg-white/95 p-2.5 rounded-xl border border-amber-200/80 text-xs font-black text-slate-900 leading-relaxed whitespace-pre-wrap select-text">
+                        {selectedOrderDetails.notes || selectedOrderDetails.orderNotes}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 4. Financial Breakdown, Promo Coupons & Loyalty Points (طلب المستخدم الرئيسي) */}
