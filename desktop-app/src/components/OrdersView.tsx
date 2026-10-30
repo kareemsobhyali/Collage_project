@@ -55,6 +55,7 @@ interface OrdersViewProps {
   socket?: any;
   liveDriverLocations?: Record<string, { lat: number; lng: number; orderId?: string; timestamp: number }>;
   onRefreshOrders: () => void;
+  onOptimisticOrderUpdate?: (orderId: string, patch: Record<string, any>) => void;
   initialDetailedOrder?: any | null;
   onClearDetailedOrder?: () => void;
   onDetailedOrderOpenChange?: (isOpen: boolean) => void;
@@ -100,6 +101,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   socket,
   liveDriverLocations,
   onRefreshOrders,
+  onOptimisticOrderUpdate,
   initialDetailedOrder,
   onClearDetailedOrder,
   onDetailedOrderOpenChange,
@@ -164,15 +166,6 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     }
   }, [detailedOrder, onDetailedOrderOpenChange]);
 
-  useEffect(() => {
-    if (detailedOrder) {
-      const fresh = orders.find(o => o.id === detailedOrder.id);
-      if (fresh) {
-        setDetailedOrder(fresh);
-      }
-    }
-  }, [orders]);
-
   const [printingOrder, setPrintingOrder] = useState<any | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -183,6 +176,72 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   // Rejection & Cancellation Dialog State
   const [rejectingOrder, setRejectingOrder] = useState<any | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
+
+  // مزامنة الطلب المفتوح مع التحديثات اللحظية وإرجاع الكاشير فوراً لشاشة الطلبات الجديدة إذا أُلغي الطلب من العميل أو تغيرت حالته من جديد (PENDING)
+  useEffect(() => {
+    if (acceptingOrder) {
+      const freshAccept = orders.find(o => o.id === acceptingOrder.id);
+      if (!freshAccept || freshAccept.status !== 'PENDING') {
+        setAcceptingOrder(null);
+        setPrintingOrder((prev: any) => (prev?.id === acceptingOrder.id ? null : prev));
+        setDetailedOrder(null);
+        onClearDetailedOrder?.();
+        onDetailedOrderOpenChange?.(false);
+        setSelectedTab('PENDING');
+        window.scrollTo(0, 0);
+        return;
+      }
+    }
+
+    if (rejectingOrder) {
+      const freshReject = orders.find(o => o.id === rejectingOrder.id);
+      if (!freshReject || freshReject.status === 'REJECTED' || freshReject.status === 'CANCELLED') {
+        setRejectingOrder(null);
+        setPrintingOrder((prev: any) => (prev?.id === rejectingOrder.id ? null : prev));
+        setDetailedOrder(null);
+        onClearDetailedOrder?.();
+        onDetailedOrderOpenChange?.(false);
+        setSelectedTab('PENDING');
+        window.scrollTo(0, 0);
+        return;
+      }
+    }
+
+    if (detailedOrder) {
+      const fresh = orders.find(o => o.id === detailedOrder.id);
+      if (!fresh) {
+        setPrintingOrder((prev: any) => (prev?.id === detailedOrder.id ? null : prev));
+        setDetailedOrder(null);
+        onClearDetailedOrder?.();
+        onDetailedOrderOpenChange?.(false);
+        setSelectedTab('PENDING');
+        window.scrollTo(0, 0);
+        return;
+      }
+
+      const wasRejectedBefore =
+        detailedOrder.status === 'REJECTED' || detailedOrder.status === 'CANCELLED';
+      const isRejectedNow =
+        fresh.status === 'REJECTED' || fresh.status === 'CANCELLED';
+      const wasPendingAndMoved =
+        detailedOrder.status === 'PENDING' && fresh.status !== 'PENDING';
+
+      if ((!wasRejectedBefore && isRejectedNow) || wasPendingAndMoved) {
+        setPrintingOrder((prev: any) => (prev?.id === detailedOrder.id ? null : prev));
+        setDetailedOrder(null);
+        setAcceptingOrder(null);
+        setRejectingOrder(null);
+        setTrackingOrderMap(null);
+        onClearDetailedOrder?.();
+        onDetailedOrderOpenChange?.(false);
+        setSelectedTab('PENDING');
+        window.scrollTo(0, 0);
+        return;
+      }
+
+      setDetailedOrder(fresh);
+    }
+  }, [orders]);
 
   // Payment Proof Modal
   const [viewingProofUrl, setViewingProofUrl] = useState<string | null>(null);
@@ -380,10 +439,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       if (detailedOrder && detailedOrder.id === orderId) {
         setDetailedOrder(null);
         onClearDetailedOrder?.();
+        onDetailedOrderOpenChange?.(false);
+        if (newStatus === 'PREPARING' || newStatus === 'ACCEPTED' || newStatus === 'REJECTED') {
+          setSelectedTab('PENDING');
+        }
       }
       onRefreshOrders();
     } catch (error: any) {
       toast.error(error.message || 'فشل تحديث حالة الطلب');
+      onRefreshOrders();
     } finally {
       setUpdatingId(null);
     }
@@ -393,12 +457,21 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     if (!rejectingOrder) return;
     const orderToReject = rejectingOrder;
     const finalReason = rejectionReason.trim() || 'نفاد المكونات المطلوبة';
+    const nowIso = new Date().toISOString();
+
     setRejectingOrder(null);
+    setAcceptingOrder(null);
     soundNotifier.stopRepeatingAlarm();
+    onOptimisticOrderUpdate?.(orderToReject.id, {
+      status: 'REJECTED',
+      rejectionReason: finalReason,
+      cancelledAt: nowIso,
+    });
     setDetailedOrder(null);
     onClearDetailedOrder?.();
     onDetailedOrderOpenChange?.(false);
     setSelectedTab('PENDING');
+    window.scrollTo(0, 0);
     await handleUpdateStatus(orderToReject.id, 'REJECTED', undefined, finalReason);
   };
 
@@ -407,13 +480,23 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     const orderToAccept = acceptingOrder;
     const minutes = prepMinutes || 15;
     const driverToAssign = acceptDriverId;
-    setAcceptingOrder(null);
+    const nowIso = new Date().toISOString();
 
-    // إغلاق شاشة تفاصيل الأوردر والرجوع فوراً لشاشة الطلبات الجديدة
+    setAcceptingOrder(null);
+    setRejectingOrder(null);
+
+    // تحديث فوري متفائل لإزالة الطلب المقبول من قائمة الطلبات الجديدة والرجوع مباشرة لشاشة الطلبات الجديدة
+    onOptimisticOrderUpdate?.(orderToAccept.id, {
+      status: 'PREPARING',
+      estimatedMinutes: minutes,
+      acceptedAt: nowIso,
+      preparingAt: nowIso,
+    });
     setDetailedOrder(null);
     onClearDetailedOrder?.();
     onDetailedOrderOpenChange?.(false);
     setSelectedTab('PENDING');
+    window.scrollTo(0, 0);
 
     // إيقاف صوت التنبيه فور قبول الطلب
     soundNotifier.stopRepeatingAlarm();
@@ -481,7 +564,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         const isPreparing = dOrder.status === 'PREPARING' || dOrder.status === 'ACCEPTED';
         const isReady = dOrder.status === 'READY';
         const isCompleted = dOrder.status === 'COMPLETED';
-        const isRejected = dOrder.status === 'REJECTED';
+        const isRejected = dOrder.status === 'REJECTED' || dOrder.status === 'CANCELLED';
 
         const customerPhone = dOrder.customerPhone || dOrder.user?.phone || '';
         const cleanPhone = customerPhone.replace(/[^0-9]/g, '');
@@ -512,7 +595,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         return (
           <div className="max-w-3xl mx-auto animate-fadeIn pb-3">
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-900/5">
-              {/* 1. Unified Receipt Ticket Header with Direct Action Buttons */}
+              {/* 1. Unified Receipt Ticket Header */}
               <div className="bg-slate-900 text-white rounded-t-3xl px-4 sm:px-5 py-3 sm:py-3.5 flex flex-wrap items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <button
@@ -542,12 +625,6 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       }`}>
                         {dOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'}
                       </span>
-                      {isPending && (
-                        <span className="text-[11px] px-2 py-0.5 rounded-full font-black whitespace-nowrap shrink-0 flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-400/30">
-                          <Clock className="w-3 h-3 animate-spin" />
-                          <span>طلب جديد</span>
-                        </span>
-                      )}
                     </div>
 
                     <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
@@ -562,93 +639,34 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   </div>
                 </div>
 
-                {/* Direct Action Buttons & Status in Ticket Header (Immediately visible at top) */}
-                <div className="flex items-center gap-2 flex-wrap shrink-0 mr-auto sm:mr-0">
-                  <button
-                    type="button"
-                    onClick={() => setPrintingOrder(dOrder)}
-                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition-all active:scale-95 cursor-pointer"
-                    title="طباعة الفاتورة"
-                  >
-                    <Printer className="w-4 h-4 text-indigo-400" />
-                  </button>
-
-                  {isPending ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRejectingOrder(dOrder);
-                          setRejectionReason('نفاد المكونات المطلوبة');
-                        }}
-                        className="px-3.5 py-2 bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-400/40 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
-                      >
-                        <XCircle className="w-3.5 h-3.5 text-rose-300" />
-                        <span>رفض الطلب</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAcceptingOrder(dOrder);
-                          setPrepMinutes(15);
-                          setAcceptDriverId(dOrder.driverId || '');
-                        }}
-                        className="px-4 sm:px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-xs sm:text-sm font-black shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
-                      >
-                        <Check className="w-4 h-4 stroke-[3]" />
-                        <span>قبول وتجهيز الطلب</span>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap ${
-                        isPreparing
-                          ? isOverdue
-                            ? 'bg-rose-500/25 text-rose-300 border border-rose-400/40'
-                            : 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30'
-                          : isReady
-                          ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30'
-                          : isCompleted
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
-                      }`}>
-                        {isPreparing && <ChefHat className="w-3.5 h-3.5" />}
-                        {isReady && <Truck className="w-3.5 h-3.5" />}
-                        {isCompleted && <CheckCircle className="w-3.5 h-3.5" />}
-                        {isRejected && <XCircle className="w-3.5 h-3.5" />}
-                        <span>
-                          {isPreparing && (isOverdue ? `متأخر بـ ${overdueMins} د` : 'قيد التحضير')}
-                          {isReady && 'جاهز للتسليم'}
-                          {isCompleted && 'مكتمل'}
-                          {isRejected && 'ملغي / مرفوض'}
-                        </span>
-                      </span>
-
-                      {isPreparing && (
-                        <button
-                          type="button"
-                          disabled={updatingId === dOrder.id}
-                          onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
-                          className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-500/25 transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          <span>جاهز للاستلام</span>
-                        </button>
-                      )}
-
-                      {isReady && (
-                        <button
-                          type="button"
-                          disabled={updatingId === dOrder.id}
-                          onClick={() => handleUpdateStatus(dOrder.id, 'COMPLETED')}
-                          className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-500/25 transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          <span>تأكيد التسليم</span>
-                        </button>
-                      )}
-                    </>
-                  )}
+                {/* Status Badge Only (Action buttons are exclusively in the sticky bottom bar) */}
+                <div className="flex items-center shrink-0">
+                  <span className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap ${
+                    isPending
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
+                      : isPreparing
+                      ? isOverdue
+                        ? 'bg-rose-500/25 text-rose-300 border border-rose-400/40'
+                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30'
+                      : isReady
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30'
+                      : isCompleted
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
+                  }`}>
+                    {isPending && <Clock className="w-3.5 h-3.5 animate-spin" />}
+                    {isPreparing && <ChefHat className="w-3.5 h-3.5" />}
+                    {isReady && <Truck className="w-3.5 h-3.5" />}
+                    {isCompleted && <CheckCircle className="w-3.5 h-3.5" />}
+                    {isRejected && <XCircle className="w-3.5 h-3.5" />}
+                    <span>
+                      {isPending && 'بانتظار الموافقة'}
+                      {isPreparing && (isOverdue ? `متأخر بـ ${overdueMins} د` : 'قيد التحضير')}
+                      {isReady && 'جاهز للتسليم'}
+                      {isCompleted && 'مكتمل'}
+                      {isRejected && 'ملغي / مرفوض'}
+                    </span>
+                  </span>
                 </div>
               </div>
 
@@ -1513,7 +1531,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 const isPreparing = order.status === 'PREPARING' || order.status === 'ACCEPTED';
                 const isReady = order.status === 'READY';
                 const isCompleted = order.status === 'COMPLETED';
-                const isRejected = order.status === 'REJECTED';
+                const isRejected = order.status === 'REJECTED' || order.status === 'CANCELLED';
 
                 const itemsCount = order.items?.reduce((acc: number, it: any) => acc + (it.quantity || 1), 0) || order.items?.length || 0;
 

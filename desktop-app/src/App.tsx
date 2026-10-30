@@ -275,8 +275,20 @@ export function App() {
     socket.on('order_status_updated', (updatedOrder: any) => {
       setOrders(prev => {
         const existing = prev.find(o => o.id === updatedOrder.id);
-        if (existing && existing.status !== 'REJECTED' && updatedOrder.status === 'REJECTED') {
-          toast.warning(`⚠️ تم إلغاء طلب #${updatedOrder.orderNumber || ''} من قِبل العميل`);
+        if (
+          existing &&
+          existing.status !== 'REJECTED' &&
+          existing.status !== 'CANCELLED' &&
+          (updatedOrder.status === 'REJECTED' || updatedOrder.status === 'CANCELLED')
+        ) {
+          const isClientCancel =
+            !updatedOrder.rejectionReason &&
+            String(updatedOrder.notes || '').includes('العميل');
+          toast.warning(
+            isClientCancel
+              ? `⚠️ تم إلغاء طلب #${updatedOrder.orderNumber || ''} من قِبل العميل`
+              : `⚠️ تم إلغاء / رفض طلب #${updatedOrder.orderNumber || ''}`
+          );
         }
         const next = prev.map(o => o.id === updatedOrder.id ? updatedOrder : o);
         const hasPending = next.some(o => o.status === 'PENDING');
@@ -285,6 +297,10 @@ export function App() {
         }
         return next;
       });
+      if (updatedOrder.status === 'REJECTED' || updatedOrder.status === 'CANCELLED') {
+        setTargetedDetailedOrder((prev: any) => (prev?.id === updatedOrder.id ? null : prev));
+        setDriverRejectionAlert((prev) => (prev?.orderId === updatedOrder.id ? null : prev));
+      }
     });
 
     // استلام تنبيه فوري وتشغيل جرس إنذار عند اعتذار/رفض الطيار لاستلام الطلب
@@ -427,6 +443,10 @@ export function App() {
 
   const handleDetailedOrderOpenChange = useCallback((isOpen: boolean) => {
     setIsOrderDetailsOpen(isOpen);
+  }, []);
+
+  const handleOptimisticOrderUpdate = useCallback((orderId: string, patch: Record<string, any>) => {
+    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, ...patch } : o)));
   }, []);
 
   if (!token || !branch) {
@@ -738,6 +758,7 @@ export function App() {
             socket={socketRef.current}
             liveDriverLocations={liveDriverLocations}
             onRefreshOrders={loadData}
+            onOptimisticOrderUpdate={handleOptimisticOrderUpdate}
             initialDetailedOrder={targetedDetailedOrder}
             onClearDetailedOrder={handleClearDetailedOrder}
             onDetailedOrderOpenChange={handleDetailedOrderOpenChange}
