@@ -510,11 +510,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         const isPickedUpByDriver = Boolean(dOrder.driverPickedUpAt);
 
         return (
-          <div className="max-w-3xl mx-auto animate-fadeIn pb-8">
+          <div className="max-w-3xl mx-auto animate-fadeIn pb-3">
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-900/5">
-              {/* 1. Unified Receipt Ticket Header */}
-              <div className="bg-slate-900 text-white rounded-t-3xl px-4 sm:px-6 py-4 sm:py-5 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
+              {/* 1. Unified Receipt Ticket Header with Direct Action Buttons */}
+              <div className="bg-slate-900 text-white rounded-t-3xl px-4 sm:px-5 py-3 sm:py-3.5 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <button
                     type="button"
                     onClick={() => {
@@ -523,7 +523,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       onDetailedOrderOpenChange?.(false);
                       if (isPending) setSelectedTab('PENDING');
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs transition-all active:scale-95 shrink-0"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs transition-all active:scale-95 shrink-0 cursor-pointer"
                     title="رجوع لقائمة الأوردرات"
                   >
                     <ArrowRight className="w-4 h-4 shrink-0 text-slate-300" />
@@ -532,19 +532,25 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-black text-base sm:text-xl text-white">
+                      <span className="font-mono font-black text-base sm:text-lg text-white">
                         طلب رقم #{dOrder.orderNumber}
                       </span>
-                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                      <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0 flex items-center gap-1 ${
                         dOrder.orderType === 'DELIVERY'
                           ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-400/30'
                           : 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/30'
                       }`}>
                         {dOrder.orderType === 'DELIVERY' ? '🛵 توصيل' : '🛍️ استلام'}
                       </span>
+                      {isPending && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-black whitespace-nowrap shrink-0 flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                          <Clock className="w-3 h-3 animate-spin" />
+                          <span>طلب جديد</span>
+                        </span>
+                      )}
                     </div>
 
-                    <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                    <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
                       {isPending && <span>منذ {formatDuration(waitMins)}</span>}
                       {isPreparing && <span>المحدد: {dOrder.estimatedMinutes || 15} د • مضى {formatDuration(prepMins)}</span>}
                       {isReady && <span>في انتظار الاستلام منذ {formatDuration(deliveryMins)}</span>}
@@ -556,56 +562,115 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   </div>
                 </div>
 
-                {/* Status Badge in Ticket Header */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap ${
-                    isPending
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
-                      : isPreparing
-                      ? isOverdue
-                        ? 'bg-rose-500/25 text-rose-300 border border-rose-400/40'
-                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30'
-                      : isReady
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30'
-                      : isCompleted
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
-                      : 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
-                  }`}>
-                    {isPending && <Clock className="w-3.5 h-3.5 animate-spin" />}
-                    {isPreparing && <ChefHat className="w-3.5 h-3.5" />}
-                    {isReady && <Truck className="w-3.5 h-3.5" />}
-                    {isCompleted && <CheckCircle className="w-3.5 h-3.5" />}
-                    {isRejected && <XCircle className="w-3.5 h-3.5" />}
-                    <span>
-                      {isPending && 'بانتظار الموافقة'}
-                      {isPreparing && (isOverdue ? `متأخر بـ ${overdueMins} د` : 'قيد التحضير')}
-                      {isReady && 'جاهز للتسليم'}
-                      {isCompleted && 'مكتمل'}
-                      {isRejected && 'ملغي / مرفوض'}
-                    </span>
-                  </span>
+                {/* Direct Action Buttons & Status in Ticket Header (Immediately visible at top) */}
+                <div className="flex items-center gap-2 flex-wrap shrink-0 mr-auto sm:mr-0">
+                  <button
+                    type="button"
+                    onClick={() => setPrintingOrder(dOrder)}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition-all active:scale-95 cursor-pointer"
+                    title="طباعة الفاتورة"
+                  >
+                    <Printer className="w-4 h-4 text-indigo-400" />
+                  </button>
+
+                  {isPending ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRejectingOrder(dOrder);
+                          setRejectionReason('نفاد المكونات المطلوبة');
+                        }}
+                        className="px-3.5 py-2 bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-400/40 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                      >
+                        <XCircle className="w-3.5 h-3.5 text-rose-300" />
+                        <span>رفض الطلب</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAcceptingOrder(dOrder);
+                          setPrepMinutes(15);
+                          setAcceptDriverId(dOrder.driverId || '');
+                        }}
+                        className="px-4 sm:px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-xs sm:text-sm font-black shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                      >
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>قبول وتجهيز الطلب</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap ${
+                        isPreparing
+                          ? isOverdue
+                            ? 'bg-rose-500/25 text-rose-300 border border-rose-400/40'
+                            : 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30'
+                          : isReady
+                          ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30'
+                          : isCompleted
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
+                      }`}>
+                        {isPreparing && <ChefHat className="w-3.5 h-3.5" />}
+                        {isReady && <Truck className="w-3.5 h-3.5" />}
+                        {isCompleted && <CheckCircle className="w-3.5 h-3.5" />}
+                        {isRejected && <XCircle className="w-3.5 h-3.5" />}
+                        <span>
+                          {isPreparing && (isOverdue ? `متأخر بـ ${overdueMins} د` : 'قيد التحضير')}
+                          {isReady && 'جاهز للتسليم'}
+                          {isCompleted && 'مكتمل'}
+                          {isRejected && 'ملغي / مرفوض'}
+                        </span>
+                      </span>
+
+                      {isPreparing && (
+                        <button
+                          type="button"
+                          disabled={updatingId === dOrder.id}
+                          onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
+                          className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-500/25 transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>جاهز للاستلام</span>
+                        </button>
+                      )}
+
+                      {isReady && (
+                        <button
+                          type="button"
+                          disabled={updatingId === dOrder.id}
+                          onClick={() => handleUpdateStatus(dOrder.id, 'COMPLETED')}
+                          className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-500/25 transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>تأكيد التسليم</span>
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* Flush Alert Strip under Header (only when Overdue or Rejected) */}
               {isPreparing && isOverdue && (
-                <div className="px-4 sm:px-6 py-2.5 bg-rose-50 border-b border-rose-200 text-rose-800 flex items-center gap-2 text-xs font-bold">
+                <div className="px-4 sm:px-5 py-2 bg-rose-50 border-b border-rose-200 text-rose-800 flex items-center gap-2 text-xs font-bold">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>تنبيه: هذا الطلب متأخر عن وقت التجهيز المحدد بـ {overdueMins} دقيقة — يرجى سرعة إنهائه.</span>
                 </div>
               )}
               {isRejected && (
-                <div className="px-4 sm:px-6 py-2.5 bg-rose-50/70 border-b border-rose-200 text-rose-800 flex items-center gap-2 text-xs font-bold">
+                <div className="px-4 sm:px-5 py-2 bg-rose-50/70 border-b border-rose-200 text-rose-800 flex items-center gap-2 text-xs font-bold">
                   <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>تم رفض / إلغاء هذا الطلب ({dOrder.rejectionReason || 'بدون سبب'})</span>
                 </div>
               )}
 
               {/* 2. Unified Receipt Ticket Body */}
-              <div className="p-4 sm:p-6 space-y-5">
+              <div className="p-3.5 sm:p-4 space-y-3.5">
                 {/* A. Items Section */}
                 <div>
-                  <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center justify-between mb-2">
                     <h4 className="text-xs font-black text-slate-500 flex items-center gap-1.5">
                       <ShoppingBag className="w-3.5 h-3.5 text-indigo-600" />
                       <span>الأصناف المطلوبة ({dOrder.items?.length || 0}):</span>
@@ -619,7 +684,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     {dOrder.items?.map((item: any, idx: number) => {
                       const itemTitle = item.item?.name || item.itemName || 'صنف';
                       return (
-                        <div key={idx} className="p-3 sm:p-3.5 hover:bg-slate-50/60 transition-colors space-y-1.5">
+                        <div key={idx} className="p-2.5 sm:p-3 hover:bg-slate-50/60 transition-colors space-y-1.5">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-2.5 min-w-0">
                               <span className="px-2 py-0.5 rounded-lg bg-indigo-600 text-white font-mono font-black text-xs flex items-center justify-center shrink-0">
@@ -721,16 +786,16 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
 
                 {/* B. Customer & Delivery Logistics (Equal 2-Column Row) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-stretch">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
                   {/* Card 1: Customer Information */}
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs flex flex-col justify-between gap-3">
-                    <div className="space-y-2.5">
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs flex flex-col justify-between gap-2.5">
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-400 text-[11px]">بيانات العميل:</span>
                         <button
                           type="button"
                           onClick={() => handleOpenCustomerCRM(dOrder, customerOrderCount)}
-                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 cursor-pointer"
                           title="سجل وملاحظات العميل"
                         >
                           <History className="w-3 h-3" />
@@ -773,7 +838,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="pt-2.5 border-t border-slate-200/80 flex items-start gap-1.5 text-slate-700 font-bold">
+                    <div className="pt-2 border-t border-slate-200/80 flex items-start gap-1.5 text-slate-700 font-bold">
                       <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
                       <span className="leading-snug">
                         {dOrder.orderType === 'PICKUP'
@@ -784,24 +849,24 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   </div>
 
                   {/* Card 2: Delivery & Driver Assignment */}
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs flex flex-col justify-between gap-3">
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs flex flex-col justify-between gap-2.5">
                     {dOrder.orderType !== 'DELIVERY' ? (
                       <>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <span className="font-bold text-slate-400 text-[11px] block">طريقة الاستلام:</span>
                           <span className="font-black text-slate-900 text-sm block">🛍️ استلام شخصي من المطعم</span>
-                          <span className="text-slate-500 block leading-relaxed">
-                            يحضر العميل لاستلام الطلب مباشرة من الفرع دون الحاجة لكابتن توصيل.
+                          <span className="text-slate-500 block leading-snug">
+                            يحضر العميل لاستلام الطلب مباشرة من الفرع.
                           </span>
                         </div>
-                        <div className="pt-2.5 border-t border-slate-200/80 text-emerald-700 font-bold flex items-center gap-1.5">
+                        <div className="pt-2 border-t border-slate-200/80 text-emerald-700 font-bold flex items-center gap-1.5">
                           <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                           <span>بدون رسوم توصيل</span>
                         </div>
                       </>
                     ) : assignedDriver && !showDriverPicker ? (
                       <>
-                        <div className="space-y-2.5">
+                        <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-slate-400 text-[11px]">كابتن التوصيل المعين:</span>
                             <div className="flex items-center gap-2">
@@ -869,7 +934,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           </div>
                         </div>
 
-                        <div className="pt-2.5 border-t border-slate-200/80 space-y-2">
+                        <div className="pt-2 border-t border-slate-200/80 space-y-2">
                           {isPickedUpByDriver ? (
                             <div className="flex items-center justify-between gap-2 text-emerald-800 font-bold">
                               <span className="flex items-center gap-1.5 min-w-0 truncate">
@@ -911,14 +976,14 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       </>
                     ) : isPending ? (
                       <>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <span className="font-bold text-slate-400 text-[11px] block">كابتن التوصيل:</span>
                           <span className="font-black text-slate-900 text-sm block">⏳ يُعين عند قبول الطلب</span>
-                          <span className="text-slate-500 block leading-relaxed">
-                            عند الضغط على قبول الطلب يمكنك تحديد وقت التحضير وإسناد الطيار فوراً.
+                          <span className="text-slate-500 block leading-snug text-[11px]">
+                            تحديد وقت التحضير وإسناد الطيار فور قبول الطلب.
                           </span>
                         </div>
-                        <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-slate-700 font-bold">
+                        <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-slate-700 font-bold">
                           <span>{dOrder.deliveryZoneName || 'توصيل دليفري'}</span>
                           <span className="font-mono text-indigo-700">
                             {dOrder.deliveryFee ? `${dOrder.deliveryFee} ج.م توصيل` : 'توصيل مجاني'}
@@ -927,13 +992,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       </>
                     ) : isCompleted || isRejected ? (
                       <>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <span className="font-bold text-slate-400 text-[11px] block">كابتن التوصيل:</span>
                           <span className="font-black text-slate-900 text-sm block">
                             {isCompleted ? '✓ تم التسليم المباشر عبر الفرع' : '✕ لم يتم تعيين طيار'}
                           </span>
                         </div>
-                        <div className="pt-2.5 border-t border-slate-200/80 text-slate-500 font-bold">
+                        <div className="pt-2 border-t border-slate-200/80 text-slate-500 font-bold">
                           {isCompleted ? 'أُكمل الطلب بنجاح' : 'الطلب ملغي / مرفوض'}
                         </div>
                       </>
@@ -1069,14 +1134,14 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
 
                 {/* C. Financial Breakdown & Total Due Strip */}
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   <div className="rounded-2xl border border-indigo-100 overflow-hidden">
                     {Boolean(
                       (dOrder.deliveryFee && Number(dOrder.deliveryFee) > 0) ||
                       (dOrder.discount && Number(dOrder.discount) > 0) ||
                       (dOrder.walletDiscount && Number(dOrder.walletDiscount) > 0)
                     ) && (
-                      <div className="bg-slate-50/70 px-4 py-2.5 space-y-1.5 border-b border-indigo-100 text-xs">
+                      <div className="bg-slate-50/70 px-3.5 py-2 space-y-1 border-b border-indigo-100 text-xs">
                         {dOrder.subtotal !== undefined && (
                           <div className="flex justify-between text-slate-600">
                             <span>المجموع الفرعي للأصناف:</span>
@@ -1104,7 +1169,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       </div>
                     )}
 
-                    <div className="bg-indigo-50/80 px-4 py-3.5 flex flex-wrap items-center justify-between gap-2">
+                    <div className="bg-indigo-50/80 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-black text-indigo-950 text-sm">الإجمالي النهائي المطلوب:</span>
                         <span className="text-xs font-bold bg-white text-slate-800 border border-indigo-200/80 px-2.5 py-0.5 rounded-lg">
@@ -1116,7 +1181,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           {!['CASH', 'WALLET', 'ONLINE', 'VODAFONE_CASH', 'INSTAPAY'].includes(dOrder.paymentMethod) && (dOrder.paymentMethod || 'نقداً')}
                         </span>
                       </div>
-                      <span className="font-mono font-black text-indigo-700 text-xl sm:text-2xl">
+                      <span className="font-mono font-black text-indigo-700 text-lg sm:text-xl">
                         {dOrder.total} ج.م
                       </span>
                     </div>
@@ -1124,7 +1189,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
                   {/* Electronic Transfer Verification (Vodafone Cash / InstaPay Proof) */}
                   {(dOrder.paymentSenderPhone || dOrder.paymentProofUrl) && (
-                    <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
                       <div className="space-y-1 min-w-0">
                         <span className="text-[11px] font-bold text-amber-800 block">
                           {dOrder.paymentMethod === 'INSTAPAY' ? '⚡ حساب إنستاباي المحول منه:' : '📱 رقم المحفظة المحول منها:'}
@@ -1153,12 +1218,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <button
                           type="button"
                           onClick={() => setViewingProofUrl(dOrder.paymentProofUrl)}
-                          className="flex items-center gap-2.5 px-3 py-2 bg-white hover:bg-amber-50 text-amber-950 rounded-xl font-bold border border-amber-300 transition-colors shrink-0"
+                          className="flex items-center gap-2.5 px-3 py-1.5 bg-white hover:bg-amber-50 text-amber-950 rounded-xl font-bold border border-amber-300 transition-colors shrink-0"
                         >
                           <img
                             src={getFullImageUrl(dOrder.paymentProofUrl)}
                             alt="إيصال التحويل"
-                            className="w-9 h-9 object-cover rounded-lg border border-amber-200"
+                            className="w-8 h-8 object-cover rounded-lg border border-amber-200"
                           />
                           <div className="text-right">
                             <span className="block font-black text-xs">معاينة صورة الإيصال</span>
@@ -1177,18 +1242,18 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
               </div>
 
-              {/* 3. Unified Ticket Footer Action Strip (Sticky at bottom when ticket is tall, flush when short) */}
-              <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-md border-t border-slate-200 rounded-b-3xl px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 shadow-[0_-8px_24px_rgba(15,23,42,0.05)]">
+              {/* 3. Unified Ticket Footer Action Strip (Always sticky to viewport bottom when ticket is tall, flush when short) */}
+              <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 rounded-b-3xl px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-2.5 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
                 <button
                   type="button"
                   onClick={() => setPrintingOrder(dOrder)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer className="w-4 h-4 text-indigo-600 shrink-0" />
                   <span>طباعة الفاتورة</span>
                 </button>
 
-                <div className="flex items-center gap-2 flex-wrap justify-end">
+                <div className="flex items-center gap-2 flex-wrap justify-end flex-1 sm:flex-none">
                   {isPending && (
                     <>
                       <button
@@ -1197,7 +1262,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           setRejectingOrder(dOrder);
                           setRejectionReason('نفاد المكونات المطلوبة');
                         }}
-                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
+                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
                       >
                         <XCircle className="w-3.5 h-3.5 text-rose-600" />
                         <span>رفض الطلب</span>
@@ -1209,7 +1274,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           setPrepMinutes(15);
                           setAcceptDriverId(dOrder.driverId || '');
                         }}
-                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5"
+                        className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
                       >
                         <Check className="w-4 h-4 stroke-[3]" />
                         <span>قبول وتجهيز الطلب</span>
@@ -1222,7 +1287,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       type="button"
                       disabled={updatingId === dOrder.id}
                       onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
-                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2"
+                      className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
                     >
                       <CheckCircle className="w-4 h-4" />
                       <span>جاهز للاستلام / انتهى التحضير</span>
@@ -1234,7 +1299,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       type="button"
                       disabled={updatingId === dOrder.id}
                       onClick={() => handleUpdateStatus(dOrder.id, 'COMPLETED')}
-                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2"
+                      className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
                     >
                       <CheckCircle className="w-4 h-4" />
                       <span>تأكيد التسليم (مكتمل)</span>

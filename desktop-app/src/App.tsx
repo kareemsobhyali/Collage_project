@@ -725,8 +725,10 @@ export function App() {
       )}
 
       {/* Main Workspace Body */}
-      <main className={`flex-1 p-3 sm:p-6 max-w-7xl w-full mx-auto ${
-        isOrderDetailsOpen || targetedDetailedOrder ? 'pb-2 md:pb-6' : 'pb-28 md:pb-8'
+      <main className={`flex-1 max-w-7xl w-full mx-auto ${
+        isOrderDetailsOpen || targetedDetailedOrder
+          ? 'px-3 sm:px-6 pt-2.5 sm:pt-3.5 pb-2 md:pb-4'
+          : 'p-3 sm:p-6 pb-28 md:pb-8'
       }`}>
         {activeTab === 'ORDERS' && (
           <OrdersView
