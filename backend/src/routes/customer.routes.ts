@@ -1046,9 +1046,21 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
       },
     });
 
+    await prisma.menuCategory.updateMany({
+      where: {
+        branchId: actualBranchId,
+        isAvailable: false,
+        unavailableUntil: { not: null, lte: now },
+      },
+      data: {
+        isAvailable: true,
+        unavailableUntil: null,
+      },
+    });
+
     const [categories, activeOrdersCount, ratingStats, recentReviews, allFlashDeals, allBanners, allPromos] = await Promise.all([
       prisma.menuCategory.findMany({
-        where: { branchId: actualBranchId },
+        where: { branchId: actualBranchId, isAvailable: true },
         include: {
           items: {
             where: { isAvailable: true },
@@ -1844,12 +1856,24 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     for (const itemInput of items) {
       const dbItem = await prisma.menuItem.findUnique({
         where: { id: itemInput.menuItemId },
-        include: { sizes: true },
+        include: { sizes: true, category: true },
       });
 
       if (!dbItem || dbItem.branchId !== branchId) {
         res.status(400).json({ error: `الصنف المطلوب غير موجود في هذا المطعم` });
         return;
+      }
+
+      if (dbItem.category && !dbItem.category.isAvailable) {
+        if (dbItem.category.unavailableUntil && currentTime >= new Date(dbItem.category.unavailableUntil)) {
+          await prisma.menuCategory.update({
+            where: { id: dbItem.category.id },
+            data: { isAvailable: true, unavailableUntil: null },
+          });
+        } else {
+          res.status(400).json({ error: `عذراً، قسم "${dbItem.category.name}" موقوف حالياً ولا يستقبل طلبات جديدة` });
+          return;
+        }
       }
 
       if (!dbItem.isAvailable) {

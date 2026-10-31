@@ -517,8 +517,8 @@ export const api = {
     return data;
   },
 
-  // تبديل التوفر السريع (مع دعم النفاد المؤقت لفترة للأصناف والإضافات)
-  async quickToggleStock(payload: { type: 'item' | 'modifier'; id: string; isAvailable: boolean; durationMinutes?: number }) {
+  // تبديل التوفر السريع (مع دعم النفاد المؤقت لفترة للأصناف والإضافات والأقسام)
+  async quickToggleStock(payload: { type: 'item' | 'modifier' | 'category'; id: string; isAvailable: boolean; durationMinutes?: number }) {
     const res = await fetch(`${API_BASE_URL}/branch/quick-toggle-stock`, {
       method: 'PUT',
       headers: getHeaders(),

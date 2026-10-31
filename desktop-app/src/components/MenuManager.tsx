@@ -17,7 +17,9 @@ import {
   Sparkles,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
@@ -301,6 +303,32 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     }
   };
 
+  // حالة جاري تبديل توفر القسم
+  const [togglingCatId, setTogglingCatId] = useState<string | null>(null);
+
+  // تبديل حالة توفر القسم بالكامل في المنيو
+  const handleToggleCategoryAvailability = async (cat: any) => {
+    try {
+      setTogglingCatId(cat.id);
+      const newAvail = cat.isAvailable === false ? true : false;
+      await api.quickToggleStock({
+        type: 'category',
+        id: cat.id,
+        isAvailable: newAvail,
+      });
+      if (newAvail) {
+        toast.success(`تم تفعيل وتوفير قسم "${cat.name}" في المنيو بنجاح`);
+      } else {
+        toast.warning(`تم إيقاف قسم "${cat.name}" ولن يظهر للعملاء في المنيو`);
+      }
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تغيير حالة توفر القسم');
+    } finally {
+      setTogglingCatId(null);
+    }
+  };
+
   // حفظ صنف (إضافة أو تعديل)
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -533,12 +561,24 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
           {displayedCategories.map(cat => {
             const isCollapsed = collapsedCategoryIds.has(cat.id);
             const catGlobalIdx = categories.findIndex((c) => c.id === cat.id);
+            const isCatAvailable = cat.isAvailable !== false;
             return (
-              <div key={cat.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs transition-all">
+              <div 
+                key={cat.id} 
+                className={`bg-white rounded-2xl border overflow-hidden shadow-2xs transition-all ${
+                  isCatAvailable 
+                    ? 'border-slate-200' 
+                    : 'border-rose-300 ring-1 ring-rose-200/60 bg-rose-50/15'
+                }`}
+              >
                 {/* Collapsible Category Header */}
                 <div 
                   onClick={() => toggleCategoryCollapse(cat.id)}
-                  className="flex flex-wrap items-center justify-between gap-2 p-3.5 sm:p-4 bg-slate-50/80 hover:bg-slate-100/80 transition-colors cursor-pointer select-none border-b border-slate-100"
+                  className={`flex flex-wrap items-center justify-between gap-2 p-3.5 sm:p-4 transition-colors cursor-pointer select-none border-b ${
+                    isCatAvailable
+                      ? 'bg-slate-50/80 hover:bg-slate-100/80 border-slate-100'
+                      : 'bg-rose-50/60 hover:bg-rose-50 border-rose-100'
+                  }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-transform shrink-0 ${isCollapsed ? '-rotate-90 text-slate-400 bg-slate-200/60' : 'text-indigo-600 bg-indigo-100/60'}`}>
@@ -552,6 +592,11 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                     <h3 className="text-base font-black text-slate-800 flex items-center gap-2 truncate">
                       <span>{cat.name}</span>
                       <span className="text-xs text-slate-400 font-normal">({cat.items?.length || 0} صنف)</span>
+                      {!isCatAvailable && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-2xs shrink-0">
+                          القسم موقوف ⛔
+                        </span>
+                      )}
                     </h3>
                     {isCollapsed && (
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 hidden sm:inline-block">
@@ -561,6 +606,30 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    {/* زر إيقاف / تفعيل القسم */}
+                    <button
+                      type="button"
+                      disabled={togglingCatId === cat.id}
+                      onClick={() => handleToggleCategoryAvailability(cat)}
+                      className={`px-2.5 py-1 text-xs font-black rounded-lg transition-all border flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                        isCatAvailable
+                          ? 'bg-emerald-50 text-emerald-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border-emerald-200'
+                          : 'bg-rose-600 text-white hover:bg-emerald-600 border-rose-600 shadow-xs'
+                      }`}
+                      title={isCatAvailable ? 'اضغط لإيقاف هذا القسم وإخفائه من المنيو' : 'اضغط لإعادة تفعيل وتوفير هذا القسم للعملاء'}
+                    >
+                      {isCatAvailable ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="hidden sm:inline">القسم متاح</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-3.5 h-3.5 text-white" />
+                          <span>القسم موقوف ⛔</span>
+                        </>
+                      )}
+                    </button>
                     {categories.length > 1 && (
                       <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
                         <button

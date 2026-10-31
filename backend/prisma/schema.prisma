@@ -92,15 +92,18 @@ model BranchPaymentConfig {
 }
 
 model MenuCategory {
-  id           String     @id @default(uuid())
-  branchId     String
-  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  name         String
-  displayOrder Int        @default(0)
-  items        MenuItem[]
+  id               String     @id @default(uuid())
+  branchId         String
+  branch           Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name             String
+  displayOrder     Int        @default(0)
+  isAvailable      Boolean    @default(true)
+  unavailableUntil DateTime?  // موعد إعادة التفعيل التلقائي في حال الإيقاف المؤقت للقسم
+  items            MenuItem[]
 
   @@index([branchId])
   @@index([displayOrder])
+  @@index([isAvailable])
 }
 
 model MenuItem {

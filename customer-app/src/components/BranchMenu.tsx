@@ -712,9 +712,9 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
       (branch?.operationalStatus === 'BUSY' && secondsLeft <= 0)) &&
     isWithinWorkingHours;
 
-  // إخفاء أي قسم فارغ لا يحتوي على أصناف متاحة للعملاء
+  // إخفاء أي قسم موقوف أو فارغ لا يحتوي على أصناف متاحة للعملاء
   const nonEmptyCategories = (categories || []).filter(
-    (cat) => Array.isArray(cat.items) && cat.items.length > 0
+    (cat) => cat.isAvailable !== false && Array.isArray(cat.items) && cat.items.length > 0
   );
 
   // استخراج الوجبات المفضلة للعميل داخل هذا المطعم

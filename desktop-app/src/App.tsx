@@ -531,6 +531,7 @@ export function App() {
               <span>توفر الأصناف</span>
               {(() => {
                 const outCount =
+                  categories.filter((cat) => cat.isAvailable === false).length +
                   categories.reduce((acc, cat) => acc + (cat.items || []).filter((i: any) => !i.isAvailable).length, 0) +
                   modifierGroups.reduce((acc, g) => acc + (g.options || []).filter((o: any) => !o.isAvailable).length, 0);
                 return outCount > 0 ? (

@@ -1047,6 +1047,13 @@ export function App() {
               }),
             };
           });
+        } else if (type === 'CATEGORY') {
+          return prevCategories.map((cat: any) => {
+            if (cat.id === id) {
+              return { ...cat, isAvailable, unavailableUntil };
+            }
+            return cat;
+          });
         }
         return prevCategories;
       });

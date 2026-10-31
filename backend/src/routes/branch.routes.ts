@@ -370,6 +370,18 @@ router.get("/menu", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    await prisma.menuCategory.updateMany({
+      where: {
+        branchId,
+        isAvailable: false,
+        unavailableUntil: { not: null, lte: now },
+      },
+      data: {
+        isAvailable: true,
+        unavailableUntil: null,
+      },
+    });
+
     const categories = await prisma.menuCategory.findMany({
       where: { branchId },
       include: {
@@ -507,7 +519,7 @@ router.post("/categories", async (req: AuthRequest, res: Response) => {
 router.put("/categories/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { name, displayOrder } = req.body;
+    const { name, displayOrder, isAvailable } = req.body;
     const branchId = req.branch!.branchId;
 
     const existing = await prisma.menuCategory.findFirst({
@@ -523,10 +535,19 @@ router.put("/categories/:id", async (req: AuthRequest, res: Response) => {
       data: {
         name: name ? name.trim() : undefined,
         displayOrder: displayOrder !== undefined ? parseInt(displayOrder) : undefined,
+        isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : undefined,
       },
     });
 
     notifyBranchMenuChanged(branchId);
+    if (isAvailable !== undefined) {
+      notifyMenuItemAvailabilityChanged(branchId, {
+        type: "CATEGORY",
+        id,
+        isAvailable: Boolean(isAvailable),
+        unavailableUntil: null,
+      });
+    }
 
     res.json(updated);
   } catch (error) {
@@ -2152,6 +2173,30 @@ router.put("/quick-toggle-stock", async (req: AuthRequest, res: Response) => {
       });
 
       res.json({ success: true, modifierOption: updated });
+    } else if (normalizedType === "CATEGORY") {
+      const cat = await prisma.menuCategory.findFirst({
+        where: { id, branchId },
+      });
+      if (!cat) {
+        res.status(404).json({ error: "القسم غير موجود" });
+        return;
+      }
+      const updated = await prisma.menuCategory.update({
+        where: { id },
+        data: {
+          isAvailable: avail,
+          unavailableUntil,
+        },
+      });
+
+      notifyMenuItemAvailabilityChanged(branchId, {
+        type: "CATEGORY",
+        id,
+        isAvailable: avail,
+        unavailableUntil,
+      });
+
+      res.json({ success: true, category: updated });
     } else {
       res.status(400).json({ error: "نوع الصنف غير محدد" });
     }
