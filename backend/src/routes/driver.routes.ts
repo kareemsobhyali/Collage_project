@@ -10,6 +10,39 @@ import { handleDriverRejectionWithFallback } from "../services/dispatch.service.
 
 const router = Router();
 
+// نظام تتبع محاولات إدخال رموز الـ PIN لحماية الطلبات من هجمات التخمين والقوة الغاشمة (Brute-Force & PIN Spraying Defense)
+const pinAttemptMap = new Map<string, { count: number; lockedUntil: number }>();
+
+function checkPinLock(orderKey: string): { locked: boolean; retryAfterSeconds: number } {
+  const entry = pinAttemptMap.get(orderKey);
+  if (!entry) return { locked: false, retryAfterSeconds: 0 };
+  const now = Date.now();
+  if (entry.lockedUntil > now) {
+    return { locked: true, retryAfterSeconds: Math.ceil((entry.lockedUntil - now) / 1000) };
+  }
+  return { locked: false, retryAfterSeconds: 0 };
+}
+
+function recordPinFailure(orderKey: string, maxAttempts = 5): { locked: boolean; remaining: number } {
+  const now = Date.now();
+  const entry = pinAttemptMap.get(orderKey) || { count: 0, lockedUntil: 0 };
+  if (entry.lockedUntil > now) {
+    return { locked: true, remaining: 0 };
+  }
+  entry.count += 1;
+  if (entry.count >= maxAttempts) {
+    entry.lockedUntil = now + 15 * 60 * 1000;
+    pinAttemptMap.set(orderKey, entry);
+    return { locked: true, remaining: 0 };
+  }
+  pinAttemptMap.set(orderKey, entry);
+  return { locked: false, remaining: maxAttempts - entry.count };
+}
+
+function clearPinAttempts(orderKey: string) {
+  pinAttemptMap.delete(orderKey);
+}
+
 function sanitizeOrderForDriver(order: any): any {
   if (!order || typeof order !== "object") return order;
   const { pickupPin, ...safeOrder } = order;
@@ -294,10 +327,30 @@ router.post("/orders/:id/return-to-branch", authLimiter, async (req: AuthRequest
       } catch (_e) {}
     }
 
-    if (!expectedPin || expectedPin !== String(pin).trim()) {
-      res.status(400).json({ error: "رمز الاستلام (PIN) غير صحيح! يرجى أخذ الرمز المعروض على شاشة المطعم" });
+    const returnLockKey = `return_pin_${orderId}`;
+    const returnLockState = checkPinLock(returnLockKey);
+    if (returnLockState.locked) {
+      res.status(429).json({
+        error: `تم تجاوز الحد الأقصى لمحاولات إدخال كود الإرجاع (5 محاولات). يرجى الانتظار ${Math.ceil(returnLockState.retryAfterSeconds / 60)} دقيقة`,
+      });
       return;
     }
+
+    if (!expectedPin || expectedPin !== String(pin).trim()) {
+      const failure = recordPinFailure(returnLockKey);
+      if (failure.locked) {
+        res.status(429).json({
+          error: "تم حظر إدخال رمز إرجاع الطلب مؤقتاً لمدة 15 دقيقة بعد استنفاد محاولات الإدخال الخاطئة",
+        });
+        return;
+      }
+      res.status(400).json({
+        error: `رمز الاستلام (PIN) غير صحيح! متبقي ${failure.remaining} محاولات. يرجى أخذ الرمز المعروض على شاشة المطعم`,
+      });
+      return;
+    }
+
+    clearPinAttempts(returnLockKey);
 
     const driverInfo = await prisma.deliveryDriver.findUnique({
       where: { id: driverId },
@@ -434,11 +487,31 @@ router.put("/orders/:id/deliver", authLimiter, async (req: AuthRequest, res: Res
       return;
     }
 
-    // التحقق من كود الـ PIN (إذا كان مسجلاً بالطلب)
-    if (order.pickupPin && order.pickupPin !== String(pin).trim()) {
-      res.status(400).json({ error: "رمز الأمان (PIN) غير صحيح! يرجى التأكد من الرقم الظاهر بشاشة هاتف العميل" });
+    const deliverLockKey = `deliver_pin_${orderId}`;
+    const deliverLockState = checkPinLock(deliverLockKey);
+    if (deliverLockState.locked) {
+      res.status(429).json({
+        error: `تم تجاوز الحد الأقصى لمحاولات إدخال كود الاستلام (5 محاولات). يرجى الانتظار ${Math.ceil(deliverLockState.retryAfterSeconds / 60)} دقيقة`,
+      });
       return;
     }
+
+    // التحقق من كود الـ PIN (إذا كان مسجلاً بالطلب)
+    if (order.pickupPin && order.pickupPin !== String(pin).trim()) {
+      const failure = recordPinFailure(deliverLockKey);
+      if (failure.locked) {
+        res.status(429).json({
+          error: "تم حظر إدخال رمز الأمان مؤقتاً لمدة 15 دقيقة بعد استنفاد محاولات الإدخال الخاطئة",
+        });
+        return;
+      }
+      res.status(400).json({
+        error: `رمز الأمان (PIN) غير صحيح! متبقي ${failure.remaining} محاولات. يرجى التأكد من الرقم الظاهر بشاشة هاتف العميل`,
+      });
+      return;
+    }
+
+    clearPinAttempts(deliverLockKey);
 
     const updated = await prisma.order.update({
       where: { id: orderId },

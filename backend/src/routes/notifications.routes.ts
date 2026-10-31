@@ -1,7 +1,6 @@
 import express, { Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
-import { JWT_SECRET } from "../middleware/auth.js";
+import { verifyTokenAndResolvePrincipal } from "../middleware/auth.js";
 import { orderQuickMessages } from "../sockets/socketManager.js";
 import { isOrderAcceptedByDriver } from "../services/driver.service.js";
 
@@ -27,35 +26,43 @@ export interface NativeNotificationItem {
  */
 router.get("/poll", async (req: Request, res: Response) => {
   try {
-    let role = (req.query.role as string)?.toUpperCase() || "";
-    let userId = (req.query.userId as string) || "";
     const sinceParam = req.query.since ? parseInt(req.query.since as string, 10) : 0;
-    const sinceDate = new Date(sinceParam > 0 ? sinceParam : Date.now() - 3600 * 1000); // آخر ساعة افتراضياً
+    const sinceDate = new Date(sinceParam > 0 && !isNaN(sinceParam) ? sinceParam : Date.now() - 3600 * 1000);
 
-    // فحص التوكن إذا تم إرساله للتحقق من هوية المستخدم بدقة
-    const authHeader = req.headers.authorization || (req.query.token as string);
-    if (authHeader) {
-      try {
-        const rawToken = authHeader.replace(/^Bearer\s+/i, "");
-        const decoded = jwt.verify(rawToken, JWT_SECRET) as any;
-        if (decoded) {
-          if (decoded.role === "DRIVER" || decoded.driverId) {
-            role = "DRIVER";
-            userId = decoded.driverId || decoded.userId || decoded.id;
-          } else if (decoded.role === "BRANCH" || decoded.branchId) {
-            role = "BRANCH";
-            userId = decoded.branchId || decoded.userId || decoded.id;
-          } else if (decoded.role === "SUPERADMIN") {
-            role = "ADMIN";
-            userId = decoded.userId || decoded.id;
-          } else {
-            role = "STUDENT";
-            userId = decoded.userId || decoded.id;
-          }
-        }
-      } catch (_e) {
-        // إذا كان التوكن منتهي أو غير صالح، نعتمد على المعاملات كاحتياط
-      }
+    // مصادقة إلزامية عبر ترويسة Authorization فقط (منع الاعتماد على req.query.userId / role نهائياً)
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      res.status(401).json({ success: false, error: "غير مصرح، يرجى إرسال رمز الدخول الصالح" });
+      return;
+    }
+
+    const rawToken = authHeader.slice(7).trim();
+    const verified = await verifyTokenAndResolvePrincipal(rawToken);
+    if (!verified.principal) {
+      res.status(verified.errorStatus || 401).json({
+        success: false,
+        error: verified.errorMessage || "رمز الدخول غير صالح أو منتهي الصلاحية",
+      });
+      return;
+    }
+
+    let role = "";
+    let userId = "";
+
+    if (verified.principal.kind === "DRIVER") {
+      role = "DRIVER";
+      userId = verified.principal.driver.driverId;
+    } else if (verified.principal.kind === "BRANCH") {
+      role = "BRANCH";
+      userId = verified.principal.branch.branchId;
+    } else if (verified.principal.kind === "USER") {
+      role = verified.principal.user.role === "SUPERADMIN" ? "ADMIN" : "STUDENT";
+      userId = verified.principal.user.userId;
+    }
+
+    if (!role || !userId) {
+      res.status(403).json({ success: false, error: "هوية الحساب غير مكتملة" });
+      return;
     }
 
     const notifications: NativeNotificationItem[] = [];

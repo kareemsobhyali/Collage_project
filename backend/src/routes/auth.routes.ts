@@ -1,57 +1,48 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
 import prisma from "../prisma.js";
-import { generateToken, authenticateUser, AuthRequest } from "../middleware/auth.js";
+import { generateToken, authenticateUser, AuthRequest, revokeTokensForPrincipal } from "../middleware/auth.js";
+import { getTrustedAppBaseUrl } from "../utils/safeFetch.js";
 
 const router = Router();
 const EGYPT_PHONE_REGEX = /^01[0125][0-9]{8}$/;
 
-// دالة مساعدة لتحديد عنوان الـ Web App لإرسال الروابط الذكية مع قراءة إعدادات الدومين بأمان تام
-function getAppBaseUrl(req: Request): string {
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
-  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "");
+// نظام تتبع المحاولات الخاطئة لأكواد OTP لمنع هجمات التخمين والقوة الغاشمة (Brute-Force & PIN Spraying Defense)
+interface OtpAttemptState {
+  count: number;
+  lockedUntil: number;
+}
+const failedOtpAttempts = new Map<string, OtpAttemptState>();
 
-  // 1. قراءة النطاق المعتمد من ملف server-config.json المركزي في المشروع
-  let configuredWebUrl: string | null = null;
-  try {
-    const candidatePaths = [
-      path.resolve(process.cwd(), "server-config.json"),
-      path.resolve(process.cwd(), "..", "server-config.json"),
-    ];
-    for (const p of candidatePaths) {
-      if (fs.existsSync(p)) {
-        const data = JSON.parse(fs.readFileSync(p, "utf-8"));
-        if (data && data.webUrl) {
-          configuredWebUrl = data.webUrl.replace(/\/$/, "");
-          break;
-        }
-      }
-    }
-  } catch (_e) {}
-
-  // 2. فحص النطاق الوارد والتحقق من أنه يتبع النطاقات المسموح بها لتفادي ثغرة Host Header Poisoning
-  const candidateHost = req.get("host") || "";
-  const candidateOrigin = req.get("origin") || "";
-  const hostToCheck = (candidateHost || candidateOrigin.replace(/^https?:\/\//i, "")).split(":")[0].toLowerCase();
-
-  const isAllowedHost =
-    hostToCheck === "localhost" ||
-    hostToCheck === "127.0.0.1" ||
-    hostToCheck === "::1" ||
-    hostToCheck.endsWith("unifood.store") ||
-    hostToCheck.endsWith(".onrender.com") ||
-    hostToCheck.endsWith(".railway.app") ||
-    (configuredWebUrl && configuredWebUrl.toLowerCase().includes(hostToCheck));
-
-  if (isAllowedHost && candidateHost) {
-    const protocol = req.protocol === "https" || req.get("x-forwarded-proto") === "https" ? "https" : "http";
-    return `${protocol}://${candidateHost}`;
+function checkOtpAttemptLock(key: string): { locked: boolean; retryAfterSeconds: number } {
+  const entry = failedOtpAttempts.get(key);
+  if (!entry) return { locked: false, retryAfterSeconds: 0 };
+  const now = Date.now();
+  if (entry.lockedUntil > now) {
+    return { locked: true, retryAfterSeconds: Math.ceil((entry.lockedUntil - now) / 1000) };
   }
+  return { locked: false, retryAfterSeconds: 0 };
+}
 
-  return configuredWebUrl || "https://unifood.store";
+function recordOtpFailure(key: string, maxAttempts = 5): { locked: boolean; remaining: number } {
+  const now = Date.now();
+  const entry = failedOtpAttempts.get(key) || { count: 0, lockedUntil: 0 };
+  if (entry.lockedUntil > now) {
+    return { locked: true, remaining: 0 };
+  }
+  entry.count += 1;
+  if (entry.count >= maxAttempts) {
+    entry.lockedUntil = now + 15 * 60 * 1000; // حظر مؤقت لمدة 15 دقيقة
+    failedOtpAttempts.set(key, entry);
+    return { locked: true, remaining: 0 };
+  }
+  failedOtpAttempts.set(key, entry);
+  return { locked: false, remaining: maxAttempts - entry.count };
+}
+
+function clearOtpFailures(key: string) {
+  failedOtpAttempts.delete(key);
 }
 
 
@@ -79,7 +70,14 @@ router.post("/register", async (req: Request, res: Response) => {
 
     if (existing) {
       if (!existing.isVerified) {
-        // الحساب موجود ولكنه غير مفعل بعد - إعادة إرسال كود التفعيل ورابط التفعيل السريع
+        // إبطال أي رموز تفعيل سابقة لم تُستخدم بعد
+        await prisma.phoneVerificationToken.updateMany({
+          where: { phone: cleanPhone, used: false },
+          data: { used: true },
+        });
+        clearOtpFailures(`verify_${cleanPhone}`);
+
+        // توليد كود التفعيل ورابط التفعيل السريع
         const otpCode = crypto.randomInt(100000, 1000000).toString();
         const magicToken = crypto.randomUUID();
 
@@ -92,7 +90,7 @@ router.post("/register", async (req: Request, res: Response) => {
           },
         });
 
-        const baseUrl = getAppBaseUrl(req);
+        const baseUrl = getTrustedAppBaseUrl(req);
         const magicLink = `${baseUrl}/?verifyToken=${magicToken}`;
 
         const { whatsappService } = await import("../services/whatsapp.service.js");
@@ -128,6 +126,13 @@ router.post("/register", async (req: Request, res: Response) => {
       },
     });
 
+    // إبطال أي رموز قديمة مسجلة
+    await prisma.phoneVerificationToken.updateMany({
+      where: { phone: cleanPhone, used: false },
+      data: { used: true },
+    });
+    clearOtpFailures(`verify_${cleanPhone}`);
+
     // توليد كود التفعيل ورابط التفعيل السريع
     const otpCode = crypto.randomInt(100000, 1000000).toString();
     const magicToken = crypto.randomUUID();
@@ -141,7 +146,7 @@ router.post("/register", async (req: Request, res: Response) => {
       },
     });
 
-    const baseUrl = getAppBaseUrl(req);
+    const baseUrl = getTrustedAppBaseUrl(req);
     const magicLink = `${baseUrl}/?verifyToken=${magicToken}`;
 
     const { whatsappService } = await import("../services/whatsapp.service.js");
@@ -292,6 +297,13 @@ router.post("/login", async (req: Request, res: Response) => {
 
     // التحقق من تفعيل رقم الهاتف
     if (!user.isVerified) {
+      // إبطال أي رموز سابقة غير مستخدمة
+      await prisma.phoneVerificationToken.updateMany({
+        where: { phone: user.phone, used: false },
+        data: { used: true },
+      });
+      clearOtpFailures(`verify_${user.phone}`);
+
       // توليد كود تفعيل ورابط سريع وإرسالهما فوراً عبر الواتساب
       const otpCode = crypto.randomInt(100000, 1000000).toString();
       const magicToken = crypto.randomUUID();
@@ -305,7 +317,7 @@ router.post("/login", async (req: Request, res: Response) => {
         },
       });
 
-      const baseUrl = getAppBaseUrl(req);
+      const baseUrl = getTrustedAppBaseUrl(req);
       const magicLink = `${baseUrl}/?verifyToken=${magicToken}`;
 
       const { whatsappService } = await import("../services/whatsapp.service.js");
@@ -427,6 +439,13 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
       return;
     }
 
+    // إبطال أي رموز استعادة سابقة لم تُستخدم بعد لهذا الرقم
+    await prisma.passwordResetToken.updateMany({
+      where: { phone: cleanPhone, used: false },
+      data: { used: true },
+    });
+    clearOtpFailures(`reset_${cleanPhone}`);
+
     // توليد كود عشوائي من 6 أرقام
     const otp = crypto.randomInt(100000, 1000000).toString();
 
@@ -465,6 +484,15 @@ router.post("/verify-reset-otp", async (req: Request, res: Response) => {
 
     const cleanPhone = String(phone).trim().replace(/\s+/g, "");
     const cleanOtp = String(otp).trim();
+    const lockKey = `reset_${cleanPhone}`;
+
+    const lockState = checkOtpAttemptLock(lockKey);
+    if (lockState.locked) {
+      res.status(429).json({
+        error: `تم تجاوز الحد الأقصى للمحاولات الخاطئة. يرجى الانتظار ${Math.ceil(lockState.retryAfterSeconds / 60)} دقيقة أو طلب كود جديد`,
+      });
+      return;
+    }
 
     const resetToken = await prisma.passwordResetToken.findFirst({
       where: {
@@ -477,10 +505,24 @@ router.post("/verify-reset-otp", async (req: Request, res: Response) => {
     });
 
     if (!resetToken) {
-      res.status(400).json({ error: "كود التحقق غير صحيح أو انتهت صلاحيته (5 دقائق)" });
+      const failure = recordOtpFailure(lockKey);
+      if (failure.locked) {
+        await prisma.passwordResetToken.updateMany({
+          where: { phone: cleanPhone, used: false },
+          data: { used: true },
+        });
+        res.status(429).json({
+          error: "تم إيقاف صلاحية الكود وتأمين الحساب لمدة 15 دقيقة بعد استنفاد محاولات الإدخال الخاطئة",
+        });
+        return;
+      }
+      res.status(400).json({
+        error: `كود التحقق غير صحيح أو انتهت صلاحيته (5 دقائق). متبقي ${failure.remaining} محاولات`,
+      });
       return;
     }
 
+    clearOtpFailures(lockKey);
     res.json({ success: true, valid: true });
   } catch (error) {
     res.status(500).json({ error: "فشل التحقق من كود التحقق" });
@@ -504,6 +546,15 @@ router.post("/reset-password", async (req: Request, res: Response) => {
 
     const cleanPhone = String(phone).trim().replace(/\s+/g, "");
     const cleanOtp = String(otp).trim();
+    const lockKey = `reset_${cleanPhone}`;
+
+    const lockState = checkOtpAttemptLock(lockKey);
+    if (lockState.locked) {
+      res.status(429).json({
+        error: `تم تجاوز الحد الأقصى للمحاولات الخاطئة. يرجى الانتظار ${Math.ceil(lockState.retryAfterSeconds / 60)} دقيقة أو طلب كود جديد`,
+      });
+      return;
+    }
 
     const resetToken = await prisma.passwordResetToken.findFirst({
       where: {
@@ -516,7 +567,20 @@ router.post("/reset-password", async (req: Request, res: Response) => {
     });
 
     if (!resetToken) {
-      res.status(400).json({ error: "كود التحقق غير صحيح أو انتهت صلاحيته، يرجى طلب كود جديد" });
+      const failure = recordOtpFailure(lockKey);
+      if (failure.locked) {
+        await prisma.passwordResetToken.updateMany({
+          where: { phone: cleanPhone, used: false },
+          data: { used: true },
+        });
+        res.status(429).json({
+          error: "تم إيقاف صلاحية الكود لتجاوز الحد الأقصى للمحاولات الخاطئة، يرجى طلب كود جديد",
+        });
+        return;
+      }
+      res.status(400).json({
+        error: `كود التحقق غير صحيح أو انتهت صلاحيته. متبقي ${failure.remaining} محاولات`,
+      });
       return;
     }
 
@@ -534,11 +598,18 @@ router.post("/reset-password", async (req: Request, res: Response) => {
       return;
     }
 
-    // تشفير كلمة المرور وتحديثها
+    if (user.isBlocked) {
+      res.status(403).json({ error: "هذا الحساب موقوف حالياً من قِبل الإدارة ولا يمكن استعادة كلمة مروره" });
+      return;
+    }
+
+    clearOtpFailures(lockKey);
+
+    // تشفير كلمة المرور وتحديثها وتفعيل الحساب تلقائياً
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, isVerified: true },
     });
 
     // استهلاك الكود لمنع استخدامه مرة أخرى
@@ -547,7 +618,10 @@ router.post("/reset-password", async (req: Request, res: Response) => {
       data: { used: true },
     });
 
-    // تسجيل الدخول التلقائي للطالب
+    // إبطال أي جلسات وتوكنات سابقة للمستخدم فوراً لحمايته (Session Revocation)
+    await revokeTokensForPrincipal(`user_${user.id}`);
+
+    // إصدار توكن الجلسة الجديدة
     const token = generateToken({
       userId: user.id,
       phone: user.phone,
@@ -584,6 +658,15 @@ router.post("/verify-phone-code", async (req: Request, res: Response) => {
 
     const cleanPhone = String(phone).trim().replace(/\s+/g, "");
     const cleanCode = String(code).trim();
+    const lockKey = `verify_${cleanPhone}`;
+
+    const lockState = checkOtpAttemptLock(lockKey);
+    if (lockState.locked) {
+      res.status(429).json({
+        error: `تم تجاوز الحد الأقصى للمحاولات الخاطئة. يرجى الانتظار ${Math.ceil(lockState.retryAfterSeconds / 60)} دقيقة أو طلب كود جديد`,
+      });
+      return;
+    }
 
     const record = await prisma.phoneVerificationToken.findFirst({
       where: {
@@ -596,9 +679,43 @@ router.post("/verify-phone-code", async (req: Request, res: Response) => {
     });
 
     if (!record) {
-      res.status(400).json({ error: "كود التفعيل غير صحيح أو انتهت صلاحيته (15 دقيقة)" });
+      const failure = recordOtpFailure(lockKey);
+      if (failure.locked) {
+        await prisma.phoneVerificationToken.updateMany({
+          where: { phone: cleanPhone, used: false },
+          data: { used: true },
+        });
+        res.status(429).json({
+          error: "تم إيقاف صلاحية الكود لتجاوز الحد الأقصى للمحاولات الخاطئة، يرجى طلب كود جديد",
+        });
+        return;
+      }
+      res.status(400).json({
+        error: `كود التفعيل غير صحيح أو انتهت صلاحيته (15 دقيقة). متبقي ${failure.remaining} محاولات`,
+      });
       return;
     }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: cleanPhone },
+          { phone: cleanPhone.toLowerCase() },
+        ],
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "المستخدم غير موجود" });
+      return;
+    }
+
+    if (user.isBlocked) {
+      res.status(403).json({ error: "عذراً، هذا الحساب موقوف حالياً من قبل الإدارة" });
+      return;
+    }
+
+    clearOtpFailures(lockKey);
 
     // استهلاك الكود
     await prisma.phoneVerificationToken.update({
@@ -607,15 +724,15 @@ router.post("/verify-phone-code", async (req: Request, res: Response) => {
     });
 
     // تفعيل حساب المستخدم
-    const user = await prisma.user.update({
-      where: { phone: cleanPhone },
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
       data: { isVerified: true },
     });
 
     const token = generateToken({
-      userId: user.id,
-      phone: user.phone,
-      role: user.role,
+      userId: updatedUser.id,
+      phone: updatedUser.phone,
+      role: updatedUser.role,
     });
 
     res.json({
@@ -623,12 +740,12 @@ router.post("/verify-phone-code", async (req: Request, res: Response) => {
       message: "تم تأكيد وتفعيل رقم هاتفك بنجاح! مرحباً بك 🚀",
       token,
       user: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
-        loyaltyPoints: user.loyaltyPoints,
-        walletBalance: user.walletBalance,
+        id: updatedUser.id,
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        role: updatedUser.role,
+        loyaltyPoints: updatedUser.loyaltyPoints,
+        walletBalance: updatedUser.walletBalance,
       },
     });
   } catch (error) {
@@ -655,6 +772,25 @@ router.post("/verify-phone-link", async (req: Request, res: Response) => {
       return;
     }
 
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: record.phone },
+          { phone: record.phone.toLowerCase() },
+        ],
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "المستخدم غير موجود" });
+      return;
+    }
+
+    if (user.isBlocked) {
+      res.status(403).json({ error: "عذراً، هذا الحساب موقوف حالياً من قبل الإدارة" });
+      return;
+    }
+
     // استهلاك التوكن
     await prisma.phoneVerificationToken.update({
       where: { id: record.id },
@@ -662,15 +798,15 @@ router.post("/verify-phone-link", async (req: Request, res: Response) => {
     });
 
     // تفعيل حساب المستخدم
-    const user = await prisma.user.update({
-      where: { phone: record.phone },
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
       data: { isVerified: true },
     });
 
     const token = generateToken({
-      userId: user.id,
-      phone: user.phone,
-      role: user.role,
+      userId: updatedUser.id,
+      phone: updatedUser.phone,
+      role: updatedUser.role,
     });
 
     res.json({
@@ -678,12 +814,12 @@ router.post("/verify-phone-link", async (req: Request, res: Response) => {
       message: "تم تفعيل حسابك بنجاح بضغطة واحدة! 🎉",
       token,
       user: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
-        loyaltyPoints: user.loyaltyPoints,
-        walletBalance: user.walletBalance,
+        id: updatedUser.id,
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        role: updatedUser.role,
+        loyaltyPoints: updatedUser.loyaltyPoints,
+        walletBalance: updatedUser.walletBalance,
       },
     });
   } catch (error) {
@@ -696,7 +832,7 @@ router.post("/verify-phone-link", async (req: Request, res: Response) => {
 router.get("/verify-phone-link", async (req: Request, res: Response) => {
   try {
     const magicToken = req.query.token as string;
-    const baseUrl = getAppBaseUrl(req);
+    const baseUrl = getTrustedAppBaseUrl(req);
 
     if (!magicToken) {
       res.redirect(`${baseUrl}/?verifyError=missing_token`);
@@ -716,7 +852,7 @@ router.get("/verify-phone-link", async (req: Request, res: Response) => {
     res.redirect(`${baseUrl}/?verifyToken=${encodeURIComponent(cleanToken)}`);
   } catch (error) {
     console.error("GET verify-phone-link error:", error);
-    const baseUrl = getAppBaseUrl(req);
+    const baseUrl = getTrustedAppBaseUrl(req);
     res.redirect(`${baseUrl}/?verifyError=server_error`);
   }
 });
@@ -745,6 +881,11 @@ router.post("/resend-verification-otp", async (req: Request, res: Response) => {
       return;
     }
 
+    if (user.isBlocked) {
+      res.status(403).json({ error: "هذا الحساب موقوف حالياً من قِبل الإدارة" });
+      return;
+    }
+
     if (user.isVerified) {
       res.status(400).json({ error: "هذا الحساب مفعل بالفعل، يمكنك تسجيل الدخول مباشرة" });
       return;
@@ -766,6 +907,13 @@ router.post("/resend-verification-otp", async (req: Request, res: Response) => {
       return;
     }
 
+    // إبطال أي رموز تفعيل سابقة لم تُستخدم بعد
+    await prisma.phoneVerificationToken.updateMany({
+      where: { phone: cleanPhone, used: false },
+      data: { used: true },
+    });
+    clearOtpFailures(`verify_${cleanPhone}`);
+
     const otpCode = crypto.randomInt(100000, 1000000).toString();
     const magicToken = crypto.randomUUID();
 
@@ -778,7 +926,7 @@ router.post("/resend-verification-otp", async (req: Request, res: Response) => {
       },
     });
 
-    const baseUrl = getAppBaseUrl(req);
+    const baseUrl = getTrustedAppBaseUrl(req);
     const magicLink = `${baseUrl}/?verifyToken=${magicToken}`;
 
     const { whatsappService } = await import("../services/whatsapp.service.js");

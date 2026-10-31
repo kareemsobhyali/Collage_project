@@ -2,10 +2,20 @@ import sharp from "sharp";
 import fs from "fs";
 import path from "path";
 import prisma from "../prisma.js";
+import { safeFetchBinary } from "../utils/safeFetch.js";
 
-// ذاكرة تخزين مؤقت لتسريع إرسال الأيقونات في أجزاء من الثانية (In-Memory Cache)
+// ذاكرة تخزين مؤقت محدودة السعة لتسريع إرسال الأيقونات مع حماية من استنزاف الذاكرة (Bounded LRU Cache)
+const MAX_CACHE_ENTRIES = 150;
 const iconCache = new Map<string, { buffer: Buffer; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 ساعة
+
+function setInCache(key: string, buffer: Buffer) {
+  if (iconCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = iconCache.keys().next().value;
+    if (oldestKey) iconCache.delete(oldestKey);
+  }
+  iconCache.set(key, { buffer, timestamp: Date.now() });
+}
 
 function getUploadDir(): string {
   const candidates = [
@@ -41,7 +51,7 @@ function getDefaultLogoBuffer(): Buffer {
 
 /**
  * توليد أيقونة PNG مربعة رسمية وبدقة عالية ومقاسات موحدة لأي مطعم،
- * متوافقة 100% مع معايير Google Chrome و Android WebAPK.
+ * متوافقة 100% مع معايير Google Chrome و Android WebAPK، ومؤمنة ضد SSRF و Path Traversal.
  */
 export async function getBranchPngIcon(
   branchIdOrSlug: string,
@@ -74,6 +84,11 @@ export async function getBranchPngIcon(
     } catch (_e) {}
   }
 
+  // إذا لم يتم العثور على الفرع وكان المطلوب معرف غير مسجل، يتم إرجاع الشعار الافتراضي فوراً دون استهلاك الكاش
+  if (!branch && cleanId !== "default" && cleanId !== "platform") {
+    return getDefaultLogoBuffer();
+  }
+
   const rawLogo = branch?.logoUrl || "";
   const cacheKey = `${branch?.id || cleanId}_${safeSize}_${isMaskable ? "mask" : "any"}_${rawLogo}`;
 
@@ -98,7 +113,8 @@ export async function getBranchPngIcon(
         try {
           const parsed = new URL(rawLogo);
           if (parsed.pathname.startsWith("/uploads/")) {
-            localFilename = parsed.pathname.replace(/^\/uploads\//, "");
+            // عزل اسم الملف ومنع أي محاولة اجتياز مسارات (Path Traversal Defense)
+            localFilename = path.basename(parsed.pathname.replace(/^\/uploads\//, ""));
           }
         } catch {}
 
@@ -118,24 +134,21 @@ export async function getBranchPngIcon(
           }
         }
 
-        // إذا لم يكن ملفاً محلياً، جلبه عبر HTTP مع مهلة سريعة
+        // إذا لم يكن ملفاً محلياً، جلبه عبر safeFetchBinary لمنع SSRF والتسلل للشبكة الداخلية
         if (!rawBuffer) {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3500);
           try {
-            const resp = await fetch(rawLogo, { signal: controller.signal });
-            if (resp.ok) {
-              const arrayBuf = await resp.arrayBuffer();
-              rawBuffer = Buffer.from(arrayBuf);
+            const fetched = await safeFetchBinary(rawLogo, {
+              maxBytes: 5 * 1024 * 1024,
+              timeoutMs: 3500,
+            });
+            if (fetched?.buffer) {
+              rawBuffer = fetched.buffer;
             }
-          } catch (_netErr) {
-          } finally {
-            clearTimeout(timeoutId);
-          }
+          } catch (_netErr) {}
         }
       } else {
-        // مسار محلي مباشر
-        const cleanFile = rawLogo.replace(/^\/?uploads\//, "").replace(/^\//, "");
+        // مسار محلي مباشر مع تأمين اسم الملف بـ path.basename
+        const cleanFile = path.basename(rawLogo.replace(/^\/?uploads\//, "").replace(/^\//, ""));
         const filePath = path.join(getUploadDir(), cleanFile);
         if (fs.existsSync(filePath)) {
           rawBuffer = fs.readFileSync(filePath);
@@ -194,11 +207,8 @@ export async function getBranchPngIcon(
         .toBuffer();
     }
 
-    // حفظ في الكاش
-    iconCache.set(cacheKey, {
-      buffer: resultBuffer,
-      timestamp: Date.now(),
-    });
+    // حفظ في الكاش المحدود
+    setInCache(cacheKey, resultBuffer);
 
     return resultBuffer;
   } catch (procErr) {

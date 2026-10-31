@@ -20,7 +20,8 @@ import customerRoutes from "./routes/customer.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import driverRoutes from "./routes/driver.routes.js";
 import notificationsRoutes from "./routes/notifications.routes.js";
-import { authLimiter, orderLimiter, generalApiLimiter, uploadLimiter } from "./middleware/rateLimiter.js";
+import { authLimiter, authIpLimiter, pinLimiter, orderLimiter, generalApiLimiter, uploadLimiter } from "./middleware/rateLimiter.js";
+import { isAllowedCorsOrigin, getTrustedAppBaseUrl, serializeJsonForHtmlScript, escapeHtmlAttr } from "./utils/safeFetch.js";
 import prisma from "./prisma.js";
 import { getNotificationSoundSettings } from "./services/settings.service.js";
 import { seedMockDatabase } from "./services/mockData.service.js";
@@ -35,16 +36,43 @@ const server = http.createServer(app);
 // تهيئة Socket.io للتنبيهات اللحظية والأصوات
 initSocket(server);
 
-// أمان الـ HTTP Headers وحماية المتصفحات مع إتاحة خدمة ملفات SPA بسلاسة
+// أمان الـ HTTP Headers مع سياسة CSP تمنع تحميل سكربتات خارجية غير موثوقة وتمنع تضمين الموقع في إطارات خارجية
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrcAttr: ["'none'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        mediaSrc: ["'self'", "data:", "blob:", "https:"],
+        connectSrc: ["'self'", "https:", "wss:", "ws:"],
+        frameSrc: ["'self'", "https://www.google.com", "https://maps.google.com"],
+        workerSrc: ["'self'", "blob:"],
+        manifestSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+      },
+    },
   })
 );
 
-// Middleware الأساسية
-app.use(cors());
+// Middleware الأساسية مع تقييد مصادر CORS بالنطاقات الرسمية المعتمدة فقط
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      callback(null, isAllowedCorsOrigin(origin || undefined));
+    },
+    credentials: false,
+  })
+);
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
@@ -52,19 +80,30 @@ app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use("/api", generalApiLimiter);
 
 // حماية مسارات تسجيل الدخول والتحقق واسترجاع كلمة المرور من محاولات التخمين (Brute Force / OTP Abuse)
-app.use("/api/auth/login", authLimiter);
-app.use("/api/auth/register", authLimiter);
-app.use("/api/auth/forgot-password", authLimiter);
-app.use("/api/auth/verify-reset-otp", authLimiter);
-app.use("/api/auth/reset-password", authLimiter);
-app.use("/api/auth/verify-phone", authLimiter);
-app.use("/api/auth/resend-verification-otp", authLimiter);
-app.use("/api/admin/login", authLimiter);
-app.use("/api/branch/login", authLimiter);
-app.use("/api/driver/login", authLimiter);
+const AUTH_PROTECTED_PATHS = [
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/auth/forgot-password",
+  "/api/auth/verify-reset-otp",
+  "/api/auth/reset-password",
+  "/api/auth/verify-phone",
+  "/api/auth/verify-phone-code",
+  "/api/auth/verify-phone-link",
+  "/api/auth/resend-verification-otp",
+  "/api/auth/resend-verification",
+  "/api/admin/login",
+  "/api/branch/login",
+  "/api/driver/login",
+];
+for (const p of AUTH_PROTECTED_PATHS) {
+  app.use(p, authIpLimiter, authLimiter);
+}
 
-// تم إيقاف ليميت الطلبات لتمكين العملاء من الطلب بحرية
-// app.use("/api/customer/orders", orderLimiter);
+// حماية صارمة لأكواد تأكيد التسليم والإرجاع (4 أرقام) لكل طلب
+app.use(/^\/api\/driver\/orders\/[^/]+\/(deliver|return-to-branch)\/?$/, pinLimiter);
+
+// حماية مسار إنشاء الطلبات من الإغراق الآلي مع سقف مريح للعميل الطبيعي
+app.post("/api/customer/orders", orderLimiter);
 
 // حماية مسار رفع الملفات
 app.use("/api/upload", uploadLimiter);
@@ -502,7 +541,7 @@ if (fs.existsSync(customerDistPath)) {
             .replace(/'/g, "&#39;");
 
           // 2. تحديث العنوان ليحمل اسم المطعم مباشرة بأمان تام
-          html = html.replace(/<title>.*?<\/title>/i, `<title>${safeBranchName} | طلب وتوصيل وجبات أونلاين</title>`);
+          html = html.replace(/<title>.*?<\/title>/i, () => `<title>${safeBranchName} | طلب وتوصيل وجبات أونلاين</title>`);
 
           // 3. تحديث أيقونة الموقع والأيقونة التي يعتمدها iOS وأندرويد للشاشة بأيقونة PNG مربعة ونقية للمطعم
           const branchIcon192 = `/api/branch-icon/${encodeURIComponent(branchKey)}-192.png`;
@@ -511,11 +550,11 @@ if (fs.existsSync(customerDistPath)) {
           html = html.replace(/<link[^>]*rel="apple-touch-icon"[^>]*>/i, `<link rel="apple-touch-icon" sizes="512x512" href="${branchIcon512}" />`);
 
           // 4. حقن سكريبت وعلامات iOS المخصصة لاسم وأيقونة ورابط التثبيت على الآيفون والبيانات المبدئية
-          const host = req.headers['x-forwarded-host'] || req.headers.host || 'unifood.store';
-          const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
-          const branchStartUrl = `/r/${encodeURIComponent(branchKey)}`;
-          const absoluteBranchStartUrl = `${proto}://${host}/r/${encodeURIComponent(branchKey)}`;
-          const initialBranchJson = JSON.stringify({
+          // الرابط الأساسي يُبنى من قائمة النطاقات الموثوقة فقط (منع تسميم ترويسة Host)
+          const trustedBaseUrl = getTrustedAppBaseUrl(req as any);
+          const absoluteBranchStartUrl = escapeHtmlAttr(`${trustedBaseUrl}/r/${encodeURIComponent(branchKey)}`);
+          // تسلسل JSON آمن داخل وسم script (تحويل < و > و & إلى صيغ يونيكود لمنع كسر الوسم)
+          const initialBranchJson = serializeJsonForHtmlScript({
             id: branch.id,
             slug: branch.slug || branchKey,
             name: branch.name,
@@ -530,6 +569,7 @@ if (fs.existsSync(customerDistPath)) {
             isActive: branch.isActive,
             isOnline: isBranchOnline(branch.id),
           });
+          const safeBranchKeyJson = serializeJsonForHtmlScript(String(branchKey).toLowerCase());
           const iosAppleTags = `
             <meta name="apple-mobile-web-app-title" content="${safeBranchName}">
             <meta name="apple-mobile-web-app-capable" content="yes">
@@ -539,10 +579,11 @@ if (fs.existsSync(customerDistPath)) {
             <link rel="apple-touch-icon" sizes="180x180" href="${branchIcon192}">
             <script>
               window.__UNIFOOD_INITIAL_BRANCH__ = ${initialBranchJson};
-              try { localStorage.setItem('pwa_installed_branch', '${encodeURIComponent(branchKey).toLowerCase()}'); } catch(e) {}
+              try { localStorage.setItem('pwa_installed_branch', ${safeBranchKeyJson}); } catch(e) {}
             </script>
           `;
-          html = html.replace("</head>", `${iosAppleTags}</head>`);
+          // استخدام دالة استبدال لتعطيل أنماط $& و $' الخاصة في String.replace
+          html = html.replace("</head>", () => `${iosAppleTags}</head>`);
         }
       } catch (_e) {}
     }
@@ -555,8 +596,10 @@ if (fs.existsSync(customerDistPath)) {
 // Middleware مركزي لمعالجة الأخطاء وحماية الخادم من التوقف
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("Unhandled Application Error:", err);
-  res.status(err.status || 500).json({
-    error: err.message || "حدث خطأ غير متوقع في الخادم",
+  const status = Number(err?.status) || 500;
+  res.status(status).json({
+    // عدم كشف تفاصيل الأخطاء الداخلية للمستخدم في أخطاء الخادم (500)
+    error: status < 500 && err?.expose ? String(err.message) : "حدث خطأ غير متوقع في الخادم",
   });
 });
 

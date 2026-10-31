@@ -914,11 +914,6 @@ router.get("/flash-deals", async (req: Request, res: Response) => {
 // 1. استعراض الفروع النشطة للطلاب (شامل مؤشر زحمة المطبخ الحي + تقييمات الطلاب)
 router.get("/branches", async (_req: Request, res: Response) => {
   try {
-    // التأكد التلقائي من وجود عمود requirePaymentProof لتفادي أي خطأ 500 في السيرفر السحابي
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "requirePaymentProof" BOOLEAN NOT NULL DEFAULT true;`
-    ).catch(() => {});
-
     const [branches, activeOrderCounts, ratingAggregates] = await Promise.all([
       prisma.branch.findMany({
         where: { isActive: true },
@@ -1541,7 +1536,17 @@ router.post("/group-cart/:code/items", async (req: Request, res: Response) => {
     });
 
     notifyGroupCartUpdated(code, updatedCart);
-    res.status(201).json({ ...updatedCart, addedItemDeleteKey: deleteKey });
+
+    const { hostToken: _ht, items: rawItems, ...safeCart } = updatedCart as any;
+    const safeItems = (rawItems || []).map((it: any) => {
+      const isMyItem = it.id === createdItem.id;
+      return {
+        ...it,
+        deleteKey: isMyItem ? it.deleteKey : undefined,
+      };
+    });
+
+    res.status(201).json({ ...safeCart, items: safeItems, addedItemDeleteKey: deleteKey });
   } catch (error) {
     console.error("Add group cart item error:", error);
     res.status(500).json({ error: "فشل إضافة الصنف لسلة الشلة" });
@@ -1600,7 +1605,14 @@ router.delete("/group-cart/:code/items/:itemId", async (req: Request, res: Respo
     });
 
     notifyGroupCartUpdated(code, updatedCart);
-    res.json(updatedCart);
+
+    const { hostToken: _ht, items: rawItems, ...safeCart } = updatedCart as any;
+    const safeItems = (rawItems || []).map((it: any) => {
+      const { deleteKey: _dk, ...safeIt } = it;
+      return safeIt;
+    });
+
+    res.json({ ...safeCart, items: safeItems });
   } catch (error) {
     console.error("Delete group cart item error:", error);
     res.status(500).json({ error: "فشل حذف الصنف من سلة الشلة" });
@@ -2120,6 +2132,15 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     let validatedPaymentSender = paymentSenderPhone ? String(paymentSenderPhone).trim() : null;
     const requirePaymentProof = (branch.paymentConfig as any)?.requirePaymentProof !== false;
 
+    if (paymentProofUrl) {
+      const cleanProof = String(paymentProofUrl).trim();
+      const isValidUploadPath = /^\/uploads\/[a-zA-Z0-9._-]+\.(webp|png|jpe?g|gif)$/i.test(cleanProof);
+      if (!isValidUploadPath) {
+        res.status(400).json({ error: "رابط إيصال الدفع غير صالح أو غير معتمد" });
+        return;
+      }
+    }
+
     if (total > 0) {
       if (paymentMethod === "VODAFONE_CASH") {
         let cleanSender = String(paymentSenderPhone || "").trim().replace(/\s+/g, "");
@@ -2230,11 +2251,26 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
             throw new Error("PROMO_ALREADY_USED_BY_USER");
           }
         }
-        await tx.promoCode.update({
-          where: { id: verifiedPromoId },
-          data: { usedCount: { increment: 1 } },
-        });
+        if (freshPromo.maxUses !== null && freshPromo.maxUses !== undefined) {
+          const promoUpdated = await tx.promoCode.updateMany({
+            where: { id: verifiedPromoId, usedCount: { lt: freshPromo.maxUses } },
+            data: { usedCount: { increment: 1 } },
+          });
+          if (promoUpdated.count === 0) {
+            throw new Error("PROMO_EXHAUSTED");
+          }
+        } else {
+          await tx.promoCode.update({
+            where: { id: verifiedPromoId },
+            data: { usedCount: { increment: 1 } },
+          });
+        }
       }
+
+      // قفل ذري للمعاملة لتفادي تضارب أرقام الطلبات عند التزامن الشديد
+      try {
+        await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(424242);`);
+      } catch {}
 
       // توليد رقم طلب تصاعدي وفريد داخل المعاملة
       const lastOrder = await tx.order.findFirst({
@@ -2330,9 +2366,20 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     // إشعار فوري لتطبيق الديسكتوب الخاص بالفرع لتشغيل التنبيه الصوتي فوراً
     notifyBranchNewOrder(branchId, order);
 
+    // تجريد ملاحظات المطعم السرية وحالة الحظر من رد العميل
+    const sanitizedCustomerOrder = {
+      ...order,
+      user: order.user ? {
+        id: order.user.id,
+        name: order.user.name,
+        phone: order.user.phone,
+        _count: order.user._count,
+      } : undefined,
+    };
+
     res.status(201).json({
       success: true,
-      order,
+      order: sanitizedCustomerOrder,
       user: updatedUser,
     });
   } catch (error: any) {
@@ -2881,9 +2928,12 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
       const parsedNum = parseInt(cleanNum, 10);
       try {
         const matchedOrder = await prisma.order.findFirst({
-          where: !isNaN(parsedNum)
-            ? { OR: [{ orderNumber: parsedNum }, { id: cleanNum }] }
-            : { id: cleanNum },
+          where: {
+            userId,
+            ...(!isNaN(parsedNum)
+              ? { OR: [{ orderNumber: parsedNum }, { id: cleanNum }] }
+              : { id: cleanNum }),
+          },
           include: {
             branch: { select: { id: true, name: true } },
           },
@@ -2894,6 +2944,9 @@ router.post("/support-ticket", async (req: AuthRequest, res: Response) => {
           orderTotal = matchedOrder.total;
           orderStatus = matchedOrder.status;
           orderCreatedAt = matchedOrder.createdAt.toISOString();
+        } else if (category === "ORDER_ISSUE" || category === "PAYMENT_ISSUE") {
+          res.status(404).json({ error: "لم يتم العثور على طلب بهذا الرقم مسجل في حسابك" });
+          return;
         }
       } catch (_e) {
         // Continue without blocking ticket creation

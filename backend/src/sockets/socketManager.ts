@@ -1,7 +1,20 @@
 import { Server as SocketIOServer, Socket } from "socket.io";
-import jwt from "jsonwebtoken";
 import prisma from "../prisma.js";
-import { JWT_SECRET } from "../middleware/auth.js";
+import { verifyTokenAndResolvePrincipal } from "../middleware/auth.js";
+import { isAllowedCorsOrigin } from "../utils/safeFetch.js";
+
+/**
+ * هوية المتصل الموثقة بعد التحقق من التوكن وحالة الحساب في قاعدة البيانات
+ * ملاحظة: branchId يُضبط فقط لحسابات الفروع (وليس للطيارين) لمنع انضمام الطيار لغرفة طلبات الفرع
+ */
+interface SocketAuthUser {
+  kind: "USER" | "BRANCH" | "DRIVER";
+  role?: "CUSTOMER" | "SUPERADMIN";
+  userId?: string;
+  branchId?: string;
+  driverId?: string;
+  driverBranchId?: string;
+}
 
 let io: SocketIOServer | null = null;
 
@@ -167,41 +180,76 @@ function sanitizeOrderForDriverSocket(order: any): any {
 export function initSocket(server: any): SocketIOServer {
   io = new SocketIOServer(server, {
     cors: {
-      origin: "*",
+      origin: (origin, callback) => {
+        callback(null, isAllowedCorsOrigin(origin));
+      },
       methods: ["GET", "POST", "PUT", "DELETE"],
     },
     pingInterval: 4000,
     pingTimeout: 5000,
   });
 
-  // فحص هوية المتصل وتحديد صلاحياته في الغرف الخاصة
-  io.use((socket: Socket, next) => {
+  // فحص هوية المتصل والتحقق من صلاحية الحساب في قاعدة البيانات قبل منحه أي غرفة خاصة
+  io.use(async (socket: Socket, next) => {
     const rawToken = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
     if (rawToken) {
       try {
-        const token = String(rawToken).replace(/^Bearer\s+/i, "");
-        const decoded = jwt.verify(token, JWT_SECRET) as any;
-        (socket as any).user = decoded;
+        const token = String(rawToken).replace(/^Bearer\s+/i, "").trim();
+        const result = await verifyTokenAndResolvePrincipal(token);
+        if (result.principal) {
+          let authUser: SocketAuthUser | null = null;
+          if (result.principal.kind === "USER") {
+            authUser = {
+              kind: "USER",
+              role: result.principal.user.role,
+              userId: result.principal.user.userId,
+            };
+          } else if (result.principal.kind === "BRANCH") {
+            authUser = {
+              kind: "BRANCH",
+              branchId: result.principal.branch.branchId,
+            };
+          } else if (result.principal.kind === "DRIVER") {
+            authUser = {
+              kind: "DRIVER",
+              driverId: result.principal.driver.driverId,
+              driverBranchId: result.principal.driver.branchId,
+            };
+          }
+          (socket as any).user = authUser;
+        }
       } catch (_e) {}
     }
     next();
   });
 
   io.on("connection", (socket: Socket) => {
-    const authUser = (socket as any).user;
+    const authUser: SocketAuthUser | null = (socket as any).user || null;
 
-    // استقبال تحديث حالة فتح/تصغير التطبيق من العميل لحظياً
-    socket.on("app_state", (data: { role?: "BRANCH" | "STUDENT" | "DRIVER"; id?: string; state?: "foreground" | "background" }) => {
-      if (data && data.role && data.id) {
-        setAppSessionState(data.role, data.id, socket.id, data.state || "foreground");
-      }
+    // تحديد هوية الجلسة الموثقة للمتصل فقط (منع انتحال حالة اتصال مطعم أو طيار آخر)
+    const resolveOwnPresence = (): { role: "BRANCH" | "STUDENT" | "DRIVER"; id: string } | null => {
+      if (!authUser) return null;
+      if (authUser.kind === "BRANCH" && authUser.branchId) return { role: "BRANCH", id: authUser.branchId };
+      if (authUser.kind === "DRIVER" && authUser.driverId) return { role: "DRIVER", id: authUser.driverId };
+      if (authUser.kind === "USER" && authUser.userId) return { role: "STUDENT", id: authUser.userId };
+      return null;
+    };
+
+    const handlePresenceUpdate = (data: { state?: "foreground" | "background" }) => {
+      const own = resolveOwnPresence();
+      if (!own) return;
+      const state = data?.state === "background" ? "background" : "foreground";
+      setAppSessionState(own.role, own.id, socket.id, state);
+    };
+
+    // استقبال تحديث حالة فتح/تصغير التطبيق من صاحب الجلسة الموثقة فقط
+    socket.on("app_state", (data: { role?: string; id?: string; state?: "foreground" | "background" }) => {
+      handlePresenceUpdate(data || {});
     });
 
-    // نبضات الحفاظ على الاتصال والتواجد الحي دورياً
-    socket.on("heartbeat", (data: { role?: "BRANCH" | "STUDENT" | "DRIVER"; id?: string; state?: "foreground" | "background" }) => {
-      if (data && data.role && data.id) {
-        setAppSessionState(data.role, data.id, socket.id, data.state || "foreground");
-      }
+    // نبضات الحفاظ على الاتصال والتواجد الحي دورياً (للجلسة الموثقة فقط)
+    socket.on("heartbeat", (data: { role?: string; id?: string; state?: "foreground" | "background" }) => {
+      handlePresenceUpdate(data || {});
     });
 
     // استعلام فوري عن حالة اتصال الفرع
@@ -256,7 +304,7 @@ export function initSocket(server: any): SocketIOServer {
           select: { userId: true, branchId: true, driverId: true },
         });
         if (!order) return;
-        const currentUid = authUser.userId || authUser.id;
+        const currentUid = authUser.userId;
         if (
           (currentUid && order.userId === currentUid) ||
           (authUser.branchId && order.branchId === authUser.branchId) ||
@@ -286,15 +334,15 @@ export function initSocket(server: any): SocketIOServer {
     });
 
     // انضمام المستخدم (طالب / عميل) لغرفته الخاصة لاستقبال تحديثات المحفظة والاشتراكات والحظر
-    if (authUser && (authUser.userId || authUser.id)) {
-      const uid = authUser.userId || authUser.id;
+    if (authUser && authUser.kind === "USER" && authUser.userId) {
+      const uid = authUser.userId;
       socket.join(`user_${uid}`);
       setAppSessionState("STUDENT", uid, socket.id, "foreground");
     }
 
     socket.on("join_user", (userId: string) => {
       if (!userId) return;
-      const currentUid = authUser?.userId || authUser?.id;
+      const currentUid = authUser?.userId;
       if (authUser && (authUser.role === "SUPERADMIN" || currentUid === userId)) {
         socket.join(`user_${userId}`);
         setAppSessionState("STUDENT", userId, socket.id, "foreground");
@@ -331,42 +379,97 @@ export function initSocket(server: any): SocketIOServer {
       };
 
       latestDriverLocations.set(verifiedDriverId, payload);
-      if (data.orderId) {
-        io?.to(`order_${data.orderId}`).emit("driver_location_updated", payload);
-        // بث التحديث لفرع المطعم الخاص بالطلب لضمان ظهوره على شاشة استقبال طلبات الفرع
+      if (data.orderId && typeof data.orderId === "string") {
+        // بث الموقع لغرفة الطلب وفرعه فقط إذا كان الطلب مسنداً فعلياً لهذا الطيار (منع حقن مواقع وهمية في طلبات أخرى)
         prisma.order.findUnique({
           where: { id: data.orderId },
-          select: { branchId: true }
+          select: { branchId: true, driverId: true }
         }).then((ord) => {
-          if (ord?.branchId && ord.branchId !== authUser.branchId) {
+          if (!ord || ord.driverId !== verifiedDriverId) return;
+          io?.to(`order_${data.orderId}`).emit("driver_location_updated", payload);
+          if (ord.branchId && ord.branchId !== authUser.driverBranchId) {
             io?.to(`branch_${ord.branchId}`).emit("driver_location_updated", payload);
           }
         }).catch(() => {});
       }
-      if (authUser.branchId) {
-        io?.to(`branch_${authUser.branchId}`).emit("driver_location_updated", payload);
+      if (authUser.driverBranchId) {
+        io?.to(`branch_${authUser.driverBranchId}`).emit("driver_location_updated", payload);
       }
       io?.to("admin_dashboard").emit("driver_location_updated", payload);
     });
 
-    // جلب آخر موقع مسجل للطيار عند فتح شاشة التتبع
-    socket.on("get_driver_location", (driverId: string, callback?: (loc: any) => void) => {
-      if (driverId && latestDriverLocations.has(driverId)) {
+    // التحقق من أن المتصل طرف أصيل في الطلب (العميل صاحبه، الفرع المنفذ، الطيار المسند، أو الإدارة)
+    const getAuthorizedOrder = async (orderId: string) => {
+      if (!authUser || !orderId || typeof orderId !== "string") return null;
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          id: true,
+          orderNumber: true,
+          userId: true,
+          branchId: true,
+          driverId: true,
+          customerName: true,
+          driver: { select: { name: true } },
+        },
+      });
+      if (!order) return null;
+      const isAdmin = authUser.kind === "USER" && authUser.role === "SUPERADMIN";
+      const isOwnerCustomer = authUser.kind === "USER" && Boolean(authUser.userId) && order.userId === authUser.userId;
+      const isOwnerBranch = authUser.kind === "BRANCH" && Boolean(authUser.branchId) && order.branchId === authUser.branchId;
+      const isAssignedDriver = authUser.kind === "DRIVER" && Boolean(authUser.driverId) && order.driverId === authUser.driverId;
+      if (!isAdmin && !isOwnerCustomer && !isOwnerBranch && !isAssignedDriver) return null;
+      return { order, isAdmin, isOwnerCustomer, isOwnerBranch, isAssignedDriver };
+    };
+
+    // جلب آخر موقع مسجل للطيار عند فتح شاشة التتبع (فقط لأطراف طلب نشط مسند لهذا الطيار أو للإدارة)
+    socket.on("get_driver_location", async (driverId: string, callback?: (loc: any) => void) => {
+      try {
+        if (!authUser || !driverId || typeof driverId !== "string" || !latestDriverLocations.has(driverId)) return;
+
+        let allowed = false;
+        if (authUser.kind === "USER" && authUser.role === "SUPERADMIN") {
+          allowed = true;
+        } else if (authUser.kind === "DRIVER" && authUser.driverId === driverId) {
+          allowed = true;
+        } else {
+          const activeFilter: any = {
+            driverId,
+            status: { in: ["ACCEPTED", "PREPARING", "READY"] },
+          };
+          if (authUser.kind === "USER" && authUser.userId) {
+            activeFilter.userId = authUser.userId;
+          } else if (authUser.kind === "BRANCH" && authUser.branchId) {
+            activeFilter.branchId = authUser.branchId;
+          } else {
+            return;
+          }
+          const linkedOrder = await prisma.order.findFirst({ where: activeFilter, select: { id: true } });
+          allowed = Boolean(linkedOrder);
+        }
+
+        if (!allowed) return;
         const loc = latestDriverLocations.get(driverId);
         if (typeof callback === "function") callback(loc);
         socket.emit("driver_location_updated", loc);
-      }
+      } catch (_e) {}
     });
 
-    // جلب سجل الرسائل السريعة بين الطالب والطيار للطلب
-    socket.on("get_order_quick_messages", (orderId: string, callback?: (msgs: QuickOrderMessage[]) => void) => {
-      if (!orderId || typeof orderId !== "string") return;
-      const list = orderQuickMessages.get(orderId) || [];
-      if (typeof callback === "function") callback(list);
-      socket.emit("order_quick_messages_history", { orderId, messages: list });
+    // جلب سجل الرسائل السريعة بين الطالب والطيار للطلب (لأطراف الطلب فقط)
+    socket.on("get_order_quick_messages", async (orderId: string, callback?: (msgs: QuickOrderMessage[]) => void) => {
+      try {
+        const access = await getAuthorizedOrder(orderId);
+        if (!access) {
+          if (typeof callback === "function") callback([]);
+          return;
+        }
+        const list = orderQuickMessages.get(orderId) || [];
+        if (typeof callback === "function") callback(list);
+        socket.emit("order_quick_messages_history", { orderId, messages: list });
+      } catch (_e) {}
     });
 
-    // إرسال رسالة سريعة لحظية بين الطالب والطيار
+    // إرسال رسالة سريعة لحظية بين الطالب والطيار (الهوية تُحدد من التوكن الموثق فقط وليس من بيانات العميل)
     socket.on(
       "send_order_quick_message",
       async (
@@ -381,36 +484,27 @@ export function initSocket(server: any): SocketIOServer {
           const cleanText = data.text.trim().slice(0, 160);
           if (!cleanText) return;
 
-          const order = await prisma.order.findUnique({
-            where: { id: data.orderId },
-            select: {
-              id: true,
-              orderNumber: true,
-              userId: true,
-              branchId: true,
-              driverId: true,
-              customerName: true,
-              driver: { select: { name: true } },
-            },
-          });
-          if (!order) {
-            if (typeof callback === "function") callback({ success: false, error: "الطلب غير موجود" });
-            return;
-          }
-
-          const currentUid = authUser?.userId || authUser?.id;
-          const isDriverSender = Boolean(authUser?.driverId && order.driverId === authUser.driverId) || data.senderRole === "DRIVER";
-          const isCustomerSender = Boolean(currentUid && order.userId === currentUid) || data.senderRole === "CUSTOMER";
-          if (!authUser || (!isDriverSender && !isCustomerSender && authUser.role !== "SUPERADMIN")) {
+          const access = await getAuthorizedOrder(data.orderId);
+          if (!access || (!access.isAssignedDriver && !access.isOwnerCustomer && !access.isAdmin)) {
             if (typeof callback === "function") callback({ success: false, error: "غير مصرح بإرسال رسالة لهذا الطلب" });
             return;
           }
 
-          const role: "CUSTOMER" | "DRIVER" = authUser.driverId ? "DRIVER" : (data.senderRole === "DRIVER" ? "DRIVER" : "CUSTOMER");
+          const { order } = access;
+          let role: "CUSTOMER" | "DRIVER";
+          if (access.isAssignedDriver) {
+            role = "DRIVER";
+          } else if (access.isOwnerCustomer) {
+            role = "CUSTOMER";
+          } else {
+            // الإدارة فقط يمكنها اختيار صفة المرسل لأغراض الدعم
+            role = data.senderRole === "DRIVER" ? "DRIVER" : "CUSTOMER";
+          }
+
           const senderName =
             role === "DRIVER"
-              ? (order.driver?.name || data.senderName || "كابتن التوصيل").replace(/\s*\(طيار عام\)\s*/g, "").trim()
-              : (order.customerName || data.senderName || "العميل");
+              ? (order.driver?.name || "كابتن التوصيل").replace(/\s*\(طيار عام\)\s*/g, "").trim()
+              : (order.customerName || "العميل");
 
           const msg = recordAndBroadcastOrderQuickMessage({
             orderId: order.id,
@@ -508,17 +602,48 @@ export function notifyBranchNewOrder(branchId: string, order: any): void {
   }
 }
 
+/**
+ * إزالة الملاحظات الإدارية الداخلية وبيانات الحظر من نسخة الطلب المرسلة للعميل
+ */
+export function sanitizeOrderForCustomer(order: any): any {
+  if (!order || typeof order !== "object") return order;
+  if (!order.user || typeof order.user !== "object") return order;
+  const { restaurantNotes, isBlocked, password, ...safeUser } = order.user;
+  return { ...order, user: safeUser };
+}
+
+/**
+ * إزالة رموز التحكم السرية من السلة الجماعية قبل إرسالها للمشاركين
+ */
+export function sanitizeGroupCartForPublic(cart: any): any {
+  if (!cart || typeof cart !== "object") return cart;
+  const { hostToken, ...safeCart } = cart;
+  if (Array.isArray(safeCart.items)) {
+    safeCart.items = safeCart.items.map((it: any) => {
+      if (!it || typeof it !== "object") return it;
+      const { deleteKey, ...safeItem } = it;
+      return safeItem;
+    });
+  }
+  return safeCart;
+}
+
 export function notifyOrderStatusChanged(orderId: string, branchId: string, order: any, driverId?: string): void {
   if (io) {
-    // إرسال التحديث لغرف الطلب والمستخدم والفرع في إرسال موحد لتجنب تكرار استلام الحدث لنفس الاتصال
-    let target = io.to(`order_${orderId}`);
+    // نسخة الفرع الكاملة (تتضمن ملاحظات المطعم على العميل)
+    if (branchId) {
+      io.to(`branch_${branchId}`).emit("order_status_updated", order);
+    }
+
+    // نسخة العميل بدون الملاحظات الإدارية الداخلية (مع استثناء اتصالات الفرع لتجنب التكرار)
+    let customerTarget = io.to(`order_${orderId}`);
     if (order?.userId) {
-      target = target.to(`user_${order.userId}`);
+      customerTarget = customerTarget.to(`user_${order.userId}`);
     }
     if (branchId) {
-      target = target.to(`branch_${branchId}`);
+      customerTarget = customerTarget.except(`branch_${branchId}`);
     }
-    target.emit("order_status_updated", order);
+    customerTarget.emit("order_status_updated", sanitizeOrderForCustomer(order));
 
     if (driverId || order?.driverId) {
       io.to(`driver_${driverId || order.driverId}`).emit("order_status_updated", sanitizeOrderForDriverSocket(order));
@@ -556,7 +681,7 @@ export function notifyDriverUnassigned(driverId: string, orderId: string): void 
 
 export function notifyGroupCartUpdated(shareCode: string, cartData: any): void {
   if (io) {
-    io.to(`group_cart_${shareCode}`).emit("group_cart_updated", cartData);
+    io.to(`group_cart_${shareCode}`).emit("group_cart_updated", sanitizeGroupCartForPublic(cartData));
   }
 }
 
@@ -640,42 +765,30 @@ export function notifyRestaurantLocationChanged(locationSettings: any): void {
 
 export function notifySupportTicketCreated(ticket: any): void {
   if (io) {
-    // بث فوري وشامل لجميع الواجهات المفتوحة (العميل، الإدارة، والمطعم)
-    io.emit("support_ticket_created", ticket);
-    if (ticket.userId) {
-      io.to(`user_${ticket.userId}`).emit("support_ticket_created", ticket);
-    }
-    if (ticket.branchId) {
-      io.to(`branch_${ticket.branchId}`).emit("support_ticket_created", ticket);
-    }
-    io.to("admin_dashboard").emit("support_ticket_created", ticket);
+    // بث موجّه فقط لصاحب الشكوى والمطعم المعني ولوحة الإدارة (بدون أي بث عام)
+    let target = io.to("admin_dashboard");
+    if (ticket.userId) target = target.to(`user_${ticket.userId}`);
+    if (ticket.branchId) target = target.to(`branch_${ticket.branchId}`);
+    target.emit("support_ticket_created", ticket);
   }
 }
 
 export function notifySupportTicketUpdated(ticket: any): void {
   if (io) {
-    // بث التحديث اللحظي لحالة الشكوى أو رد المشرف/المطعم
-    io.emit("support_ticket_updated", ticket);
-    if (ticket.userId) {
-      io.to(`user_${ticket.userId}`).emit("support_ticket_updated", ticket);
-    }
-    if (ticket.branchId) {
-      io.to(`branch_${ticket.branchId}`).emit("support_ticket_updated", ticket);
-    }
-    io.to("admin_dashboard").emit("support_ticket_updated", ticket);
+    // بث التحديث اللحظي لحالة الشكوى للأطراف المعنية فقط
+    let target = io.to("admin_dashboard");
+    if (ticket.userId) target = target.to(`user_${ticket.userId}`);
+    if (ticket.branchId) target = target.to(`branch_${ticket.branchId}`);
+    target.emit("support_ticket_updated", ticket);
   }
 }
 
 export function notifySupportTicketDeleted(ticketId: string, branchId?: string, userId?: string): void {
   if (io) {
-    io.emit("support_ticket_deleted", { id: ticketId });
-    if (userId) {
-      io.to(`user_${userId}`).emit("support_ticket_deleted", { id: ticketId });
-    }
-    if (branchId) {
-      io.to(`branch_${branchId}`).emit("support_ticket_deleted", { id: ticketId });
-    }
-    io.to("admin_dashboard").emit("support_ticket_deleted", { id: ticketId });
+    let target = io.to("admin_dashboard");
+    if (userId) target = target.to(`user_${userId}`);
+    if (branchId) target = target.to(`branch_${branchId}`);
+    target.emit("support_ticket_deleted", { id: ticketId });
   }
 }
 

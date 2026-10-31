@@ -194,6 +194,15 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    let parsedDeliveryFee: number | undefined = undefined;
+    if (deliveryFee !== undefined && deliveryFee !== null) {
+      parsedDeliveryFee = parseFloat(deliveryFee);
+      if (!Number.isFinite(parsedDeliveryFee) || parsedDeliveryFee < 0) {
+        res.status(400).json({ error: "رسوم التوصيل يجب أن تكون قيمة رقمية موجبة صحيحة" });
+        return;
+      }
+    }
+
     const updated = await prisma.branch.update({
       where: { id: branchId },
       data: {
@@ -201,7 +210,7 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
         phone: phone !== undefined ? (phone ? phone.trim() : null) : undefined,
         address: address !== undefined ? (address ? address.trim() : null) : undefined,
         logoUrl: logoUrl !== undefined ? (logoUrl ? logoUrl.trim() : null) : undefined,
-        deliveryFee: deliveryFee !== undefined ? parseFloat(deliveryFee) : undefined,
+        deliveryFee: parsedDeliveryFee,
         deliveryType: deliveryType !== undefined ? String(deliveryType) : undefined,
         allowDelivery: allowDelivery !== undefined ? Boolean(allowDelivery) : undefined,
         allowPickup: allowPickup !== undefined ? Boolean(allowPickup) : undefined,
@@ -242,11 +251,17 @@ router.post("/delivery-zones", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    const parsedFee = fee !== undefined ? parseFloat(fee) : 10.0;
+    if (!Number.isFinite(parsedFee) || parsedFee < 0) {
+      res.status(400).json({ error: "رسوم التوصيل للمنطقة يجب أن تكون قيمة رقمية موجبة" });
+      return;
+    }
+
     const zone = await prisma.branchDeliveryZone.create({
       data: {
         branchId,
         name: name.trim(),
-        fee: parseFloat(fee) || 10.0,
+        fee: parsedFee,
       },
     });
 
@@ -275,40 +290,38 @@ router.put("/payment-methods", async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
     const {
-      cashEnabled,
       vodafoneCashEnabled,
-      vodafoneCashNumber,
       instapayEnabled,
-      instapayHandle,
       cardEnabled,
       requirePaymentProof,
     } = req.body;
 
-    // التأكد التلقائي من وجود عمود requirePaymentProof في قاعدة البيانات
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "requirePaymentProof" BOOLEAN NOT NULL DEFAULT true;`
-    ).catch(() => {});
+    const existingConfig = await prisma.branchPaymentConfig.findUnique({
+      where: { branchId },
+    });
+
+    // لا يسمح للفرع بتفعيل فودافون كاش أو إنستاباي إلا إذا كانت الأرقام معتمدة مسبقاً من الإدارة
+    const allowVodafone = Boolean(existingConfig?.vodafoneCashNumber);
+    const allowInstapay = Boolean(existingConfig?.instapayHandle);
 
     const updatedConfig = await prisma.branchPaymentConfig.upsert({
       where: { branchId },
       update: {
         cashEnabled: true, // الدفع كاش إجباري دائم في كل المطاعم ولا يمكن إيقافه
-        vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : undefined,
-        vodafoneCashNumber: vodafoneCashNumber !== undefined ? (vodafoneCashNumber ? String(vodafoneCashNumber).trim() : null) : undefined,
-        instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : undefined,
-        instapayHandle: instapayHandle !== undefined ? (instapayHandle ? String(instapayHandle).trim() : null) : undefined,
+        vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? (allowVodafone && Boolean(vodafoneCashEnabled)) : undefined,
+        instapayEnabled: instapayEnabled !== undefined ? (allowInstapay && Boolean(instapayEnabled)) : undefined,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : undefined,
-        requirePaymentProof: (requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : undefined) as any,
+        requirePaymentProof: requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : undefined,
       },
       create: {
         branchId,
-        cashEnabled: true, // إجباري دائم
-        vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : false,
-        vodafoneCashNumber: vodafoneCashNumber ? String(vodafoneCashNumber).trim() : null,
-        instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : false,
-        instapayHandle: instapayHandle ? String(instapayHandle).trim() : null,
-        cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : false,
-        requirePaymentProof: (requirePaymentProof !== undefined ? Boolean(requirePaymentProof) : true) as any,
+        cashEnabled: true,
+        vodafoneCashEnabled: false,
+        vodafoneCashNumber: null,
+        instapayEnabled: false,
+        instapayHandle: null,
+        cardEnabled: false,
+        requirePaymentProof: true,
       },
     });
 
@@ -577,6 +590,22 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    const parsedBasePrice = parseFloat(basePrice);
+    if (!Number.isFinite(parsedBasePrice) || parsedBasePrice < 0) {
+      res.status(400).json({ error: "سعر الصنف الأساسي يجب أن يكون قيمة رقمية موجبة" });
+      return;
+    }
+
+    if (sizes && Array.isArray(sizes) && sizes.length > 0) {
+      for (const s of sizes) {
+        const sPrice = parseFloat(s.price);
+        if (!Number.isFinite(sPrice) || sPrice < 0) {
+          res.status(400).json({ error: "أسعار الأحجام يجب أن تكون قيماً رقمية موجبة" });
+          return;
+        }
+      }
+    }
+
     // التحقق من ملكية القسم للفرع
     const validCat = await prisma.menuCategory.findFirst({
       where: { id: String(categoryId), branchId },
@@ -800,7 +829,23 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
           : JSON.stringify(comboItems)
         : undefined;
 
+    let parsedBasePrice: number | undefined = undefined;
+    if (basePrice !== undefined && basePrice !== null) {
+      parsedBasePrice = parseFloat(basePrice);
+      if (!Number.isFinite(parsedBasePrice) || parsedBasePrice < 0) {
+        res.status(400).json({ error: "سعر الصنف الأساسي يجب أن يكون قيمة رقمية موجبة" });
+        return;
+      }
+    }
+
     if (sizes && Array.isArray(sizes)) {
+      for (const s of sizes) {
+        const sPrice = parseFloat(s.price);
+        if (!Number.isFinite(sPrice) || sPrice < 0) {
+          res.status(400).json({ error: "أسعار الأحجام يجب أن تكون قيماً رقمية موجبة" });
+          return;
+        }
+      }
       await prisma.itemSize.deleteMany({ where: { itemId: id } });
       if (sizes.length > 0) {
         await prisma.itemSize.createMany({
@@ -819,7 +864,7 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
         categoryId: categoryId || undefined,
         name: name ? name.trim() : undefined,
         description: description !== undefined ? description : undefined,
-        basePrice: basePrice !== undefined ? parseFloat(basePrice) : undefined,
+        basePrice: parsedBasePrice,
         imageUrl: imageUrl !== undefined ? imageUrl : undefined,
         displayOrder: displayOrder !== undefined && !isNaN(Number(displayOrder)) ? parseInt(displayOrder, 10) : undefined,
         comboItems: serializedCombos,
@@ -921,9 +966,26 @@ router.post("/modifier-groups", async (req: AuthRequest, res: Response) => {
     const branchId = req.branch!.branchId;
     const { title, isRequired, minSelection, maxSelection, options } = req.body;
 
-    if (!title) {
+    if (!title || !title.trim()) {
       res.status(400).json({ error: "عنوان مجموعة الإضافات مطلوب (مثل: صوصات إضافية)" });
       return;
+    }
+
+    const minSel = minSelection !== undefined ? parseInt(minSelection, 10) : 0;
+    const maxSel = maxSelection !== undefined ? parseInt(maxSelection, 10) : 1;
+    if (isNaN(minSel) || isNaN(maxSel) || minSel < 0 || maxSel < 0 || maxSel < minSel) {
+      res.status(400).json({ error: "الحد الأدنى والأقصى للاختيارات غير صحيح" });
+      return;
+    }
+
+    if (options && Array.isArray(options)) {
+      for (const opt of options) {
+        const p = opt.price !== undefined ? parseFloat(opt.price) : 0;
+        if (!Number.isFinite(p) || p < 0) {
+          res.status(400).json({ error: "أسعار الخيارات يجب أن تكون قيماً رقمية موجبة" });
+          return;
+        }
+      }
     }
 
     const group = await prisma.modifierGroup.create({
@@ -931,11 +993,11 @@ router.post("/modifier-groups", async (req: AuthRequest, res: Response) => {
         branchId,
         title: title.trim(),
         isRequired: Boolean(isRequired),
-        minSelection: minSelection !== undefined ? parseInt(minSelection) : 0,
-        maxSelection: maxSelection !== undefined ? parseInt(maxSelection) : 1,
+        minSelection: minSel,
+        maxSelection: maxSel,
         options: options && Array.isArray(options) ? {
           create: options.map((opt: any) => ({
-            name: opt.name.trim(),
+            name: String(opt.name || "").trim(),
             price: opt.price !== undefined ? parseFloat(opt.price) : 0,
             isAvailable: true,
           })),
@@ -968,13 +1030,36 @@ router.put("/modifier-groups/:id", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    let parsedMinSel: number | undefined = undefined;
+    let parsedMaxSel: number | undefined = undefined;
+    if (minSelection !== undefined) {
+      parsedMinSel = parseInt(minSelection, 10);
+      if (isNaN(parsedMinSel) || parsedMinSel < 0) {
+        res.status(400).json({ error: "الحد الأدنى للاختيارات غير صحيح" });
+        return;
+      }
+    }
+    if (maxSelection !== undefined) {
+      parsedMaxSel = parseInt(maxSelection, 10);
+      if (isNaN(parsedMaxSel) || parsedMaxSel < 0) {
+        res.status(400).json({ error: "الحد الأقصى للاختيارات غير صحيح" });
+        return;
+      }
+    }
+    const finalMin = parsedMinSel !== undefined ? parsedMinSel : existingGroup.minSelection;
+    const finalMax = parsedMaxSel !== undefined ? parsedMaxSel : existingGroup.maxSelection;
+    if (finalMax < finalMin) {
+      res.status(400).json({ error: "الحد الأقصى للاختيارات يجب أن يكون أكبر من أو يساوي الحد الأدنى" });
+      return;
+    }
+
     const updated = await prisma.modifierGroup.update({
       where: { id },
       data: {
         title: title ? title.trim() : undefined,
         isRequired: isRequired !== undefined ? Boolean(isRequired) : undefined,
-        minSelection: minSelection !== undefined ? parseInt(minSelection, 10) : undefined,
-        maxSelection: maxSelection !== undefined ? parseInt(maxSelection, 10) : undefined,
+        minSelection: parsedMinSel,
+        maxSelection: parsedMaxSel,
       },
       include: { options: true },
     });
@@ -995,7 +1080,7 @@ router.post("/modifier-groups/:groupId/options", async (req: AuthRequest, res: R
     const branchId = req.branch!.branchId;
     const { name, price } = req.body;
 
-    if (!name) {
+    if (!name || !name.trim()) {
       res.status(400).json({ error: "اسم الإضافة مطلوب" });
       return;
     }
@@ -1008,11 +1093,17 @@ router.post("/modifier-groups/:groupId/options", async (req: AuthRequest, res: R
       return;
     }
 
+    const parsedPrice = price !== undefined ? parseFloat(price) : 0;
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      res.status(400).json({ error: "سعر الإضافة يجب أن يكون قيمة رقمية موجبة" });
+      return;
+    }
+
     const option = await prisma.modifierOption.create({
       data: {
         groupId,
         name: name.trim(),
-        price: price !== undefined ? parseFloat(price) : 0,
+        price: parsedPrice,
         isAvailable: true,
       },
     });
@@ -1041,11 +1132,20 @@ router.put("/modifier-options/:id", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    let parsedPrice: number | undefined = undefined;
+    if (price !== undefined && price !== null) {
+      parsedPrice = parseFloat(price);
+      if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+        res.status(400).json({ error: "سعر الإضافة يجب أن يكون قيمة رقمية موجبة" });
+        return;
+      }
+    }
+
     const option = await prisma.modifierOption.update({
       where: { id },
       data: {
         name: name ? name.trim() : undefined,
-        price: price !== undefined ? parseFloat(price) : undefined,
+        price: parsedPrice,
         isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : undefined,
       },
     });
@@ -1387,10 +1487,18 @@ router.post("/customers/:userId/unblock", async (req: AuthRequest, res: Response
       return;
     }
 
-    const updated = await prisma.branchBlockedCustomer.upsert({
+    const existingBlock = await prisma.branchBlockedCustomer.findUnique({
       where: { branchId_userId: { branchId, userId } },
-      update: { isBlocked: false },
-      create: { branchId, userId, isBlocked: false },
+    });
+
+    if (!existingBlock || !existingBlock.isBlocked) {
+      res.status(400).json({ error: "هذا العميل غير محظور في هذا الفرع" });
+      return;
+    }
+
+    const updated = await prisma.branchBlockedCustomer.update({
+      where: { branchId_userId: { branchId, userId } },
+      data: { isBlocked: false },
     });
 
     res.json({

@@ -559,11 +559,29 @@ public class MainActivity extends Activity {
         if (intent != null && intent.hasExtra("target_url")) {
             String targetUrl = intent.getStringExtra("target_url");
             if (targetUrl != null && !targetUrl.trim().isEmpty() && webView != null) {
-                if (targetUrl.startsWith("/")) {
+                String trimmed = targetUrl.trim();
+                // حماية من إعادة التوجيه الضار: مسار نسبي يبدأ بـ / واحدة (وليس //) أو نطاق موثوق معتمد
+                if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
                     String base = getActiveStartUrl().replaceAll("/+$", "");
-                    webView.loadUrl(base + targetUrl);
-                } else if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
-                    webView.loadUrl(targetUrl);
+                    webView.loadUrl(base + trimmed);
+                } else if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
+                    try {
+                        Uri parsed = Uri.parse(trimmed);
+                        String host = parsed.getHost();
+                        String activeHost = getActiveHost();
+                        boolean isTrustedHost = host != null && (
+                            host.equalsIgnoreCase("unifood.store") ||
+                            host.endsWith(".unifood.store") ||
+                            (activeHost != null && host.equalsIgnoreCase(activeHost)) ||
+                            host.equalsIgnoreCase("localhost") ||
+                            host.equals("127.0.0.1") ||
+                            host.equals("10.0.2.2")
+                        );
+                        if (isTrustedHost) {
+                            webView.loadUrl(trimmed);
+                        }
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         }
@@ -643,6 +661,26 @@ public class MainActivity extends Activity {
             this.context = context;
         }
 
+        private boolean isCallerOriginTrusted() {
+            if (webView == null) return false;
+            String currentUrl = webView.getUrl();
+            if (currentUrl == null) return false;
+            try {
+                Uri parsed = Uri.parse(currentUrl);
+                String host = parsed.getHost();
+                if (host == null) return false;
+                String activeHost = getActiveHost();
+                return host.equalsIgnoreCase("unifood.store") ||
+                       host.endsWith(".unifood.store") ||
+                       (activeHost != null && host.equalsIgnoreCase(activeHost)) ||
+                       host.equalsIgnoreCase("localhost") ||
+                       host.equals("127.0.0.1") ||
+                       host.equals("10.0.2.2");
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
         @JavascriptInterface
         public String getFlavor() {
             return BuildConfig.FLAVOR_TYPE;
@@ -660,6 +698,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void registerBackgroundSession(String token, String role, String userId) {
+            if (!isCallerOriginTrusted()) return;
             try {
                 SharedPreferences.Editor editor = context.getSharedPreferences(UniFoodNotificationService.PREFS_NAME, Context.MODE_PRIVATE).edit();
                 editor.putString(UniFoodNotificationService.KEY_TOKEN, token != null ? token.trim() : "");
@@ -680,6 +719,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void clearBackgroundSession() {
+            if (!isCallerOriginTrusted()) return;
             try {
                 SharedPreferences.Editor editor = context.getSharedPreferences(UniFoodNotificationService.PREFS_NAME, Context.MODE_PRIVATE).edit();
                 editor.putBoolean(UniFoodNotificationService.KEY_IS_ACTIVE, false);
@@ -700,6 +740,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void showNotificationWithTag(String title, String body, String tag) {
+            if (!isCallerOriginTrusted()) return;
             try {
                 if (UniFoodNotificationService.isAppInForeground) {
                     return;
@@ -756,6 +797,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void downloadFile(String filename, String content, String mimeType) {
+            if (!isCallerOriginTrusted()) return;
             try {
                 String safeFilename = new File(filename != null ? filename : "report.csv")
                         .getName()
@@ -797,6 +839,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void openExternalUrl(String url) {
+            if (!isCallerOriginTrusted()) return;
             try {
                 if (url == null || url.trim().isEmpty()) return;
                 Uri uri = Uri.parse(url.trim());

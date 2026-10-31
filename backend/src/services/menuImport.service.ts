@@ -4,6 +4,7 @@ import crypto from "crypto";
 import prisma from "../prisma.js";
 import { notifyBranchMenuChanged } from "../sockets/socketManager.js";
 import { optimizeImageToWebp } from "../utils/imageOptimizer.js";
+import { safeFetchBinary } from "../utils/safeFetch.js";
 
 export interface BulkItemSizeInput {
   name: string;
@@ -63,30 +64,16 @@ export async function downloadAndSaveImage(imageUrl: string): Promise<string> {
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7000); // مهلة 7 ثوانٍ للتنزيل
-
-    const res = await fetch(trimmed, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) UniFood/1.0",
-        Accept: "image/*,*/*;q=0.8",
-      },
+    const fetched = await safeFetchBinary(trimmed, {
+      maxBytes: 15 * 1024 * 1024,
+      timeoutMs: 7000,
     });
-    clearTimeout(timeout);
 
-    if (!res.ok) {
-      console.warn(`[MenuImport] Image download returned status ${res.status}: ${trimmed}`);
-      return trimmed; // خطة بديلة: الاحتفاظ بالرابط الأصلي
-    }
-
-    const arrayBuffer = await res.arrayBuffer();
-    const rawBuffer = Buffer.from(arrayBuffer);
-
-    // التحقق من حجم الصورة (بحد أقصى 25 ميجابايت وبحد أدنى 100 بايت)
-    if (rawBuffer.length < 100 || rawBuffer.length > 25 * 1024 * 1024) {
+    if (!fetched || !fetched.buffer || fetched.buffer.length < 100) {
       return trimmed;
     }
+
+    const rawBuffer = fetched.buffer;
 
     // ضغط وتحويل الصورة المنزلة تلقائياً إلى صيغة WebP فائقة الكفاءة
     const optimized = await optimizeImageToWebp(rawBuffer, {

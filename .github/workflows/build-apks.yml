@@ -47,10 +47,10 @@ jobs:
             cp -f customer-app/public/logo.png "android-app/app/src/main/res/$dir/ic_launcher.png"
           done
 
-          # محاولة استرجاع شهادة التوقيع الثابتة من الإصدار السابق حتى يظل توقيع المطور ثابتاً لدى Google Play Protect
-          gh release download latest-apk -p "release.keystore" -D android-app/app --clobber || true
-
-          if [ ! -f android-app/app/release.keystore ]; then
+          # إنشاء شهادة التوقيع أو استرجاعها من Secret خاص بالمستودع بأمان تام دون نشر المفتاح للعامة
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android-app/app/release.keystore
+          elif [ ! -f android-app/app/release.keystore ]; then
             keytool -genkeypair -v \
               -keystore android-app/app/release.keystore \
               -alias unifood \

@@ -2970,9 +2970,20 @@ router.get("/finance/export-excel", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// حقن البيانات التجريبية الشاملة بضغطة زر من لوحة الأدمن
-router.post("/seed-mock-data", async (_req: AuthRequest, res: Response) => {
+// حقن البيانات التجريبية الشاملة بضغطة زر من لوحة الأدمن (معطل تماماً في الإنتاج)
+router.post("/seed-mock-data", async (req: AuthRequest, res: Response) => {
   try {
+    if (process.env.NODE_ENV === "production") {
+      res.status(403).json({ error: "مسار حقن البيانات الوهمية معطل تماماً في بيئة الإنتاج السحابية (Production)" });
+      return;
+    }
+
+    const { confirmation } = req.body || {};
+    if (confirmation !== "CONFIRM_SEED_MOCK_DATA") {
+      res.status(400).json({ error: "لتأكيد زرع البيانات الوهمية، يرجى إرسال confirmation: 'CONFIRM_SEED_MOCK_DATA'" });
+      return;
+    }
+
     const result = await seedMockDatabase();
     notifyBranchesListChanged();
     notifyBannersUpdated();
