@@ -10,6 +10,7 @@ import {
   AlertCircle,
   CheckCircle,
   ArrowLeft,
+  ArrowRight,
   Tag,
   Upload,
   Image as ImageIcon,
@@ -1061,7 +1062,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/65 backdrop-blur-xs p-0 sm:p-4 animate-fadeIn"
+      className="fixed inset-0 z-50 flex flex-col bg-slate-50 w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden"
       dir="rtl"
     >
       {/* إشعار الخطأ العائم في أعلى الشاشة */}
@@ -1074,29 +1075,34 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           <button
             type="button"
             onClick={() => setError(null)}
-            className="p-1 rounded-lg hover:bg-rose-700 text-white/90 shrink-0"
+            className="p-1 rounded-lg hover:bg-rose-700 text-white/90 shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      <div className="bg-slate-50 rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[93dvh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative border border-slate-200/80">
-        {/* مقبض السحب للموبايل */}
-        <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0 z-20" />
-
+      <div className="w-full h-full flex-1 flex flex-col overflow-hidden max-w-2xl mx-auto bg-slate-50 sm:border-x sm:border-slate-200/90 shadow-sm relative">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200 bg-white shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-200 bg-white shrink-0 shadow-xs z-10">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 -mr-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors shrink-0 flex items-center justify-center cursor-pointer active:scale-95"
+              title="رجوع للمنيو"
+            >
+              <ArrowRight className="w-5 h-5" />
+            </button>
             <div className="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
               <ShoppingBag className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-black text-slate-900 text-sm truncate">
-                سلة الطلب - {branch.name}
+              <h3 className="font-black text-slate-900 text-sm sm:text-base truncate">
+                إتمام الطلب - {branch.name}
               </h3>
               <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                <span>{cart.reduce((acc, i) => acc + i.quantity, 0)} أصناف</span>
+                <span>{cart.reduce((acc, i) => acc + i.quantity, 0)} أصناف في السلة</span>
                 {branch.openingTime && branch.closingTime && (
                   <>
                     <span>•</span>
@@ -1117,7 +1123,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shrink-0"
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shrink-0 cursor-pointer"
             title="إغلاق"
           >
             <X className="w-4 h-4" />

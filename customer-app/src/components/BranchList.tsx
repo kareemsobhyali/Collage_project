@@ -1014,12 +1014,20 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         {/* Top Image & Floating Badges */}
         <div className="relative h-32 sm:h-36 w-full rounded-2xl overflow-hidden bg-slate-100 mb-3 border border-slate-100 shrink-0">
           {deal.imageUrl ? (
-            <img
-              src={getFullImageUrl(deal.imageUrl)}
-              alt={deal.title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              loading="lazy"
-            />
+            <div className="relative w-full h-full flex items-center justify-center">
+              <img
+                src={getFullImageUrl(deal.imageUrl)}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-25 pointer-events-none"
+              />
+              <img
+                src={getFullImageUrl(deal.imageUrl)}
+                alt={deal.title}
+                className="relative z-1 w-full h-full object-contain p-1 transition-transform duration-300 group-hover:scale-105"
+                loading="lazy"
+              />
+            </div>
           ) : (
             <div className={`w-full h-full bg-gradient-to-br ${isPromo ? 'from-purple-950 via-indigo-900 to-rose-950' : 'from-rose-600 via-orange-600 to-amber-500'} flex flex-col items-center justify-center text-white p-3 text-center`}>
               <span className="text-3xl mb-1">{isPromo ? '🎟️' : '🍔'}</span>

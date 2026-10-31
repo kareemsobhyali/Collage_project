@@ -368,11 +368,17 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
             >
               <div>
                 {/* Image Container with Badges */}
-                <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 mb-2.5">
+                <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-900/5 mb-2.5 flex items-center justify-center">
+                  <img
+                    src={item.imageUrl ? getFullImageUrl(item.imageUrl) : getItemFallbackImage(item.name, category.name, branchName)}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-25 pointer-events-none"
+                  />
                   <img
                     src={item.imageUrl ? getFullImageUrl(item.imageUrl) : getItemFallbackImage(item.name, category.name, branchName)}
                     alt={item.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="relative z-1 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 p-1"
                     loading="lazy"
                   />
 
@@ -380,7 +386,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                   <button
                     type="button"
                     onClick={(e) => onToggleFavItem(e, item.id)}
-                    className="absolute top-2 left-2 p-1.5 rounded-xl bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-all active:scale-90"
+                    className="absolute top-2 left-2 z-10 p-1.5 rounded-xl bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-all active:scale-90"
                     title={isFav ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
                   >
                     <Heart
@@ -392,7 +398,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
 
                   {/* Customization Badge */}
                   {Array.isArray(item.customizations) && item.customizations.length > 0 && (
-                    <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-lg bg-black/60 backdrop-blur-md text-white text-[10px] font-bold">
+                    <span className="absolute bottom-2 right-2 z-10 px-2 py-0.5 rounded-lg bg-black/60 backdrop-blur-md text-white text-[10px] font-bold">
                       خيارات متعددة
                     </span>
                   )}
@@ -1643,11 +1649,17 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
                             {/* Deal Image if available */}
                             {(deal.imageUrl || linkedItem?.imageUrl) && (
-                              <div className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-100 mb-2.5">
+                              <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-900/5 mb-2.5 flex items-center justify-center">
+                                <img
+                                  src={getFullImageUrl(deal.imageUrl || linkedItem?.imageUrl)}
+                                  alt=""
+                                  aria-hidden="true"
+                                  className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-25 pointer-events-none"
+                                />
                                 <img
                                   src={getFullImageUrl(deal.imageUrl || linkedItem?.imageUrl)}
                                   alt={deal.title}
-                                  className="w-full h-full object-cover"
+                                  className="relative z-1 w-full h-full object-contain p-1"
                                 />
                               </div>
                             )}

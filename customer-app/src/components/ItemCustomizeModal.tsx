@@ -197,34 +197,45 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
         {/* Mobile drag handle */}
         <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto my-2 sm:hidden shrink-0 z-20" />
 
-        {/* Top Header */}
-        <div className="relative">
+        {/* Top Header with Full Image Display and Ambient Blurred Backdrop */}
+        <div className="relative w-full h-60 sm:h-72 bg-slate-950 overflow-hidden flex items-center justify-center select-none">
           {(() => {
             const fallbackImg = getItemFallbackImage(item.name);
             const displayImg = item.imageUrl ? getFullImageUrl(item.imageUrl) : fallbackImg;
             return (
-              <img
-                src={displayImg}
-                alt={item.name}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  if (target.src !== fallbackImg) {
-                    target.src = fallbackImg;
-                  }
-                }}
-                className="w-full h-44 object-cover"
-              />
+              <>
+                {/* Ambient Blurred Background to fill margins beautifully without cropping */}
+                <img
+                  src={displayImg}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-full object-cover blur-2xl scale-125 opacity-35 pointer-events-none"
+                />
+                {/* Full Uncropped Foreground Image */}
+                <img
+                  src={displayImg}
+                  alt={item.name}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src !== fallbackImg) {
+                      target.src = fallbackImg;
+                    }
+                  }}
+                  className="relative z-10 w-full h-full object-contain p-2 drop-shadow-md"
+                />
+              </>
             );
           })()}
           <button
             onClick={onClose}
-            className="absolute top-4 left-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm"
+            className="absolute top-4 left-4 z-20 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm transition-all active:scale-95 cursor-pointer"
+            title="إغلاق"
           >
             <X className="w-5 h-5" />
           </button>
 
           {!isItemAvailable && (
-            <div className="absolute top-4 right-4 bg-rose-600/95 backdrop-blur-md text-white px-3 py-1 rounded-xl text-xs font-black shadow-md border border-white/20">
+            <div className="absolute top-4 right-4 z-20 bg-rose-600/95 backdrop-blur-md text-white px-3 py-1 rounded-xl text-xs font-black shadow-md border border-white/20">
               غير متوفر حالياً
             </div>
           )}

@@ -26,7 +26,6 @@ const AdminPage = React.lazy(() => import('./components/AdminPage').then(m => ({
 const DriverPortal = React.lazy(() => import('./components/DriverPortal').then(m => ({ default: m.DriverPortal })));
 import { GroupCartModal } from './components/GroupCartModal';
 import { Logo } from './components/Logo';
-import { SplashScreen } from './components/SplashScreen';
 import { InstallApkPage, parseApkRoute } from './components/InstallApkPage';
 
 /**
@@ -120,12 +119,6 @@ export function getRequestedBranchKeyFromUrl(): string | null {
 }
 
 export function App() {
-  const isMobileAppExperience = typeof window !== 'undefined' && (
-    isRunningInNativeApk() ||
-    window.location.search.includes('splash') ||
-    window.location.search.includes('app')
-  );
-  const [showSplash, setShowSplash] = useState(isMobileAppExperience);
   const [branches, setBranches] = useState<any[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -1175,13 +1168,6 @@ export function App() {
     return (
       <React.Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-bold" dir="rtl">جاري تحميل بوابة كابتن التوصيل...</div>}>
         <DriverPortal onClose={() => setShowDriverPortal(false)} />
-        {showSplash && (
-          <SplashScreen
-            branches={branches}
-            isReady={true}
-            onFinish={() => setShowSplash(false)}
-          />
-        )}
       </React.Suspense>
     );
   }
@@ -1691,15 +1677,6 @@ export function App() {
             setShowAuthModal(false);
             setPendingOpenGroupCart(false);
           }}
-        />
-      )}
-
-      {/* Orbiting Restaurant Logos & Food Rain Mobile Splash Screen */}
-      {showSplash && (
-        <SplashScreen
-          branches={branches}
-          isReady={!loading || branches.length > 0}
-          onFinish={() => setShowSplash(false)}
         />
       )}
 
