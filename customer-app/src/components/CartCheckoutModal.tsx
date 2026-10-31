@@ -1131,7 +1131,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-4 sm:p-5 overflow-y-auto modal-scroll flex-1 space-y-4 pb-36 sm:pb-32">
+        <div className="p-4 sm:p-5 overflow-y-auto modal-scroll flex-1 space-y-4 pb-4">
           {/* 1. قائمة الأصناف المختارة */}
           <section className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
             <div className="flex items-center justify-between">
@@ -2415,7 +2415,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         </div>
 
         {/* الشريط السفلي الثابت لتأكيد الطلب */}
-        <div className="p-3.5 sm:p-4 border-t border-slate-200 bg-white pb-safe space-y-2 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <div className="p-3 sm:p-4 border-t border-slate-200 bg-white space-y-2 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
           {!user && (
             <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900 font-bold">
               <div className="flex items-center gap-1.5">

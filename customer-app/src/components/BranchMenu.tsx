@@ -368,17 +368,11 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
             >
               <div>
                 {/* Image Container with Badges */}
-                <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-900/5 mb-2.5 flex items-center justify-center">
-                  <img
-                    src={item.imageUrl ? getFullImageUrl(item.imageUrl) : getItemFallbackImage(item.name, category.name, branchName)}
-                    alt=""
-                    aria-hidden="true"
-                    className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-25 pointer-events-none"
-                  />
+                <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 mb-2.5">
                   <img
                     src={item.imageUrl ? getFullImageUrl(item.imageUrl) : getItemFallbackImage(item.name, category.name, branchName)}
                     alt={item.name}
-                    className="relative z-1 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 p-1"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
                   />
 
@@ -1649,17 +1643,11 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
 
                             {/* Deal Image if available */}
                             {(deal.imageUrl || linkedItem?.imageUrl) && (
-                              <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-900/5 mb-2.5 flex items-center justify-center">
-                                <img
-                                  src={getFullImageUrl(deal.imageUrl || linkedItem?.imageUrl)}
-                                  alt=""
-                                  aria-hidden="true"
-                                  className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-25 pointer-events-none"
-                                />
+                              <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 mb-2.5">
                                 <img
                                   src={getFullImageUrl(deal.imageUrl || linkedItem?.imageUrl)}
                                   alt={deal.title}
-                                  className="relative z-1 w-full h-full object-contain p-1"
+                                  className="w-full h-full object-cover"
                                 />
                               </div>
                             )}
