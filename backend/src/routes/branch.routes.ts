@@ -380,7 +380,7 @@ router.get("/menu", async (req: AuthRequest, res: Response) => {
         isAvailable: true,
         unavailableUntil: null,
       },
-    });
+    }).catch(() => {});
 
     const categories = await prisma.menuCategory.findMany({
       where: { branchId },

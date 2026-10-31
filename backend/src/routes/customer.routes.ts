@@ -1056,7 +1056,7 @@ router.get("/branches/:id/menu", async (req: Request, res: Response) => {
         isAvailable: true,
         unavailableUntil: null,
       },
-    });
+    }).catch(() => {});
 
     const [categories, activeOrdersCount, ratingStats, recentReviews, allFlashDeals, allBanners, allPromos] = await Promise.all([
       prisma.menuCategory.findMany({

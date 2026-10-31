@@ -723,6 +723,9 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "vodafoneCashEnabled" BOOLEAN DEFAULT false;`,
       `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "instapayEnabled" BOOLEAN DEFAULT false;`,
       `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "cardEnabled" BOOLEAN DEFAULT false;`,
+      `ALTER TABLE "MenuCategory" ADD COLUMN IF NOT EXISTS "isAvailable" BOOLEAN DEFAULT true;`,
+      `ALTER TABLE "MenuCategory" ADD COLUMN IF NOT EXISTS "unavailableUntil" TIMESTAMP(3);`,
+      `CREATE INDEX IF NOT EXISTS "MenuCategory_isAvailable_idx" ON "MenuCategory"("isAvailable");`,
       `CREATE UNIQUE INDEX IF NOT EXISTS "BranchBlockedCustomer_branchId_userId_key" ON "BranchBlockedCustomer"("branchId", "userId");`,
       `CREATE INDEX IF NOT EXISTS "BranchBlockedCustomer_branchId_idx" ON "BranchBlockedCustomer"("branchId");`,
       `CREATE INDEX IF NOT EXISTS "BranchBlockedCustomer_userId_idx" ON "BranchBlockedCustomer"("userId");`
