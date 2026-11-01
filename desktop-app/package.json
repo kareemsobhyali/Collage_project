@@ -1,12 +1,17 @@
 {
   "name": "desktop-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "UniFood Branch POS & Restaurant Cashier System",
+  "author": "UniFood",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "electron:dev": "concurrently -k \"vite\" \"electron electron/main.cjs\"",
+    "electron:build": "npm run build && electron-builder --win nsis",
+    "electron:portable": "npm run build && electron-builder --win portable",
+    "electron:installer": "npm run build && electron-builder --win nsis",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -29,10 +34,40 @@
     "concurrently": "^10.0.6",
     "cross-env": "^10.1.0",
     "electron": "^44.7.0",
+    "electron-builder": "^26.18.0",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.29",
     "tailwindcss": "^3.4.17",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
+  },
+  "build": {
+    "appId": "com.unifood.branchpos",
+    "productName": "UniFood Branch POS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "UniFood Branch POS"
+    }
   }
 }

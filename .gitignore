@@ -19,6 +19,8 @@ android-app/.gradle/
 *.apk
 out/
 release/
+**/release/
+ملفات_تثبيت_الكاشير_للعملاء/
 *.tsbuildinfo
 
 # ==========================================
