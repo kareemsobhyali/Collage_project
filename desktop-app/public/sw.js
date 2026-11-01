@@ -1,5 +1,5 @@
 // UniFood Branch POS - Service Worker (Desktop & Mobile PWA)
-const CACHE_NAME = 'unifood-branch-pos-v1';
+const CACHE_NAME = 'unifood-branch-pos-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

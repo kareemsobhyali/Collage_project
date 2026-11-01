@@ -1,7 +1,55 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const http = require('http');
 
 let mainWindow;
+
+function checkUrl(urlStr) {
+  return new Promise((resolve) => {
+    try {
+      const u = new URL(urlStr);
+      const req = http.request({
+        hostname: u.hostname,
+        port: u.port,
+        path: u.pathname,
+        method: 'HEAD',
+        timeout: 1200,
+      }, (res) => {
+        resolve(res.statusCode >= 200 && res.statusCode < 400);
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+      req.end();
+    } catch (_e) {
+      resolve(false);
+    }
+  });
+}
+
+async function loadBestUrl() {
+  if (!mainWindow) return;
+
+  const backendUrl = 'http://localhost:5000/branch/';
+  if (await checkUrl(backendUrl)) {
+    console.log('[Electron] Connected to unified backend:', backendUrl);
+    return mainWindow.loadURL(backendUrl).catch(() => {
+      mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    });
+  }
+
+  const devUrl = 'http://localhost:5173';
+  if (await checkUrl(devUrl)) {
+    console.log('[Electron] Connected to Vite dev server:', devUrl);
+    return mainWindow.loadURL(devUrl).catch(() => {
+      mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    });
+  }
+
+  console.log('[Electron] Loading local bundle dist/index.html');
+  mainWindow.loadFile(path.join(__dirname, '../dist/index.html')).catch((err) => {
+    console.error('Failed to load local index.html:', err);
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -29,17 +77,7 @@ function createWindow() {
     e.preventDefault();
   });
 
-  // حماية من استغلال منفذ التطوير المحلي في بيئة الإنتاج
-  if (!app.isPackaged && process.env.NODE_ENV === 'development') {
-    const devUrl = 'http://localhost:5173';
-    mainWindow.loadURL(devUrl).catch(() => {
-      mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
-    });
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html')).catch((err) => {
-      console.error('Failed to load local index.html:', err);
-    });
-  }
+  loadBestUrl();
 
   mainWindow.on('closed', () => {
     mainWindow = null;

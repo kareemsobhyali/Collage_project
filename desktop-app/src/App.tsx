@@ -156,14 +156,54 @@ export function App() {
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
-  // طلب إذن إشعارات الويندوز الأصلية تلقائياً لتمكين رفع وتنبيه التطبيق فوق أي نافذة
+  // محاولة الدخول في وضع ملء الشاشة الكامل تلقائياً عند أول نقرة أو لمس من الكاشير
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => {});
-      }
-    }
+    const handleFirstGesture = () => {
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      } catch (_e) {}
+    };
+
+    window.addEventListener('click', handleFirstGesture, { once: true });
+    window.addEventListener('touchstart', handleFirstGesture, { once: true });
+    window.addEventListener('keydown', handleFirstGesture, { once: true });
+
+    return () => {
+      window.removeEventListener('click', handleFirstGesture);
+      window.removeEventListener('touchstart', handleFirstGesture);
+      window.removeEventListener('keydown', handleFirstGesture);
+    };
   }, []);
+
+  // حالة إذن إشعارات الويندوز الأصلية
+  const [notificationPermission, setNotificationPermission] = useState<string>(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission;
+    }
+    return 'granted';
+  });
+
+  const handleRequestNotificationPermission = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        const perm = await Notification.requestPermission();
+        setNotificationPermission(perm);
+        if (perm === 'granted') {
+          toast.success('تم تفعيل إشعارات الويندوز الفورية بنجاح! 🔔');
+          try {
+            new Notification('UniFood Branch | نظام الكاشير', {
+              body: 'تم تفعيل التنبيهات الفورية فوق البرامج بنجاح!',
+              icon: './icon-192.png'
+            });
+          } catch (_e) {}
+        } else {
+          toast.error('تم رفض إذن الإشعارات من المتصفح');
+        }
+      } catch (_e) {}
+    }
+  };
 
   // مزامنة عنوان السيرفر تلقائياً من GitHub عند بدء التطبيق
   useEffect(() => {
@@ -347,27 +387,53 @@ export function App() {
       } catch (_e) {}
 
       // 2. إظهار إشعار ويندوز الأصلي (Native Windows Banner) للظهور فوق أي تطبيق آخر مفتوح
-      if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
         try {
-          if (Notification.permission === 'granted') {
-            const notif = new Notification(`🚨 طلب جديد #${newOrder.orderNumber || ''}`, {
-              body: `المبلغ: ${newOrder.total} ج.م • اضغط هنا لفتح الطلب فوراً في الواجهة`,
-              icon: './icon-192.png',
-              requireInteraction: true,
-              tag: `order_${newOrder.id}`,
+          const title = `🚨 طلب جديد #${newOrder.orderNumber || ''}`;
+          const options = {
+            body: `المبلغ: ${newOrder.total} ج.م • اضغط هنا لفتح الطلب فوراً في الواجهة`,
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            dir: 'rtl' as NotificationDirection,
+            lang: 'ar',
+            requireInteraction: true,
+            tag: `order_${newOrder.id}`,
+          };
+
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then((reg) => {
+              reg.showNotification(title, { ...options, data: { url: './', orderId: newOrder.id } }).catch(() => {
+                const notif = new Notification(title, options);
+                notif.onclick = () => {
+                  window.focus();
+                  try { (window as any).electronAPI?.send?.('bring-to-front'); } catch (_e) {}
+                  setActiveTab('ORDERS');
+                  setTargetedDetailedOrder(newOrder);
+                  setIsOrderDetailsOpen(true);
+                  notif.close();
+                };
+              });
+            }).catch(() => {
+              const notif = new Notification(title, options);
+              notif.onclick = () => {
+                window.focus();
+                try { (window as any).electronAPI?.send?.('bring-to-front'); } catch (_e) {}
+                setActiveTab('ORDERS');
+                setTargetedDetailedOrder(newOrder);
+                setIsOrderDetailsOpen(true);
+                notif.close();
+              };
             });
+          } else {
+            const notif = new Notification(title, options);
             notif.onclick = () => {
               window.focus();
-              try {
-                (window as any).electronAPI?.send?.('bring-to-front');
-              } catch (_e) {}
+              try { (window as any).electronAPI?.send?.('bring-to-front'); } catch (_e) {}
               setActiveTab('ORDERS');
               setTargetedDetailedOrder(newOrder);
               setIsOrderDetailsOpen(true);
               notif.close();
             };
-          } else if (Notification.permission === 'default') {
-            Notification.requestPermission().catch(() => {});
           }
         } catch (_e) {}
       }
@@ -588,19 +654,63 @@ export function App() {
 
   if (!token || !branch) {
     return (
-      <>
+      <div onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false; }}>
         <ToastContainer />
         <LoginModal onLoginSuccess={handleLoginSuccess} />
-      </>
+      </div>
     );
   }
 
   const pendingCount = orders.filter(o => o.status === 'PENDING').length;
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 flex flex-col font-sans">
+    <div 
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false; }}
+      className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 flex flex-col font-sans select-none"
+    >
+      {/* 1. تنبيه تفعيل إشعارات الويندوز الفورية للظهور فوق أي نافذة */}
+      {notificationPermission === 'default' && (
+        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-white px-3 sm:px-6 py-2 text-xs font-black flex items-center justify-between gap-3 shadow-md border-b border-amber-600 z-50">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base shrink-0 animate-bounce">🔔</span>
+            <span className="truncate">
+              تنبيه مهم للكاشير: فعّل إشعارات الويندوز الفورية لتنبيهك ورفع شاشة البرنامج فوق أي تطبيق مفتوح!
+            </span>
+          </div>
+          <button
+            onClick={handleRequestNotificationPermission}
+            className="bg-white text-amber-800 hover:bg-amber-50 px-3 py-1 rounded-lg font-black text-xs shrink-0 shadow transition-transform active:scale-95 cursor-pointer"
+          >
+            تفعيل التنبيهات الآن ⚡
+          </button>
+        </div>
+      )}
+
+      {/* 2. شريط التحويل لملء الشاشة الكامل (Full Screen) مثل الصورة رقم 2 */}
+      {!isFullscreen && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-3 sm:px-6 py-1.5 text-xs font-bold flex items-center justify-between gap-2 border-b border-indigo-700/50 z-50">
+          <div className="flex items-center gap-2 min-w-0">
+            <Maximize2 className="w-3.5 h-3.5 text-indigo-400 animate-pulse shrink-0" />
+            <span className="truncate text-slate-200">
+              لتكبير الشاشة بالكامل وإخفاء شريط العنوان وشريط المهام (مثل صورة POS 2):
+            </span>
+          </div>
+          <button
+            onClick={toggleFullScreen}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg font-black text-[11px] shrink-0 transition-transform active:scale-95 flex items-center gap-1.5 shadow-sm border border-indigo-400/40 cursor-pointer"
+          >
+            <Maximize2 className="w-3 h-3" />
+            <span>عرض ملء الشاشة الكامل ⛶</span>
+          </button>
+        </div>
+      )}
+
       {/* Top Application Header (Two-tier responsive layout) */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm w-full">
+      <header 
+        onDoubleClick={toggleFullScreen}
+        title="انقر نقراً مزدوجاً لتبديل وضع ملء الشاشة"
+        className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm w-full select-none cursor-default"
+      >
         {/* Tier 1: Brand Identity & Quick Operational Actions */}
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
           {/* Top/Right on mobile: Branch identity + Mobile Status Pill */}
