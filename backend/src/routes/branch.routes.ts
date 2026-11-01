@@ -183,11 +183,26 @@ router.put("/operational-status", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 2.6 تعديل بيانات الفرع التشغيلية (الاسم، الهاتف، الموقع، رسوم التوصيل، التوصيل والاستلام)
+// 2.6 تعديل بيانات الفرع التشغيلية (الاسم، الهاتف، الموقع، رسوم التوصيل، التوصيل والاستلام، عروض التوصيل المجاني)
 router.put("/details", async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
-    const { name, phone, address, deliveryFee, allowDelivery, allowPickup, logoUrl, deliveryType } = req.body;
+    const { 
+      name, 
+      phone, 
+      address, 
+      deliveryFee, 
+      allowDelivery, 
+      allowPickup, 
+      logoUrl, 
+      deliveryType,
+      freeDeliveryEnabled,
+      freeDeliveryMinAmount,
+      freeDeliveryDays,
+      freeDeliveryStartTime,
+      freeDeliveryEndTime,
+      freeDeliveryIncludesDeals
+    } = req.body;
 
     if (!name || !name.trim()) {
       res.status(400).json({ error: "اسم المطعم مطلوب" });
@@ -214,6 +229,12 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
         deliveryType: deliveryType !== undefined ? String(deliveryType) : undefined,
         allowDelivery: allowDelivery !== undefined ? Boolean(allowDelivery) : undefined,
         allowPickup: allowPickup !== undefined ? Boolean(allowPickup) : undefined,
+        freeDeliveryEnabled: freeDeliveryEnabled !== undefined ? Boolean(freeDeliveryEnabled) : undefined,
+        freeDeliveryMinAmount: freeDeliveryMinAmount !== undefined ? (parseFloat(freeDeliveryMinAmount) || 0) : undefined,
+        freeDeliveryDays: freeDeliveryDays !== undefined ? String(freeDeliveryDays) : undefined,
+        freeDeliveryStartTime: freeDeliveryStartTime !== undefined ? (freeDeliveryStartTime ? String(freeDeliveryStartTime).trim() : null) : undefined,
+        freeDeliveryEndTime: freeDeliveryEndTime !== undefined ? (freeDeliveryEndTime ? String(freeDeliveryEndTime).trim() : null) : undefined,
+        freeDeliveryIncludesDeals: freeDeliveryIncludesDeals !== undefined ? Boolean(freeDeliveryIncludesDeals) : undefined,
       },
       include: { paymentConfig: true, deliveryZones: true },
     });
@@ -482,7 +503,7 @@ router.put("/menu/reorder", async (req: AuthRequest, res: Response) => {
 router.post("/categories", async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
-    const { name, displayOrder } = req.body;
+    const { name, displayOrder, isDealsCategory } = req.body;
     if (!name) {
       res.status(400).json({ error: "اسم القسم مطلوب" });
       return;
@@ -499,11 +520,13 @@ router.post("/categories", async (req: AuthRequest, res: Response) => {
       finalOrder = agg._max.displayOrder !== null && agg._max.displayOrder !== undefined ? agg._max.displayOrder + 1 : 0;
     }
 
+    const trimmedName = name.trim();
     const category = await prisma.menuCategory.create({
       data: {
         branchId,
-        name: name.trim(),
+        name: trimmedName,
         displayOrder: finalOrder,
+        isDealsCategory: isDealsCategory !== undefined ? Boolean(isDealsCategory) : /عروض|عرض/i.test(trimmedName),
       },
     });
 
@@ -519,7 +542,7 @@ router.post("/categories", async (req: AuthRequest, res: Response) => {
 router.put("/categories/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { name, displayOrder, isAvailable } = req.body;
+    const { name, displayOrder, isAvailable, isDealsCategory } = req.body;
     const branchId = req.branch!.branchId;
 
     const existing = await prisma.menuCategory.findFirst({
@@ -536,6 +559,7 @@ router.put("/categories/:id", async (req: AuthRequest, res: Response) => {
         name: name ? name.trim() : undefined,
         displayOrder: displayOrder !== undefined ? parseInt(displayOrder) : undefined,
         isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : undefined,
+        isDealsCategory: isDealsCategory !== undefined ? Boolean(isDealsCategory) : (name ? /عروض|عرض/i.test(name.trim()) : undefined),
       },
     });
 
@@ -604,6 +628,7 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
       comboItems,
       sizes, // [{ name: "كبير", price: 50 }]
       modifierGroupIds, // ["group-uuid-1", "group-uuid-2"]
+      isDeal,
     } = req.body;
 
     if (!categoryId || !name || basePrice === undefined) {
@@ -675,6 +700,7 @@ router.post("/items", async (req: AuthRequest, res: Response) => {
         imageUrl: imageUrl || null,
         displayOrder: finalItemOrder,
         comboItems: serializedCombos,
+        isDeal: isDeal !== undefined ? Boolean(isDeal) : false,
         isAvailable: true,
         sizes: sizes && Array.isArray(sizes) && sizes.length > 0 ? {
           create: sizes.map((s: any) => ({
@@ -821,7 +847,7 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const branchId = req.branch!.branchId;
-    const { categoryId, name, description, basePrice, imageUrl, isAvailable, comboItems, sizes, displayOrder } = req.body;
+    const { categoryId, name, description, basePrice, imageUrl, isAvailable, comboItems, sizes, displayOrder, isDeal } = req.body;
 
     const existing = await prisma.menuItem.findFirst({
       where: { id, branchId },
@@ -890,6 +916,7 @@ router.put("/items/:id", async (req: AuthRequest, res: Response) => {
         displayOrder: displayOrder !== undefined && !isNaN(Number(displayOrder)) ? parseInt(displayOrder, 10) : undefined,
         comboItems: serializedCombos,
         isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : undefined,
+        isDeal: isDeal !== undefined ? Boolean(isDeal) : undefined,
       },
       include: {
         sizes: true,

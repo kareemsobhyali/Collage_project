@@ -148,6 +148,12 @@ export const api = {
     deliveryType?: 'FIXED' | 'ZONES';
     allowDelivery?: boolean;
     allowPickup?: boolean;
+    freeDeliveryEnabled?: boolean;
+    freeDeliveryMinAmount?: number;
+    freeDeliveryDays?: string;
+    freeDeliveryStartTime?: string | null;
+    freeDeliveryEndTime?: string | null;
+    freeDeliveryIncludesDeals?: boolean;
   }) {
     const res = await fetch(`${API_BASE_URL}/branch/details`, {
       method: 'PUT',
@@ -243,22 +249,22 @@ export const api = {
   },
 
   // الأقسام
-  async createCategory(name: string, displayOrder: number = 0) {
+  async createCategory(name: string, displayOrder: number = 0, isDealsCategory: boolean = false) {
     const res = await fetch(`${API_BASE_URL}/branch/categories`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ name, displayOrder }),
+      body: JSON.stringify({ name, displayOrder, isDealsCategory }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل إنشاء القسم');
     return data;
   },
 
-  async updateCategory(id: string, name: string, displayOrder: number) {
+  async updateCategory(id: string, name: string, displayOrder: number, isDealsCategory?: boolean) {
     const res = await fetch(`${API_BASE_URL}/branch/categories/${id}`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ name, displayOrder }),
+      body: JSON.stringify({ name, displayOrder, isDealsCategory }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل تعديل القسم');

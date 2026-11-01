@@ -187,6 +187,7 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
       unitPrice,
       quantity,
       totalPrice,
+      isDeal: Boolean(item.isDeal || item.flashDeal || item.category?.isDealsCategory || /عروض|عرض/i.test(item.category?.name || '')),
     });
     onClose();
   };

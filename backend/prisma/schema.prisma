@@ -48,6 +48,12 @@ model Branch {
   openingTime       String?               @default("08:00") // موعد بدء العمل اليومي (مثال: 08:00)
   closingTime       String?               @default("22:00") // موعد إغلاق العمل اليومي (مثال: 22:00)
   workingDays       String?               @default("SUN,MON,TUE,WED,THU,FRI,SAT") // أيام العمل المتاحة
+  freeDeliveryEnabled        Boolean               @default(false) // تفعيل عرض التوصيل المجاني
+  freeDeliveryMinAmount      Float?                @default(0.0)   // الحد الأدنى لسعر الأصناف للحصول على توصيل مجاني
+  freeDeliveryDays           String?               @default("SUN,MON,TUE,WED,THU,FRI,SAT") // أيام توفر التوصيل المجاني
+  freeDeliveryStartTime      String?               // موعد بدء التوصيل المجاني يومياً (اختياري)
+  freeDeliveryEndTime        String?               // موعد انتهاء التوصيل المجاني يومياً (اختياري)
+  freeDeliveryIncludesDeals  Boolean               @default(true)  // هل يشمل التوصيل المجاني الطلبات التي تحتوي على عروض
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
   users             BranchUser[]
@@ -99,6 +105,7 @@ model MenuCategory {
   displayOrder     Int        @default(0)
   isAvailable      Boolean    @default(true)
   unavailableUntil DateTime?  // موعد إعادة التفعيل التلقائي في حال الإيقاف المؤقت للقسم
+  isDealsCategory  Boolean    @default(false) // تمييز القسم كقسم خاص بالعروض والتخفيضات
   items            MenuItem[]
 
   @@index([branchId])
@@ -119,6 +126,7 @@ model MenuItem {
   displayOrder       Int                     @default(0)
   isAvailable        Boolean                 @default(true)
   unavailableUntil   DateTime?               // موعد إعادة التفعيل التلقائي في حال النفاد المؤقت
+  isDeal             Boolean                 @default(false)         // تمييز الصنف كعرض خاص / صفقة
   comboItems         String?                 // JSON: عروض كومبو أو مكملات مقترحة
   sizes              ItemSize[]
   modifierGroupLinks ItemModifierGroupLink[]

@@ -148,6 +148,59 @@ export const checkIsTimeInBranchHours = (
   }
 };
 
+// فحص صلاحية أيام وأوقات عرض التوصيل المجاني
+export const checkIsFreeDeliveryValid = (
+  daysStr?: string | null,
+  startTime?: string | null,
+  endTime?: string | null,
+  scheduledTimeStr?: string | null,
+  isScheduled?: boolean
+): boolean => {
+  const now = new Date();
+  const dayIndex = now.getDay();
+  const dayCodes = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const currentCode = dayCodes[dayIndex];
+  const arabicDays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  const arabicAlt = ['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+  if (daysStr && daysStr.trim()) {
+    const raw = daysStr.trim();
+    const upperRaw = raw.toUpperCase();
+    const matchesDay =
+      upperRaw.includes(currentCode) ||
+      raw.includes(arabicDays[dayIndex]) ||
+      raw.includes(arabicAlt[dayIndex]) ||
+      raw.split(',').map((s) => s.trim()).includes(String(dayIndex));
+    if (!matchesDay) return false;
+  }
+
+  if (startTime && endTime && startTime.trim() && endTime.trim()) {
+    const sParts = startTime.trim().split(':').map(Number);
+    const eParts = endTime.trim().split(':').map(Number);
+    if (sParts.length >= 2 && eParts.length >= 2 && !isNaN(sParts[0]) && !isNaN(eParts[0])) {
+      const sMins = sParts[0] * 60 + (sParts[1] || 0);
+      const eMins = eParts[0] * 60 + (eParts[1] || 0);
+      if (sMins !== eMins) {
+        let currentMins = now.getHours() * 60 + now.getMinutes();
+        if (isScheduled && scheduledTimeStr) {
+          const parts = scheduledTimeStr.split(':').map(Number);
+          if (parts.length >= 2 && !isNaN(parts[0])) {
+            currentMins = parts[0] * 60 + (parts[1] || 0);
+          }
+        }
+
+        if (eMins > sMins) {
+          if (currentMins < sMins || currentMins > eMins) return false;
+        } else {
+          if (currentMins < sMins && currentMins > eMins) return false;
+        }
+      }
+    }
+  }
+
+  return true;
+};
+
 export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   cart,
   branch,
@@ -615,17 +668,46 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
   const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
 
+  // حساب حالة التوصيل المجاني (Free Delivery)
+  const hasDealsInCart = useMemo(() => {
+    return cart.some(
+      (item) => Boolean(item.isDeal || item.flashDeal || /عروض|عرض/i.test(item.categoryName || ''))
+    );
+  }, [cart]);
+
+  const freeDeliveryTimeActive = useMemo(() => {
+    if (!branch?.freeDeliveryEnabled) return false;
+    return checkIsFreeDeliveryValid(
+      branch.freeDeliveryDays,
+      branch.freeDeliveryStartTime,
+      branch.freeDeliveryEndTime,
+      scheduledTime,
+      isScheduled
+    );
+  }, [branch?.freeDeliveryEnabled, branch?.freeDeliveryDays, branch?.freeDeliveryStartTime, branch?.freeDeliveryEndTime, scheduledTime, isScheduled]);
+
+  const freeDeliveryThreshold = typeof branch?.freeDeliveryMinAmount === 'number' && branch.freeDeliveryMinAmount > 0
+    ? branch.freeDeliveryMinAmount
+    : 0;
+
+  const dealsConditionMet = branch?.freeDeliveryIncludesDeals !== false || !hasDealsInCart;
+  const isEligibleForFreeDelivery = freeDeliveryTimeActive && dealsConditionMet && subtotal >= freeDeliveryThreshold;
+  const remainingForFreeDelivery = Math.max(0, freeDeliveryThreshold - subtotal);
+  const isFreeDeliveryApplied = orderType === 'DELIVERY' && isEligibleForFreeDelivery;
+
   // Calculate dynamic delivery fee
-  let deliveryFee = 0;
+  let baseDeliveryFee = 0;
   let deliveryZoneName = '';
   if (orderType === 'DELIVERY') {
     if (hasZones) {
-      deliveryFee = selectedZone ? selectedZone.fee : 0;
+      baseDeliveryFee = selectedZone ? selectedZone.fee : 0;
       deliveryZoneName = selectedZone ? cleanZoneName(selectedZone.name) : '';
     } else {
-      deliveryFee = branch.deliveryFee || 0;
+      baseDeliveryFee = branch.deliveryFee || 0;
     }
   }
+
+  const deliveryFee = isFreeDeliveryApplied ? 0 : baseDeliveryFee;
 
   // حساب قيمة الخصم ديناميكياً عند تغير الأصناف أو الكميات في السلة
   const discount = useMemo(() => {
@@ -1312,7 +1394,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   <div className="text-right min-w-0">
                     <span className="text-xs block truncate">توصيل لمكانك</span>
                     <span className="text-[10px] text-slate-500 block truncate">
-                      {hasZones ? 'حسب المنطقة' : `الرسوم: ${branch.deliveryFee || 0} ج.م`}
+                      {isFreeDeliveryApplied ? (
+                        <span className="text-emerald-600 font-bold">توصيل مجاني ✨</span>
+                      ) : (
+                        hasZones ? 'حسب المنطقة' : `الرسوم: ${branch.deliveryFee || 0} ج.م`
+                      )}
                     </span>
                   </div>
                 </button>
@@ -1346,6 +1432,79 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 </button>
               )}
             </div>
+
+            {/* بطاقة التوصيل المجاني التفاعلية والتحفيزية */}
+            {orderType === 'DELIVERY' && branch?.freeDeliveryEnabled && freeDeliveryTimeActive && (
+              <div>
+                {isFreeDeliveryApplied ? (
+                  <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50/50 border border-emerald-300 shadow-2xs animate-fadeIn flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs text-lg">
+                        🎉
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs sm:text-sm font-black text-emerald-950 block">
+                          مبروك! حصلت على توصيل مجاني 🎁
+                        </span>
+                        <p className="text-[11px] text-emerald-800 font-medium leading-tight mt-0.5">
+                          تم إلغاء رسوم التوصيل بالكامل لتجاوز طلبك الحد الأدنى ({freeDeliveryThreshold} ج.م)
+                        </p>
+                      </div>
+                    </div>
+                    {baseDeliveryFee > 0 && (
+                      <span className="px-2.5 py-1 rounded-xl bg-emerald-100/90 text-emerald-900 border border-emerald-300/80 text-[10px] sm:text-xs font-black shrink-0 whitespace-nowrap shadow-2xs">
+                        وفرت {baseDeliveryFee} ج.م
+                      </span>
+                    )}
+                  </div>
+                ) : !dealsConditionMet ? (
+                  <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                    <span className="text-base shrink-0">⚠️</span>
+                    <span className="text-[11px] font-bold">
+                      التوصيل المجاني لا يسري على طلبات قسم العروض حسب سياسة المطعم.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-white border border-amber-300 shadow-2xs space-y-2 animate-fadeIn">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-lg shrink-0">🚀</span>
+                        <div className="min-w-0">
+                          <span className="text-xs sm:text-sm font-black text-amber-950 block">
+                            زود <span className="text-indigo-700 underline font-black">{remainingForFreeDelivery} ج.م</span> فقط واحصل على توصيل مجاني! 🎁
+                          </span>
+                          <span className="text-[10px] text-slate-500 block leading-tight">
+                            الحد الأدنى لقيمة الأصناف {freeDeliveryThreshold} ج.م (أصنافك الحالية: {subtotal} ج.م)
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black transition-all shrink-0 whitespace-nowrap shadow-xs active:scale-95"
+                      >
+                        + إضافة أصناف
+                      </button>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="w-full bg-amber-100/80 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-amber-500 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out"
+                          style={{
+                            width: `${Math.min(100, Math.max(8, Math.round((subtotal / freeDeliveryThreshold) * 100)))}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold px-0.5">
+                        <span>{subtotal} ج.م</span>
+                        <span className="text-indigo-600 font-black">{freeDeliveryThreshold} ج.م (توصيل مجاني 🚚)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* فوري أم حجز لوقت لاحق */}
             <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
@@ -2387,11 +2546,24 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 <span className="font-bold font-mono">{subtotal} ج.م</span>
               </div>
               {orderType === 'DELIVERY' && (
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between items-center text-slate-600">
                   <span>
                     رسوم التوصيل{deliveryZoneName ? ` (${deliveryZoneName})` : ''}:
                   </span>
-                  <span className="font-bold font-mono">{deliveryFee} ج.م</span>
+                  {isFreeDeliveryApplied ? (
+                    <div className="flex items-center gap-1.5">
+                      {baseDeliveryFee > 0 && (
+                        <span className="line-through text-[11px] text-slate-400 font-mono">
+                          {baseDeliveryFee} ج.م
+                        </span>
+                      )}
+                      <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 text-xs">
+                        مجاناً ✨
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="font-bold font-mono">{deliveryFee} ج.م</span>
+                  )}
                 </div>
               )}
               {appliedPromo && (

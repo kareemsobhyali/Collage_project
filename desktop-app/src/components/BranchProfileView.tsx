@@ -31,7 +31,8 @@ import {
   UserX,
   Unlock,
   Search,
-  Users
+  Users,
+  Tag
 } from 'lucide-react';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
@@ -69,6 +70,14 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [detailsSuccess, setDetailsSuccess] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [copiedBranchLink, setCopiedBranchLink] = useState(false);
+
+  // Free Delivery States
+  const [freeDeliveryEnabled, setFreeDeliveryEnabled] = useState<boolean>(branch?.freeDeliveryEnabled ?? false);
+  const [freeDeliveryMinAmount, setFreeDeliveryMinAmount] = useState<string>(String(branch?.freeDeliveryMinAmount ?? 200));
+  const [freeDeliveryDays, setFreeDeliveryDays] = useState<string>(branch?.freeDeliveryDays || 'SUN,MON,TUE,WED,THU,FRI,SAT');
+  const [freeDeliveryStartTime, setFreeDeliveryStartTime] = useState<string>(branch?.freeDeliveryStartTime || '');
+  const [freeDeliveryEndTime, setFreeDeliveryEndTime] = useState<string>(branch?.freeDeliveryEndTime || '');
+  const [freeDeliveryIncludesDeals, setFreeDeliveryIncludesDeals] = useState<boolean>(branch?.freeDeliveryIncludesDeals ?? true);
 
   // Delivery Zones Management
   const [deliveryZones, setDeliveryZones] = useState<any[]>(branch?.deliveryZones || []);
@@ -167,6 +176,12 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       setDeliveryFee(String(branch.deliveryFee ?? 10));
       setAllowDelivery(branch.allowDelivery ?? true);
       setAllowPickup(branch.allowPickup ?? true);
+      setFreeDeliveryEnabled(branch.freeDeliveryEnabled ?? false);
+      setFreeDeliveryMinAmount(String(branch.freeDeliveryMinAmount ?? 200));
+      setFreeDeliveryDays(branch.freeDeliveryDays || 'SUN,MON,TUE,WED,THU,FRI,SAT');
+      setFreeDeliveryStartTime(branch.freeDeliveryStartTime || '');
+      setFreeDeliveryEndTime(branch.freeDeliveryEndTime || '');
+      setFreeDeliveryIncludesDeals(branch.freeDeliveryIncludesDeals ?? true);
       setDeliveryZones(branch.deliveryZones || []);
       setOpeningTime(branch.openingTime || '09:00');
       setClosingTime(branch.closingTime || '23:00');
@@ -302,6 +317,12 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         deliveryFee: parseFloat(deliveryFee) || 10,
         allowDelivery,
         allowPickup,
+        freeDeliveryEnabled,
+        freeDeliveryMinAmount: parseFloat(freeDeliveryMinAmount) || 0,
+        freeDeliveryDays,
+        freeDeliveryStartTime: freeDeliveryStartTime.trim() || null,
+        freeDeliveryEndTime: freeDeliveryEndTime.trim() || null,
+        freeDeliveryIncludesDeals,
       });
 
       if (res.branch) {
@@ -693,6 +714,174 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                       className="w-4 h-4 rounded text-indigo-600"
                     />
                   </label>
+                </div>
+
+                {/* إعدادات التوصيل المجاني (Free Delivery) */}
+                <div className="p-4 rounded-2xl border-2 transition-all bg-gradient-to-br from-indigo-50/60 via-purple-50/40 to-white border-indigo-200 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-slate-900">عرض التوصيل المجاني (Free Delivery)</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">جديد ✨</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">توصيل مجاني للعملاء عند وصول قيمة أصنافهم للحد الأدنى</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={freeDeliveryEnabled}
+                        onChange={e => setFreeDeliveryEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  {freeDeliveryEnabled && (
+                    <div className="mt-4 pt-3 border-t border-indigo-100 space-y-3.5">
+                      {/* الحد الأدنى لقيمة الأصناف */}
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          الحد الأدنى لقيمة الأصناف (بدون التوصيل) للحصول على توصيل مجاني
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="5"
+                            value={freeDeliveryMinAmount}
+                            onChange={e => setFreeDeliveryMinAmount(e.target.value)}
+                            placeholder="مثال: 250"
+                            className="w-full pl-12 pr-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
+                          />
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">ج.م</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-1">
+                          * يتم الحساب على أسعار الوجبات والإضافات فقط، دون إضافة رسوم التوصيل أو احتساب الكوبونات.
+                        </span>
+                      </div>
+
+                      {/* أيام التوفر */}
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1.5">
+                          أيام سريان التوصيل المجاني
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { key: 'SAT', label: 'السبت' },
+                            { key: 'SUN', label: 'الأحد' },
+                            { key: 'MON', label: 'الإثنين' },
+                            { key: 'TUE', label: 'الثلاثاء' },
+                            { key: 'WED', label: 'الأربعاء' },
+                            { key: 'THU', label: 'الخميس' },
+                            { key: 'FRI', label: 'الجمعة' },
+                          ].map(day => {
+                            const isSelected = freeDeliveryDays.toUpperCase().includes(day.key);
+                            return (
+                              <button
+                                key={day.key}
+                                type="button"
+                                onClick={() => {
+                                  const parts = freeDeliveryDays.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+                                  let nextParts: string[];
+                                  if (parts.includes(day.key)) {
+                                    nextParts = parts.filter(p => p !== day.key);
+                                  } else {
+                                    nextParts = [...parts, day.key];
+                                  }
+                                  setFreeDeliveryDays(nextParts.join(','));
+                                }}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border ${
+                                  isSelected
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                }`}
+                              >
+                                {day.label}
+                              </button>
+                            );
+                          })}
+                          <button
+                            type="button"
+                            onClick={() => setFreeDeliveryDays('SUN,MON,TUE,WED,THU,FRI,SAT')}
+                            className="px-2 py-1 rounded-lg text-[10px] font-medium text-indigo-600 hover:bg-indigo-50"
+                          >
+                            طوال الأسبوع
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* نافذة الساعات اليومية */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-bold text-slate-700">
+                            أوقات التوصيل المجاني يومياً (اختياري)
+                          </label>
+                          {(freeDeliveryStartTime || freeDeliveryEndTime) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFreeDeliveryStartTime('');
+                                setFreeDeliveryEndTime('');
+                              }}
+                              className="text-[10px] text-rose-500 hover:underline"
+                            >
+                              إلغاء التحديد (طوال ساعات العمل)
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block mb-0.5">من الساعة</span>
+                            <input
+                              type="time"
+                              value={freeDeliveryStartTime}
+                              onChange={e => setFreeDeliveryStartTime(e.target.value)}
+                              className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 block mb-0.5">إلى الساعة</span>
+                            <input
+                              type="time"
+                              value={freeDeliveryEndTime}
+                              onChange={e => setFreeDeliveryEndTime(e.target.value)}
+                              className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-1">
+                          اتركها فارغة إذا كان التوصيل المجاني متاحاً طوال ساعات عمل المطعم.
+                        </span>
+                      </div>
+
+                      {/* سريان العرض على قسم العروض */}
+                      <label className="p-3 rounded-xl border border-indigo-100 bg-white cursor-pointer transition-all flex items-center justify-between hover:border-indigo-300">
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-4 h-4 text-amber-500 shrink-0" />
+                          <div>
+                            <span className="text-xs font-bold text-slate-800 block">
+                              سريان التوصيل المجاني على قسم العروض
+                            </span>
+                            <span className="text-[10px] text-slate-500 block">
+                              عند إيقاف هذا الخيار، إذا كان بسلة العميل صنف من العروض يدفع رسوم التوصيل العادية
+                            </span>
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={freeDeliveryIncludesDeals}
+                          onChange={e => setFreeDeliveryIncludesDeals(e.target.checked)}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
               </form>
             </div>

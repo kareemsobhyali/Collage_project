@@ -46,6 +46,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [categoryName, setCategoryName] = useState('');
+  const [categoryIsDeals, setCategoryIsDeals] = useState(false);
   
   // Item Form Modal
   const [showItemModal, setShowItemModal] = useState(false);
@@ -101,6 +102,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     { id: string; title: string; description: string; price: string; badge: string }[]
   >([]);
   const [selectedModifierGroupIds, setSelectedModifierGroupIds] = useState<string[]>([]);
+  const [itemIsDeal, setItemIsDeal] = useState(false);
 
   // فتح نافذة إضافة صنف
   const handleOpenAddItem = () => {
@@ -116,6 +118,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     setItemSizes([]);
     setItemCombos([]);
     setSelectedModifierGroupIds([]);
+    setItemIsDeal(false);
     setShowItemModal(true);
   };
 
@@ -154,6 +157,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
 
     const linkedIds = item.modifierGroupLinks ? item.modifierGroupLinks.map((link: any) => link.groupId) : [];
     setSelectedModifierGroupIds(linkedIds);
+    setItemIsDeal(Boolean(item.isDeal));
     setShowItemModal(true);
   };
 
@@ -193,6 +197,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
   const handleOpenEditCategory = (cat: any) => {
     setEditingCategory(cat);
     setCategoryName(cat.name || '');
+    setCategoryIsDeals(Boolean(cat.isDealsCategory));
     setShowCategoryModal(true);
   };
 
@@ -205,14 +210,15 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     }
     try {
       if (editingCategory) {
-        await api.updateCategory(editingCategory.id, categoryName.trim(), editingCategory.displayOrder ?? 0);
+        await api.updateCategory(editingCategory.id, categoryName.trim(), editingCategory.displayOrder ?? 0, categoryIsDeals);
         toast.success('تم تعديل اسم القسم بنجاح');
       } else {
-        await api.createCategory(categoryName.trim());
+        await api.createCategory(categoryName.trim(), 0, categoryIsDeals);
         toast.success('تمت إضافة قسم المنيو بنجاح');
       }
       setEditingCategory(null);
       setCategoryName('');
+      setCategoryIsDeals(false);
       setShowCategoryModal(false);
       onRefresh();
     } catch (err: any) {
@@ -360,6 +366,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
           price: parseFloat(s.price),
         })),
         modifierGroupIds: selectedModifierGroupIds,
+        isDeal: itemIsDeal,
       };
 
       if (editingItem) {
@@ -513,6 +520,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
             onClick={() => {
               setEditingCategory(null);
               setCategoryName('');
+              setCategoryIsDeals(false);
               setShowCategoryModal(true);
             }}
             className="flex-1 lg:flex-initial h-9 flex items-center justify-center gap-1.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors whitespace-nowrap"
@@ -548,7 +556,12 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
             </button>
             <button
               type="button"
-              onClick={() => setShowCategoryModal(true)}
+              onClick={() => {
+                setEditingCategory(null);
+                setCategoryName('');
+                setCategoryIsDeals(false);
+                setShowCategoryModal(true);
+              }}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition-all"
             >
               <FolderPlus className="w-4 h-4 text-indigo-600" />
@@ -592,6 +605,11 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                     <h3 className="text-base font-black text-slate-800 flex items-center gap-2 truncate">
                       <span>{cat.name}</span>
                       <span className="text-xs text-slate-400 font-normal">({cat.items?.length || 0} صنف)</span>
+                      {(cat.isDealsCategory || /عروض|عرض/i.test(cat.name)) && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white shadow-2xs shrink-0 flex items-center gap-1">
+                          🏷️ قسم عروض
+                        </span>
+                      )}
                       {!isCatAvailable && (
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-2xs shrink-0">
                           القسم موقوف ⛔
@@ -727,7 +745,14 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-1.5">
-                            <h4 className="font-black text-sm text-slate-900">{item.name}</h4>
+                            <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5 flex-wrap">
+                              <span>{item.name}</span>
+                              {item.isDeal && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-black border border-amber-200 shrink-0">
+                                  🏷️ عرض خاص
+                                </span>
+                              )}
+                            </h4>
                             <span
                               className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-mono text-[10px] font-black shrink-0"
                               title="ترتيب الصنف داخل القسم"
@@ -917,6 +942,22 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                   autoFocus
                 />
               </div>
+
+              <label className="p-3 rounded-xl border border-amber-200 bg-amber-50/50 cursor-pointer flex items-center justify-between transition-all hover:bg-amber-50/90 select-none">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">🏷️</span>
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">تصنيف هذا القسم كقسم عروض وتخفيضات</span>
+                    <span className="text-[10px] text-slate-500 block">أصناف هذا القسم ستُعامل كعروض وتخفيضات تلقائياً</span>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={categoryIsDeals}
+                  onChange={e => setCategoryIsDeals(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-600 focus:ring-0 cursor-pointer"
+                />
+              </label>
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -989,6 +1030,22 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                   className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+
+              <label className="p-3 rounded-xl border border-amber-200 bg-amber-50/50 cursor-pointer flex items-center justify-between transition-all hover:bg-amber-50/90 select-none">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">🏷️</span>
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">تمييز الصنف كعرض خاص (Deal)</span>
+                    <span className="text-[10px] text-slate-500 block">يظهر كعرض خاص في قائمة الأصناف وشاشات الطلب</span>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={itemIsDeal}
+                  onChange={e => setItemIsDeal(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-600 focus:ring-0 cursor-pointer"
+                />
+              </label>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -655,6 +655,60 @@ function isBranchWithinWorkingHours(
   }
 }
 
+// دالة مساعدة للتحقق من صلاحية وقت وأيام عرض التوصيل المجاني
+function isFreeDeliveryTimeValid(
+  daysStr?: string | null,
+  startTime?: string | null,
+  endTime?: string | null,
+  targetDate?: Date
+): boolean {
+  const base = targetDate || new Date();
+  const cairoDate = new Date(base.toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
+
+  // التحقق من أيام الأسبوع إذا تم تحديدها
+  if (daysStr && daysStr.trim()) {
+    const raw = daysStr.trim();
+    // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+    const dayIndex = cairoDate.getDay();
+    const dayCodes = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    const currentCode = dayCodes[dayIndex];
+    const arabicDays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    const arabicAlt = ["الاحد", "الاثنين", "الثلاثاء", "الاربعاء", "الخميس", "الجمعة", "السبت"];
+
+    const upperRaw = raw.toUpperCase();
+    const matchesCurrentDay =
+      upperRaw.includes(currentCode) ||
+      raw.includes(arabicDays[dayIndex]) ||
+      raw.includes(arabicAlt[dayIndex]) ||
+      raw.split(",").map((s) => s.trim()).includes(String(dayIndex));
+
+    if (!matchesCurrentDay) {
+      return false;
+    }
+  }
+
+  // التحقق من نافذة الساعات اليومية إذا تم تحديدها
+  if (startTime && endTime && startTime.trim() && endTime.trim()) {
+    const sParts = startTime.trim().split(":").map(Number);
+    const eParts = endTime.trim().split(":").map(Number);
+    if (sParts.length >= 2 && eParts.length >= 2 && !isNaN(sParts[0]) && !isNaN(eParts[0])) {
+      const sMins = sParts[0] * 60 + (sParts[1] || 0);
+      const eMins = eParts[0] * 60 + (eParts[1] || 0);
+      if (sMins !== eMins) {
+        const currentMins = cairoDate.getHours() * 60 + cairoDate.getMinutes();
+        if (eMins > sMins) {
+          if (currentMins < sMins || currentMins > eMins) return false;
+        } else {
+          // امتداد بعد منتصف الليل
+          if (currentMins < sMins && currentMins > eMins) return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
 function computeBranchCrowdInfo(activeKitchenOrders: number) {
   if (activeKitchenOrders >= 6) {
     return {
@@ -1852,6 +1906,7 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
     // حساب الأسعار والمجموع من قاعدة البيانات لمنع التلاعب بالأسعار من المتصفح
     let subtotal = 0;
     const orderItemsData: any[] = [];
+    let hasDealItem = false;
 
     for (const itemInput of items) {
       const dbItem = await prisma.menuItem.findUnique({
@@ -1943,6 +1998,15 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         const orig = activeItemDeal.originalPrice || dbItem.basePrice;
         effectiveItemBasePrice = activeItemDeal.discountPrice;
         dealDiscountDiff = Math.max(0, orig - activeItemDeal.discountPrice);
+      }
+
+      const isCurrentItemDeal = Boolean(
+        dbItem.isDeal ||
+        (dbItem.category && (dbItem.category.isDealsCategory || /عروض|عرض/i.test(dbItem.category.name))) ||
+        activeItemDeal
+      );
+      if (isCurrentItemDeal) {
+        hasDealItem = true;
       }
 
       let unitPrice = effectiveItemBasePrice;
@@ -2052,6 +2116,24 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         }
       } else {
         calculatedDeliveryFee = Math.max(0, branch.deliveryFee);
+      }
+
+      // التحقق من تطبيق عرض التوصيل المجاني (Free Delivery)
+      if (branch.freeDeliveryEnabled) {
+        const checkDate = isScheduled && scheduledFor ? new Date(scheduledFor) : currentTime;
+        const isTimeValid = isFreeDeliveryTimeValid(
+          branch.freeDeliveryDays,
+          branch.freeDeliveryStartTime,
+          branch.freeDeliveryEndTime,
+          checkDate
+        );
+        const minAmount = typeof branch.freeDeliveryMinAmount === "number" ? branch.freeDeliveryMinAmount : 0;
+        const meetsMinAmount = subtotal >= minAmount;
+        const dealsAllowed = branch.freeDeliveryIncludesDeals || !hasDealItem;
+
+        if (isTimeValid && meetsMinAmount && dealsAllowed) {
+          calculatedDeliveryFee = 0;
+        }
       }
     }
 
