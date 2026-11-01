@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
 
 let mainWindow;
 
@@ -8,12 +10,13 @@ function checkUrl(urlStr) {
   return new Promise((resolve) => {
     try {
       const u = new URL(urlStr);
-      const req = http.request({
+      const client = u.protocol === 'https:' ? https : http;
+      const req = client.request({
         hostname: u.hostname,
-        port: u.port,
+        port: u.port || (u.protocol === 'https:' ? 443 : 80),
         path: u.pathname,
         method: 'HEAD',
-        timeout: 1200,
+        timeout: 2500,
       }, (res) => {
         resolve(res.statusCode >= 200 && res.statusCode < 400);
       });
@@ -26,26 +29,87 @@ function checkUrl(urlStr) {
   });
 }
 
+async function getRemoteTargetUrl() {
+  const GITHUB_CONFIG = 'https://raw.githubusercontent.com/kareemsobhyali/Collage_project/main/server-config.json';
+  
+  // 1. محاولة جلب أحدث عنوان سيرفر من GitHub لحظياً
+  const remoteWebUrl = await new Promise((resolve) => {
+    try {
+      https.get(GITHUB_CONFIG, { timeout: 2500 }, (res) => {
+        if (res.statusCode !== 200) return resolve(null);
+        let raw = '';
+        res.on('data', chunk => raw += chunk);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(raw);
+            resolve(parsed.webUrl || null);
+          } catch (_e) { resolve(null); }
+        });
+      }).on('error', () => resolve(null));
+    } catch (_e) {
+      resolve(null);
+    }
+  });
+
+  if (remoteWebUrl) {
+    return remoteWebUrl.replace(/\/+$/, '') + '/branch/';
+  }
+
+  // 2. قراءة الملف المحلي في الحزمة
+  try {
+    const localCandidates = [
+      path.join(__dirname, '../public/server-config.json'),
+      path.join(__dirname, '../dist/server-config.json'),
+      path.join(__dirname, '../../server-config.json'),
+    ];
+    for (const p of localCandidates) {
+      if (fs.existsSync(p)) {
+        const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+        if (data && data.webUrl) {
+          return data.webUrl.replace(/\/+$/, '') + '/branch/';
+        }
+      }
+    }
+  } catch (_e) {}
+
+  return 'https://unifood.store/branch/';
+}
+
 async function loadBestUrl() {
   if (!mainWindow) return;
 
-  const backendUrl = 'http://localhost:5000/branch/';
-  if (await checkUrl(backendUrl)) {
-    console.log('[Electron] Connected to unified backend:', backendUrl);
-    return mainWindow.loadURL(backendUrl).catch(() => {
-      mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
-    });
+  // أ. إذا كان التطبيق في بيئة التطوير المحلية للمبرمج
+  if (!app.isPackaged) {
+    const devUrl = 'http://localhost:5173';
+    if (await checkUrl(devUrl)) {
+      console.log('[Electron Dev] Connected to Vite dev server:', devUrl);
+      return mainWindow.loadURL(devUrl).catch(() => {});
+    }
+
+    const localBackendUrl = 'http://localhost:5000/branch/';
+    if (await checkUrl(localBackendUrl)) {
+      console.log('[Electron Dev] Connected to local backend server:', localBackendUrl);
+      return mainWindow.loadURL(localBackendUrl).catch(() => {});
+    }
   }
 
-  const devUrl = 'http://localhost:5173';
-  if (await checkUrl(devUrl)) {
-    console.log('[Electron] Connected to Vite dev server:', devUrl);
-    return mainWindow.loadURL(devUrl).catch(() => {
-      mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
-    });
+  // ب. الاتصال المباشر بالسيرفر السحابي الحي (Live Cloud URL) لتلقي كافة التحديثات لحظياً دون الحاجة لتحديث الـ EXE
+  try {
+    const liveRemoteUrl = await getRemoteTargetUrl();
+    console.log('[Electron] Checking live cloud URL for instant updates:', liveRemoteUrl);
+    if (await checkUrl(liveRemoteUrl)) {
+      console.log('[Electron] Successfully connected to live cloud app:', liveRemoteUrl);
+      return mainWindow.loadURL(liveRemoteUrl).catch((err) => {
+        console.error('[Electron] Failed to load remote URL, falling back to local bundle:', err);
+        mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+      });
+    }
+  } catch (err) {
+    console.error('[Electron] Error while connecting to live cloud server:', err);
   }
 
-  console.log('[Electron] Loading local bundle dist/index.html');
+  // ج. إذا كان العميل أوفلاين أو تعذر الوصول للسيرفر السحابي، يتم تحميل النسخة المجمعة محلياً
+  console.log('[Electron] Cloud unreachable or offline, loading local bundle dist/index.html');
   mainWindow.loadFile(path.join(__dirname, '../dist/index.html')).catch((err) => {
     console.error('Failed to load local index.html:', err);
   });
