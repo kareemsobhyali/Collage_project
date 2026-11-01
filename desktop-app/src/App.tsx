@@ -92,6 +92,15 @@ export function App() {
   const [verifyingSettingsPin, setVerifyingSettingsPin] = useState(false);
   const [settingsPinError, setSettingsPinError] = useState<string | null>(null);
 
+  // قفل صفحة إعدادات وتحكمات الفرع تلقائياً بمجرد مغادرتها لأي صفحة أو تبويب آخر
+  useEffect(() => {
+    if (activeTab !== 'PROFILE') {
+      setIsSettingsUnlocked(false);
+      setSettingsInputPassword('');
+      setSettingsPinError(null);
+    }
+  }, [activeTab]);
+
   const handleOpenProfileTab = () => {
     if (branch?.hasSettingsPassword && !isSettingsUnlocked) {
       setSettingsInputPassword('');
