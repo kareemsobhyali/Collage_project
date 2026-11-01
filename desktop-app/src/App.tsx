@@ -249,6 +249,11 @@ export function App() {
 
     // استلام طلب جديد لحظياً!
     socket.on('new_order', (newOrder: any) => {
+      // نقل شاشة البرنامج للواجهة تلقائياً حتى يراها الكاشير فوراً
+      try {
+        (window as any).electronAPI?.send?.('bring-to-front');
+      } catch (_e) {}
+
       // إضافة الطلب في أول القائمة
       setOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
       // تشغيل جرس التنبيه المستمر

@@ -670,6 +670,24 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
               </div>
 
+              {/* 1.1 Prominent Scheduled Order Alert Banner */}
+              {dOrder.isScheduled && dOrder.scheduledFor && (
+                <div className="mx-4 sm:mx-5 mt-4 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-500/20 border-2 border-amber-400 text-amber-950 flex items-center justify-between shadow-xs animate-fadeIn">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-2xl animate-bounce">⏰</span>
+                    <div>
+                      <div className="font-black text-sm text-amber-900">طلب مجدول ومطلوب تجهيزه وتسليمه في موعد لاحق!</div>
+                      <div className="text-xs font-bold text-amber-800 mt-0.5">
+                        موعد التسليم المحدد: {new Date(dOrder.scheduledFor).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} الساعة {new Date(dOrder.scheduledFor).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-amber-500 text-white text-xs font-black rounded-xl shadow-xs shrink-0">
+                    طلب مجدول 🕒
+                  </span>
+                </div>
+              )}
+
               {/* Flush Alert Strip under Header (only when Overdue or Rejected) */}
               {isPreparing && isOverdue && (
                 <div className="px-4 sm:px-5 py-2 bg-rose-50 border-b border-rose-200 text-rose-800 flex items-center gap-2 text-xs font-bold">
@@ -1288,8 +1306,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          const defaultMins = (dOrder.orderType === 'DELIVERY' || !dOrder.orderType) ? 60 : 20;
                           setAcceptingOrder(dOrder);
-                          setPrepMinutes(15);
+                          setPrepMinutes(defaultMins);
                           setAcceptDriverId(dOrder.driverId || '');
                         }}
                         className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
@@ -1605,6 +1624,19 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       </span>
                     </div>
 
+                    {/* Scheduled Order Alert Badge on Card */}
+                    {order.isScheduled && order.scheduledFor && (
+                      <div className="bg-amber-500/15 border-2 border-amber-500/50 rounded-xl p-2 flex items-center gap-2 text-xs font-black text-amber-950 animate-pulse">
+                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-[10px] text-amber-700 block font-bold">طلب مجدول لتسليمه لاحقاً:</span>
+                          <span className="text-xs font-black text-amber-900 block truncate">
+                            الساعة {new Date(order.scheduledFor).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} ({new Date(order.scheduledFor).toLocaleDateString('ar-EG', { weekday: 'short', month: 'numeric', day: 'numeric' })})
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Electronic Payment Proof Bar on Card */}
                     {(order.paymentMethod === 'VODAFONE_CASH' || order.paymentMethod === 'INSTAPAY' || order.paymentSenderPhone || order.paymentProofUrl) && (
                       <div className={`border rounded-xl p-2 flex items-center justify-between gap-1.5 text-xs ${
@@ -1757,8 +1789,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <button
                           type="button"
                           onClick={() => {
+                            const defaultMins = (order.orderType === 'DELIVERY' || !order.orderType) ? 60 : 20;
                             setAcceptingOrder(order);
-                            setPrepMinutes(15);
+                            setPrepMinutes(defaultMins);
                             setAcceptDriverId(order.driverId || '');
                           }}
                           className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-1 active:scale-95 transition-all"
@@ -1814,6 +1847,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   </span>
                 </div>
               </div>
+
               <button
                 type="button"
                 onClick={() => setAcceptingOrder(null)}
@@ -1894,7 +1928,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                  {[10, 15, 20, 25, 30, 45].map((mins) => (
+                  {[15, 20, 25, 30, 45, 60].map((mins) => (
                     <button
                       key={mins}
                       type="button"

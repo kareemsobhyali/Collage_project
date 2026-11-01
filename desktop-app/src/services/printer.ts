@@ -268,6 +268,11 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
             <span>نوع الطلب:</span>
             <span class="font-bold">${order.orderType === 'DELIVERY' ? 'توصيل للعنوان' : 'استلام من الفرع'}</span>
           </div>
+          ${order.isScheduled && order.scheduledFor ? `
+          <div style="border: 2px dashed #000; padding: 4px; margin: 4px 0; text-align: center; background: #eee;">
+            <div style="font-weight: 900; font-size: 13px;">⏰ طلب مجدول لوقت لاحق</div>
+            <div style="font-weight: 800; font-size: 11px;">موعد التسليم: ${new Date(order.scheduledFor).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })}</div>
+          </div>` : ''}
           <div class="row">
             <span>طريقة الدفع:</span>
             <span class="font-bold">${paymentLabel}</span>

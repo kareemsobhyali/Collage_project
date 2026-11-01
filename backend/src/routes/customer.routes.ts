@@ -1805,53 +1805,62 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // التحقق من نطاق التوصيل الجغرافي للمطعم في حال كان الطلب توصيل (طلب المستخدم)
+    // التحقق من نطاق وطريقة التوصيل للفرع في حال كان الطلب توصيل
     if (orderType === "DELIVERY") {
-      let clientLat: number | null = typeof req.body.latitude === "number" && !isNaN(req.body.latitude) ? req.body.latitude : null;
-      let clientLng: number | null = typeof req.body.longitude === "number" && !isNaN(req.body.longitude) ? req.body.longitude : null;
-      if (clientLat === null || clientLng === null) {
-        const match = addressText?.match(/\[GPS:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/i);
-        if (match) {
-          const lat = parseFloat(match[1]);
-          const lng = parseFloat(match[2]);
-          if (!isNaN(lat) && !isNaN(lng)) {
-            clientLat = lat;
-            clientLng = lng;
-          }
-        }
-      }
-
-      if (clientLat !== null && clientLng !== null) {
-        let bLat = typeof branch.latitude === "number" && !isNaN(branch.latitude) ? branch.latitude : null;
-        let bLng = typeof branch.longitude === "number" && !isNaN(branch.longitude) ? branch.longitude : null;
-        if ((bLat === null || bLng === null) && branch.address) {
-          const bMatch = branch.address.match(/\[GPS:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/i);
-          if (bMatch) {
-            bLat = parseFloat(bMatch[1]);
-            bLng = parseFloat(bMatch[2]);
-          }
-        }
-        if (bLat === null || bLng === null) {
-          bLat = 30.0275;
-          bLng = 31.2095;
-        }
-
-        const radiusKm = typeof branch.deliveryRadiusKm === "number" && branch.deliveryRadiusKm > 0 ? branch.deliveryRadiusKm : 10.0;
-        // حساب المسافة بمعادلة Haversine
-        const R = 6371; // Earth radius in km
-        const dLat = (clientLat - bLat) * Math.PI / 180;
-        const dLon = (clientLng - bLng) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(bLat * Math.PI / 180) * Math.cos(clientLat * Math.PI / 180) *
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distKm = R * c;
-
-        if (distKm > radiusKm) {
-          res.status(400).json({
-            error: `عذراً، موقع التوصيل يقع خارج نطاق التوصيل المحدد لهذا المطعم (${distKm.toFixed(1)} كم • أقصى نطاق مسموح: ${radiusKm} كم). لا يمكن إتمام الطلب.`
-          });
+      if (branch.deliveryZoneMode === "MANUAL_ZONES") {
+        // نظام التوصيل بالمناطق اليدوية: يجب على العميل اختيار منطقة معتمدة
+        if (!deliveryZoneName || !deliveryZoneName.trim() || deliveryZoneName.includes("برجاء اختيار")) {
+          res.status(400).json({ error: "يرجى اختيار منطقة التوصيل من القائمة المتاحة أولاً" });
           return;
+        }
+      } else {
+        // نظام التوصيل بالنطاق الجغرافي (GPS Radius)
+        let clientLat: number | null = typeof req.body.latitude === "number" && !isNaN(req.body.latitude) ? req.body.latitude : null;
+        let clientLng: number | null = typeof req.body.longitude === "number" && !isNaN(req.body.longitude) ? req.body.longitude : null;
+        if (clientLat === null || clientLng === null) {
+          const match = addressText?.match(/\[GPS:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/i);
+          if (match) {
+            const lat = parseFloat(match[1]);
+            const lng = parseFloat(match[2]);
+            if (!isNaN(lat) && !isNaN(lng)) {
+              clientLat = lat;
+              clientLng = lng;
+            }
+          }
+        }
+
+        if (clientLat !== null && clientLng !== null) {
+          let bLat = typeof branch.latitude === "number" && !isNaN(branch.latitude) ? branch.latitude : null;
+          let bLng = typeof branch.longitude === "number" && !isNaN(branch.longitude) ? branch.longitude : null;
+          if ((bLat === null || bLng === null) && branch.address) {
+            const bMatch = branch.address.match(/\[GPS:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/i);
+            if (bMatch) {
+              bLat = parseFloat(bMatch[1]);
+              bLng = parseFloat(bMatch[2]);
+            }
+          }
+          if (bLat === null || bLng === null) {
+            bLat = 30.0275;
+            bLng = 31.2095;
+          }
+
+          const radiusKm = typeof branch.deliveryRadiusKm === "number" && branch.deliveryRadiusKm > 0 ? branch.deliveryRadiusKm : 10.0;
+          // حساب المسافة بمعادلة Haversine
+          const R = 6371; // Earth radius in km
+          const dLat = (clientLat - bLat) * Math.PI / 180;
+          const dLon = (clientLng - bLng) * Math.PI / 180;
+          const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(bLat * Math.PI / 180) * Math.cos(clientLat * Math.PI / 180) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distKm = R * c;
+
+          if (distKm > radiusKm) {
+            res.status(400).json({
+              error: `عذراً، موقع التوصيل يقع خارج نطاق التوصيل المحدد لهذا المطعم (${distKm.toFixed(1)} كم • أقصى نطاق مسموح: ${radiusKm} كم). لا يمكن إتمام الطلب.`
+            });
+            return;
+          }
         }
       }
     }
@@ -1863,8 +1872,9 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
         return;
       }
       const scheduledDate = new Date(scheduledFor);
-      if (isNaN(scheduledDate.getTime()) || scheduledDate.getTime() < currentTime.getTime() - 60 * 1000) {
-        res.status(400).json({ error: "موعد الحجز المسبق غير صالح أو في وقت سابق، يرجى اختيار موعد مستقبلي" });
+      // منع اختيار أوقات ماضية ويشترط أن يكون الموعد بعد 10 دقائق على الأقل من الآن
+      if (isNaN(scheduledDate.getTime()) || scheduledDate.getTime() < currentTime.getTime() + 10 * 60 * 1000) {
+        res.status(400).json({ error: "موعد الحجز المسبق غير صالح أو في وقت سابق، يرجى اختيار موعد مستقبلي قادم" });
         return;
       }
       if (!isBranchWithinWorkingHours(branch.openingTime, branch.closingTime, scheduledDate, branch.workingDays)) {
@@ -2731,13 +2741,18 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
       return;
     }
 
+    if (order.branch.spinWheelEnabled === false) {
+      res.status(400).json({ error: "عجلة الحظ غير مفعّلة لهذا الفرع حالياً" });
+      return;
+    }
+
     if (order.wheelSpun) {
       res.status(400).json({ error: "لقد قمت بتدوير عجلة الحظ لهذا الطلب بالفعل! 🎡" });
       return;
     }
 
-    // جوائز عجلة الحظ المتاحة مع الأوزان التناسبية
-    const PRIZES = [
+    // جوائز عجلة الحظ المتاحة مع الأوزان التناسبية (الافتراضية أو المخصصة للفرع)
+    const DEFAULT_PRIZES = [
       { id: "POINTS_10", type: "POINTS", amount: 10, label: "10 نقاط ولاء للمحفظة", icon: "🎁", weight: 35 },
       { id: "DISCOUNT_10", type: "COUPON", percent: 10, label: "خصم 10% على طلبك القادم", icon: "🏷️", weight: 20 },
       { id: "POINTS_5", type: "POINTS", amount: 5, label: "5 نقاط ولاء للمحفظة", icon: "🌟", weight: 20 },
@@ -2746,54 +2761,71 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
       { id: "FREE_DELIVERY", type: "FREE_DELIVERY", percent: 100, label: "توصيل مجاني لطلبك القادم", icon: "🚚", weight: 5 },
     ];
 
-    // السحب العشوائي الموزون
-    const totalWeight = PRIZES.reduce((sum, p) => sum + p.weight, 0);
+    let PRIZES = DEFAULT_PRIZES;
+    if (order.branch.spinWheelPrizes) {
+      try {
+        const parsed = JSON.parse(order.branch.spinWheelPrizes);
+        if (Array.isArray(parsed) && parsed.length >= 2) {
+          PRIZES = parsed;
+        }
+      } catch (_e) {}
+    }
+
+    // السحب العشوائي الموزون حسب النسبة والوزن
+    const totalWeight = PRIZES.reduce((sum, p) => sum + (Math.max(1, Number(p.weight) || 1)), 0);
     let rand = Math.random() * totalWeight;
     let selectedPrize = PRIZES[0];
     for (const p of PRIZES) {
-      if (rand < p.weight) {
+      const w = Math.max(1, Number(p.weight) || 1);
+      if (rand < w) {
         selectedPrize = p;
         break;
       }
-      rand -= p.weight;
+      rand -= w;
     }
 
     let couponCode: string | null = null;
+    const couponDays = Math.max(1, order.branch.spinWheelCouponDays || 7);
+    const expiresAt = new Date(Date.now() + couponDays * 24 * 60 * 60 * 1000);
 
     if (selectedPrize.type === "POINTS") {
       // إيداع النقاط فوراً في حساب المستخدم
+      const pts = Math.max(1, Number(selectedPrize.amount) || 10);
       await prisma.user.update({
         where: { id: userId },
-        data: { loyaltyPoints: { increment: selectedPrize.amount } },
+        data: { loyaltyPoints: { increment: pts } },
       });
     } else if (selectedPrize.type === "COUPON" || selectedPrize.type === "FREE_DELIVERY") {
-      // توليد كود خصم خاص بالعميل صالح للاستخدام
+      // توليد كود خصم خاص بالعميل فقط ومربوط بحسابه
       const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
       couponCode = `LUCKY-${randSuffix}`;
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // صالح لمدة أسبوع
 
       await prisma.promoCode.create({
         data: {
           code: couponCode,
-          branchId: order.branchId,
           discountType: "PERCENT",
-          value: selectedPrize.type === "FREE_DELIVERY" ? 100 : (selectedPrize.percent || 10),
+          value: selectedPrize.type === "FREE_DELIVERY" ? 100 : (Number(selectedPrize.percent) || 10),
+          minOrder: 0,
           maxUses: 1,
           oncePerUser: true,
+          showInDeals: false,
+          assignedUserId: userId,
+          assignedUserPhone: order.customerPhone,
+          assignedUserName: order.customerName,
+          applicableBranchIds: JSON.stringify([order.branchId]),
           expiresAt,
-          targetType: "SPECIFIC_STUDENT",
-          targetStudentPhone: order.customerPhone,
-          targetStudentName: order.customerName,
-          title: `هدية عجلة الحظ 🎡: ${selectedPrize.label}`,
+          isActive: true,
         },
-      }).catch(() => {
-        couponCode = `GIFT-${Date.now().toString().slice(-4)}`;
+      }).catch((err) => {
+        console.error("Failed to create spin wheel promo code:", err);
+        couponCode = null;
       });
     }
 
     const prizeData = {
       ...selectedPrize,
       couponCode,
+      expiresAt: (selectedPrize.type === "COUPON" || selectedPrize.type === "FREE_DELIVERY") ? expiresAt.toISOString() : undefined,
     };
 
     const updatedOrder = await prisma.order.update({

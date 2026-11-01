@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   Tag,
   Ticket,
-  ImageIcon
+  ImageIcon,
+  ExternalLink
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours, sanitizePromoCodeValue } from '../services/api';
 import { getDisplayAddress, getStoredClientCoords, isBranchInDeliveryZone } from '../services/campusLocations';
@@ -51,6 +52,12 @@ interface BranchMenuProps {
   onLogout?: () => void;
   onOpenMyOrders?: () => void;
   onOpenProfile?: () => void;
+  showRecommenderModal?: boolean;
+  onOpenRecommender?: () => void;
+  onCloseRecommender?: () => void;
+  showReviewsModal?: boolean;
+  onOpenReviews?: () => void;
+  onCloseReviews?: () => void;
 }
 
 const DAY_NAMES_AR: Record<string, string> = {
@@ -464,12 +471,40 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   onLogout,
   onOpenMyOrders,
   onOpenProfile,
+  showRecommenderModal: propShowRecommender,
+  onOpenRecommender,
+  onCloseRecommender,
+  showReviewsModal: propShowReviews,
+  onOpenReviews,
+  onCloseReviews,
 }) => {
   // الـ 3 زراير الرئيسية للفرع: [المطعم] [الطلبات] [العروض]
   const [branchTab, setBranchTab] = useState<'RESTAURANT' | 'ORDERS' | 'DEALS'>('RESTAURANT');
   const [activeCategoryId, setActiveCategoryId] = useState<string>('ALL');
-  const [showReviewsModal, setShowReviewsModal] = useState<boolean>(false);
-  const [showRecommenderModal, setShowRecommenderModal] = useState<boolean>(false);
+  const [internalShowReviews, setInternalShowReviews] = useState<boolean>(false);
+  const [internalShowRecommender, setInternalShowRecommender] = useState<boolean>(false);
+
+  const showReviewsModal = propShowReviews !== undefined ? propShowReviews : internalShowReviews;
+  const setShowReviewsModal = (val: boolean) => {
+    if (val) {
+      if (onOpenReviews) onOpenReviews();
+      else setInternalShowReviews(true);
+    } else {
+      if (onCloseReviews) onCloseReviews();
+      else setInternalShowReviews(false);
+    }
+  };
+
+  const showRecommenderModal = propShowRecommender !== undefined ? propShowRecommender : internalShowRecommender;
+  const setShowRecommenderModal = (val: boolean) => {
+    if (val) {
+      if (onOpenRecommender) onOpenRecommender();
+      else setInternalShowRecommender(true);
+    } else {
+      if (onCloseRecommender) onCloseRecommender();
+      else setInternalShowRecommender(false);
+    }
+  };
   const [copiedDirectLink, setCopiedDirectLink] = useState(false);
 
   // العروض والصفقات الخاطفة والبانرات التابعة للفرع
@@ -1017,29 +1052,60 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                   {branch.name}
                 </h2>
 
-                {/* العنوان */}
-                <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
-                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                  <span className="truncate">{getDisplayAddress(branch.address, 'موقع المطعم')}</span>
-                </div>
+                {/* العنوان ورابط خرائط جوجل */}
+                {(() => {
+                  const mapUrl = branch.googleMapsUrl || (branch.latitude && branch.longitude ? `https://www.google.com/maps/search/?api=1&query=${branch.latitude},${branch.longitude}` : null);
+                  const addressText = getDisplayAddress(branch.address, 'موقع المطعم');
+                  if (mapUrl) {
+                    return (
+                      <div className="mt-1">
+                        <a
+                          href={mapUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 font-bold hover:underline"
+                          title="انقر لفتح موقع الفرع على خرائط جوجل"
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <span className="truncate max-w-[200px] sm:max-w-xs">{addressText}</span>
+                          <ExternalLink className="w-2.5 h-2.5 text-rose-400 shrink-0" />
+                        </a>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1 truncate">
+                      <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                      <span className="truncate">{addressText}</span>
+                    </div>
+                  );
+                })()}
 
-                {/* التليفون */}
+                {/* التليفون ودعم أرقام متعددة للفرع */}
                 {branch.phone && (
-                  <div className="mt-1">
-                    <a
-                      href={`tel:${branch.phone}`}
-                      className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-                    >
-                      <Phone className="w-3 h-3 text-indigo-500 shrink-0" />
-                      <span>{branch.phone}</span>
-                    </a>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    {String(branch.phone).split(/[,،/|]+/).map((num: string, idx: number) => {
+                      const cleanNum = num.trim();
+                      if (!cleanNum) return null;
+                      return (
+                        <a
+                          key={idx}
+                          href={`tel:${cleanNum.replace(/\s+/g, '')}`}
+                          className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50/70 hover:bg-indigo-100/70 px-2 py-0.5 rounded-lg border border-indigo-100"
+                          title={`اتصال بالرقم: ${cleanNum}`}
+                        >
+                          <Phone className="w-3 h-3 text-indigo-500 shrink-0" />
+                          <span>{cleanNum}</span>
+                        </a>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* الصف 3: البطاقات الثلاث (التقييم، سرعة المطبخ، الحالة التشغيلية) */}
-            <div className="grid grid-cols-3 gap-2 pt-1 text-center select-none">
+            {/* الصف 3: البطاقات (التقييم، الحالة التشغيلية ومواعيد العمل) - تم إلغاء مؤشر الازدحام */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1 text-center select-none">
               {/* بطاقة التقييم الموثق */}
               <button
                 type="button"
@@ -1055,37 +1121,6 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                   {ratingsCount > 0 ? `${ratingsCount} تقييم موثق` : 'تقييمات العملاء'}
                 </span>
               </button>
-
-              {/* بطاقة ضغط وسرعة المطبخ */}
-              <div
-                className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center ${
-                  crowdLevel === 'HIGH'
-                    ? 'bg-rose-50 border-rose-200/80 text-rose-900'
-                    : crowdLevel === 'MEDIUM'
-                    ? 'bg-amber-50 border-amber-200/80 text-amber-900'
-                    : 'bg-emerald-50 border-emerald-200/80 text-emerald-900'
-                }`}
-              >
-                <div className="text-sm font-black flex items-center justify-center gap-1 font-mono">
-                  <span
-                    className={`w-2 h-2 rounded-full shrink-0 ${
-                      crowdLevel === 'HIGH'
-                        ? 'bg-rose-500 animate-ping'
-                        : crowdLevel === 'MEDIUM'
-                        ? 'bg-amber-500 animate-pulse'
-                        : 'bg-emerald-500'
-                    }`}
-                  />
-                  <span>~{estimatedPrepMins}</span>
-                </div>
-                <span className="text-[10px] font-bold block mt-0.5 whitespace-nowrap truncate max-w-full">
-                  {crowdLevel === 'HIGH'
-                    ? 'ضغط عالي 🔴'
-                    : crowdLevel === 'MEDIUM'
-                    ? 'مطبخ متوسط 🟡'
-                    : 'مطبخ هادئ 🟢'}
-                </span>
-              </div>
 
               {/* بطاقة الحالة التشغيلية ومواعيد العمل */}
               <div

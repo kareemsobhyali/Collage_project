@@ -143,6 +143,11 @@ export const api = {
     name: string;
     phone?: string;
     address?: string;
+    googleMapsUrl?: string;
+    deliveryZoneMode?: 'GPS_RADIUS' | 'MANUAL_ZONES';
+    spinWheelEnabled?: boolean;
+    spinWheelCouponDays?: number;
+    spinWheelPrizes?: string;
     logoUrl?: string;
     deliveryFee?: number;
     deliveryType?: 'FIXED' | 'ZONES';
@@ -183,6 +188,17 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل إضافة منطقة التوصيل');
+    return data;
+  },
+
+  async bulkAddDeliveryZones(zones: { name: string; fee: number }[], replaceExisting = false) {
+    const res = await fetch(`${API_BASE_URL}/branch/delivery-zones/bulk`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ zones, replaceExisting }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استيراد مناطق التوصيل');
     return data;
   },
 

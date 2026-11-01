@@ -201,7 +201,12 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
       freeDeliveryDays,
       freeDeliveryStartTime,
       freeDeliveryEndTime,
-      freeDeliveryIncludesDeals
+      freeDeliveryIncludesDeals,
+      googleMapsUrl,
+      deliveryZoneMode,
+      spinWheelEnabled,
+      spinWheelCouponDays,
+      spinWheelPrizes,
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -235,6 +240,11 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
         freeDeliveryStartTime: freeDeliveryStartTime !== undefined ? (freeDeliveryStartTime ? String(freeDeliveryStartTime).trim() : null) : undefined,
         freeDeliveryEndTime: freeDeliveryEndTime !== undefined ? (freeDeliveryEndTime ? String(freeDeliveryEndTime).trim() : null) : undefined,
         freeDeliveryIncludesDeals: freeDeliveryIncludesDeals !== undefined ? Boolean(freeDeliveryIncludesDeals) : undefined,
+        googleMapsUrl: googleMapsUrl !== undefined ? (googleMapsUrl ? String(googleMapsUrl).trim() : null) : undefined,
+        deliveryZoneMode: deliveryZoneMode !== undefined ? String(deliveryZoneMode) : undefined,
+        spinWheelEnabled: spinWheelEnabled !== undefined ? Boolean(spinWheelEnabled) : undefined,
+        spinWheelCouponDays: spinWheelCouponDays !== undefined ? (parseInt(spinWheelCouponDays, 10) || 7) : undefined,
+        spinWheelPrizes: spinWheelPrizes !== undefined ? (typeof spinWheelPrizes === 'string' ? spinWheelPrizes : JSON.stringify(spinWheelPrizes)) : undefined,
       },
       include: { paymentConfig: true, deliveryZones: true },
     });
@@ -286,9 +296,51 @@ router.post("/delivery-zones", async (req: AuthRequest, res: Response) => {
       },
     });
 
-    res.status(201).json(zone);
+    res.status(201).json({ success: true, zone, id: zone.id, name: zone.name, fee: zone.fee, branchId: zone.branchId });
   } catch (error) {
     res.status(500).json({ error: "فشل إضافة منطقة التوصيل" });
+  }
+});
+
+// 2.665 إضافة مناطق توصيل مجمعة (استيراد من Excel / CSV)
+router.post("/delivery-zones/bulk", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const { zones, replaceExisting } = req.body;
+
+    if (!Array.isArray(zones) || zones.length === 0) {
+      res.status(400).json({ error: "قائمة مناطق التوصيل فارغة" });
+      return;
+    }
+
+    if (replaceExisting) {
+      await prisma.branchDeliveryZone.deleteMany({ where: { branchId } });
+    }
+
+    const createdZones: any[] = [];
+    for (const z of zones) {
+      const cleanName = String(z.name || "").trim();
+      if (!cleanName) continue;
+      const fee = typeof z.fee === "number" && !isNaN(z.fee) ? Math.max(0, z.fee) : parseFloat(z.fee) || 10.0;
+      const newZone = await prisma.branchDeliveryZone.create({
+        data: {
+          branchId,
+          name: cleanName,
+          fee,
+        },
+      });
+      createdZones.push(newZone);
+    }
+
+    const allZones = await prisma.branchDeliveryZone.findMany({
+      where: { branchId },
+      orderBy: { name: "asc" },
+    });
+
+    res.json({ success: true, count: createdZones.length, zones: allZones });
+  } catch (error) {
+    console.error("Bulk add delivery zones error:", error);
+    res.status(500).json({ error: "فشل استيراد مناطق التوصيل" });
   }
 });
 
@@ -321,9 +373,19 @@ router.put("/payment-methods", async (req: AuthRequest, res: Response) => {
       where: { branchId },
     });
 
-    // لا يسمح للفرع بتفعيل فودافون كاش أو إنستاباي إلا إذا كانت الأرقام معتمدة مسبقاً من الإدارة
-    const allowVodafone = Boolean(existingConfig?.vodafoneCashNumber);
-    const allowInstapay = Boolean(existingConfig?.instapayHandle);
+    // لا يسمح للفرع بتفعيل فودافون كاش أو إنستاباي إذا تم إيقافهما من لوحة التحكم الرئيسية أو لم تكن البيانات معتمدة
+    const allowVodafone = Boolean(existingConfig?.adminVodafoneAllowed !== false && existingConfig?.vodafoneCashNumber && existingConfig.vodafoneCashNumber.trim());
+    const allowInstapay = Boolean(existingConfig?.adminInstapayAllowed !== false && existingConfig?.instapayHandle && existingConfig.instapayHandle.trim());
+
+    if (vodafoneCashEnabled && !allowVodafone) {
+      res.status(400).json({ error: "لا يمكن تفعيل فودافون كاش: تم إيقاف هذه الخدمة من لوحة التحكم الرئيسية أو لم يتم اعتماد رقم المحفظة بعد" });
+      return;
+    }
+
+    if (instapayEnabled && !allowInstapay) {
+      res.status(400).json({ error: "لا يمكن تفعيل إنستاباي: تم إيقاف هذه الخدمة من لوحة التحكم الرئيسية أو لم يتم اعتماد معرف إنستاباي بعد" });
+      return;
+    }
 
     const updatedConfig = await prisma.branchPaymentConfig.upsert({
       where: { branchId },

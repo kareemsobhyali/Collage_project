@@ -32,8 +32,14 @@ import {
   Unlock,
   Search,
   Users,
-  Tag
+  Tag,
+  Download,
+  FileSpreadsheet,
+  Sparkles,
+  ExternalLink,
+  Layers
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
 import { cleanAddressText, getDisplayAddress, cleanZoneName } from '../utils/address';
@@ -59,6 +65,11 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [name, setName] = useState(branch?.name || '');
   const [phone, setPhone] = useState(branch?.phone || '');
   const [address, setAddress] = useState(cleanAddressText(branch?.address) || '');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(branch?.googleMapsUrl || '');
+  const [deliveryZoneMode, setDeliveryZoneMode] = useState<'GPS_RADIUS' | 'MANUAL_ZONES'>(branch?.deliveryZoneMode || 'GPS_RADIUS');
+  const [spinWheelEnabled, setSpinWheelEnabled] = useState<boolean>(branch?.spinWheelEnabled ?? true);
+  const [spinWheelCouponDays, setSpinWheelCouponDays] = useState<string>(String(branch?.spinWheelCouponDays ?? 7));
+  const [spinWheelPrizes, setSpinWheelPrizes] = useState<string>(branch?.spinWheelPrizes || '');
   const [logoUrl, setLogoUrl] = useState(branch?.logoUrl || '');
   const [logoError, setLogoError] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -170,6 +181,11 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       setName(branch.name || '');
       setPhone(branch.phone || '');
       setAddress(cleanAddressText(branch.address) || '');
+      setGoogleMapsUrl(branch.googleMapsUrl || '');
+      setDeliveryZoneMode(branch.deliveryZoneMode || 'GPS_RADIUS');
+      setSpinWheelEnabled(branch.spinWheelEnabled ?? true);
+      setSpinWheelCouponDays(String(branch.spinWheelCouponDays ?? 7));
+      setSpinWheelPrizes(branch.spinWheelPrizes || '');
       setLogoUrl(branch.logoUrl || '');
       setLogoError(false);
       setDeliveryType(branch.deliveryType || 'FIXED');
@@ -228,16 +244,83 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     try {
       setAddingZone(true);
       const res = await api.addDeliveryZone(newZoneName.trim(), parseFloat(newZoneFee) || 0);
-      if (res.zone) {
-        setDeliveryZones([...deliveryZones, res.zone]);
+      const createdZone = res?.zone || (res?.id ? res : null);
+      if (createdZone) {
+        setDeliveryZones(prev => [...prev, createdZone]);
         setNewZoneName('');
         setNewZoneFee('10');
-        toast.success(`تمت إضافة منطقة التوصيل "${res.zone.name}"`);
+        toast.success(`تمت إضافة منطقة التوصيل "${createdZone.name}"`);
       }
     } catch (err: any) {
       toast.error(err.message || 'فشل إضافة منطقة التوصيل');
     } finally {
       setAddingZone(false);
+    }
+  };
+
+  // تحميل نموذج إكسيل لمناطق التوصيل
+  const handleDownloadZoneTemplate = () => {
+    try {
+      const wsData = [
+        { 'اسم المنطقة': 'مبنى كلية الهندسة', 'سعر التوصيل': 15 },
+        { 'اسم المنطقة': 'المدينة الجامعية طلبة', 'سعر التوصيل': 20 },
+        { 'اسم المنطقة': 'مجمع الكليات الطبية', 'سعر التوصيل': 10 },
+        { 'اسم المنطقة': 'بوابة الجامعة 2', 'سعر التوصيل': 10 },
+      ];
+      const ws = XLSX.utils.json_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'مناطق التوصيل');
+      XLSX.writeFile(wb, 'نموذج_مناطق_التوصيل.xlsx');
+      toast.success('تم تحميل نموذج إكسيل لمناطق التوصيل');
+    } catch (err: any) {
+      toast.error('فشل إنشاء ملف النموذج');
+    }
+  };
+
+  // استيراد مناطق التوصيل من ملف إكسيل
+  const handleImportZonesExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setAddingZone(true);
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+      if (!rows || rows.length === 0) {
+        toast.error('الملف فارغ أو لا يحتوي على صفوف صالحة');
+        return;
+      }
+
+      const zonesToImport: { name: string; fee: number }[] = [];
+      for (const r of rows) {
+        const name = String(r['اسم المنطقة'] || r['المنطقة'] || r['name'] || r['Zone'] || r['اسم منطقة التوصيل'] || '').trim();
+        const feeRaw = r['سعر التوصيل'] ?? r['الرسوم'] ?? r['fee'] ?? r['السعر'] ?? 10;
+        const fee = parseFloat(feeRaw) || 0;
+        if (name) {
+          zonesToImport.push({ name, fee });
+        }
+      }
+
+      if (zonesToImport.length === 0) {
+        toast.error('لم يتم العثور على أعمدة (اسم المنطقة) و (سعر التوصيل) في الملف');
+        return;
+      }
+
+      const res = await api.bulkAddDeliveryZones(zonesToImport, false);
+      if (res.zones) {
+        setDeliveryZones(res.zones);
+        toast.success(`تم استيراد ${res.count || zonesToImport.length} منطقة توصيل بنجاح!`);
+      }
+    } catch (err: any) {
+      console.error('Import zones error:', err);
+      toast.error(err.message || 'حدث خطأ أثناء قراءة ملف الإكسيل');
+    } finally {
+      setAddingZone(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -323,6 +406,11 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         freeDeliveryStartTime: freeDeliveryStartTime.trim() || null,
         freeDeliveryEndTime: freeDeliveryEndTime.trim() || null,
         freeDeliveryIncludesDeals,
+        googleMapsUrl: googleMapsUrl.trim() || null,
+        deliveryZoneMode,
+        spinWheelEnabled,
+        spinWheelCouponDays: parseInt(spinWheelCouponDays, 10) || 7,
+        spinWheelPrizes: spinWheelPrizes.trim() || undefined,
       });
 
       if (res.branch) {
@@ -546,7 +634,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">موقع الفرع بالتحديد</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">موقع الفرع بالتحديد (نص العنوان)</label>
                 <div className="relative">
                   <MapPin className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
                   <input
@@ -560,17 +648,69 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">رقم هاتف الفرع</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">رابط لوكيشن الفرع على خرائط جوجل (Google Maps Link)</label>
+                <div className="relative">
+                  <ExternalLink className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+                  <input
+                    type="url"
+                    value={googleMapsUrl}
+                    onChange={e => setGoogleMapsUrl(e.target.value)}
+                    placeholder="مثال: https://maps.app.goo.gl/... أو https://goo.gl/maps/..."
+                    className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-all"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 mt-1 block">عند نقر العميل على عنوان الفرع في تطبيق العميل سيفتح هذا اللوكيشن على الخريطة مباشرة</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">أرقام هواتف الفرع (دعم أكثر من رقم)</label>
                 <div className="relative">
                   <Phone className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
                   <input
-                    type="tel"
+                    type="text"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
-                    placeholder="01XXXXXXXXX"
+                    placeholder="مثال: 01023231926 ، 01155554433"
                     className="w-full pr-10 pl-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition-all"
                   />
                 </div>
+                <span className="text-[10px] text-slate-400 mt-1 block">يمكنك إدخال أكثر من رقم مفصولاً بفاصلة (،) أو شرطة (/) لتظهر كأرقام متعددة للعميل</span>
+              </div>
+
+              {/* Delivery Zone Mode Choice */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-bold text-slate-700">نظام فحص نطاق التوصيل للفرع</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryZoneMode('GPS_RADIUS')}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      deliveryZoneMode === 'GPS_RADIUS'
+                        ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-sm ring-2 ring-indigo-200'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>نطاق جغرافي (GPS)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryZoneMode('MANUAL_ZONES')}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      deliveryZoneMode === 'MANUAL_ZONES'
+                        ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-sm ring-2 ring-indigo-200'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>مناطق بالاسم فقط (يدوي)</span>
+                  </button>
+                </div>
+                <span className="text-[10px] text-slate-500 block">
+                  {deliveryZoneMode === 'MANUAL_ZONES'
+                    ? 'العميل يختار منطقته يدوياً من القائمة المحددة دون التقيد بإحداثيات GPS.'
+                    : 'يتم احتساب المسافة الجغرافية بالكيلومترات ورفض أي طلب خارج نطاق التوصيل.'}
+                </span>
               </div>
 
                 {/* Delivery Mode Choice */}
@@ -617,8 +757,30 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <span className="text-xs font-black text-slate-800">مناطق وأحياء التوصيل وأسعارها ({deliveryZones.length})</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={handleDownloadZoneTemplate}
+                            className="px-2.5 py-1 text-[11px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            title="تحميل نموذج ملف إكسيل جاهز للملء"
+                          >
+                            <Download className="w-3 h-3 text-slate-500" />
+                            <span>نموذج Excel</span>
+                          </button>
+                          <label className="px-2.5 py-1 text-[11px] bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors">
+                            <FileSpreadsheet className="w-3 h-3 text-indigo-600" />
+                            <span>{addingZone ? 'جاري الاستيراد...' : 'رفع إكسيل'}</span>
+                            <input
+                              type="file"
+                              accept=".xlsx,.xls,.csv"
+                              disabled={addingZone}
+                              onChange={handleImportZonesExcel}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
                       </div>
 
                       {/* Existing Zones List */}
@@ -883,6 +1045,45 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* 3. Spin The Wheel Settings */}
+                <div className="p-4 bg-gradient-to-br from-amber-500/10 via-purple-500/5 to-indigo-500/10 border border-amber-200/80 rounded-2xl space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <div>
+                        <span className="text-xs font-black text-slate-800 block">عجلة الحظ ومكافآت الطلبات 🎡 (Spin The Wheel)</span>
+                        <span className="text-[10px] text-slate-500 block">منح العملاء فرصة تدوير العجلة بعد إتمام الطلب لكسب نقاط أو كوبونات خصم</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={spinWheelEnabled}
+                        onChange={e => setSpinWheelEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+
+                  {spinWheelEnabled && (
+                    <div className="space-y-3 pt-2 border-t border-amber-200/60 animate-fadeIn">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">صلاحية كوبونات الخصم الممنوحة من العجلة (بالأيام)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={spinWheelCouponDays}
+                          onChange={e => setSpinWheelCouponDays(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <span className="text-[10px] text-slate-500 mt-1 block">تكون الكوبونات صالحة لهذا العميل فقط ومرتبطة بحسابه وتُحفظ تلقائياً في قاعدة البيانات.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </form>
             </div>
 
@@ -958,146 +1159,192 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               </div>
 
               {/* Vodafone Cash */}
-              <div className={`p-4 rounded-2xl border transition-all space-y-3 ${
-                vodafoneCashEnabled ? 'border-rose-200 bg-rose-50/20 shadow-2xs' : 'border-slate-200 bg-white'
-              }`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
-                      <Smartphone className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-slate-900 block truncate">فودافون كاش ومحافظ الهاتف</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          vodafoneCashEnabled ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {vodafoneCashEnabled ? 'مفعّل' : 'معطّل'}
-                        </span>
+              {(() => {
+                const isVodafoneLocked = p?.adminVodafoneAllowed === false || !vodafoneCashNumber || !vodafoneCashNumber.trim();
+                return (
+                  <div className={`p-4 rounded-2xl border transition-all space-y-3 ${
+                    vodafoneCashEnabled ? 'border-rose-200 bg-rose-50/20 shadow-2xs' : 'border-slate-200 bg-white'
+                  }`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+                          <Smartphone className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-900 block truncate">فودافون كاش ومحافظ الهاتف</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              isVodafoneLocked
+                                ? 'bg-slate-100 text-slate-500 border border-slate-200'
+                                : (vodafoneCashEnabled ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-slate-100 text-slate-500')
+                            }`}>
+                              {isVodafoneLocked ? 'مغلق بالإدارة' : (vodafoneCashEnabled ? 'مفعّل' : 'معطّل')}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل المبلغ لمحفظة كاش المحددة</span>
+                        </div>
                       </div>
-                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل المبلغ لمحفظة كاش المحددة</span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={vodafoneCashEnabled}
-                    onClick={() => setVodafoneCashEnabled(!vodafoneCashEnabled)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                      vodafoneCashEnabled ? 'bg-rose-600' : 'bg-slate-200'
-                    }`}
-                    dir="ltr"
-                    title={vodafoneCashEnabled ? 'إيقاف استقبال فودافون كاش' : 'تفعيل استقبال فودافون كاش'}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
-                        vodafoneCashEnabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* رقم المحفظة للقراءة فقط */}
-                <div className="pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                      <Lock className="w-3 h-3 text-slate-400" />
-                      <span>رقم محفظة كاش الخاصة بالمطعم:</span>
-                    </label>
-                    <span className="text-[10px] text-slate-400 font-medium">يتم ضبطه وتعديله من الإدارة</span>
-                  </div>
-                  <div className="flex items-center justify-between px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-                    <span className="text-xs font-mono font-black text-slate-900 tracking-wider">
-                      {vodafoneCashNumber || 'لم يُحدد رقم محفظة من الإدارة بعد'}
-                    </span>
-                    {vodafoneCashNumber && (
                       <button
                         type="button"
+                        role="switch"
+                        aria-checked={vodafoneCashEnabled}
+                        disabled={isVodafoneLocked}
                         onClick={() => {
-                          navigator.clipboard.writeText(vodafoneCashNumber);
-                          toast.success('تم نسخ رقم المحفظة');
+                          if (isVodafoneLocked) {
+                            toast.error('تم إيقاف الخدمة من لوحة التحكم أو لم يتم اعتماد رقم المحفظة بعد');
+                            return;
+                          }
+                          setVodafoneCashEnabled(!vodafoneCashEnabled);
                         }}
-                        className="text-[11px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-rose-50 transition-colors"
-                        title="نسخ الرقم"
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                          isVodafoneLocked
+                            ? 'opacity-40 cursor-not-allowed bg-slate-300'
+                            : (vodafoneCashEnabled ? 'bg-rose-600 cursor-pointer' : 'bg-slate-200 cursor-pointer')
+                        }`}
+                        dir="ltr"
+                        title={isVodafoneLocked ? 'تم إيقاف فودافون كاش من لوحة التحكم' : (vodafoneCashEnabled ? 'إيقاف استقبال فودافون كاش' : 'تفعيل استقبال فودافون كاش')}
                       >
-                        <Copy className="w-3 h-3" />
-                        <span>نسخ</span>
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                            vodafoneCashEnabled && !isVodafoneLocked ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
                       </button>
+                    </div>
+
+                    {isVodafoneLocked && (
+                      <div className="p-2 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-bold flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>مغلق من لوحة التحكم الرئيسية (لا يمكن التفعيل حتى تعتمدها الإدارة)</span>
+                      </div>
                     )}
+
+                    {/* رقم المحفظة للقراءة فقط */}
+                    <div className="pt-2 border-t border-slate-100">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                          <Lock className="w-3 h-3 text-slate-400" />
+                          <span>رقم محفظة كاش الخاصة بالمطعم:</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-medium">يتم ضبطه وتعديله من الإدارة</span>
+                      </div>
+                      <div className="flex items-center justify-between px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        <span className="text-xs font-mono font-black text-slate-900 tracking-wider">
+                          {vodafoneCashNumber || 'لم يُحدد رقم محفظة من الإدارة بعد'}
+                        </span>
+                        {vodafoneCashNumber && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(vodafoneCashNumber);
+                              toast.success('تم نسخ رقم المحفظة');
+                            }}
+                            className="text-[11px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-rose-50 transition-colors"
+                            title="نسخ الرقم"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>نسخ</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* InstaPay */}
-              <div className={`p-4 rounded-2xl border transition-all space-y-3 ${
-                instapayEnabled ? 'border-indigo-200 bg-indigo-50/20 shadow-2xs' : 'border-slate-200 bg-white'
-              }`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
-                      <Zap className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-slate-900 block truncate">إنستاباي (InstaPay)</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          instapayEnabled ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {instapayEnabled ? 'مفعّل' : 'معطّل'}
-                        </span>
+              {(() => {
+                const isInstapayLocked = p?.adminInstapayAllowed === false || !instapayHandle || !instapayHandle.trim();
+                return (
+                  <div className={`p-4 rounded-2xl border transition-all space-y-3 ${
+                    instapayEnabled ? 'border-indigo-200 bg-indigo-50/20 shadow-2xs' : 'border-slate-200 bg-white'
+                  }`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
+                          <Zap className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-900 block truncate">إنستاباي (InstaPay)</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              isInstapayLocked
+                                ? 'bg-slate-100 text-slate-500 border border-slate-200'
+                                : (instapayEnabled ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-slate-100 text-slate-500')
+                            }`}>
+                              {isInstapayLocked ? 'مغلق بالإدارة' : (instapayEnabled ? 'مفعّل' : 'معطّل')}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل فوري عبر عنوان IPA أو الحساب البنكي</span>
+                        </div>
                       </div>
-                      <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">تحويل فوري عبر عنوان IPA أو الحساب البنكي</span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={instapayEnabled}
-                    onClick={() => setInstapayEnabled(!instapayEnabled)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                      instapayEnabled ? 'bg-indigo-600' : 'bg-slate-200'
-                    }`}
-                    dir="ltr"
-                    title={instapayEnabled ? 'إيقاف استقبال إنستاباي' : 'تفعيل استقبال إنستاباي'}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
-                        instapayEnabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* معرف إنستاباي للقراءة فقط */}
-                <div className="pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                      <Lock className="w-3 h-3 text-slate-400" />
-                      <span>معرف إنستاباي IPA الخاص بالمطعم:</span>
-                    </label>
-                    <span className="text-[10px] text-slate-400 font-medium">يتم ضبطه وتعديله من الإدارة</span>
-                  </div>
-                  <div className="flex items-center justify-between px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-                    <span className="text-xs font-mono font-black text-slate-900 tracking-wider">
-                      {instapayHandle || 'لم يُحدد عنوان إنستاباي من الإدارة بعد'}
-                    </span>
-                    {instapayHandle && (
                       <button
                         type="button"
+                        role="switch"
+                        aria-checked={instapayEnabled}
+                        disabled={isInstapayLocked}
                         onClick={() => {
-                          navigator.clipboard.writeText(instapayHandle);
-                          toast.success('تم نسخ معرف إنستاباي');
+                          if (isInstapayLocked) {
+                            toast.error('تم إيقاف الخدمة من لوحة التحكم أو لم يتم اعتماد معرف إنستاباي بعد');
+                            return;
+                          }
+                          setInstapayEnabled(!instapayEnabled);
                         }}
-                        className="text-[11px] text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-indigo-50 transition-colors"
-                        title="نسخ المعرف"
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                          isInstapayLocked
+                            ? 'opacity-40 cursor-not-allowed bg-slate-300'
+                            : (instapayEnabled ? 'bg-indigo-600 cursor-pointer' : 'bg-slate-200 cursor-pointer')
+                        }`}
+                        dir="ltr"
+                        title={isInstapayLocked ? 'تم إيقاف إنستاباي من لوحة التحكم' : (instapayEnabled ? 'إيقاف استقبال إنستاباي' : 'تفعيل استقبال إنستاباي')}
                       >
-                        <Copy className="w-3 h-3" />
-                        <span>نسخ</span>
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                            instapayEnabled && !isInstapayLocked ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
                       </button>
+                    </div>
+
+                    {isInstapayLocked && (
+                      <div className="p-2 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-bold flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>مغلق من لوحة التحكم الرئيسية (لا يمكن التفعيل حتى تعتمدها الإدارة)</span>
+                      </div>
                     )}
+
+                    {/* معرف إنستاباي للقراءة فقط */}
+                    <div className="pt-2 border-t border-slate-100">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                          <Lock className="w-3 h-3 text-slate-400" />
+                          <span>معرف إنستاباي IPA الخاص بالمطعم:</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-medium">يتم ضبطه وتعديله من الإدارة</span>
+                      </div>
+                      <div className="flex items-center justify-between px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        <span className="text-xs font-mono font-black text-slate-900 tracking-wider">
+                          {instapayHandle || 'لم يُحدد عنوان إنستاباي من الإدارة بعد'}
+                        </span>
+                        {instapayHandle && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(instapayHandle);
+                              toast.success('تم نسخ معرف إنستاباي');
+                            }}
+                            className="text-[11px] text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-indigo-50 transition-colors"
+                            title="نسخ المعرف"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>نسخ</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Card */}
               <div className={`p-4 rounded-2xl border transition-all ${

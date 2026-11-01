@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { X, Sparkles, Check, Copy, Gift, ArrowLeft, Trophy } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -17,7 +17,7 @@ interface WheelSegment {
   textColor: string;
 }
 
-const SEGMENTS: WheelSegment[] = [
+const DEFAULT_SEGMENTS: WheelSegment[] = [
   { id: 'POINTS_10', label: '10 نقاط', sub: 'في محفظتك', icon: '🎁', color: '#6366f1', textColor: '#ffffff' }, // Indigo
   { id: 'DISCOUNT_10', label: 'خصم 10%', sub: 'على طلبك', icon: '🏷️', color: '#f59e0b', textColor: '#ffffff' }, // Amber
   { id: 'POINTS_5', label: '5 نقاط', sub: 'في محفظتك', icon: '🌟', color: '#ec4899', textColor: '#ffffff' }, // Pink
@@ -31,6 +31,25 @@ export const SpinTheWheelModal: React.FC<SpinTheWheelModalProps> = ({
   onClose,
   onRewardClaimed,
 }) => {
+  const segments = useMemo<WheelSegment[]>(() => {
+    if (order.branch?.spinWheelPrizes) {
+      try {
+        const parsed = JSON.parse(order.branch.spinWheelPrizes);
+        if (Array.isArray(parsed) && parsed.length >= 2) {
+          const colors = ['#6366f1', '#f59e0b', '#ec4899', '#10b981', '#8b5cf6', '#06b6d4', '#ef4444', '#14b8a6'];
+          return parsed.map((p: any, idx: number) => ({
+            id: p.id || `prize_${idx}`,
+            label: p.label || 'جائزة',
+            sub: p.type === 'POINTS' ? 'في محفظتك' : (p.type === 'COUPON' ? 'على طلبك' : ''),
+            icon: p.icon || '🎁',
+            color: p.color || colors[idx % colors.length],
+            textColor: '#ffffff',
+          }));
+        }
+      } catch (_e) {}
+    }
+    return DEFAULT_SEGMENTS;
+  }, [order.branch?.spinWheelPrizes]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotationDegrees, setRotationDegrees] = useState(0);
   const [wonPrize, setWonPrize] = useState<any | null>(() => {
@@ -129,12 +148,12 @@ export const SpinTheWheelModal: React.FC<SpinTheWheelModalProps> = ({
       const prize = res.prize;
 
       // العثور على شريحة العجلة المطابقة للجائزة
-      const targetIndex = SEGMENTS.findIndex((s) => s.id === prize.id);
+      const targetIndex = segments.findIndex((s) => s.id === prize.id);
       const safeIndex = targetIndex >= 0 ? targetIndex : 0;
 
       // حساب زاوية التوقف الدقيقة عند المؤشر العلوي (12 o'clock)
-      // كل شريحة تمثل 360 / 6 = 60 درجة
-      const segmentAngle = 360 / SEGMENTS.length;
+      // كل شريحة تمثل 360 / segments.length درجة
+      const segmentAngle = 360 / segments.length;
       // الزاوية المركزية للشريحة المطلوبة
       const targetCenterAngle = safeIndex * segmentAngle + segmentAngle / 2;
       // لكي تقع هذه الشريحة عند أعلى نقطة (المؤشر عند 270 درجة أو 0 مع دوران عكسي):
@@ -157,7 +176,7 @@ export const SpinTheWheelModal: React.FC<SpinTheWheelModalProps> = ({
     }
   };
 
-  const numSegments = SEGMENTS.length;
+  const numSegments = segments.length;
   const anglePerSegment = 360 / numSegments;
   const radius = 130;
   const center = 150;
@@ -220,7 +239,7 @@ export const SpinTheWheelModal: React.FC<SpinTheWheelModalProps> = ({
               }}
             >
               <svg viewBox="0 0 300 300" className="w-full h-full">
-                {SEGMENTS.map((seg, idx) => {
+                {segments.map((seg, idx) => {
                   const startAngle = idx * anglePerSegment;
                   const endAngle = startAngle + anglePerSegment;
                   const x1 = center + radius * Math.cos((Math.PI * (startAngle - 90)) / 180);

@@ -317,6 +317,8 @@ export function App() {
   const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [wheelOrder, setWheelOrder] = useState<any | null>(null);
+  const [showRecommenderModal, setShowRecommenderModal] = useState(false);
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activationToast, setActivationToast] = useState<string | null>(null);
   const [showExitAppDialog, setShowExitAppDialog] = useState(false);
@@ -329,6 +331,8 @@ export function App() {
     showProfileModal ||
     trackingOrder ||
     wheelOrder ||
+    showRecommenderModal ||
+    showReviewsModal ||
     showMyOrdersModal ||
     showAuthModal ||
     showExitAppDialog
@@ -434,6 +438,9 @@ export function App() {
     Boolean(showGroupCartModal),
     Boolean(showProfileModal),
     Boolean(trackingOrder),
+    Boolean(wheelOrder),
+    Boolean(showRecommenderModal),
+    Boolean(showReviewsModal),
     Boolean(showMyOrdersModal),
     Boolean(showAuthModal),
     Boolean(showExitAppDialog)
@@ -470,7 +477,13 @@ export function App() {
         return;
       }
       // ثانياً: إغلاق النوافذ المنبثقة بترتيب أسبقيتها (الأحدث فالأقدم)
-      else if (customizingItem) {
+      else if (wheelOrder) {
+        setWheelOrder(null);
+      } else if (showRecommenderModal) {
+        setShowRecommenderModal(false);
+      } else if (showReviewsModal) {
+        setShowReviewsModal(false);
+      } else if (customizingItem) {
         setCustomizingItem(null);
         restoreItemScroll();
       } else if (showCartModal) {
@@ -517,6 +530,9 @@ export function App() {
           Boolean(showGroupCartModal),
           Boolean(showProfileModal),
           Boolean(trackingOrder),
+          Boolean(wheelOrder),
+          Boolean(showRecommenderModal),
+          Boolean(showReviewsModal),
           Boolean(showMyOrdersModal),
           Boolean(showAuthModal),
           Boolean(showExitAppDialog)
@@ -536,6 +552,9 @@ export function App() {
     showGroupCartModal,
     showProfileModal,
     trackingOrder,
+    wheelOrder,
+    showRecommenderModal,
+    showReviewsModal,
     showMyOrdersModal,
     showAuthModal,
     selectedBranch,
@@ -1537,6 +1556,12 @@ export function App() {
             onLogout={handleLogout}
             onOpenMyOrders={() => setShowMyOrdersModal(true)}
             onOpenProfile={() => setShowProfileModal(true)}
+            showRecommenderModal={showRecommenderModal}
+            onOpenRecommender={() => setShowRecommenderModal(true)}
+            onCloseRecommender={() => setShowRecommenderModal(false)}
+            showReviewsModal={showReviewsModal}
+            onOpenReviews={() => setShowReviewsModal(true)}
+            onCloseReviews={() => setShowReviewsModal(false)}
           />
         ) : (requestedBranchKey || isDedicatedRestaurantApp) ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500 py-16 animate-fadeIn">

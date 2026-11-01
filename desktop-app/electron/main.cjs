@@ -20,6 +20,11 @@ function createWindow() {
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
+  // إلغاء القائمة المنبثقة للزر الأيمن للفأرة (Disable right-click context menu)
+  mainWindow.webContents.on('context-menu', (e) => {
+    e.preventDefault();
+  });
+
   // حماية من استغلال منفذ التطوير المحلي في بيئة الإنتاج
   if (!app.isPackaged && process.env.NODE_ENV === 'development') {
     const devUrl = 'http://localhost:5173';
@@ -98,6 +103,18 @@ ipcMain.on('print-receipt', (event, payload = {}) => {
     }, (success, failureReason) => {
       event.reply('print-result', { success, failureReason });
     });
+  }
+});
+
+// 3. معالج إظهار نافذة البرنامج في الواجهة تلقائياً عند وصول طلب جديد (Auto focus & bring to front)
+ipcMain.on('bring-to-front', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.setAlwaysOnTop(true);
+    mainWindow.focus();
+    mainWindow.setAlwaysOnTop(false);
+    mainWindow.flashFrame(true);
   }
 });
 

@@ -240,29 +240,74 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const scheduledTimePresets = useMemo(() => {
     const allPresets = [
       { val: '10:00', label: '10:00 ص' },
+      { val: '11:00', label: '11:00 ص' },
       { val: '11:30', label: '11:30 ص' },
+      { val: '12:00', label: '12:00 م' },
       { val: '12:30', label: '12:30 م' },
+      { val: '13:00', label: '1:00 م' },
       { val: '13:30', label: '1:30 م' },
+      { val: '14:00', label: '2:00 م' },
       { val: '14:30', label: '2:30 م' },
+      { val: '15:00', label: '3:00 م' },
       { val: '15:30', label: '3:30 م' },
+      { val: '16:00', label: '4:00 م' },
+      { val: '16:30', label: '4:30 م' },
       { val: '17:00', label: '5:00 م' },
+      { val: '17:30', label: '5:30 م' },
+      { val: '18:00', label: '6:00 م' },
       { val: '18:30', label: '6:30 م' },
+      { val: '19:00', label: '7:00 م' },
+      { val: '19:30', label: '7:30 م' },
       { val: '20:00', label: '8:00 م' },
+      { val: '20:30', label: '8:30 م' },
+      { val: '21:00', label: '9:00 م' },
       { val: '21:30', label: '9:30 م' },
+      { val: '22:00', label: '10:00 م' },
+      { val: '22:30', label: '10:30 م' },
       { val: '23:00', label: '11:00 م' },
+      { val: '23:30', label: '11:30 م' },
     ];
-    if (!branch.openingTime || !branch.closingTime) return allPresets.slice(1, 6);
-    const valid = allPresets.filter((p) =>
-      checkIsTimeInBranchHours(p.val, branch.openingTime, branch.closingTime)
-    );
-    return valid.length > 0 ? valid.slice(0, 6) : allPresets.slice(1, 6);
-  }, [branch.openingTime, branch.closingTime]);
 
-  // هل التوقيت المختار يقع ضمن ساعات عمل المطعم؟
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const leadMins = typeof branch.scheduledLeadMins === 'number' ? branch.scheduledLeadMins : 20;
+    const minAllowedMins = currentMins + leadMins;
+
+    const valid = allPresets.filter((p) => {
+      const [h, m] = p.val.split(':').map(Number);
+      const slotMins = h * 60 + m;
+      // استبعاد الأوقات التي مضت بالفعل لليوم
+      if (slotMins < minAllowedMins) return false;
+      return checkIsTimeInBranchHours(p.val, branch.openingTime, branch.closingTime);
+    });
+
+    return valid;
+  }, [branch.openingTime, branch.closingTime, branch.scheduledLeadMins]);
+
+  // هل التوقيت المختار يقع ضمن ساعات عمل المطعم وفي موعد مستقبلي قادم؟
   const isScheduledTimeValid = useMemo(() => {
     if (!isScheduled) return true;
-    return checkIsTimeInBranchHours(scheduledTime, branch.openingTime, branch.closingTime);
+    if (!scheduledTime) return false;
+    if (!checkIsTimeInBranchHours(scheduledTime, branch.openingTime, branch.closingTime)) return false;
+
+    // منع اختيار أوقات سابقة لليوم
+    const [h, m] = scheduledTime.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return false;
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const slotMins = h * 60 + m;
+    return slotMins >= currentMins + 10;
   }, [isScheduled, scheduledTime, branch.openingTime, branch.closingTime]);
+
+  // ضبط التوقيت المجدول تلقائياً لأول وقت متاح إن كان الوقت الحالي غير صالح
+  useEffect(() => {
+    if (isScheduled && scheduledTimePresets.length > 0) {
+      const isCurrentPresetValid = scheduledTimePresets.some(p => p.val === scheduledTime);
+      if (!isCurrentPresetValid) {
+        setScheduledTime(scheduledTimePresets[0].val);
+      }
+    }
+  }, [isScheduled, scheduledTimePresets]);
 
   // إذا كان المطعم خارج مواعيد العمل الحالية، تفعيل وضع الحجز المسبق فقط إذا كان الفرع متصلاً وغير مغلق
   useEffect(() => {
@@ -375,9 +420,10 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   }, [isUsingSavedAddress, composedNewAddressDetails, capturedCoords]);
 
   // فحص نطاق التوصيل الجغرافي للمطعم لموقع العميل الحالي (طلب المستخدم: منع الطلب إذا كان المطعم خارج الزون)
+  const isManualZones = branch.deliveryZoneMode === 'MANUAL_ZONES';
   const effectiveClientCoords = capturedCoords || extractCoordinatesFromAddress(addressText) || getStoredClientCoords();
   const deliveryZoneCheck = isBranchInDeliveryZone(branch, effectiveClientCoords);
-  const isOutOfDeliveryZone = orderType === 'DELIVERY' && !!effectiveClientCoords && !deliveryZoneCheck.inZone;
+  const isOutOfDeliveryZone = isManualZones ? false : (orderType === 'DELIVERY' && !!effectiveClientCoords && !deliveryZoneCheck.inZone);
 
   // دالة التقاط الـ GPS (سواء تلقائياً بالخلفية عند فتح السلة أو يدوياً بالزر)
   const acquireGpsLocation = useCallback(
@@ -603,21 +649,23 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
   // Custom Delivery Zones
   const hasZones =
-    branch.deliveryType === 'ZONES' && branch.deliveryZones && branch.deliveryZones.length > 0;
+    (branch.deliveryType === 'ZONES' || isManualZones) && branch.deliveryZones && branch.deliveryZones.length > 0;
   const [selectedZoneId, setSelectedZoneId] = useState<string>(
-    hasZones ? branch.deliveryZones[0].id : ''
+    hasZones && !isManualZones ? branch.deliveryZones[0].id : ''
   );
   const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
   const [autoDetectedZoneName, setAutoDetectedZoneName] = useState<string | null>(null);
 
   const selectedZone = useMemo(() => {
     if (!hasZones) return null;
-    return branch.deliveryZones.find((z: any) => z.id === selectedZoneId) || branch.deliveryZones[0];
-  }, [hasZones, branch.deliveryZones, selectedZoneId]);
+    return branch.deliveryZones.find((z: any) => z.id === selectedZoneId) || (isManualZones ? null : branch.deliveryZones[0]);
+  }, [hasZones, isManualZones, branch.deliveryZones, selectedZoneId]);
+
+  const isZoneSelectionMissing = orderType === 'DELIVERY' && isManualZones && !selectedZone;
 
   // مطابقة منطقة التوصيل الأقرب تلقائياً عند تحديد موقع العميل بالـ GPS أو اكتشاف اسم المنطقة مع مراعاة النطاق والاتجاهات
   useEffect(() => {
-    if (!hasZones || !capturedCoords || !branch.deliveryZones?.length) return;
+    if (!hasZones || isManualZones || !capturedCoords || !branch.deliveryZones?.length) return;
 
     let bestZoneId: string | null = null;
     let minDistance = Infinity;
@@ -1065,6 +1113,12 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         );
         return;
       }
+    }
+
+    if (orderType === 'DELIVERY' && isZoneSelectionMissing) {
+      setError('يرجى اختيار منطقة التوصيل من القائمة أولاً');
+      setIsZoneModalOpen(true);
+      return;
     }
 
     try {
@@ -1623,11 +1677,15 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsZoneModalOpen(true)}
-                    className="w-full bg-slate-50 hover:bg-slate-100/90 border border-slate-200 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-right flex items-center justify-between transition-all cursor-pointer shadow-2xs group"
+                    className={`w-full border rounded-xl px-3.5 py-2.5 text-right flex items-center justify-between transition-all cursor-pointer shadow-2xs group ${
+                      isZoneSelectionMissing
+                        ? 'bg-amber-50/90 border-amber-400 ring-2 ring-amber-300'
+                        : 'bg-slate-50 hover:bg-slate-100/90 border-slate-200 focus:border-indigo-500'
+                    }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                        {cleanZoneName(selectedZone?.name) || 'اختر منطقة التوصيل...'}
+                      <span className={`text-xs sm:text-sm font-bold truncate ${isZoneSelectionMissing ? 'text-amber-900 font-black' : 'text-slate-900'}`}>
+                        {selectedZone ? cleanZoneName(selectedZone.name) : '⚠️ -- برجاء اختيار المنطقة * --'}
                       </span>
                       {selectedZone && (
                         <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md shrink-0">
@@ -2614,7 +2672,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               isBranchOffline ||
               isBranchBusy ||
               (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
-              isOutOfDeliveryZone
+              isOutOfDeliveryZone ||
+              isZoneSelectionMissing
             }
             className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black shadow-lg transition-all flex items-center justify-between ${
               loading ||
@@ -2623,7 +2682,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               isBranchOffline ||
               isBranchBusy ||
               (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
-              isOutOfDeliveryZone
+              isOutOfDeliveryZone ||
+              isZoneSelectionMissing
                 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
                 : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white shadow-indigo-600/25 cursor-pointer'
             }`}
@@ -2634,6 +2694,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   ? 'جاري إرسال الطلب وتثبيت الموقع...'
                   : isOutOfDeliveryZone
                   ? 'المطعم خارج نطاق التوصيل'
+                  : isZoneSelectionMissing
+                  ? 'برجاء اختيار منطقة التوصيل *'
                   : branch.isActive === false
                   ? 'المطعم موقوف حالياً'
                   : isBranchOffline
@@ -2686,6 +2748,13 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {isManualZones && (
+              <div className="mb-2.5 p-3 bg-amber-50 border border-amber-200/90 rounded-2xl text-amber-900 text-xs font-bold flex items-center gap-2 shrink-0">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>برجاء اختيار المنطقة الخاصة بك من القائمة المعتمدة أدناه:</span>
+              </div>
+            )}
 
             {/* Radio Items List - Exactly like Screenshot 4 */}
             <div className="space-y-2 overflow-y-auto py-1 flex-1">

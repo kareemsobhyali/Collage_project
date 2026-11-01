@@ -610,8 +610,10 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
       where: { branchId: id },
       update: {
         cashEnabled: true, // الدفع كاش إجباري دائم في كل المطاعم
+        adminVodafoneAllowed: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : undefined,
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : undefined,
         vodafoneCashNumber: vodafoneCashNumber !== undefined ? vodafoneCashNumber : undefined,
+        adminInstapayAllowed: instapayEnabled !== undefined ? Boolean(instapayEnabled) : undefined,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : undefined,
         instapayHandle: instapayHandle !== undefined ? instapayHandle : undefined,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : undefined,
@@ -620,8 +622,10 @@ router.put("/branches/:id/payment-methods", async (req: AuthRequest, res: Respon
       create: {
         branchId: id,
         cashEnabled: true, // إجباري دائم
+        adminVodafoneAllowed: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : false,
         vodafoneCashEnabled: vodafoneCashEnabled !== undefined ? Boolean(vodafoneCashEnabled) : false,
         vodafoneCashNumber: vodafoneCashNumber || null,
+        adminInstapayAllowed: instapayEnabled !== undefined ? Boolean(instapayEnabled) : false,
         instapayEnabled: instapayEnabled !== undefined ? Boolean(instapayEnabled) : false,
         instapayHandle: instapayHandle || null,
         cardEnabled: cardEnabled !== undefined ? Boolean(cardEnabled) : false,

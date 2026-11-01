@@ -54,6 +54,11 @@ model Branch {
   freeDeliveryStartTime      String?               // موعد بدء التوصيل المجاني يومياً (اختياري)
   freeDeliveryEndTime        String?               // موعد انتهاء التوصيل المجاني يومياً (اختياري)
   freeDeliveryIncludesDeals  Boolean               @default(true)  // هل يشمل التوصيل المجاني الطلبات التي تحتوي على عروض
+  googleMapsUrl              String?               // رابط الموقع على خرائط جوجل
+  deliveryZoneMode           String?               @default("GPS_RADIUS") // "GPS_RADIUS" | "MANUAL_ZONES"
+  spinWheelEnabled           Boolean               @default(true)  // تشغيل أو إيقاف عجلة الحظ
+  spinWheelCouponDays        Int                   @default(7)     // مدة صلاحية كوبونات عجلة الحظ بالأيام
+  spinWheelPrizes            String?               // تخصيص جوائز ونسب عجلة الحظ (JSON)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
   users             BranchUser[]
@@ -87,8 +92,10 @@ model BranchPaymentConfig {
   branchId            String   @unique
   branch              Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   cashEnabled         Boolean  @default(true)
+  adminVodafoneAllowed Boolean @default(true) // تحكم الإدارة في إتاحة فودافون كاش
   vodafoneCashEnabled Boolean  @default(false)
   vodafoneCashNumber  String?
+  adminInstapayAllowed Boolean @default(true) // تحكم الإدارة في إتاحة إنستاباي
   instapayEnabled     Boolean  @default(false)
   instapayHandle      String?
   cardEnabled         Boolean  @default(false)
