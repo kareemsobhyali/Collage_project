@@ -361,6 +361,17 @@ export const api = {
     return data;
   },
 
+  // 8.65 تدوير عجلة الحظ وكسب مكافأة
+  async spinWheel(orderId: string) {
+    const res = await fetch(`${API_BASE_URL}/customer/orders/${orderId}/spin-wheel`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تدوير عجلة الحظ');
+    return data;
+  },
+
   // 8.7 جلب البانرات الإعلانية النشطة
   async getBanners() {
     const res = await fetch(`${API_BASE_URL}/customer/banners`);

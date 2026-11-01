@@ -230,6 +230,8 @@ model Order {
   driverPickedUpAt   DateTime?
   groupCartDetails   String?         // JSON: تفاصيل تقسيم الأكياس بأسماء الطلاب (كيس أحمد، كيس محمد..)
   unacceptedAlertSent Boolean        @default(false) // تم إرسال تنبيه بالواتساب عند التأخر في القبول
+  wheelSpun          Boolean         @default(false) // هل قام العميل بتدوير عجلة الحظ لهذا الطلب
+  wheelReward        String?         // تفاصيل الجائزة التي فاز بها العميل (JSON)
   items              OrderItem[]
 
   @@index([branchId])

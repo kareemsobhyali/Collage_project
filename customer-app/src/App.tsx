@@ -25,6 +25,7 @@ import { ProfileModal } from './components/ProfileModal';
 const AdminPage = React.lazy(() => import('./components/AdminPage').then(m => ({ default: m.AdminPage })));
 const DriverPortal = React.lazy(() => import('./components/DriverPortal').then(m => ({ default: m.DriverPortal })));
 import { GroupCartModal } from './components/GroupCartModal';
+import { SpinTheWheelModal } from './components/SpinTheWheelModal';
 import { Logo } from './components/Logo';
 import { InstallApkPage, parseApkRoute } from './components/InstallApkPage';
 
@@ -315,6 +316,7 @@ export function App() {
   const [trackingOrder, setTrackingOrder] = useState<any | null>(null);
   const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [wheelOrder, setWheelOrder] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [activationToast, setActivationToast] = useState<string | null>(null);
   const [showExitAppDialog, setShowExitAppDialog] = useState(false);
@@ -326,6 +328,7 @@ export function App() {
     showGroupCartModal ||
     showProfileModal ||
     trackingOrder ||
+    wheelOrder ||
     showMyOrdersModal ||
     showAuthModal ||
     showExitAppDialog
@@ -1574,6 +1577,7 @@ export function App() {
           onRequireAuth={() => setShowAuthModal(true)}
           onOrderSuccess={(createdOrder) => {
             setTrackingOrder(createdOrder);
+            setWheelOrder(createdOrder);
             window.dispatchEvent(new CustomEvent('order_created', { detail: createdOrder }));
             setGroupCartDetailsForCheckout(null);
             handleActiveGroupCodeChange(null);
@@ -1660,6 +1664,24 @@ export function App() {
             }
           }}
           onClose={() => setTrackingOrder(null)}
+        />
+      )}
+
+      {wheelOrder && (
+        <SpinTheWheelModal
+          order={wheelOrder}
+          onClose={() => setWheelOrder(null)}
+          onRewardClaimed={(_prize, updatedUser) => {
+            if (updatedUser) {
+              setUser((prev: any) => ({ ...prev, ...updatedUser }));
+              try {
+                const cur = localStorage.getItem('customer_user');
+                if (cur) {
+                  localStorage.setItem('customer_user', JSON.stringify({ ...JSON.parse(cur), ...updatedUser }));
+                }
+              } catch (_e) {}
+            }
+          }}
         />
       )}
 

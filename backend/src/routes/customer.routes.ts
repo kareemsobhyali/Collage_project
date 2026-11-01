@@ -2715,6 +2715,113 @@ router.post("/orders/:id/rate", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 6.5 تدوير عجلة الحظ وكسب مكافأة بعد إتمام الطلب (Spin The Wheel Gamification)
+router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const userId = req.user!.userId;
+
+    const order = await prisma.order.findFirst({
+      where: { id, userId },
+      include: { branch: true },
+    });
+
+    if (!order) {
+      res.status(404).json({ error: "الطلب غير موجود أو لا يتبع هذا الحساب" });
+      return;
+    }
+
+    if (order.wheelSpun) {
+      res.status(400).json({ error: "لقد قمت بتدوير عجلة الحظ لهذا الطلب بالفعل! 🎡" });
+      return;
+    }
+
+    // جوائز عجلة الحظ المتاحة مع الأوزان التناسبية
+    const PRIZES = [
+      { id: "POINTS_10", type: "POINTS", amount: 10, label: "10 نقاط ولاء للمحفظة", icon: "🎁", weight: 35 },
+      { id: "DISCOUNT_10", type: "COUPON", percent: 10, label: "خصم 10% على طلبك القادم", icon: "🏷️", weight: 20 },
+      { id: "POINTS_5", type: "POINTS", amount: 5, label: "5 نقاط ولاء للمحفظة", icon: "🌟", weight: 20 },
+      { id: "DISCOUNT_15", type: "COUPON", percent: 15, label: "خصم 15% على طلبك القادم", icon: "🔥", weight: 10 },
+      { id: "POINTS_20", type: "POINTS", amount: 20, label: "20 نقطة ولاء للمحفظة", icon: "💎", weight: 10 },
+      { id: "FREE_DELIVERY", type: "FREE_DELIVERY", percent: 100, label: "توصيل مجاني لطلبك القادم", icon: "🚚", weight: 5 },
+    ];
+
+    // السحب العشوائي الموزون
+    const totalWeight = PRIZES.reduce((sum, p) => sum + p.weight, 0);
+    let rand = Math.random() * totalWeight;
+    let selectedPrize = PRIZES[0];
+    for (const p of PRIZES) {
+      if (rand < p.weight) {
+        selectedPrize = p;
+        break;
+      }
+      rand -= p.weight;
+    }
+
+    let couponCode: string | null = null;
+
+    if (selectedPrize.type === "POINTS") {
+      // إيداع النقاط فوراً في حساب المستخدم
+      await prisma.user.update({
+        where: { id: userId },
+        data: { loyaltyPoints: { increment: selectedPrize.amount } },
+      });
+    } else if (selectedPrize.type === "COUPON" || selectedPrize.type === "FREE_DELIVERY") {
+      // توليد كود خصم خاص بالعميل صالح للاستخدام
+      const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      couponCode = `LUCKY-${randSuffix}`;
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // صالح لمدة أسبوع
+
+      await prisma.promoCode.create({
+        data: {
+          code: couponCode,
+          branchId: order.branchId,
+          discountType: "PERCENT",
+          value: selectedPrize.type === "FREE_DELIVERY" ? 100 : (selectedPrize.percent || 10),
+          maxUses: 1,
+          oncePerUser: true,
+          expiresAt,
+          targetType: "SPECIFIC_STUDENT",
+          targetStudentPhone: order.customerPhone,
+          targetStudentName: order.customerName,
+          title: `هدية عجلة الحظ 🎡: ${selectedPrize.label}`,
+        },
+      }).catch(() => {
+        couponCode = `GIFT-${Date.now().toString().slice(-4)}`;
+      });
+    }
+
+    const prizeData = {
+      ...selectedPrize,
+      couponCode,
+    };
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        wheelSpun: true,
+        wheelReward: JSON.stringify(prizeData),
+      },
+    });
+
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { loyaltyPoints: true, walletBalance: true },
+    });
+
+    res.json({
+      success: true,
+      prize: prizeData,
+      order: updatedOrder,
+      user: updatedUser,
+      message: `مبروك! فزت بـ ${selectedPrize.label} 🎉`,
+    });
+  } catch (error) {
+    console.error("Spin wheel error:", error);
+    res.status(500).json({ error: "فشل تدوير عجلة الحظ" });
+  }
+});
+
 // 7. جلب عناوين العميل المحفوظة
 router.get("/addresses", async (req: AuthRequest, res: Response) => {
   try {

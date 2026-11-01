@@ -35,6 +35,7 @@ import {
 import { api, getFullImageUrl, isBranchOpenByHours, sanitizePromoCodeValue } from '../services/api';
 import { getDisplayAddress, getStoredClientCoords, isBranchInDeliveryZone } from '../services/campusLocations';
 import { getItemFallbackImage } from '../utils/foodImages';
+import { SmartRecommenderModal } from './SmartRecommenderModal';
 
 interface BranchMenuProps {
   branch: any;
@@ -468,6 +469,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
   const [branchTab, setBranchTab] = useState<'RESTAURANT' | 'ORDERS' | 'DEALS'>('RESTAURANT');
   const [activeCategoryId, setActiveCategoryId] = useState<string>('ALL');
   const [showReviewsModal, setShowReviewsModal] = useState<boolean>(false);
+  const [showRecommenderModal, setShowRecommenderModal] = useState<boolean>(false);
   const [copiedDirectLink, setCopiedDirectLink] = useState(false);
 
   // العروض والصفقات الخاطفة والبانرات التابعة للفرع
@@ -1126,6 +1128,16 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
                 ref={categoryPillsRef}
                 className="flex items-center gap-1.5 overflow-x-auto pt-3 border-t border-slate-100 no-scrollbar select-none"
               >
+                <button
+                  type="button"
+                  id="pill-RECOMMENDER"
+                  onClick={() => setShowRecommenderModal(true)}
+                  className="px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 cursor-pointer bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-md shadow-orange-500/25 active:scale-95"
+                >
+                  <span className="text-sm">🎲</span>
+                  <span>مش عارف تختار؟</span>
+                </button>
+
                 <button
                   id="pill-ALL"
                   onClick={() => handleCategoryClick('ALL')}
@@ -1981,6 +1993,16 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
             </span>
           </button>
         </div>
+      )}
+
+      {/* نافذة الترشيح الذكي (مش عارف تختار إيه؟) */}
+      {showRecommenderModal && (
+        <SmartRecommenderModal
+          branch={branch}
+          categories={categories}
+          onSelectItem={onSelectItem}
+          onClose={() => setShowRecommenderModal(false)}
+        />
       )}
     </div>
   );

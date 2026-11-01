@@ -714,6 +714,8 @@ async function autoSyncDatabaseSchema() {
       );`,
       `ALTER TABLE "BranchBlockedCustomer" ADD COLUMN IF NOT EXISTS "isBlocked" BOOLEAN DEFAULT true;`,
       `ALTER TABLE "BranchBlockedCustomer" ADD COLUMN IF NOT EXISTS "notes" TEXT;`,
+      `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "wheelSpun" BOOLEAN DEFAULT false;`,
+      `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "wheelReward" TEXT;`,
       `ALTER TABLE "GroupCart" ADD COLUMN IF NOT EXISTS "hostToken" TEXT;`,
       `ALTER TABLE "GroupCartItem" ADD COLUMN IF NOT EXISTS "deleteKey" TEXT;`,
       `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "requirePaymentProof" BOOLEAN NOT NULL DEFAULT true;`,

@@ -22,6 +22,7 @@ import {
 import { api, API_BASE_URL } from '../services/api';
 import { notifyOrderStatusPush, sendWebNotification } from '../services/notifications';
 import { LiveOrderMap } from './LiveOrderMap';
+import { SpinTheWheelModal } from './SpinTheWheelModal';
 import { extractCoordinatesFromAddress, cleanAddressText, getDisplayAddress, DEFAULT_CAMPUS_RESTAURANT_COORDS, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
 
 interface OrderTrackingModalProps {
@@ -72,6 +73,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
   const [currentTime, setCurrentTime] = useState<number>(Date.now());
   const [refreshingOrder, setRefreshingOrder] = useState<boolean>(false);
+  const [showWheelModal, setShowWheelModal] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   // مزامنة حالة الطلب فوراً عند تغير الـ prop من الشاشة الأب (App.tsx)
@@ -543,6 +545,55 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
 
         {/* Content */}
         <div className="p-5 sm:p-6 overflow-y-auto modal-scroll flex-1 space-y-5">
+          {/* عجلة الحظ لكسب هدية الطلب */}
+          {!order.wheelSpun && status !== 'REJECTED' && status !== 'CANCELLED' && (
+            <div className="p-3.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-2xl text-white shadow-md flex items-center justify-between gap-2.5 animate-fadeIn">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-2xl shrink-0 animate-bounce">🎡</span>
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm font-black block leading-tight">
+                    عندك لفة حظ مجانية لهذا الطلب! 🎁
+                  </span>
+                  <span className="text-[10px] text-white/90 block leading-tight mt-0.5 truncate">
+                    اكسب نقاط ولاء أو كود خصم لطلبك القادم
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWheelModal(true)}
+                className="px-3 py-1.5 bg-white text-orange-900 hover:bg-orange-50 rounded-xl text-xs font-black shadow-sm transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer"
+              >
+                لِف واكسب 🎡
+              </button>
+            </div>
+          )}
+
+          {order.wheelSpun && order.wheelReward && (
+            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base shrink-0">🎡</span>
+                <span className="text-[11px] font-bold truncate">
+                  هدية عجلة الحظ: {(() => {
+                    try {
+                      const r = typeof order.wheelReward === 'string' ? JSON.parse(order.wheelReward) : order.wheelReward;
+                      return r?.label || 'مكافأة مميزة';
+                    } catch {
+                      return 'مكافأة مميزة';
+                    }
+                  })()}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWheelModal(true)}
+                className="text-[10px] text-amber-800 underline font-black shrink-0 cursor-pointer"
+              >
+                عرض الهدية
+              </button>
+            </div>
+          )}
+
           {/* Total Fulfillment Celebration Banner if Completed */}
           {status === 'COMPLETED' && totalMins !== null && (
             <div className="p-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl text-white shadow-md flex items-center justify-between animate-fadeIn">
@@ -1081,6 +1132,25 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
               </div>
             </div>
           </div>
+        )}
+
+        {/* نافذة عجلة الحظ */}
+        {showWheelModal && (
+          <SpinTheWheelModal
+            order={order}
+            onClose={() => setShowWheelModal(false)}
+            onRewardClaimed={(prize) => {
+              const updated = {
+                ...order,
+                wheelSpun: true,
+                wheelReward: JSON.stringify(prize),
+              };
+              setOrder(updated);
+              if (onOrderUpdated) {
+                onOrderUpdated(updated);
+              }
+            }}
+          />
         )}
       </div>
     </div>
