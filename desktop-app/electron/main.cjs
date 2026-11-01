@@ -148,22 +148,87 @@ ipcMain.on('print-receipt', (event, payload = {}) => {
   }
 });
 
-// 3. معالج إظهار نافذة البرنامج في الواجهة تلقائياً فوق أي برنامج آخر عند وصول طلب جديد (Auto focus & bring to front)
+// 3. معالجات إظهار نافذة البرنامج في الواجهة وتثبيتها في المقدمة وأخذ الفوكس تلقائياً (Bring to Front, Window Focus & Always on Top)
+let isPinnedAlwaysOnTop = false;
+
+function forceBringToFront(keepAlwaysOnTop = true) {
+  if (!mainWindow) return;
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+
+  // رفع النافذة لمستوى screen-saver لضمان قفزها فوق كافة النوافذ والألعاب والتطبيقات المفتوحة
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  mainWindow.moveTop();
+  mainWindow.focus();
+  mainWindow.webContents.focus();
+  mainWindow.flashFrame(true);
+
+  if (keepAlwaysOnTop) {
+    isPinnedAlwaysOnTop = true;
+    try {
+      mainWindow.webContents.send('always-on-top-changed', true);
+    } catch (_e) {}
+  } else if (!isPinnedAlwaysOnTop) {
+    // إبقاء النافذة في المقدمة لعدة ثوانٍ لضمان وصول التنبيه للكاشير
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed() && !isPinnedAlwaysOnTop) {
+        mainWindow.setAlwaysOnTop(false);
+        try {
+          mainWindow.webContents.send('always-on-top-changed', false);
+        } catch (_e) {}
+      }
+    }, 4000);
+  }
+}
+
 ipcMain.on('bring-to-front', () => {
+  forceBringToFront(true);
+});
+
+ipcMain.on('window-focus', () => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
-    if (!mainWindow.isVisible()) mainWindow.show();
-    mainWindow.setAlwaysOnTop(true, 'screen-saver');
-    mainWindow.focus();
+    mainWindow.show();
     mainWindow.moveTop();
-    mainWindow.flashFrame(true);
-    // إبقاء النافذة في المقدمة لثانيتين لضمان رفعها فوق أي تطبيق آخر مفتوح على الويندوز
-    setTimeout(() => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.setAlwaysOnTop(false);
-      }
-    }, 2000);
+    mainWindow.focus();
+    mainWindow.webContents.focus();
   }
+});
+
+ipcMain.on('set-always-on-top', (_event, flag) => {
+  if (mainWindow) {
+    isPinnedAlwaysOnTop = Boolean(flag);
+    mainWindow.setAlwaysOnTop(isPinnedAlwaysOnTop, 'screen-saver');
+    if (isPinnedAlwaysOnTop) {
+      mainWindow.moveTop();
+    }
+    try {
+      mainWindow.webContents.send('always-on-top-changed', isPinnedAlwaysOnTop);
+    } catch (_e) {}
+  }
+});
+
+ipcMain.on('toggle-always-on-top', () => {
+  if (mainWindow) {
+    isPinnedAlwaysOnTop = !isPinnedAlwaysOnTop;
+    mainWindow.setAlwaysOnTop(isPinnedAlwaysOnTop, 'screen-saver');
+    if (isPinnedAlwaysOnTop) {
+      mainWindow.moveTop();
+    }
+    try {
+      mainWindow.webContents.send('always-on-top-changed', isPinnedAlwaysOnTop);
+    } catch (_e) {}
+  }
+});
+
+ipcMain.handle('is-always-on-top', () => {
+  return isPinnedAlwaysOnTop;
 });
 
 // 4. معالجات وضع ملء الشاشة (Full Screen)

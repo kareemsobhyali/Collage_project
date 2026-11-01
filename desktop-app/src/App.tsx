@@ -26,6 +26,7 @@ import {
   EyeOff,
   Maximize2,
   Minimize2,
+  Pin,
   X
 } from 'lucide-react';
 import { api, syncRemoteServerConfig, getPublicWebUrl } from './services/api';
@@ -164,6 +165,33 @@ export function App() {
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
+
+  // وضع تثبيت النافذة في المقدمة دائماً (Always on Top)
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState<boolean>(false);
+
+  useEffect(() => {
+    if ((window as any).electronAPI?.on) {
+      const unsub = (window as any).electronAPI.on('always-on-top-changed', (active: boolean) => {
+        setIsAlwaysOnTop(Boolean(active));
+      });
+      return unsub;
+    }
+  }, []);
+
+  const toggleAlwaysOnTop = () => {
+    try {
+      if ((window as any).electronAPI?.send) {
+        const next = !isAlwaysOnTop;
+        (window as any).electronAPI.send('set-always-on-top', next);
+        setIsAlwaysOnTop(next);
+        if (next) {
+          toast.success('تم تثبيت النافذة في المقدمة دائماً فوق كل البرامج (Always on Top) 📌');
+        } else {
+          toast.info('تم إلغاء تثبيت النافذة في المقدمة');
+        }
+      }
+    } catch (_e) {}
+  };
 
   // محاولة الدخول في وضع ملء الشاشة الكامل تلقائياً عند أول نقرة أو لمس من الكاشير
   useEffect(() => {
@@ -386,9 +414,11 @@ export function App() {
 
     // استلام طلب جديد لحظياً!
     socket.on('new_order', (newOrder: any) => {
-      // 1. نقل شاشة البرنامج للواجهة تلقائياً فوق أي نافذة مفتوحة
+      // 1. نقل شاشة البرنامج للواجهة وتثبيتها في المقدمة وأخذ الفوكس فوراً فوق أي برنامج
       try {
         (window as any).electronAPI?.send?.('bring-to-front');
+        (window as any).electronAPI?.send?.('set-always-on-top', true);
+        (window as any).electronAPI?.send?.('window-focus');
       } catch (_e) {}
 
       try {
@@ -506,6 +536,9 @@ export function App() {
         const hasPending = next.some(o => o.status === 'PENDING');
         if (!hasPending) {
           soundNotifier.stopRepeatingAlarm();
+          try {
+            (window as any).electronAPI?.send?.('set-always-on-top', false);
+          } catch (_e) {}
         }
         return next;
       });
@@ -867,6 +900,21 @@ export function App() {
             >
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
+
+            {/* Always On Top Toggle (تثبيت النافذة في المقدمة دائماً) */}
+            {((typeof window !== 'undefined' && (window as any).electronAPI?.isElectron) || isAlwaysOnTop) && (
+              <button
+                onClick={toggleAlwaysOnTop}
+                className={`h-8 w-8 sm:h-9 sm:w-9 rounded-xl border flex items-center justify-center transition-colors shrink-0 shadow-2xs ${
+                  isAlwaysOnTop
+                    ? 'bg-amber-500 text-white border-amber-600 shadow-sm shadow-amber-500/30 ring-2 ring-amber-400/50'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-amber-600'
+                }`}
+                title={isAlwaysOnTop ? 'النافذة مثبتة في المقدمة فوق كل البرامج (Always on Top) - اضغط للإلغاء' : 'تثبيت النافذة في المقدمة دائماً فوق البرامج الأخرى (Always on Top 📌)'}
+              >
+                <Pin className={`w-3.5 h-3.5 transition-transform ${isAlwaysOnTop ? 'rotate-45' : ''}`} />
+              </button>
+            )}
 
             {/* Refresh */}
             <button
