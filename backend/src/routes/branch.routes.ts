@@ -128,9 +128,36 @@ router.get("/profile", async (req: AuthRequest, res: Response) => {
       });
     }
 
-    res.json(branch);
+    res.json({
+      ...branch,
+      hasSettingsPassword: Boolean(branch.settingsPassword),
+    });
   } catch (error) {
     res.status(500).json({ error: "فشل استرجاع بيانات الفرع" });
+  }
+});
+
+// التحقق من كلمة مرور قفل شاشة إعدادات الفرع
+router.post("/verify-settings-password", async (req: AuthRequest, res: Response) => {
+  try {
+    const { password } = req.body;
+    const branch = await prisma.branch.findUnique({
+      where: { id: req.branch!.branchId },
+      select: { settingsPassword: true },
+    });
+
+    if (!branch?.settingsPassword) {
+      return res.json({ success: true, verified: true });
+    }
+
+    if (String(password || '').trim() === branch.settingsPassword.trim()) {
+      return res.json({ success: true, verified: true });
+    }
+
+    return res.status(401).json({ error: "كلمة مرور إعدادات الفرع غير صحيحة" });
+  } catch (error) {
+    console.error("Verify settings password error:", error);
+    res.status(500).json({ error: "حدث خطأ أثناء التحقق من كلمة المرور" });
   }
 });
 

@@ -170,6 +170,18 @@ export const api = {
     return result;
   },
 
+  // 2.7 التحقق من كلمة مرور إعدادات الفرع
+  async verifySettingsPassword(password: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/verify-settings-password`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ password }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'كلمة المرور غير صحيحة');
+    return result;
+  },
+
   // 2.65 إدارة مناطق التوصيل المخصصة
   async getDeliveryZones() {
     const res = await fetch(`${API_BASE_URL}/branch/delivery-zones`, {

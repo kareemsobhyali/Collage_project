@@ -9,6 +9,7 @@ function createWindow() {
     height: 850,
     minWidth: 1024,
     minHeight: 700,
+    fullscreen: true,
     title: 'نظام مطاعم الجامعة - لوحة الفرع واستقبال الطلبات',
     autoHideMenuBar: true,
     webPreferences: {
@@ -17,6 +18,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
+
+  mainWindow.maximize();
+  mainWindow.setFullScreen(true);
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
@@ -106,15 +110,34 @@ ipcMain.on('print-receipt', (event, payload = {}) => {
   }
 });
 
-// 3. معالج إظهار نافذة البرنامج في الواجهة تلقائياً عند وصول طلب جديد (Auto focus & bring to front)
+// 3. معالج إظهار نافذة البرنامج في الواجهة تلقائياً فوق أي برنامج آخر عند وصول طلب جديد (Auto focus & bring to front)
 ipcMain.on('bring-to-front', () => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     if (!mainWindow.isVisible()) mainWindow.show();
-    mainWindow.setAlwaysOnTop(true);
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
     mainWindow.focus();
-    mainWindow.setAlwaysOnTop(false);
+    mainWindow.moveTop();
     mainWindow.flashFrame(true);
+    // إبقاء النافذة في المقدمة لثانيتين لضمان رفعها فوق أي تطبيق آخر مفتوح على الويندوز
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setAlwaysOnTop(false);
+      }
+    }, 2000);
+  }
+});
+
+// 4. معالجات وضع ملء الشاشة (Full Screen)
+ipcMain.on('set-fullscreen', (_event, flag) => {
+  if (mainWindow) {
+    mainWindow.setFullScreen(Boolean(flag));
+  }
+});
+
+ipcMain.on('toggle-fullscreen', () => {
+  if (mainWindow) {
+    mainWindow.setFullScreen(!mainWindow.isFullScreen());
   }
 });
 

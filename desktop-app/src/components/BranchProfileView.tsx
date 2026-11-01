@@ -52,14 +52,37 @@ import {
   printTestReceipt 
 } from '../services/printer';
 
+export interface SpinWheelPrizeItem {
+  id: string;
+  label: string;
+  type: 'COUPON' | 'POINTS' | 'FREE_ITEM' | 'FREE_DELIVERY' | 'BETTER_LUCK';
+  discountType?: 'PERCENT' | 'FIXED';
+  value: string | number;
+  minOrder?: number;
+  weight: number;
+  icon: string;
+  color?: string;
+}
+
+const DEFAULT_SPIN_PRIZES: SpinWheelPrizeItem[] = [
+  { id: 'prize_1', label: '10 نقاط ولاء للمحفظة', type: 'POINTS', value: 10, weight: 25, icon: '🌟', color: '#6366f1' },
+  { id: 'prize_2', label: 'خصم 10% على طلبك القادم', type: 'COUPON', discountType: 'PERCENT', value: 10, minOrder: 0, weight: 20, icon: '🏷️', color: '#f59e0b' },
+  { id: 'prize_3', label: '5 نقاط ولاء للمحفظة', type: 'POINTS', value: 5, weight: 20, icon: '🎁', color: '#ec4899' },
+  { id: 'prize_4', label: 'وجبة / صنف هدية (كانز بيبسي)', type: 'FREE_ITEM', value: 'كانز بيبسي هدية', weight: 15, icon: '🍔', color: '#10b981' },
+  { id: 'prize_5', label: 'توصيل مجاني لطلبك القادم', type: 'FREE_DELIVERY', value: 100, weight: 10, icon: '🚚', color: '#06b6d4' },
+  { id: 'prize_6', label: 'حظ أوفر في المرة القادمة', type: 'BETTER_LUCK', value: 0, weight: 10, icon: '🍀', color: '#8b5cf6' },
+];
+
 interface BranchProfileViewProps {
   branch: any;
   onUpdateBranch?: (updatedBranch: any) => void;
+  onLockSettings?: () => void;
 }
 
 export const BranchProfileView: React.FC<BranchProfileViewProps> = ({ 
   branch, 
-  onUpdateBranch 
+  onUpdateBranch,
+  onLockSettings,
 }) => {
   // 1. Branch Details States
   const [name, setName] = useState(branch?.name || '');
@@ -69,7 +92,15 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [deliveryZoneMode, setDeliveryZoneMode] = useState<'GPS_RADIUS' | 'MANUAL_ZONES'>(branch?.deliveryZoneMode || 'GPS_RADIUS');
   const [spinWheelEnabled, setSpinWheelEnabled] = useState<boolean>(branch?.spinWheelEnabled ?? true);
   const [spinWheelCouponDays, setSpinWheelCouponDays] = useState<string>(String(branch?.spinWheelCouponDays ?? 7));
-  const [spinWheelPrizes, setSpinWheelPrizes] = useState<string>(branch?.spinWheelPrizes || '');
+  const [wheelPrizes, setWheelPrizes] = useState<SpinWheelPrizeItem[]>(() => {
+    if (branch?.spinWheelPrizes) {
+      try {
+        const parsed = JSON.parse(branch.spinWheelPrizes);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (_e) {}
+    }
+    return DEFAULT_SPIN_PRIZES;
+  });
   const [logoUrl, setLogoUrl] = useState(branch?.logoUrl || '');
   const [logoError, setLogoError] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -185,7 +216,14 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       setDeliveryZoneMode(branch.deliveryZoneMode || 'GPS_RADIUS');
       setSpinWheelEnabled(branch.spinWheelEnabled ?? true);
       setSpinWheelCouponDays(String(branch.spinWheelCouponDays ?? 7));
-      setSpinWheelPrizes(branch.spinWheelPrizes || '');
+      if (branch.spinWheelPrizes) {
+        try {
+          const parsed = JSON.parse(branch.spinWheelPrizes);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setWheelPrizes(parsed);
+          }
+        } catch (_e) {}
+      }
       setLogoUrl(branch.logoUrl || '');
       setLogoError(false);
       setDeliveryType(branch.deliveryType || 'FIXED');
@@ -369,6 +407,57 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     }
   };
 
+  // Spin Wheel Configuration Helpers
+  const totalWeight = wheelPrizes.reduce((sum, p) => sum + (Number(p.weight) || 0), 0);
+
+  const handleAddPrize = () => {
+    const newId = `prize_${Date.now()}`;
+    const colors = ['#6366f1', '#f59e0b', '#ec4899', '#10b981', '#8b5cf6', '#06b6d4', '#ef4444', '#14b8a6', '#f97316'];
+    const randomColor = colors[wheelPrizes.length % colors.length];
+    setWheelPrizes(prev => [
+      ...prev,
+      {
+        id: newId,
+        label: 'جائزة جديدة',
+        type: 'COUPON',
+        discountType: 'PERCENT',
+        value: 10,
+        minOrder: 0,
+        weight: 10,
+        icon: '🎁',
+        color: randomColor,
+      }
+    ]);
+  };
+
+  const handleRemovePrize = (index: number) => {
+    if (wheelPrizes.length <= 2) {
+      toast.error('يجب الإبقاء على جائزتين على الأقل في عجلة الحظ');
+      return;
+    }
+    setWheelPrizes(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdatePrize = (index: number, updates: Partial<SpinWheelPrizeItem>) => {
+    setWheelPrizes(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
+  };
+
+  const handleAutoBalanceWeights = () => {
+    if (wheelPrizes.length === 0) return;
+    const equalWeight = Math.floor(100 / wheelPrizes.length);
+    const remainder = 100 - (equalWeight * wheelPrizes.length);
+    setWheelPrizes(prev => prev.map((item, idx) => ({
+      ...item,
+      weight: equalWeight + (idx === 0 ? remainder : 0)
+    })));
+    toast.success('تمت موازنة نسب الظهور بالتساوي ليصبح الإجمالي 100% ⚖️');
+  };
+
+  const handleResetDefaultPrizes = () => {
+    setWheelPrizes(DEFAULT_SPIN_PRIZES);
+    toast.success('تمت استعادة الجوائز الافتراضية');
+  };
+
   // Handle Save Branch Details
   const handleSaveDetails = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -410,7 +499,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         deliveryZoneMode,
         spinWheelEnabled,
         spinWheelCouponDays: parseInt(spinWheelCouponDays, 10) || 7,
-        spinWheelPrizes: spinWheelPrizes.trim() || undefined,
+        spinWheelPrizes: JSON.stringify(wheelPrizes),
       });
 
       if (res.branch) {
@@ -551,6 +640,18 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               </>
             )}
           </button>
+
+          {onLockSettings && (
+            <button
+              type="button"
+              onClick={onLockSettings}
+              className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+              title="قفل لوحة التحكمات والإعدادات فوراً"
+            >
+              <Lock className="w-4 h-4 text-amber-600" />
+              <span>قفل اللوحة 🔒</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1068,9 +1169,9 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                   </div>
 
                   {spinWheelEnabled && (
-                    <div className="space-y-3 pt-2 border-t border-amber-200/60 animate-fadeIn">
+                    <div className="space-y-4 pt-3 border-t border-amber-200/60 animate-fadeIn">
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">صلاحية كوبونات الخصم الممنوحة من العجلة (بالأيام)</label>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">صلاحية كوبونات الخصم والجوائز الممنوحة من العجلة (بالأيام)</label>
                         <input
                           type="number"
                           min="1"
@@ -1080,6 +1181,208 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                           className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         />
                         <span className="text-[10px] text-slate-500 mt-1 block">تكون الكوبونات صالحة لهذا العميل فقط ومرتبطة بحسابه وتُحفظ تلقائياً في قاعدة البيانات.</span>
+                      </div>
+
+                      {/* محرر خيارات وجوائز العجلة التفاعلي */}
+                      <div className="p-3.5 bg-white border border-amber-200 rounded-2xl space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                          <div>
+                            <span className="text-xs font-black text-slate-900 block">🎯 شرائح وجوائز العجلة ونسب ظهورها للعميل</span>
+                            <span className="text-[10px] text-slate-500 block">حدد الأصناف، الخصومات، النقاط، ونسبة احتمالية ظهور كل اختيار</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-black border ${
+                              totalWeight === 100 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              مجموع النسب: {totalWeight}% {totalWeight === 100 ? '✅' : '⚖️'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleAutoBalanceWeights}
+                              className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                              title="موازنة النسب بالتساوي ليصبح المجموع 100%"
+                            >
+                              موازنة 100% ⚖️
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleResetDefaultPrizes}
+                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                              title="استعادة الجوائز الافتراضية"
+                            >
+                              الافتراضي 🔄
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* قائمة الجوائز */}
+                        <div className="space-y-2.5">
+                          {wheelPrizes.map((prize, idx) => (
+                            <div key={prize.id || idx} className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-colors flex flex-col md:flex-row items-stretch md:items-center gap-2.5">
+                              {/* إيموجي / أيقونة */}
+                              <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-lg shrink-0 shadow-2xs">
+                                <input
+                                  type="text"
+                                  value={prize.icon}
+                                  onChange={e => handleUpdatePrize(idx, { icon: e.target.value })}
+                                  className="w-full h-full text-center bg-transparent border-0 focus:ring-0 p-0"
+                                  title="تغيير الإيموجي"
+                                />
+                              </div>
+
+                              {/* اسم الشريحة / الجائزة */}
+                              <div className="flex-1 min-w-0">
+                                <label className="text-[10px] font-bold text-slate-500 block mb-0.5">اسم الجائزة المعروض في العجلة</label>
+                                <input
+                                  type="text"
+                                  value={prize.label}
+                                  onChange={e => handleUpdatePrize(idx, { label: e.target.value })}
+                                  placeholder="اسم الجائزة..."
+                                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500"
+                                />
+                              </div>
+
+                              {/* نوع الجائزة */}
+                              <div className="w-full md:w-36 shrink-0">
+                                <label className="text-[10px] font-bold text-slate-500 block mb-0.5">النوع</label>
+                                <select
+                                  value={prize.type}
+                                  onChange={e => {
+                                    const newType = e.target.value as any;
+                                    let newLabel = prize.label;
+                                    let newVal = prize.value;
+                                    let icon = prize.icon;
+                                    if (newType === 'POINTS') {
+                                      newLabel = '10 نقاط ولاء';
+                                      newVal = 10;
+                                      icon = '🌟';
+                                    } else if (newType === 'COUPON') {
+                                      newLabel = 'خصم 10% على طلبك';
+                                      newVal = 10;
+                                      icon = '🏷️';
+                                    } else if (newType === 'FREE_ITEM') {
+                                      newLabel = 'كانز بيبسي هدية';
+                                      newVal = 'كانز بيبسي هدية';
+                                      icon = '🍔';
+                                    } else if (newType === 'FREE_DELIVERY') {
+                                      newLabel = 'توصيل مجاني لطلبك';
+                                      newVal = 100;
+                                      icon = '🚚';
+                                    } else if (newType === 'BETTER_LUCK') {
+                                      newLabel = 'حظ أوفر';
+                                      newVal = 0;
+                                      icon = '🍀';
+                                    }
+                                    handleUpdatePrize(idx, { type: newType, label: newLabel, value: newVal, icon });
+                                  }}
+                                  className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500"
+                                >
+                                  <option value="COUPON">🏷️ كوبون خصم</option>
+                                  <option value="POINTS">🌟 نقاط ولاء</option>
+                                  <option value="FREE_ITEM">🍔 وجبة / صنف هدية</option>
+                                  <option value="FREE_DELIVERY">🚚 توصيل مجاني</option>
+                                  <option value="BETTER_LUCK">🍀 حظ أوفر</option>
+                                </select>
+                              </div>
+
+                              {/* تفاصيل القيمة بناءً على النوع */}
+                              {prize.type === 'COUPON' && (
+                                <div className="flex items-center gap-1.5 w-full md:w-44 shrink-0">
+                                  <div className="w-20 shrink-0">
+                                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">النوع</label>
+                                    <select
+                                      value={prize.discountType || 'PERCENT'}
+                                      onChange={e => handleUpdatePrize(idx, { discountType: e.target.value as any })}
+                                      className="w-full px-1.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700"
+                                    >
+                                      <option value="PERCENT">نسبة %</option>
+                                      <option value="FIXED">مبلغ ج.م</option>
+                                    </select>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">الخصم</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={prize.value}
+                                      onChange={e => handleUpdatePrize(idx, { value: parseFloat(e.target.value) || 0 })}
+                                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {prize.type === 'POINTS' && (
+                                <div className="w-full md:w-28 shrink-0">
+                                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">عدد النقاط</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={prize.value}
+                                    onChange={e => handleUpdatePrize(idx, { value: parseInt(e.target.value, 10) || 0 })}
+                                    className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800"
+                                  />
+                                </div>
+                              )}
+
+                              {prize.type === 'FREE_ITEM' && (
+                                <div className="flex-1 min-w-0">
+                                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">اسم الصنف / الوجبة المهداة</label>
+                                  <input
+                                    type="text"
+                                    value={String(prize.value || '')}
+                                    onChange={e => handleUpdatePrize(idx, { value: e.target.value })}
+                                    placeholder="مثال: كانز بيبسي هدية"
+                                    className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
+                                  />
+                                </div>
+                              )}
+
+                              {/* نسبة احتمالية الظهور % */}
+                              <div className="w-full md:w-24 shrink-0">
+                                <label className="text-[10px] font-bold text-slate-500 block mb-0.5">نسبة الظهور</label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    value={prize.weight}
+                                    onChange={e => handleUpdatePrize(idx, { weight: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                                    className="w-full pl-6 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-black text-amber-700"
+                                  />
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
+                                </div>
+                              </div>
+
+                              {/* زر الحذف */}
+                              <div className="pt-4 md:pt-0 shrink-0 flex items-center justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePrize(idx)}
+                                  disabled={wheelPrizes.length <= 2}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                  title="حذف هذا الاختيار"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* زر إضافة جائزة جديدة */}
+                        <div className="pt-2 flex justify-start">
+                          <button
+                            type="button"
+                            onClick={handleAddPrize}
+                            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>إضافة اختيار / جائزة جديدة ➕</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

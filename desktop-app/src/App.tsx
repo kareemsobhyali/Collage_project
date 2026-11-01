@@ -19,6 +19,13 @@ import {
   AlertTriangle,
   RotateCcw,
   LifeBuoy,
+  Lock,
+  Key,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Maximize2,
+  Minimize2,
   X
 } from 'lucide-react';
 import { api, syncRemoteServerConfig, getPublicWebUrl } from './services/api';
@@ -76,6 +83,87 @@ export function App() {
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
   const socketRef = useRef<Socket | null>(null);
   const [liveDriverLocations, setLiveDriverLocations] = useState<Record<string, { lat: number; lng: number; orderId?: string; timestamp: number }>>({});
+
+  // حماية إعدادات وتحكمات الفرع بكلمة مرور / PIN
+  const [isSettingsUnlocked, setIsSettingsUnlocked] = useState(false);
+  const [showSettingsLockModal, setShowSettingsLockModal] = useState(false);
+  const [settingsInputPassword, setSettingsInputPassword] = useState('');
+  const [showSettingsPasswordText, setShowSettingsPasswordText] = useState(false);
+  const [verifyingSettingsPin, setVerifyingSettingsPin] = useState(false);
+  const [settingsPinError, setSettingsPinError] = useState<string | null>(null);
+
+  const handleOpenProfileTab = () => {
+    if (branch?.hasSettingsPassword && !isSettingsUnlocked) {
+      setSettingsInputPassword('');
+      setSettingsPinError(null);
+      setShowSettingsLockModal(true);
+      return;
+    }
+    setActiveTab('PROFILE');
+  };
+
+  const handleVerifySettingsPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settingsInputPassword.trim()) {
+      setSettingsPinError('يرجى إدخال كلمة المرور');
+      return;
+    }
+    try {
+      setVerifyingSettingsPin(true);
+      setSettingsPinError(null);
+      await api.verifySettingsPassword(settingsInputPassword.trim());
+      setIsSettingsUnlocked(true);
+      setShowSettingsLockModal(false);
+      setActiveTab('PROFILE');
+      toast.success('تم فتح لوحة التحكمات والإعدادات بنجاح 🔓');
+    } catch (err: any) {
+      setSettingsPinError(err.message || 'كلمة المرور غير صحيحة، يرجى مراجعة إدارة المطعم');
+    } finally {
+      setVerifyingSettingsPin(false);
+    }
+  };
+
+  // وضع ملء الشاشة (Full Screen)
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(() => {
+    if (typeof document !== 'undefined') {
+      return Boolean(document.fullscreenElement);
+    }
+    return false;
+  });
+
+  const toggleFullScreen = () => {
+    try {
+      if ((window as any).electronAPI?.send) {
+        (window as any).electronAPI.send('toggle-fullscreen');
+        setIsFullscreen(!isFullscreen);
+        return;
+      }
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    } catch (_e) {}
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  // طلب إذن إشعارات الويندوز الأصلية تلقائياً لتمكين رفع وتنبيه التطبيق فوق أي نافذة
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+  }, []);
 
   // مزامنة عنوان السيرفر تلقائياً من GitHub عند بدء التطبيق
   useEffect(() => {
@@ -249,9 +337,53 @@ export function App() {
 
     // استلام طلب جديد لحظياً!
     socket.on('new_order', (newOrder: any) => {
-      // نقل شاشة البرنامج للواجهة تلقائياً حتى يراها الكاشير فوراً
+      // 1. نقل شاشة البرنامج للواجهة تلقائياً فوق أي نافذة مفتوحة
       try {
         (window as any).electronAPI?.send?.('bring-to-front');
+      } catch (_e) {}
+
+      try {
+        window.focus();
+      } catch (_e) {}
+
+      // 2. إظهار إشعار ويندوز الأصلي (Native Windows Banner) للظهور فوق أي تطبيق آخر مفتوح
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        try {
+          if (Notification.permission === 'granted') {
+            const notif = new Notification(`🚨 طلب جديد #${newOrder.orderNumber || ''}`, {
+              body: `المبلغ: ${newOrder.total} ج.م • اضغط هنا لفتح الطلب فوراً في الواجهة`,
+              icon: './icon-192.png',
+              requireInteraction: true,
+              tag: `order_${newOrder.id}`,
+            });
+            notif.onclick = () => {
+              window.focus();
+              try {
+                (window as any).electronAPI?.send?.('bring-to-front');
+              } catch (_e) {}
+              setActiveTab('ORDERS');
+              setTargetedDetailedOrder(newOrder);
+              setIsOrderDetailsOpen(true);
+              notif.close();
+            };
+          } else if (Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+          }
+        } catch (_e) {}
+      }
+
+      // 3. وميض شريط المهام عبر عنوان النافذة (Taskbar Tab Flash)
+      try {
+        const originalTitle = document.title;
+        let flashes = 0;
+        const flashTimer = setInterval(() => {
+          document.title = flashes % 2 === 0 ? `🚨 طلب جديد #${newOrder.orderNumber || ''}!` : originalTitle;
+          flashes++;
+          if (flashes > 20) {
+            clearInterval(flashTimer);
+            document.title = originalTitle;
+          }
+        }, 700);
       } catch (_e) {}
 
       // إضافة الطلب في أول القائمة
@@ -604,6 +736,19 @@ export function App() {
               {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
 
+            {/* Fullscreen Toggle */}
+            <button
+              onClick={toggleFullScreen}
+              className={`h-8 w-8 sm:h-9 sm:w-9 rounded-xl border flex items-center justify-center transition-colors shrink-0 shadow-2xs ${
+                isFullscreen
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-600/30'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-indigo-600'
+              }`}
+              title={isFullscreen ? 'الخروج من وضع ملء الشاشة' : 'تشغيل وضع ملء الشاشة الكامل (Full Screen ⛶)'}
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
+
             {/* Refresh */}
             <button
               onClick={loadData}
@@ -700,15 +845,22 @@ export function App() {
             </button>
 
             <button
-              onClick={() => setActiveTab('PROFILE')}
+              onClick={handleOpenProfileTab}
               className={`h-9 sm:h-10 px-4 rounded-xl text-xs font-black flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'PROFILE'
                   ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
                   : 'bg-white text-slate-600 hover:text-indigo-700 border border-slate-200/80'
               }`}
             >
-              <UserCheck className="w-4 h-4 shrink-0" />
+              {branch?.hasSettingsPassword && !isSettingsUnlocked ? (
+                <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+              ) : (
+                <UserCheck className="w-4 h-4 shrink-0" />
+              )}
               <span>بيانات الفرع والدفع</span>
+              {branch?.hasSettingsPassword && !isSettingsUnlocked && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="محمية بكلمة مرور"></span>
+              )}
             </button>
           </nav>
         </div>
@@ -802,6 +954,11 @@ export function App() {
             onUpdateBranch={(updated) => {
               setBranch(updated);
               localStorage.setItem('branch_info', JSON.stringify(updated));
+            }}
+            onLockSettings={() => {
+              setIsSettingsUnlocked(false);
+              setActiveTab('ORDERS');
+              toast.info('تم قفل لوحة التحكمات والإعدادات 🔒');
             }}
           />
         )}
@@ -908,14 +1065,18 @@ export function App() {
           {/* 6. الفرع */}
           <button
             type="button"
-            onClick={() => setActiveTab('PROFILE')}
+            onClick={handleOpenProfileTab}
             className={`flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-200 relative active:scale-95 ${
               activeTab === 'PROFILE'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-black'
                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/70 font-bold'
             }`}
           >
-            <Store className="w-5 h-5 shrink-0" />
+            {branch?.hasSettingsPassword && !isSettingsUnlocked ? (
+              <Lock className="w-5 h-5 shrink-0 text-amber-500" />
+            ) : (
+              <Store className="w-5 h-5 shrink-0" />
+            )}
             <span className="text-[10px] sm:text-[11px] leading-tight mt-1 whitespace-nowrap">الفرع</span>
           </button>
         </div>
@@ -1051,6 +1212,94 @@ export function App() {
                 إيقاف الإنذار الصوتي وإغلاق
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* نافذة إدخال كلمة مرور قفل الإعدادات والتحكمات */}
+      {showSettingsLockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
+            <div className="p-5 pb-3 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">لوحة التحكمات محمية 🔒</h3>
+                  <p className="text-[10px] text-slate-500">أدخل كلمة المرور المحددة من الإدارة</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSettingsLockModal(false)}
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleVerifySettingsPin} className="p-5 space-y-4">
+              <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 text-right">
+                <span className="text-[11px] text-amber-900 font-bold block leading-relaxed">
+                  🔐 شاشة «بيانات الفرع والدفع والتحكمات» مقفلة لحمايتها من التعديلات غير المصرح بها.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">كلمة المرور / الرمز السري:</label>
+                <div className="relative">
+                  <Key className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type={showSettingsPasswordText ? "text" : "password"}
+                    autoFocus
+                    value={settingsInputPassword}
+                    onChange={e => {
+                      setSettingsInputPassword(e.target.value);
+                      if (settingsPinError) setSettingsPinError(null);
+                    }}
+                    placeholder="أدخل كلمة المرور..."
+                    className="w-full pr-9 pl-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsPasswordText(!showSettingsPasswordText)}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                    tabIndex={-1}
+                  >
+                    {showSettingsPasswordText ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                {settingsPinError && (
+                  <p className="text-[11px] font-bold text-rose-600 mt-1.5 flex items-center gap-1 animate-fadeIn">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{settingsPinError}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsLockModal(false)}
+                  className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={verifyingSettingsPin}
+                  className="w-1/2 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-black shadow-md shadow-amber-500/25 transition-all active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {verifyingSettingsPin ? (
+                    <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  )}
+                  <span>فتح اللوحة</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

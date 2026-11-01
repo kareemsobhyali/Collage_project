@@ -685,9 +685,11 @@ export const AdminPage: React.FC = () => {
   const [newDeliveryFee, setNewDeliveryFee] = useState('10');
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newSettingsPassword, setNewSettingsPassword] = useState('');
 
   // Edit Branch Form
   const [editName, setEditName] = useState('');
+  const [editSettingsPassword, setEditSettingsPassword] = useState('');
   const [editSlug, setEditSlug] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
@@ -791,6 +793,7 @@ export const AdminPage: React.FC = () => {
   // Credentials Form
   const [credUsername, setCredUsername] = useState('');
   const [credPassword, setCredPassword] = useState('');
+  const [credSettingsPassword, setCredSettingsPassword] = useState('');
 
   const getAdminHeaders = () => {
     const currentToken = localStorage.getItem('admin_token') || localStorage.getItem('customer_token') || '';
@@ -2619,6 +2622,7 @@ export const AdminPage: React.FC = () => {
           deliveryFee: parseFloat(newDeliveryFee) || 10,
           username: newUsername.trim() || undefined,
           password: newPassword.trim() || undefined,
+          settingsPassword: newSettingsPassword.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -2633,6 +2637,7 @@ export const AdminPage: React.FC = () => {
       setNewLogoUrl('');
       setNewUsername('');
       setNewPassword('');
+      setNewSettingsPassword('');
       setShowAddBranchModal(false);
       fetchDashboardData();
     } catch (err: any) {
@@ -2887,6 +2892,7 @@ export const AdminPage: React.FC = () => {
     setEditClosingTime(branch.closingTime || '22:00');
     setEditWorkingDays(branch.workingDays || 'SUN,MON,TUE,WED,THU,FRI,SAT');
     setEditOperationalStatus(branch.operationalStatus || 'OPEN');
+    setEditSettingsPassword(branch.settingsPassword || '');
   };
 
   const handleSaveEditBranch = async (e: React.FormEvent) => {
@@ -2918,6 +2924,7 @@ export const AdminPage: React.FC = () => {
           openingTime: editOpeningTime.trim() || '08:00',
           closingTime: editClosingTime.trim() || '22:00',
           workingDays: editWorkingDays.trim() || 'SUN,MON,TUE,WED,THU,FRI,SAT',
+          settingsPassword: editSettingsPassword.trim() || null,
           operationalStatus: editOperationalStatus,
         }),
       });
@@ -3008,19 +3015,21 @@ export const AdminPage: React.FC = () => {
     const existingUser = branch.users && branch.users[0];
     setCredUsername(existingUser?.username || '');
     setCredPassword('');
+    setCredSettingsPassword(branch.settingsPassword || '');
   };
 
   const handleSaveCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingCredentialsBranch || !credUsername.trim() || !credPassword.trim()) return;
+    if (!editingCredentialsBranch) return;
 
     try {
       const res = await fetch(`${API_BASE_URL}/admin/branches/${editingCredentialsBranch.id}/credentials`, {
         method: 'POST',
         headers: getAdminHeaders(),
         body: JSON.stringify({
-          username: credUsername.trim(),
-          password: credPassword.trim(),
+          username: credUsername.trim() || undefined,
+          password: credPassword.trim() || undefined,
+          settingsPassword: credSettingsPassword.trim() || null,
         }),
       });
       const data = await res.json();
@@ -3028,7 +3037,7 @@ export const AdminPage: React.FC = () => {
 
       setEditingCredentialsBranch(null);
       fetchDashboardData();
-      alert('تم تحديث بيانات دخول الفرع بنجاح');
+      alert('تم تحديث بيانات دخول الفرع ورمز الإعدادات بنجاح');
     } catch (err: any) {
       alert(err.message || 'خطأ أثناء تحديث بيانات الدخول');
     }
@@ -9463,6 +9472,20 @@ export const AdminPage: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                <div className="pt-2 border-t border-purple-200/60">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <label className="text-[11px] font-bold text-slate-700">كلمة مرور قفل إعدادات وتحكمات الفرع (Settings PIN - اختياري):</label>
+                  </div>
+                  <input
+                    type="text"
+                    value={newSettingsPassword}
+                    onChange={e => setNewSettingsPassword(e.target.value)}
+                    placeholder="مثال: 1234 لمنع الكاشير من تغيير بيانات الفرع"
+                    className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-amber-500 font-mono"
+                  />
+                </div>
               </div>
               </div>
 
@@ -10413,6 +10436,24 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </label>
               </div>
+
+              {/* رمز قفل إعدادات وتحكمات الفرع */}
+              <div className="p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                  <label className="block text-xs font-black text-slate-800">كلمة مرور قفل إعدادات وتحكمات الفرع (Settings Password / PIN)</label>
+                </div>
+                <input
+                  type="text"
+                  value={editSettingsPassword}
+                  onChange={e => setEditSettingsPassword(e.target.value)}
+                  placeholder="مثال: 1234 أو كود سري"
+                  className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-amber-500 font-mono font-bold"
+                />
+                <span className="text-[10px] text-slate-500 block leading-relaxed">
+                  💡 تمنع الكاشير من فتح شاشة «بيانات الفرع والدفع والتحكمات» إلا بإدخال هذا الرمز (اتركها فارغة لإتاحة الدخول دون رمز).
+                </span>
+              </div>
               </div>
 
               <div className="flex items-center justify-end gap-2.5 p-3.5 sm:p-4 border-t border-slate-200 bg-white/95 backdrop-blur-sm shrink-0">
@@ -10615,12 +10656,28 @@ export const AdminPage: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-600 mb-1">كلمة المرور الجديدة</label>
                   <input
                     type="password"
-                    required
                     value={credPassword}
                     onChange={e => setCredPassword(e.target.value)}
-                    placeholder="أدخل كلمة مرور جديدة"
+                    placeholder={editingCredentialsBranch?.users?.length ? "اتركها فارغة للإبقاء على الحالية" : "أدخل كلمة مرور جديدة"}
                     className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
                   />
+                </div>
+
+                <div className="pt-3 border-t border-slate-200">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Lock className="w-3.5 h-3.5 text-amber-600" />
+                    <label className="block text-xs font-bold text-slate-800">رمز / كلمة مرور قفل لوحة تحكم وإعدادات الفرع (Settings PIN)</label>
+                  </div>
+                  <input
+                    type="text"
+                    value={credSettingsPassword}
+                    onChange={e => setCredSettingsPassword(e.target.value)}
+                    placeholder="مثال: 1234 أو كود سري"
+                    className="w-full px-3 py-2 bg-amber-50/50 border border-amber-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-amber-500 font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                    🔐 عند تحديد هذا الرمز، لن يتمكن الكاشير من فتح شاشة «بيانات الفرع والدفع والتحكمات» إلا بإدخال هذا الرمز. (اتركه فارغاً لإتاحة الدخول بدون رمز).
+                  </p>
                 </div>
               </div>
 

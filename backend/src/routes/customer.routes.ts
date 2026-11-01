@@ -2761,7 +2761,7 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
       { id: "FREE_DELIVERY", type: "FREE_DELIVERY", percent: 100, label: "توصيل مجاني لطلبك القادم", icon: "🚚", weight: 5 },
     ];
 
-    let PRIZES = DEFAULT_PRIZES;
+    let PRIZES: any[] = DEFAULT_PRIZES;
     if (order.branch.spinWheelPrizes) {
       try {
         const parsed = JSON.parse(order.branch.spinWheelPrizes);
@@ -2774,7 +2774,7 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
     // السحب العشوائي الموزون حسب النسبة والوزن
     const totalWeight = PRIZES.reduce((sum, p) => sum + (Math.max(1, Number(p.weight) || 1)), 0);
     let rand = Math.random() * totalWeight;
-    let selectedPrize = PRIZES[0];
+    let selectedPrize: any = PRIZES[0];
     for (const p of PRIZES) {
       const w = Math.max(1, Number(p.weight) || 1);
       if (rand < w) {
@@ -2788,15 +2788,45 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
     const couponDays = Math.max(1, order.branch.spinWheelCouponDays || 7);
     const expiresAt = new Date(Date.now() + couponDays * 24 * 60 * 60 * 1000);
 
-    if (selectedPrize.type === "POINTS") {
+    const prizeType = selectedPrize.type || 'COUPON';
+
+    if (prizeType === "POINTS") {
       // إيداع النقاط فوراً في حساب المستخدم
-      const pts = Math.max(1, Number(selectedPrize.amount) || 10);
+      const pts = Math.max(1, Number(selectedPrize.value || selectedPrize.amount) || 10);
       await prisma.user.update({
         where: { id: userId },
         data: { loyaltyPoints: { increment: pts } },
       });
-    } else if (selectedPrize.type === "COUPON" || selectedPrize.type === "FREE_DELIVERY") {
-      // توليد كود خصم خاص بالعميل فقط ومربوط بحسابه
+    } else if (prizeType === "COUPON") {
+      // توليد كود خصم خاص بالعميل ومربوط بحسابه
+      const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      couponCode = `LUCKY-${randSuffix}`;
+      const discountType = selectedPrize.discountType === "FIXED" ? "FIXED" : "PERCENT";
+      const val = Math.max(1, Number(selectedPrize.value || selectedPrize.percent || selectedPrize.amount) || 10);
+      const minOrder = Math.max(0, Number(selectedPrize.minOrder) || 0);
+
+      await prisma.promoCode.create({
+        data: {
+          code: couponCode,
+          discountType,
+          value: val,
+          minOrder,
+          maxUses: 1,
+          oncePerUser: true,
+          showInDeals: false,
+          assignedUserId: userId,
+          assignedUserPhone: order.customerPhone,
+          assignedUserName: order.customerName,
+          applicableBranchIds: JSON.stringify([order.branchId]),
+          expiresAt,
+          isActive: true,
+        },
+      }).catch((err) => {
+        console.error("Failed to create spin wheel promo code:", err);
+        couponCode = null;
+      });
+    } else if (prizeType === "FREE_DELIVERY") {
+      // كوبون توصيل مجاني
       const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
       couponCode = `LUCKY-${randSuffix}`;
 
@@ -2804,7 +2834,7 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
         data: {
           code: couponCode,
           discountType: "PERCENT",
-          value: selectedPrize.type === "FREE_DELIVERY" ? 100 : (Number(selectedPrize.percent) || 10),
+          value: 100,
           minOrder: 0,
           maxUses: 1,
           oncePerUser: true,
@@ -2820,12 +2850,39 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
         console.error("Failed to create spin wheel promo code:", err);
         couponCode = null;
       });
+    } else if (prizeType === "FREE_ITEM") {
+      // صنف / وجبة مجانية
+      const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      couponCode = `GIFT-${randSuffix}`;
+
+      await prisma.promoCode.create({
+        data: {
+          code: couponCode,
+          discountType: "PERCENT",
+          value: 100,
+          minOrder: 0,
+          maxUses: 1,
+          oncePerUser: true,
+          showInDeals: false,
+          assignedUserId: userId,
+          assignedUserPhone: order.customerPhone,
+          assignedUserName: order.customerName,
+          applicableBranchIds: JSON.stringify([order.branchId]),
+          expiresAt,
+          isActive: true,
+        },
+      }).catch((err) => {
+        console.error("Failed to create free item gift promo code:", err);
+        couponCode = null;
+      });
+    } else if (prizeType === "BETTER_LUCK") {
+      couponCode = null;
     }
 
     const prizeData = {
       ...selectedPrize,
       couponCode,
-      expiresAt: (selectedPrize.type === "COUPON" || selectedPrize.type === "FREE_DELIVERY") ? expiresAt.toISOString() : undefined,
+      expiresAt: (prizeType === "COUPON" || prizeType === "FREE_DELIVERY" || prizeType === "FREE_ITEM") ? expiresAt.toISOString() : undefined,
     };
 
     const updatedOrder = await prisma.order.update({

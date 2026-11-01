@@ -36,12 +36,12 @@ export const SpinTheWheelModal: React.FC<SpinTheWheelModalProps> = ({
       try {
         const parsed = JSON.parse(order.branch.spinWheelPrizes);
         if (Array.isArray(parsed) && parsed.length >= 2) {
-          const colors = ['#6366f1', '#f59e0b', '#ec4899', '#10b981', '#8b5cf6', '#06b6d4', '#ef4444', '#14b8a6'];
+          const colors = ['#6366f1', '#f59e0b', '#ec4899', '#10b981', '#8b5cf6', '#06b6d4', '#ef4444', '#14b8a6', '#f97316', '#84cc16'];
           return parsed.map((p: any, idx: number) => ({
             id: p.id || `prize_${idx}`,
             label: p.label || 'جائزة',
-            sub: p.type === 'POINTS' ? 'في محفظتك' : (p.type === 'COUPON' ? 'على طلبك' : ''),
-            icon: p.icon || '🎁',
+            sub: p.type === 'POINTS' ? `${p.value || p.amount || ''} نقطة` : (p.type === 'FREE_ITEM' ? 'هدية مجانية' : (p.type === 'BETTER_LUCK' ? 'حظ أوفر' : (p.type === 'COUPON' ? (p.discountType === 'FIXED' ? `${p.value} ج.م` : `${p.value || p.percent || ''}%`) : ''))),
+            icon: p.icon || (p.type === 'POINTS' ? '🌟' : (p.type === 'FREE_ITEM' ? '🍔' : (p.type === 'BETTER_LUCK' ? '🍀' : '🎁'))),
             color: p.color || colors[idx % colors.length],
             textColor: '#ffffff',
           }));
@@ -307,9 +307,42 @@ export const SpinTheWheelModal: React.FC<SpinTheWheelModalProps> = ({
             </div>
 
             {wonPrize.type === 'POINTS' && (
-              <p className="text-[11px] text-slate-300 leading-relaxed bg-slate-900/60 p-2 rounded-xl border border-slate-700/60">
-                ✨ تم إضافة <strong className="text-amber-400">{wonPrize.amount} نقطة ولاء</strong> إلى محفظتك بنجاح، ويمكنك تحويلها لرصيد نقدي في طلباتك القادمة!
+              <p className="text-[11px] text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60">
+                ✨ تم إضافة <strong className="text-amber-400 font-black">{wonPrize.value || wonPrize.amount || 10} نقطة ولاء</strong> إلى محفظتك بنجاح، ويمكنك تحويلها لرصيد نقدي في طلباتك القادمة!
               </p>
+            )}
+
+            {wonPrize.type === 'FREE_ITEM' && wonPrize.couponCode && (
+              <div className="space-y-1.5 bg-slate-900/60 p-2.5 rounded-xl border border-amber-500/30">
+                <div className="flex items-center gap-1.5 text-amber-300 font-bold text-xs">
+                  <span>🍔</span>
+                  <span>وجبتك / هديتك المجانية لطلبك القادم:</span>
+                </div>
+                <div className="text-xs font-black text-white bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
+                  {wonPrize.value || wonPrize.label}
+                </div>
+                <span className="text-[10px] text-slate-400 block font-bold mt-1">كود استلام الهدية الخاص بك:</span>
+                <div className="flex items-center justify-between gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+                  <span className="font-mono text-sm font-black text-amber-400 tracking-wider">
+                    {wonPrize.couponCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(wonPrize.couponCode);
+                      setCopiedCode(true);
+                      setTimeout(() => setCopiedCode(false), 2000);
+                    }}
+                    className="p-1 rounded text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    title="نسخ الكود"
+                  >
+                    {copiedCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+                <span className="text-[10px] text-slate-400 block">
+                  * استخدم الكود في خانة الكوبون بطلبك القادم للحصول على هديتك مجاناً.
+                </span>
+              </div>
             )}
 
             {(wonPrize.type === 'COUPON' || wonPrize.type === 'FREE_DELIVERY') && wonPrize.couponCode && (
@@ -333,9 +366,15 @@ export const SpinTheWheelModal: React.FC<SpinTheWheelModalProps> = ({
                   </button>
                 </div>
                 <span className="text-[10px] text-slate-400 block">
-                  * صالح للاستخدام لمرة واحدة خلال 7 أيام من تاريخ اليوم.
+                  * صالح للاستخدام لمرة واحدة ومربوط بحسابك فقط.
                 </span>
               </div>
+            )}
+
+            {wonPrize.type === 'BETTER_LUCK' && (
+              <p className="text-[11px] text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60">
+                🍀 حظ أوفر في المرات القادمة! نتمنى لك يوماً سعيداً ووجبة شهية وممتعة دائماً مع يوني فود.
+              </p>
             )}
           </div>
         )}

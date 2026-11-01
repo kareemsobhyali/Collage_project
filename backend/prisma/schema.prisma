@@ -59,6 +59,7 @@ model Branch {
   spinWheelEnabled           Boolean               @default(true)  // تشغيل أو إيقاف عجلة الحظ
   spinWheelCouponDays        Int                   @default(7)     // مدة صلاحية كوبونات عجلة الحظ بالأيام
   spinWheelPrizes            String?               // تخصيص جوائز ونسب عجلة الحظ (JSON)
+  settingsPassword           String?               // رمز أو كلمة مرور قفل لوحة تحكم وإعدادات الفرع (يحددها الأدمن)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
   users             BranchUser[]

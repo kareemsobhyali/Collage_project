@@ -739,6 +739,7 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "spinWheelEnabled" BOOLEAN DEFAULT true;`,
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "spinWheelCouponDays" INTEGER DEFAULT 7;`,
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "spinWheelPrizes" TEXT;`,
+      `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "settingsPassword" TEXT;`,
       `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "adminVodafoneAllowed" BOOLEAN DEFAULT true;`,
       `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "adminInstapayAllowed" BOOLEAN DEFAULT true;`,
       `ALTER TABLE "MenuCategory" ADD COLUMN IF NOT EXISTS "isDealsCategory" BOOLEAN DEFAULT false;`,

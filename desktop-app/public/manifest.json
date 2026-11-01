@@ -5,8 +5,8 @@
   "description": "نظام استقبال وتجهيز طلبات الفروع والكاشير المباشر - UniFood",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "window-controls-overlay", "standalone"],
   "prefer_related_applications": false,
   "launch_handler": {
     "client_mode": ["navigate-existing", "auto"]

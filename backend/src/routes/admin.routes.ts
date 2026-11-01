@@ -159,6 +159,7 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
       slug,
       username,
       password,
+      settingsPassword,
     } = req.body;
 
     if (!name) {
@@ -209,6 +210,7 @@ router.post("/branches", async (req: AuthRequest, res: Response) => {
         } : undefined,
         allowDelivery: allowDelivery !== undefined ? Boolean(allowDelivery) : true,
         allowPickup: allowPickup !== undefined ? Boolean(allowPickup) : true,
+        settingsPassword: settingsPassword ? String(settingsPassword).trim() : null,
         isActive: true,
         // إعدادات الدفع الافتراضية للفرع
         paymentConfig: {
@@ -303,7 +305,8 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
       workingDays,
       operationalStatus,
       closedUntil,
-      closingReason
+      closingReason,
+      settingsPassword
     } = req.body;
 
     let formattedSlug: string | null | undefined = undefined;
@@ -343,6 +346,7 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
         operationalStatus: operationalStatus !== undefined ? String(operationalStatus).trim() : undefined,
         closedUntil: closedUntil !== undefined ? (closedUntil ? new Date(closedUntil) : null) : undefined,
         closingReason: closingReason !== undefined ? (closingReason ? String(closingReason).trim() : null) : undefined,
+        settingsPassword: settingsPassword !== undefined ? (settingsPassword ? String(settingsPassword).trim() : null) : undefined,
       },
       include: {
         deliveryZones: true,
@@ -419,7 +423,21 @@ router.delete("/branches/:id", async (req: AuthRequest, res: Response) => {
 router.post("/branches/:id/credentials", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { username, password } = req.body;
+    const { username, password, settingsPassword } = req.body;
+
+    if (settingsPassword !== undefined) {
+      await prisma.branch.update({
+        where: { id },
+        data: {
+          settingsPassword: settingsPassword ? String(settingsPassword).trim() : null,
+        },
+      });
+    }
+
+    if (!username && !password) {
+      res.json({ success: true, message: "تم تحديث كلمة مرور إعدادات الفرع بنجاح" });
+      return;
+    }
 
     if (!username || !password) {
       res.status(400).json({ error: "اسم المستخدم وكلمة المرور مطلوبان" });
