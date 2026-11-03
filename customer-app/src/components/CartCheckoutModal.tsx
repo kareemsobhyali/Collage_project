@@ -34,6 +34,7 @@ import {
   GraduationCap,
   Pencil,
   Sparkles,
+  Search,
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours, sanitizePromoCodeValue } from '../services/api';
 import { LocationPickerModal, type LocationPickerResult } from './LocationPickerModal';
@@ -654,7 +655,32 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     hasZones && !isManualZones ? branch.deliveryZones[0].id : ''
   );
   const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
+  const [zoneSearchQuery, setZoneSearchQuery] = useState('');
   const [autoDetectedZoneName, setAutoDetectedZoneName] = useState<string | null>(null);
+
+  // تصفية مناطق التوصيل لحظياً مع تطبيع الحروف العربية
+  const filteredDeliveryZones = useMemo(() => {
+    if (!branch.deliveryZones || !Array.isArray(branch.deliveryZones)) return [];
+    if (!zoneSearchQuery.trim()) return branch.deliveryZones;
+
+    const normalizeArabic = (text: string) => {
+      return (text || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[أإآٱ]/g, 'ا')
+        .replace(/[ة]/g, 'ه')
+        .replace(/[ى]/g, 'ي')
+        .replace(/[ًٌٍَُِّْـ]/g, '');
+    };
+
+    const q = normalizeArabic(zoneSearchQuery);
+    return branch.deliveryZones.filter((zone: any) => {
+      const geo = extractZoneGeo(zone.name);
+      const clean = normalizeArabic(geo.cleanName);
+      const feeStr = String(zone.fee ?? '');
+      return clean.includes(q) || feeStr.includes(q);
+    });
+  }, [branch.deliveryZones, zoneSearchQuery]);
 
   const selectedZone = useMemo(() => {
     if (!hasZones) return null;
@@ -2724,105 +2750,171 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         </div>
       </div>
 
-      {/* نافذة اختيار المنطقة المنبثقة للعميل - مطابقة لتصميم السكرين 4 */}
+      {/* نافذة اختيار المنطقة المنبثقة للعميل - شاشة كاملة مع بحث فوري لحظي */}
       {isZoneModalOpen && hasZones && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn"
-          onClick={() => setIsZoneModalOpen(false)}
+          className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-[150] flex flex-col justify-end sm:justify-center sm:items-center sm:p-4 animate-fadeIn"
+          onClick={() => {
+            setIsZoneModalOpen(false);
+            setZoneSearchQuery('');
+          }}
         >
           <div
-            className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl space-y-4 animate-slideUp select-none border border-slate-100 max-h-[85vh] flex flex-col"
+            className="bg-white w-full h-[100dvh] sm:h-auto sm:max-h-[85vh] sm:max-w-lg rounded-none sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slideUp select-none border border-slate-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900">اختر منطقة التوصيل</h3>
-                <p className="text-[11px] text-slate-500 font-bold">حدد منطقتك لحساب رسوم التوصيل بدقة</p>
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-100 bg-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">اختر منطقة التوصيل</h3>
+                  <p className="text-[11px] text-slate-500 font-bold">حدد منطقتك لحساب رسوم التوصيل بدقة</p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setIsZoneModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                onClick={() => {
+                  setIsZoneModalOpen(false);
+                  setZoneSearchQuery('');
+                }}
+                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                title="إغلاق"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
+            {/* Sticky Live Search Input Box */}
+            <div className="p-3 sm:p-4 bg-slate-50/90 border-b border-slate-200/80 shrink-0 space-y-2">
+              <div className="relative flex items-center">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={zoneSearchQuery}
+                  onChange={(e) => setZoneSearchQuery(e.target.value)}
+                  placeholder="ابحث باسم المنطقة أو الشارع أو الحي..."
+                  autoFocus
+                  className="w-full pr-10 pl-10 py-2.5 sm:py-3 bg-white border border-slate-200 rounded-2xl text-xs sm:text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs transition-all"
+                />
+                {zoneSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setZoneSearchQuery('')}
+                    className="absolute left-2.5 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                    title="مسح البحث"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              
+              <div className="flex items-center justify-between px-1 text-[11px] font-bold text-slate-500">
+                <span>{filteredDeliveryZones.length} منطقة متاحة</span>
+                {zoneSearchQuery && (
+                  <span className="text-indigo-600 font-black truncate max-w-[200px]">
+                    نتائج البحث عن: "{zoneSearchQuery}"
+                  </span>
+                )}
+              </div>
+            </div>
+
             {isManualZones && (
-              <div className="mb-2.5 p-3 bg-amber-50 border border-amber-200/90 rounded-2xl text-amber-900 text-xs font-bold flex items-center gap-2 shrink-0">
+              <div className="mx-4 mt-3 mb-1 p-3 bg-amber-50 border border-amber-200/90 rounded-2xl text-amber-900 text-xs font-bold flex items-center gap-2 shrink-0">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>برجاء اختيار المنطقة الخاصة بك من القائمة المعتمدة أدناه:</span>
               </div>
             )}
 
-            {/* Radio Items List - Exactly like Screenshot 4 */}
-            <div className="space-y-2 overflow-y-auto py-1 flex-1">
-              {branch.deliveryZones.map((zone: any) => {
-                const isSelected = selectedZoneId === zone.id;
-                const geo = extractZoneGeo(zone.name);
-                const cleanName = geo.cleanName;
-                const coverage = (capturedCoords && geo.lat && geo.lng)
-                  ? isCustomerWithinZoneGeo(capturedCoords.lat, capturedCoords.lng, geo)
-                  : null;
+            {/* Radio Items List */}
+            <div className="p-3 sm:p-4 space-y-2 overflow-y-auto flex-1 overscroll-contain">
+              {filteredDeliveryZones.length > 0 ? (
+                filteredDeliveryZones.map((zone: any) => {
+                  const isSelected = selectedZoneId === zone.id;
+                  const geo = extractZoneGeo(zone.name);
+                  const cleanName = geo.cleanName;
+                  const coverage = (capturedCoords && geo.lat && geo.lng)
+                    ? isCustomerWithinZoneGeo(capturedCoords.lat, capturedCoords.lng, geo)
+                    : null;
 
-                return (
-                  <button
-                    key={zone.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedZoneId(zone.id);
-                      setIsZoneModalOpen(false);
-                    }}
-                    className={`w-full p-4 rounded-2xl border text-right transition-all flex items-center justify-between cursor-pointer ${
-                      isSelected
-                        ? 'border-indigo-600 bg-indigo-50/70 shadow-xs ring-1 ring-indigo-500/20'
-                        : 'border-slate-200 hover:bg-slate-50/80 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      {/* Radio Circle - Blue circle when checked (matching screenshot 4) */}
-                      <div
-                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                          isSelected
-                            ? 'border-indigo-600 bg-white'
-                            : 'border-slate-400 bg-white'
-                        }`}
-                      >
-                        {isSelected && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`text-sm sm:text-base font-bold ${
-                              isSelected ? 'text-indigo-950 font-black' : 'text-slate-800'
-                            }`}
-                          >
-                            {cleanName}
-                          </span>
-                          {coverage && (
-                            coverage.isCovered ? (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                ضمن نطاقك ({formatDistance(coverage.distanceMeters)})
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                {coverage.reason || 'خارج النطاق'}
-                              </span>
-                            )
+                  return (
+                    <button
+                      key={zone.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedZoneId(zone.id);
+                        setIsZoneModalOpen(false);
+                        setZoneSearchQuery('');
+                      }}
+                      className={`w-full p-4 rounded-2xl border text-right transition-all flex items-center justify-between cursor-pointer ${
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50/70 shadow-xs ring-1 ring-indigo-500/20'
+                          : 'border-slate-200 hover:bg-slate-50/80 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        {/* Radio Circle */}
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                            isSelected
+                              ? 'border-indigo-600 bg-white'
+                              : 'border-slate-400 bg-white'
+                          }`}
+                        >
+                          {isSelected && (
+                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
                           )}
                         </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`text-sm sm:text-base font-bold ${
+                                isSelected ? 'text-indigo-950 font-black' : 'text-slate-800'
+                              }`}
+                            >
+                              {cleanName}
+                            </span>
+                            {coverage && (
+                              coverage.isCovered ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  ضمن نطاقك ({formatDistance(coverage.distanceMeters)})
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                  {coverage.reason || 'خارج النطاق'}
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
 
-                    <span className="font-mono text-sm font-black text-indigo-700 shrink-0 mr-2">
-                      (+{zone.fee} ج.م)
-                    </span>
+                      <span className="font-mono text-sm font-black text-indigo-700 shrink-0 mr-2">
+                        (+{zone.fee} ج.م)
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="p-8 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-800">لم يتم العثور على منطقة مطابقة</h4>
+                    <p className="text-xs text-slate-500 mt-1">تأكد من كتابة الاسم بصيغة أخرى أو ابحث بمفردة أقصر</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setZoneSearchQuery('')}
+                    className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    إلغاء البحث وإظهار كل المناطق 🔄
                   </button>
-                );
-              })}
+                </div>
+              )}
             </div>
           </div>
         </div>

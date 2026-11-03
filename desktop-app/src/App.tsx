@@ -50,8 +50,17 @@ import { useLockBodyScroll } from './utils/scrollLock';
 export function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('branch_token'));
   const [branch, setBranch] = useState<any | null>(() => {
-    const saved = localStorage.getItem('branch_info');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('branch_info');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      return {
+        ...parsed,
+        hasSettingsPassword: parsed.hasSettingsPassword !== undefined ? Boolean(parsed.hasSettingsPassword) : Boolean(parsed.settingsPassword),
+      };
+    } catch {
+      return null;
+    }
   });
   const [sessionChecked, setSessionChecked] = useState<boolean>(false);
 
@@ -422,6 +431,11 @@ export function App() {
 
     const handleVisibility = () => {
       sendAppState();
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        // عند مغادرة الكاشير للتطبيق أو تصغيره أو قفل الشاشة، نقفل شاشة الإعدادات تلقائياً
+        setIsSettingsUnlocked(false);
+        setActiveTab((current) => (current === 'PROFILE' ? 'ORDERS' : current));
+      }
     };
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', handleVisibility);
@@ -703,8 +717,16 @@ export function App() {
   const handleSaveOperationalStatus = async (status: 'OPEN' | 'BUSY' | 'CLOSED', durationMinutes?: number, reason?: string) => {
     const res = await api.updateOperationalStatus(status, durationMinutes, reason);
     if (res.branch) {
-      setBranch(res.branch);
-      localStorage.setItem('branch_info', JSON.stringify(res.branch));
+      setBranch((prev: any) => {
+        const next = { ...prev, ...res.branch };
+        if (res.branch.hasSettingsPassword === undefined && prev?.hasSettingsPassword !== undefined) {
+          next.hasSettingsPassword = prev.hasSettingsPassword;
+        }
+        try {
+          localStorage.setItem('branch_info', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
     }
   };
 
@@ -713,10 +735,16 @@ export function App() {
   };
 
   const handleLoginSuccess = (branchData: any, newToken: string) => {
-    setBranch(branchData);
+    const normalized = {
+      ...branchData,
+      hasSettingsPassword: branchData.hasSettingsPassword !== undefined 
+        ? Boolean(branchData.hasSettingsPassword) 
+        : Boolean(branchData.settingsPassword),
+    };
+    setBranch(normalized);
     setToken(newToken);
     localStorage.setItem('branch_token', newToken);
-    localStorage.setItem('branch_info', JSON.stringify(branchData));
+    localStorage.setItem('branch_info', JSON.stringify(normalized));
     try {
       if ((window as any).electronAPI?.invoke) {
         (window as any).electronAPI.invoke('save-session', {
@@ -1186,8 +1214,16 @@ export function App() {
           <BranchProfileView 
             branch={branch}
             onUpdateBranch={(updated) => {
-              setBranch(updated);
-              localStorage.setItem('branch_info', JSON.stringify(updated));
+              setBranch((prev: any) => {
+                const next = { ...prev, ...updated };
+                if (updated.hasSettingsPassword === undefined && prev?.hasSettingsPassword !== undefined) {
+                  next.hasSettingsPassword = prev.hasSettingsPassword;
+                }
+                try {
+                  localStorage.setItem('branch_info', JSON.stringify(next));
+                } catch {}
+                return next;
+              });
             }}
             onLockSettings={() => {
               setIsSettingsUnlocked(false);

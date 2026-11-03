@@ -39,6 +39,8 @@ import {
   ExternalLink,
   Layers,
   Eye,
+  EyeOff,
+  KeyRound,
   CheckCircle2,
   RotateCcw,
   Sliders,
@@ -67,7 +69,7 @@ import {
   resetReceiptConfig
 } from '../services/printer';
 
-export type SettingsTab = 'PROFILE' | 'PAYMENT' | 'MARKETING' | 'PRINTER' | 'HOURS' | 'BLOCKED';
+export type SettingsTab = 'PROFILE' | 'PAYMENT' | 'MARKETING' | 'PRINTER' | 'HOURS' | 'SECURITY' | 'BLOCKED';
 
 export interface SpinWheelPrizeItem {
   id: string;
@@ -675,12 +677,73 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     }
   };
 
+  // إدارة كلمة مرور وقفل إعدادات وتحكمات الفرع (Settings Password)
+  const [currSettingsPassword, setCurrSettingsPassword] = useState('');
+  const [newSettingsPassword, setNewSettingsPassword] = useState('');
+  const [showSettingsPinText, setShowSettingsPinText] = useState(false);
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [securitySuccess, setSecuritySuccess] = useState<string | null>(null);
+  const [securityError, setSecurityError] = useState<string | null>(null);
+
+  const handleUpdateSettingsPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (branch?.hasSettingsPassword && !currSettingsPassword.trim()) {
+      setSecurityError('يرجى إدخال كلمة المرور الحالية لتأكيد التعديل');
+      return;
+    }
+    if (!newSettingsPassword.trim()) {
+      setSecurityError('يرجى كتابة كلمة المرور الجديدة');
+      return;
+    }
+    try {
+      setSecurityLoading(true);
+      setSecurityError(null);
+      const res = await api.updateSettingsPassword(currSettingsPassword.trim(), newSettingsPassword.trim());
+      setSecuritySuccess(res.message || 'تم تعيين كلمة مرور قفل اللوحة بنجاح 🔒');
+      setCurrSettingsPassword('');
+      setNewSettingsPassword('');
+      if (onUpdateBranch) {
+        onUpdateBranch({ ...branch, hasSettingsPassword: res.hasSettingsPassword });
+      }
+      setTimeout(() => setSecuritySuccess(null), 3500);
+    } catch (err: any) {
+      setSecurityError(err.message || 'فشل تحديث كلمة المرور');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const handleRemoveSettingsPassword = async () => {
+    if (branch?.hasSettingsPassword && !currSettingsPassword.trim()) {
+      setSecurityError('يرجى إدخال كلمة المرور الحالية لتأكيد إزالة القفل');
+      return;
+    }
+    if (!window.confirm('هل أنت متأكد من إلغاء كلمة المرور؟ ستصبح شاشة الإعدادات مفتوحة لأي كاشير دون رمز!')) return;
+    try {
+      setSecurityLoading(true);
+      setSecurityError(null);
+      const res = await api.updateSettingsPassword(currSettingsPassword.trim(), null);
+      setSecuritySuccess(res.message || 'تم إلغاء كلمة المرور وأصبحت اللوحة مفتوحة دون رمز');
+      setCurrSettingsPassword('');
+      setNewSettingsPassword('');
+      if (onUpdateBranch) {
+        onUpdateBranch({ ...branch, hasSettingsPassword: false });
+      }
+      setTimeout(() => setSecuritySuccess(null), 3500);
+    } catch (err: any) {
+      setSecurityError(err.message || 'فشل إزالة كلمة المرور');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
   const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType; badge?: string }[] = [
     { id: 'PROFILE', label: 'بيانات الفرع والتوصيل', icon: Store },
     { id: 'PAYMENT', label: 'طرق الدفع والمحافظ', icon: CreditCard },
     { id: 'MARKETING', label: 'العروض والمكافآت', icon: Sparkles, badge: 'جديد' },
     { id: 'PRINTER', label: 'الطابعة الحرارية', icon: Printer },
     { id: 'HOURS', label: 'مواعيد العمل والبريك', icon: Clock },
+    { id: 'SECURITY', label: 'الأمان وقفل اللوحة', icon: Lock, badge: branch?.hasSettingsPassword ? 'محمي 🔒' : undefined },
     { id: 'BLOCKED', label: 'العملاء المحظورين', icon: UserX, badge: blockedCustomers.length > 0 ? String(blockedCustomers.length) : undefined },
   ];
 
@@ -756,11 +819,11 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
             <button
               type="button"
               onClick={onLockSettings}
-              className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
-              title="قفل لوحة التحكمات والإعدادات فوراً"
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white border border-amber-600/40 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+              title="العودة لشاشة الطلبات وقفل لوحة التحكمات فوراً"
             >
-              <Lock className="w-4 h-4 text-amber-600" />
-              <span>قفل اللوحة 🔒</span>
+              <Lock className="w-4 h-4" />
+              <span>قفل اللوحة والعودة 🔒</span>
             </button>
           )}
         </div>
@@ -2793,7 +2856,160 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       </div>
       )}
 
-      {/* 6. Blocked Customers Card */}
+      {/* 6. Security & Settings Lock Tab */}
+      {activeSettingsTab === 'SECURITY' && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Status & Instant Lock Card */}
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                branch?.hasSettingsPassword
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                  : 'bg-amber-50 text-amber-600 border-amber-200'
+              }`}>
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-black text-slate-900">حالة حماية لوحة التحكمات والإعدادات</h3>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                    branch?.hasSettingsPassword
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                      : 'bg-amber-100 text-amber-800 border-amber-200'
+                  }`}>
+                    {branch?.hasSettingsPassword ? 'محمية برمز سري 🔒' : 'مفتوحة دون رمز ⚠️'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {branch?.hasSettingsPassword
+                    ? 'اللوحة مقفلة برمز PIN، ويطلب من الكاشير إدخال الرمز كلما خرج من الصفحة أو عاد إليها لحماية بيانات المطعم.'
+                    : 'يمكن لأي كاشير فتح شاشة إعدادات الفرع وتعديل الأسعار والبيانات. يُنصح بتعيين رمز PIN للحماية.'}
+                </p>
+              </div>
+            </div>
+
+            {onLockSettings && (
+              <button
+                type="button"
+                onClick={onLockSettings}
+                className="px-5 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs rounded-2xl shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shrink-0"
+              >
+                <Lock className="w-4 h-4" />
+                <span>قفل اللوحة والعودة لشاشة الطلبات فوراً 🔒</span>
+              </button>
+            )}
+          </div>
+
+          {/* Change / Set / Remove PIN Form */}
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-5">
+            <div className="border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">
+                    {branch?.hasSettingsPassword ? 'تغيير أو إزالة رمز قفل الإعدادات (Settings PIN)' : 'تعيين رمز سري لقفل الإعدادات (Settings PIN)'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    الرمز السري المكون من أرقام أو حروف لمنع العبث في إعدادات الفرع وأسعار التوصيل
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {securityError && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                <span>{securityError}</span>
+              </div>
+            )}
+
+            {securitySuccess && (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{securitySuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateSettingsPassword} className="space-y-4 max-w-xl">
+              {branch?.hasSettingsPassword && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">كلمة المرور / الرمز الحالي:</label>
+                  <div className="relative">
+                    <input
+                      type={showSettingsPinText ? 'text' : 'password'}
+                      value={currSettingsPassword}
+                      onChange={e => setCurrSettingsPassword(e.target.value)}
+                      placeholder="أدخل الرمز الحالي لتأكيد التغيير"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSettingsPinText(!showSettingsPinText)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showSettingsPinText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  {branch?.hasSettingsPassword ? 'كلمة المرور / الرمز الجديد:' : 'رمز القفل الجديد (PIN):'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showSettingsPinText ? 'text' : 'password'}
+                    value={newSettingsPassword}
+                    onChange={e => setNewSettingsPassword(e.target.value)}
+                    placeholder="مثال: 1234 أو كود سري"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs font-bold focus:ring-2 focus:ring-indigo-600"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsPinText(!showSettingsPinText)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showSettingsPinText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <span className="text-[10px] text-slate-400 block">
+                  سيُطلب هذا الرمز في كل مرة يحاول الكاشير الدخول إلى شاشة «بيانات الفرع والدفع».
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={securityLoading}
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {securityLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>{branch?.hasSettingsPassword ? 'حفظ الرمز الجديد' : 'تفعيل قفل الإعدادات 🔒'}</span>
+                </button>
+
+                {branch?.hasSettingsPassword && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveSettingsPassword}
+                    disabled={securityLoading}
+                    className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Unlock className="w-4 h-4" />
+                    <span>إلغاء كلمة المرور وإتاحة اللوحة دون قفل 🔓</span>
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Blocked Customers Card */}
       {activeSettingsTab === 'BLOCKED' && (
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">

@@ -62,7 +62,10 @@ router.post("/login", async (req: Request, res: Response) => {
     res.json({
       success: true,
       token,
-      branch: branchUser.branch,
+      branch: {
+        ...branchUser.branch,
+        hasSettingsPassword: Boolean(branchUser.branch.settingsPassword),
+      },
     });
   } catch (error) {
     console.error("Branch login error:", error);
@@ -161,6 +164,41 @@ router.post("/verify-settings-password", async (req: AuthRequest, res: Response)
   }
 });
 
+// تحديث أو تعيين أو إزالة كلمة مرور قفل إعدادات وتحكمات الفرع
+router.put("/settings-password", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const { currentPassword, newPassword } = req.body;
+
+    const branch = await prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { settingsPassword: true },
+    });
+
+    if (branch?.settingsPassword) {
+      if (!currentPassword || String(currentPassword).trim() !== branch.settingsPassword.trim()) {
+        res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة" });
+        return;
+      }
+    }
+
+    const trimmedNew = newPassword ? String(newPassword).trim() : null;
+    const updated = await prisma.branch.update({
+      where: { id: branchId },
+      data: { settingsPassword: trimmedNew },
+    });
+
+    res.json({
+      success: true,
+      hasSettingsPassword: Boolean(updated.settingsPassword),
+      message: trimmedNew ? "تم تعيين كلمة مرور قفل الإعدادات بنجاح 🔒" : "تم إلغاء كلمة المرور، أصبحت الإعدادات مفتوحة دون قفل",
+    });
+  } catch (error) {
+    console.error("Update settings password error:", error);
+    res.status(500).json({ error: "فشل تحديث كلمة مرور الإعدادات" });
+  }
+});
+
 // 2.5 تحديث حالة عمل الفرع (مفتوح / مغلق مؤقتاً / مغلق)
 router.put("/operational-status", async (req: AuthRequest, res: Response) => {
   try {
@@ -202,7 +240,10 @@ router.put("/operational-status", async (req: AuthRequest, res: Response) => {
 
     res.json({
       success: true,
-      branch: updated,
+      branch: {
+        ...updated,
+        hasSettingsPassword: Boolean(updated.settingsPassword),
+      },
     });
   } catch (error) {
     console.error("Update operational status error:", error);
@@ -278,7 +319,13 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
 
     notifyBranchStatusChanged(branchId, updated);
 
-    res.json({ success: true, branch: updated });
+    res.json({
+      success: true,
+      branch: {
+        ...updated,
+        hasSettingsPassword: Boolean(updated.settingsPassword),
+      },
+    });
   } catch (error) {
     console.error("Update branch details error:", error);
     res.status(500).json({ error: "فشل تحديث بيانات الفرع" });

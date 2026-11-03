@@ -182,6 +182,18 @@ export const api = {
     return result;
   },
 
+  // 2.75 تحديث أو إزالة كلمة مرور إعدادات الفرع
+  async updateSettingsPassword(currentPassword?: string, newPassword?: string | null) {
+    const res = await fetch(`${API_BASE_URL}/branch/settings-password`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'فشل تحديث كلمة المرور');
+    return result;
+  },
+
   // 2.65 إدارة مناطق التوصيل المخصصة
   async getDeliveryZones() {
     const res = await fetch(`${API_BASE_URL}/branch/delivery-zones`, {
