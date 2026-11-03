@@ -1,6 +1,14 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-const ALLOWED_INVOKE_CHANNELS = ['get-system-printers', 'print-receipt-silent', 'is-always-on-top'];
+const ALLOWED_INVOKE_CHANNELS = [
+  'get-system-printers',
+  'print-receipt-silent',
+  'print-receipt-dialog',
+  'is-always-on-top',
+  'get-saved-session',
+  'save-session',
+  'clear-session'
+];
 const ALLOWED_SEND_CHANNELS = [
   'print-receipt',
   'bring-to-front',

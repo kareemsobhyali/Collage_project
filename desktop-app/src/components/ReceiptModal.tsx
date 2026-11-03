@@ -1,6 +1,6 @@
 import React from 'react';
-import { Printer, X } from 'lucide-react';
-import { printOrderReceipt } from '../services/printer';
+import { Printer, X, SlidersHorizontal } from 'lucide-react';
+import { printOrderReceipt, printReceiptWithDialog } from '../services/printer';
 import { getDisplayAddress } from '../utils/address';
 
 interface ReceiptModalProps {
@@ -177,20 +177,30 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, branchName, o
         </div>
 
         {/* Footer actions (Hidden in Print) */}
-        <div className="p-4 border-t bg-slate-50 flex items-center justify-end gap-3 print:hidden">
+        <div className="p-4 border-t bg-slate-50 flex items-center justify-between gap-2 print:hidden">
           <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-xl transition-colors"
+            onClick={() => printReceiptWithDialog(order, branchName)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-all shadow-2xs"
+            title="فتح نافذة اختيار الطابعة أو الحفظ كملف PDF"
           >
-            إغلاق
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>خيارات الطابعة</span>
           </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition-all active:scale-95"
-          >
-            <Printer className="w-4 h-4" />
-            طباعة البون
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors"
+            >
+              إغلاق
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-5 py-2 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition-all active:scale-95"
+            >
+              <Printer className="w-4 h-4" />
+              <span>طباعة فورية</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

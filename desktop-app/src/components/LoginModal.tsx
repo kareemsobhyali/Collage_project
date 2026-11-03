@@ -9,8 +9,15 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => {
+    try {
+      return localStorage.getItem('unifood_saved_branch_username') || '';
+    } catch {
+      return '';
+    }
+  });
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,9 +35,27 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const res = await api.login(username, password);
+      const res = await api.login(username.trim(), password);
+      
+      // حفظ الجلسة في المتصفح
       localStorage.setItem('branch_token', res.token);
       localStorage.setItem('branch_info', JSON.stringify(res.branch));
+      if (rememberMe) {
+        localStorage.setItem('unifood_saved_branch_username', username.trim());
+      }
+
+      // حفظ الجلسة في بيئة الديسكتوب Electron لضمان بقاء تسجيل الدخول دائماً
+      try {
+        if ((window as any).electronAPI?.invoke) {
+          await (window as any).electronAPI.invoke('save-session', {
+            token: res.token,
+            branch: res.branch,
+            username: username.trim(),
+            savedAt: new Date().toISOString()
+          });
+        }
+      } catch (_e) {}
+
       onLoginSuccess(res.branch, res.token);
     } catch (err: any) {
       setError(err.message || 'فشل تسجيل الدخول، تأكد من صحة بيانات الفرع');
@@ -85,6 +110,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
                 required
               />
             </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs py-1">
+            <label className="flex items-center gap-2 cursor-pointer text-slate-600 font-bold select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+              />
+              <span>تذكر بيانات تسجيل الدخول على هذا الجهاز</span>
+            </label>
           </div>
 
           <button

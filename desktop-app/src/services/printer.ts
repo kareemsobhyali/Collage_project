@@ -6,6 +6,7 @@
 
 import { api } from './api';
 import { getDisplayAddress } from '../utils/address';
+import { toast } from '../utils/toast';
 
 export interface DetectedPrinter {
   name: string;
@@ -344,32 +345,75 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
   `;
 };
 
-// تنفيذ أمر الطباعة المباشرة الصامتة
-export const printOrderReceipt = async (order: any, branchName: string): Promise<boolean> => {
+// تنفيذ أمر الطباعة المباشرة الصامتة مع التراجع التلقائي والبدائل الموثوقة
+export const printOrderReceipt = async (order: any, branchName: string, forceDialog: boolean = false): Promise<boolean> => {
   const paperWidth = getReceiptPaperWidth();
   const html = generateReceiptHtml(order, branchName, paperWidth);
   const preferredPrinter = getPreferredPrinter();
-  const isSilent = getSilentPrintEnabled();
+  const isSilent = !forceDialog && getSilentPrintEnabled();
 
-  // 1. إذا كان التطبيق يعمل داخل Electron: الطباعة الصامتة المباشرة بالخلفية بدون أي نوافذ
+  // 1. إذا كان التطبيق يعمل داخل Electron (الطباعة الصامتة المباشرة مع بديل نافذة الطباعة):
   const ipc = getElectronIpc();
-  if (ipc && isSilent) {
+  if (ipc) {
     try {
-      const res = await ipc.invoke('print-receipt-silent', {
-        html,
-        deviceName: preferredPrinter && preferredPrinter !== 'DEFAULT' ? preferredPrinter : undefined
-      });
-      if (res && res.success) {
-        return true;
+      if (forceDialog) {
+        const res = await ipc.invoke('print-receipt-dialog', { html });
+        if (res && res.success) {
+          toast.success('تم إرسال أمر الطباعة بنجاح 🧾');
+          return true;
+        }
+      } else {
+        const res = await ipc.invoke('print-receipt-silent', {
+          html,
+          deviceName: preferredPrinter && preferredPrinter !== 'DEFAULT' ? preferredPrinter : undefined,
+          silent: isSilent
+        });
+
+        if (res && res.success) {
+          if (res.methodUsed === 'silent') {
+            toast.success('تمت الطباعة الصامتة بنجاح 🧾');
+          } else {
+            toast.info('تم فتح شاشة الطباعة لإتمام أمر الطباعة');
+          }
+          return true;
+        }
+        if (res && res.failureReason) {
+          console.warn('[Print] Electron print notice:', res.failureReason);
+        }
       }
     } catch (err) {
-      console.warn('Electron silent print failed, fallback to iframe:', err);
+      console.warn('Electron print IPC error, fallback to browser print:', err);
     }
   }
 
-  // 2. إذا كان يعمل داخل المتصفح (Chrome / Edge)
+  // 2. إذا كان يعمل داخل المتصفح (Chrome / Edge / PWA):
   return new Promise((resolve) => {
     try {
+      // تجربة فتح نافذة طباعة مصغرة نظيفة وموثوقة 100% في كافة متصفحات الويب
+      const printWindow = window.open('', '_blank', 'width=420,height=600,menubar=no,toolbar=no,location=no,status=no');
+      if (printWindow && printWindow.document) {
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+
+        setTimeout(() => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+            toast.success('تم إرسال أمر البون للطباعة 🧾');
+            setTimeout(() => {
+              try { printWindow.close(); } catch (_e) {}
+            }, 800);
+            resolve(true);
+          } catch (e) {
+            console.error('Popup print error:', e);
+            resolve(false);
+          }
+        }, 300);
+        return;
+      }
+
+      // خيار احتياطي عبر iframe في حال حظر النوافذ المنبثقة
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
       iframe.style.right = '0';
@@ -377,8 +421,7 @@ export const printOrderReceipt = async (order: any, branchName: string): Promise
       iframe.style.width = '100px';
       iframe.style.height = '100px';
       iframe.style.border = '0';
-      iframe.style.opacity = '0';
-      iframe.style.pointerEvents = 'none';
+      iframe.style.opacity = '0.01';
       iframe.style.zIndex = '-9999';
       document.body.appendChild(iframe);
 
@@ -393,48 +436,31 @@ export const printOrderReceipt = async (order: any, branchName: string): Promise
       doc.write(html);
       doc.close();
 
-      let printed = false;
-      const triggerPrint = () => {
-        if (printed) return;
-        printed = true;
+      setTimeout(() => {
         try {
           iframe.contentWindow?.focus();
           iframe.contentWindow?.print();
+          toast.success('تم إرسال أمر البون للطباعة 🧾');
         } catch (e) {
-          console.warn('Iframe print call error:', e);
+          console.warn('Iframe print error:', e);
         }
-      };
-
-      if (iframe.contentWindow) {
-        iframe.contentWindow.onafterprint = () => {
-          setTimeout(() => {
-            if (document.body.contains(iframe)) {
-              document.body.removeChild(iframe);
-            }
-          }, 300);
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
           resolve(true);
-        };
-
-        iframe.contentWindow.onload = () => {
-          setTimeout(triggerPrint, 150);
-        };
-      }
-
-      // مهلة احتياطية في حال لم يُطلق المتصفح onload
-      setTimeout(triggerPrint, 450);
-
-      // مهلة أمان قصوى لتنظيف الـ DOM وحل الـ Promise
-      setTimeout(() => {
-        if (document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
-        resolve(true);
-      }, 10000);
+        }, 1000);
+      }, 350);
     } catch (e) {
-      console.error('Print receipt error:', e);
+      console.error('Print receipt fatal error:', e);
+      toast.error('تعذر إتمام أمر الطباعة، يرجى فحص الطابعة');
       resolve(false);
     }
   });
+};
+
+export const printReceiptWithDialog = (order: any, branchName: string): Promise<boolean> => {
+  return printOrderReceipt(order, branchName, true);
 };
 
 export const printTestReceipt = (branchName: string): Promise<boolean> => {

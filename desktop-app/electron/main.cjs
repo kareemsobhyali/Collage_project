@@ -4,7 +4,59 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 
+// ضبط اسم التطبيق لتوحيد مجلد بيانات المستخدم (userData) عبر بيئة التطوير والإنتاج
+app.setName('UniFood Branch POS');
+
 let mainWindow;
+
+// إدارة حفظ بيانات الجلسة وتسجيل الدخول للفرع بشكل دائم على نظام التشغيل
+function getAuthSessionFilePath() {
+  return path.join(app.getPath('userData'), 'pos-auth-session.json');
+}
+
+function readAuthSession() {
+  try {
+    const p = getAuthSessionFilePath();
+    if (fs.existsSync(p)) {
+      const content = fs.readFileSync(p, 'utf8');
+      const data = JSON.parse(content);
+      if (data && data.token) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('[Electron Auth] Failed to read session file:', err);
+  }
+  return null;
+}
+
+function writeAuthSession(sessionData) {
+  try {
+    const p = getAuthSessionFilePath();
+    const dir = path.dirname(p);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(p, JSON.stringify(sessionData, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[Electron Auth] Failed to write session file:', err);
+    return false;
+  }
+}
+
+function clearAuthSession() {
+  try {
+    const p = getAuthSessionFilePath();
+    if (fs.existsSync(p)) {
+      fs.unlinkSync(p);
+    }
+    return true;
+  } catch (err) {
+    console.error('[Electron Auth] Failed to clear session file:', err);
+    return false;
+  }
+}
 
 function checkUrl(urlStr) {
   return new Promise((resolve) => {
@@ -148,7 +200,20 @@ function createWindow() {
   });
 }
 
-// 1. جلب قائمة الطابعات المتعرف عليها على الجهاز
+// 1. إدارة جلسة تسجيل دخول الفرع وحفظها محلياً على الويندوز
+ipcMain.handle('get-saved-session', async () => {
+  return readAuthSession();
+});
+
+ipcMain.handle('save-session', async (_event, sessionData) => {
+  return writeAuthSession(sessionData);
+});
+
+ipcMain.handle('clear-session', async () => {
+  return clearAuthSession();
+});
+
+// 2. جلب قائمة الطابعات المتعرف عليها على الجهاز
 ipcMain.handle('get-system-printers', async () => {
   if (!mainWindow) return [];
   try {
@@ -165,35 +230,163 @@ ipcMain.handle('get-system-printers', async () => {
   }
 });
 
-// 2. معالج أمر الطباعة الحرارية الصامتة والمباشرة
-ipcMain.handle('print-receipt-silent', async (_event, { html, deviceName }) => {
+// 3. معالج أمر الطباعة الحرارية الصامتة والمباشرة مع دعم التراجع التلقائي للطابعة الافتراضية ونافذة الطباعة
+ipcMain.handle('print-receipt-silent', async (_event, { html, deviceName, silent = true }) => {
   return new Promise((resolve) => {
+    let printWin = null;
+    let finished = false;
+
+    const cleanup = () => {
+      if (printWin && !printWin.isDestroyed()) {
+        try {
+          printWin.destroy();
+        } catch (_e) {}
+        printWin = null;
+      }
+    };
+
+    // مهلة أمان قصوى 14 ثانية لعدم تعليق الـ Promise أبداً
+    const safetyTimer = setTimeout(() => {
+      if (!finished) {
+        finished = true;
+        cleanup();
+        resolve({ success: false, failureReason: 'انتهت مهلة استجابة الطابعة (Timeout 14s)' });
+      }
+    }, 14000);
+
     try {
-      const printWin = new BrowserWindow({
+      printWin = new BrowserWindow({
         show: false,
+        width: 380,
+        height: 600,
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
           javascript: false,
-        }
+        },
       });
 
       printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
       printWin.webContents.on('did-finish-load', () => {
-        printWin.webContents.print({
-          silent: true,
-          deviceName: deviceName || undefined,
-          printBackground: true,
-          margins: { marginType: 'none' },
-        }, (success, failureReason) => {
-          try {
-            printWin.close();
-          } catch (_e) {}
-          resolve({ success, failureReason });
-        });
+        // تنفيذ محاولة الطباعة
+        const tryPrint = (targetDevice, isSilent, isFallback = false) => {
+          if (finished || !printWin || printWin.isDestroyed()) return;
+
+          printWin.webContents.print({
+            silent: isSilent,
+            deviceName: targetDevice || undefined,
+            printBackground: true,
+            margins: { marginType: 'none' },
+          }, (success, failureReason) => {
+            if (finished) return;
+
+            if (success) {
+              finished = true;
+              clearTimeout(safetyTimer);
+              cleanup();
+              return resolve({ success: true, methodUsed: isSilent ? 'silent' : 'dialog' });
+            }
+
+            console.warn(`[Electron Print] Attempt failed (device: ${targetDevice}, silent: ${isSilent}):`, failureReason);
+
+            // خطوة 2: إذا فشلت الطابعة المحددة، نحاول مع الطابعة الافتراضية للنظام
+            if (targetDevice && !isFallback) {
+              console.log('[Electron Print] Retrying with system default printer...');
+              return tryPrint(undefined, isSilent, true);
+            }
+
+            // خطوة 3: إذا كانت الطباعة الصامتة مرفوضة (مثلاً طابعة PDF أو طابعة تتطلب مسار حفظ)، نفتح نافذة الطباعة العادية
+            if (isSilent) {
+              console.log('[Electron Print] Silent print rejected, opening system print dialog...');
+              return tryPrint(undefined, false, true);
+            }
+
+            finished = true;
+            clearTimeout(safetyTimer);
+            cleanup();
+            resolve({ success: false, failureReason: failureReason || 'فشل أمر الطباعة' });
+          });
+        };
+
+        // إتاحة 150ms للمتصفح لحساب الـ CSS ورسم محتوى البون
+        setTimeout(() => {
+          tryPrint(deviceName || undefined, silent !== false);
+        }, 150);
+      });
+
+      printWin.webContents.on('did-fail-load', (_e, code, desc) => {
+        if (!finished) {
+          finished = true;
+          clearTimeout(safetyTimer);
+          cleanup();
+          resolve({ success: false, failureReason: `فشل تحميل محتوى البون: ${desc} (${code})` });
+        }
       });
     } catch (err) {
+      if (!finished) {
+        finished = true;
+        clearTimeout(safetyTimer);
+        cleanup();
+        resolve({ success: false, failureReason: err.message });
+      }
+    }
+  });
+});
+
+// معالج فتح نافذة الطباعة اليدوية مباشرة لاختيار الطابعة أو الحفظ كـ PDF
+ipcMain.handle('print-receipt-dialog', async (_event, { html }) => {
+  return new Promise((resolve) => {
+    let printWin = null;
+    let finished = false;
+
+    const cleanup = () => {
+      if (printWin && !printWin.isDestroyed()) {
+        try { printWin.destroy(); } catch (_e) {}
+        printWin = null;
+      }
+    };
+
+    const safetyTimer = setTimeout(() => {
+      if (!finished) {
+        finished = true;
+        cleanup();
+        resolve({ success: false, failureReason: 'انتهت مهلة نافذة الطباعة' });
+      }
+    }, 30000);
+
+    try {
+      printWin = new BrowserWindow({
+        show: false,
+        width: 400,
+        height: 600,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          javascript: false,
+        },
+      });
+
+      printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+      printWin.webContents.on('did-finish-load', () => {
+        setTimeout(() => {
+          if (finished || !printWin || printWin.isDestroyed()) return;
+          printWin.webContents.print({
+            silent: false,
+            printBackground: true,
+          }, (success, failureReason) => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(safetyTimer);
+            cleanup();
+            resolve({ success, failureReason });
+          });
+        }, 150);
+      });
+    } catch (err) {
+      clearTimeout(safetyTimer);
+      cleanup();
       resolve({ success: false, failureReason: err.message });
     }
   });

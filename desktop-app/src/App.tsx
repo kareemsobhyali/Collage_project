@@ -53,6 +53,7 @@ export function App() {
     const saved = localStorage.getItem('branch_info');
     return saved ? JSON.parse(saved) : null;
   });
+  const [sessionChecked, setSessionChecked] = useState<boolean>(false);
 
   const [activeTab, setActiveTab] = useState<'ORDERS' | 'MENU' | 'MODIFIERS' | 'DRIVERS' | 'SUPPORT' | 'PROFILE'>('ORDERS');
   const [orders, setOrders] = useState<any[]>([]);
@@ -242,9 +243,53 @@ export function App() {
     }
   };
 
-  // مزامنة عنوان السيرفر تلقائياً من GitHub عند بدء التطبيق
+  // مزامنة عنوان السيرفر تلقائياً من GitHub واستعادة جلسة الدخول الأصلية
   useEffect(() => {
     syncRemoteServerConfig();
+
+    const restoreSession = async () => {
+      try {
+        // أ. استعادة الجلسة الدائمة من بيئة الديسكتوب Electron إن وجدت
+        if (typeof window !== 'undefined' && (window as any).electronAPI?.invoke) {
+          try {
+            const savedSession = await (window as any).electronAPI.invoke('get-saved-session');
+            if (savedSession && savedSession.token && savedSession.branch) {
+              localStorage.setItem('branch_token', savedSession.token);
+              localStorage.setItem('branch_info', JSON.stringify(savedSession.branch));
+              setToken(savedSession.token);
+              setBranch(savedSession.branch);
+              setSessionChecked(true);
+              return;
+            }
+          } catch (_e) {}
+        }
+
+        // ب. إذا كان التوكن موجوداً في التخزين المحلي ولكن معلومات الفرع تحتاج استرجاعاً
+        const localToken = localStorage.getItem('branch_token');
+        const localBranch = localStorage.getItem('branch_info');
+        if (localToken && !localBranch) {
+          try {
+            const profile = await api.getProfile();
+            if (profile) {
+              setBranch(profile);
+              localStorage.setItem('branch_info', JSON.stringify(profile));
+              // حفظ في Electron أيضاً
+              if ((window as any).electronAPI?.invoke) {
+                (window as any).electronAPI.invoke('save-session', {
+                  token: localToken,
+                  branch: profile,
+                  savedAt: new Date().toISOString()
+                }).catch(() => {});
+              }
+            }
+          } catch (_e) {}
+        }
+      } finally {
+        setSessionChecked(true);
+      }
+    };
+
+    restoreSession();
   }, []);
 
   // حساب العداد التنازلي وتحديثه كل ثانية عندما يكون الفرع مغلقاً مؤقتاً
@@ -313,8 +358,17 @@ export function App() {
       }
     } catch (err: any) {
       console.error("Load data error:", err);
-      if (err.message && err.message.includes("401")) {
-        handleLogout();
+      // التحقق الصارم قبل تسجيل الخروج التلقائي لمنع خروج الكاشير عند بطء الشبكة أو انقطاعها المؤقت
+      const errMsg = String(err?.message || '');
+      if (errMsg.includes("401") || errMsg.includes("جلسة دخول الفرع منتهية") || errMsg.includes("غير مصرح")) {
+        try {
+          const verify = await api.getProfile();
+          if (!verify) {
+            handleLogout();
+          }
+        } catch (_vErr) {
+          handleLogout();
+        }
       }
     } finally {
       setLoading(false);
@@ -656,6 +710,17 @@ export function App() {
   const handleLoginSuccess = (branchData: any, newToken: string) => {
     setBranch(branchData);
     setToken(newToken);
+    localStorage.setItem('branch_token', newToken);
+    localStorage.setItem('branch_info', JSON.stringify(branchData));
+    try {
+      if ((window as any).electronAPI?.invoke) {
+        (window as any).electronAPI.invoke('save-session', {
+          token: newToken,
+          branch: branchData,
+          savedAt: new Date().toISOString()
+        }).catch(() => {});
+      }
+    } catch (_e) {}
   };
 
   useEffect(() => {
@@ -666,9 +731,14 @@ export function App() {
     }
   }, [token, branch?.id]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
       (window as any).AndroidBridge?.clearBackgroundSession?.();
+    } catch (_e) {}
+    try {
+      if ((window as any).electronAPI?.invoke) {
+        await (window as any).electronAPI.invoke('clear-session');
+      }
     } catch (_e) {}
     localStorage.removeItem('branch_token');
     localStorage.removeItem('branch_info');
@@ -693,6 +763,17 @@ export function App() {
   const handleOptimisticOrderUpdate = useCallback((orderId: string, patch: Record<string, any>) => {
     setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, ...patch } : o)));
   }, []);
+
+  if (!sessionChecked) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3 text-white">
+          <RotateCw className="w-8 h-8 animate-spin text-indigo-400" />
+          <span className="text-sm font-bold">جاري فتح شاشة الكاشير...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!token || !branch) {
     return (

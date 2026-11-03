@@ -57,7 +57,7 @@ router.post("/login", async (req: Request, res: Response) => {
       branchUserId: branchUser.id,
       branchId: branchUser.branchId,
       username: branchUser.username,
-    });
+    }, "365d");
 
     res.json({
       success: true,
