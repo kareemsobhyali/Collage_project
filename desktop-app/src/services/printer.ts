@@ -413,44 +413,31 @@ export const printOrderReceipt = async (order: any, branchName: string, forceDia
         return;
       }
 
-      // خيار احتياطي عبر iframe في حال حظر النوافذ المنبثقة
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '100px';
-      iframe.style.height = '100px';
-      iframe.style.border = '0';
-      iframe.style.opacity = '0.01';
-      iframe.style.zIndex = '-9999';
-      document.body.appendChild(iframe);
-
-      const doc = iframe.contentWindow?.document;
-      if (!doc) {
-        window.print();
-        resolve(true);
-        return;
+      // خيار احتياطي مضمون 100% في حال حظر النوافذ المنبثقة أو العمل كـ PWA / متصفح:
+      let printContainer = document.getElementById('unifood-print-container');
+      if (!printContainer) {
+        printContainer = document.createElement('div');
+        printContainer.id = 'unifood-print-container';
+        document.body.appendChild(printContainer);
       }
-
-      doc.open();
-      doc.write(html);
-      doc.close();
+      printContainer.innerHTML = html;
 
       setTimeout(() => {
         try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
+          window.focus();
+          window.print();
           toast.success('تم إرسال أمر البون للطباعة 🧾');
-        } catch (e) {
-          console.warn('Iframe print error:', e);
-        }
-        setTimeout(() => {
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-          }
+          setTimeout(() => {
+            if (printContainer && printContainer.parentNode) {
+              printContainer.parentNode.removeChild(printContainer);
+            }
+          }, 2000);
           resolve(true);
-        }, 1000);
-      }, 350);
+        } catch (e) {
+          console.warn('In-page print error:', e);
+          resolve(false);
+        }
+      }, 150);
     } catch (e) {
       console.error('Print receipt fatal error:', e);
       toast.error('تعذر إتمام أمر الطباعة، يرجى فحص الطابعة');

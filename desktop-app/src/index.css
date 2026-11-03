@@ -65,17 +65,19 @@ body {
   body * {
     visibility: hidden;
   }
-  #printable-receipt, #printable-receipt * {
+  #printable-receipt, #printable-receipt *,
+  #unifood-print-container, #unifood-print-container * {
     visibility: visible;
   }
-  #printable-receipt {
+  #printable-receipt,
+  #unifood-print-container {
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
     max-width: 80mm !important;
     margin: 0 auto !important;
-    padding: 10px !important;
+    padding: 6px !important;
     font-size: 12px !important;
     color: #000 !important;
     background: #fff !important;

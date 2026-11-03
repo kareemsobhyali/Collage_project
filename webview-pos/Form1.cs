@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Printing;
 using System.IO;
 using System.Media;
 using System.Net.Http;
@@ -16,6 +18,8 @@ namespace webview_pos
     public partial class Form1 : Form
     {
         private WebView2? webView;
+        private WebView2? printWebView;
+        private CoreWebView2Environment? webViewEnvironment;
         private bool isFullScreen = false;
         private FormWindowState previousWindowState = FormWindowState.Maximized;
         private FormBorderStyle previousBorderStyle = FormBorderStyle.Sizable;
@@ -122,45 +126,82 @@ namespace webview_pos
                 );
                 Directory.CreateDirectory(userDataFolder);
 
-                var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
-                await webView.EnsureCoreWebView2Async(environment);
+                webViewEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+                await webView.EnsureCoreWebView2Async(webViewEnvironment);
 
-                // إعدادات الـ WebView
+                // تهيئة WebView خفي مخصص لطباعة البونات الحرارية بشكل مستقل تماماً
+                try
+                {
+                    printWebView = new WebView2
+                    {
+                        Size = new Size(380, 600),
+                        Visible = false
+                    };
+                    this.Controls.Add(printWebView);
+                    await printWebView.EnsureCoreWebView2Async(webViewEnvironment);
+                    printWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                    printWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+                    printWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                }
+                catch (Exception pEx)
+                {
+                    Debug.WriteLine("[PrintWebView Init Notice] " + pEx.Message);
+                }
+
+                // إعدادات الـ WebView الأساسي
                 webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false; // تعطيل كليك يمين
                 webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
                 webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
 
                 // حقن كود جافاسكريبت لربط واجهة الويب مباشرة بويندوز والتوافق مع electronAPI
                 string bridgeScript = @"
-                    window.__isWebView2Host = true;
-                    window.chrome = window.chrome || {};
-                    window.chrome.webview = window.chrome.webview || {};
+                    (function() {
+                        window.__isWebView2Host = true;
+                        window.chrome = window.chrome || {};
+                        window.chrome.webview = window.chrome.webview || {};
 
-                    window.electronAPI = {
-                        isElectron: true,
-                        isWebView2: true,
-                        send: function(channel, data) {
-                            try {
-                                window.chrome.webview.postMessage({ action: channel, data: data });
-                            } catch (e) {}
-                        },
-                        invoke: function(channel, data) {
-                            try {
-                                window.chrome.webview.postMessage({ action: channel, data: data });
-                            } catch (e) {}
-                            if (channel === 'is-always-on-top') {
-                                return Promise.resolve(window.__pos_always_on_top || false);
+                        var pendingIpc = new Map();
+                        var ipcSeq = 1;
+
+                        window.electronAPI = {
+                            isElectron: true,
+                            isWebView2: true,
+                            send: function(channel, data) {
+                                try {
+                                    window.chrome.webview.postMessage({ action: channel, data: data });
+                                } catch (e) {}
+                            },
+                            invoke: function(channel, data) {
+                                return new Promise(function(resolve) {
+                                    var reqId = ipcSeq++;
+                                    pendingIpc.set(reqId, resolve);
+                                    try {
+                                        window.chrome.webview.postMessage({ id: reqId, action: channel, data: data });
+                                    } catch (e) {
+                                        pendingIpc.delete(reqId);
+                                        resolve(null);
+                                    }
+                                    setTimeout(function() {
+                                        if (pendingIpc.has(reqId)) {
+                                            pendingIpc.delete(reqId);
+                                            resolve({ success: false, failureReason: 'Timeout' });
+                                        }
+                                    }, 15000);
+                                });
+                            },
+                            on: function(channel, callback) {
+                                return function() {};
                             }
-                            if (channel === 'print-receipt-silent') {
-                                window.print();
-                                return Promise.resolve({ success: true, methodUsed: 'silent' });
+                        };
+
+                        window.__onIpcResponse = function(reqId, result) {
+                            if (pendingIpc.has(reqId)) {
+                                var resolver = pendingIpc.get(reqId);
+                                pendingIpc.delete(reqId);
+                                resolver(result);
                             }
-                            return Promise.resolve(null);
-                        },
-                        on: function(channel, callback) {
-                            return function() {};
-                        }
-                    };
+                        };
+                    })();
                 ";
                 await webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(bridgeScript);
 
@@ -200,13 +241,19 @@ namespace webview_pos
             return "https://unifood.store/branch/";
         }
 
-        private void CoreWebView2_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+        private async void CoreWebView2_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
         {
             try
             {
                 string json = e.WebMessageAsJson;
                 using var doc = JsonDocument.Parse(json);
                 var root = doc.RootElement;
+
+                int reqId = 0;
+                if (root.TryGetProperty("id", out var idProp) && idProp.ValueKind == JsonValueKind.Number)
+                {
+                    reqId = idProp.GetInt32();
+                }
 
                 string action = "";
                 if (root.TryGetProperty("action", out var actionProp))
@@ -220,6 +267,11 @@ namespace webview_pos
                     case "new-order":
                     case "window-focus":
                         ForceBringToFront();
+                        SendIpcResponse(reqId, new { success = true });
+                        break;
+
+                    case "is-always-on-top":
+                        SendIpcResponse(reqId, this.TopMost);
                         break;
 
                     case "set-always-on-top":
@@ -227,14 +279,57 @@ namespace webview_pos
                         {
                             SetAlwaysOnTop(valProp.GetBoolean());
                         }
+                        else if (root.TryGetProperty("data", out var dProp) && dProp.ValueKind == JsonValueKind.True)
+                        {
+                            SetAlwaysOnTop(true);
+                        }
                         else
                         {
                             SetAlwaysOnTop(true);
                         }
+                        SendIpcResponse(reqId, this.TopMost);
                         break;
 
                     case "toggle-always-on-top":
                         SetAlwaysOnTop(!this.TopMost);
+                        SendIpcResponse(reqId, this.TopMost);
+                        break;
+
+                    case "get-system-printers":
+                        var printers = GetSystemPrintersList();
+                        SendIpcResponse(reqId, printers);
+                        break;
+
+                    case "print-receipt-silent":
+                    case "print-receipt":
+                        {
+                            string html = "";
+                            string deviceName = "";
+                            bool silent = true;
+
+                            if (root.TryGetProperty("data", out var dataProp))
+                            {
+                                if (dataProp.TryGetProperty("html", out var htmlProp)) html = htmlProp.GetString() ?? "";
+                                if (dataProp.TryGetProperty("deviceName", out var devProp)) deviceName = devProp.GetString() ?? "";
+                                if (dataProp.TryGetProperty("silent", out var silProp)) silent = silProp.GetBoolean();
+                            }
+
+                            var result = await PrintReceiptAsync(html, deviceName, silent);
+                            SendIpcResponse(reqId, result);
+                        }
+                        break;
+
+                    case "print-receipt-dialog":
+                        {
+                            string html = "";
+                            if (root.TryGetProperty("data", out var dataProp))
+                            {
+                                if (dataProp.TryGetProperty("html", out var htmlProp)) html = htmlProp.GetString() ?? "";
+                            }
+
+                            var result = await PrintReceiptAsync(html, null, false);
+                            SendIpcResponse(reqId, result);
+                        }
                         break;
 
                     case "set-fullscreen":
@@ -246,17 +341,18 @@ namespace webview_pos
                         {
                             SetFullScreen(true);
                         }
+                        SendIpcResponse(reqId, isFullScreen);
                         break;
 
                     case "toggle-fullscreen":
                         ToggleFullScreen();
+                        SendIpcResponse(reqId, isFullScreen);
                         break;
 
-                    case "print-receipt":
-                    case "print-receipt-silent":
-                        if (webView != null)
+                    default:
+                        if (reqId > 0)
                         {
-                            _ = webView.CoreWebView2.ExecuteScriptAsync("window.print();");
+                            SendIpcResponse(reqId, (object?)null);
                         }
                         break;
                 }
@@ -265,6 +361,140 @@ namespace webview_pos
             {
                 Debug.WriteLine("[WebView2 Message Error] " + ex.Message);
             }
+        }
+
+        private void SendIpcResponse(int reqId, object? result)
+        {
+            if (reqId <= 0 || webView == null || webView.CoreWebView2 == null) return;
+            try
+            {
+                string json = JsonSerializer.Serialize(result);
+                _ = webView.CoreWebView2.ExecuteScriptAsync($"window.__onIpcResponse({reqId}, {json});");
+            }
+            catch { }
+        }
+
+        private List<object> GetSystemPrintersList()
+        {
+            var list = new List<object>();
+            string defaultPrinter = "";
+            try
+            {
+                var pd = new PrintDocument();
+                defaultPrinter = pd.PrinterSettings.PrinterName ?? "";
+            }
+            catch { }
+
+            try
+            {
+                foreach (string p in PrinterSettings.InstalledPrinters)
+                {
+                    bool isDef = string.Equals(p, defaultPrinter, StringComparison.OrdinalIgnoreCase);
+                    list.Add(new
+                    {
+                        name = p,
+                        displayName = p,
+                        isDefault = isDef
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[GetPrinters Error] " + ex.Message);
+            }
+
+            return list;
+        }
+
+        private async Task<object> PrintReceiptAsync(string html, string? targetPrinter, bool silent)
+        {
+            if (string.IsNullOrWhiteSpace(html))
+            {
+                return new { success = false, failureReason = "محتوى البون فارغ" };
+            }
+
+            // إذا كان printWebView متاحاً، نستخدمه لطباعة البون بشكل منفصل
+            if (printWebView != null && printWebView.CoreWebView2 != null && webViewEnvironment != null)
+            {
+                try
+                {
+                    var tcs = new TaskCompletionSource<bool>();
+                    EventHandler<CoreWebView2NavigationCompletedEventArgs>? navHandler = null;
+
+                    navHandler = async (s, e) =>
+                    {
+                        printWebView.CoreWebView2.NavigationCompleted -= navHandler;
+                        try
+                        {
+                            if (silent)
+                            {
+                                var printSettings = webViewEnvironment.CreatePrintSettings();
+                                printSettings.ShouldPrintHeaderAndFooter = false;
+                                printSettings.ShouldPrintBackgrounds = true;
+                                printSettings.MarginTop = 0;
+                                printSettings.MarginBottom = 0;
+                                printSettings.MarginLeft = 0;
+                                printSettings.MarginRight = 0;
+
+                                if (!string.IsNullOrEmpty(targetPrinter) && targetPrinter != "DEFAULT")
+                                {
+                                    printSettings.PrinterName = targetPrinter;
+                                }
+
+                                var status = await printWebView.CoreWebView2.PrintAsync(printSettings);
+                                if (status == CoreWebView2PrintStatus.Succeeded)
+                                {
+                                    tcs.TrySetResult(true);
+                                    return;
+                                }
+                            }
+
+                            // إذا لم تكن صامتة أو فشلت الصامتة، نفتح نافذة الطباعة
+                            printWebView.CoreWebView2.ShowPrintUI(CoreWebView2PrintDialogKind.Browser);
+                            tcs.TrySetResult(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine("[PrintAsync Error] " + ex.Message);
+                            try
+                            {
+                                printWebView.CoreWebView2.ShowPrintUI(CoreWebView2PrintDialogKind.Browser);
+                                tcs.TrySetResult(true);
+                            }
+                            catch
+                            {
+                                tcs.TrySetResult(false);
+                            }
+                        }
+                    };
+
+                    printWebView.CoreWebView2.NavigationCompleted += navHandler;
+                    printWebView.CoreWebView2.NavigateToString(html);
+
+                    var completed = await Task.WhenAny(tcs.Task, Task.Delay(14000));
+                    if (completed == tcs.Task && await tcs.Task)
+                    {
+                        return new { success = true, methodUsed = silent ? "silent" : "dialog" };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("[PrintReceipt Pipeline Error] " + ex.Message);
+                }
+            }
+
+            // محاولة أخيرة عبر الـ webView الرئيسي
+            try
+            {
+                if (webView != null && webView.CoreWebView2 != null)
+                {
+                    _ = webView.CoreWebView2.ExecuteScriptAsync("window.print();");
+                    return new { success = true, methodUsed = "browser_fallback" };
+                }
+            }
+            catch { }
+
+            return new { success = false, failureReason = "تعذر تنفيذ أمر الطباعة على الطابعة" };
         }
 
         public void ForceBringToFront()
