@@ -180,7 +180,6 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
         <meta charset="utf-8" />
         <title>بون طلب #${safeOrderNumber} - ${safeBranchName}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap');
           @page {
             margin: 0 !important;
             size: auto;
@@ -192,7 +191,8 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
             color: #000000 !important; /* أسود داكن نقي لمنع أي بهتان في رؤوس الطابعات الحرارية */
           }
           body {
-            font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+            /* استخدام خطوط النظام المدمجة في ويندوز فوراً وبدون أي استدعاء خارجي للإنترنت لسرعة طباعة فائقة (أقل من ثانية) */
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
             direction: rtl;
             color: #000000 !important;
             background: #ffffff !important;

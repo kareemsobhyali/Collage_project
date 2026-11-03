@@ -278,6 +278,7 @@ namespace webview_pos
                     printWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                     printWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
                     printWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                    printWebView.CoreWebView2.Navigate("about:blank"); // تحمية مسبقة لمحرك الطباعة في الرام لسرعة فورية
                 }
                 catch (Exception pEx)
                 {
@@ -583,6 +584,7 @@ namespace webview_pos
                                 var printSettings = webViewEnvironment.CreatePrintSettings();
                                 printSettings.ShouldPrintHeaderAndFooter = false;
                                 printSettings.ShouldPrintBackgrounds = true;
+                                printSettings.ColorMode = CoreWebView2PrintColorMode.Grayscale;
                                 printSettings.MarginTop = 0;
                                 printSettings.MarginBottom = 0;
                                 printSettings.MarginLeft = 0;
