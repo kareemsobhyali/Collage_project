@@ -20,6 +20,9 @@ namespace webview_pos
         private WebView2? webView;
         private WebView2? printWebView;
         private CoreWebView2Environment? webViewEnvironment;
+        private NotifyIcon? trayIcon;
+        private ContextMenuStrip? trayMenu;
+        private bool isExplicitExit = false;
         private bool isFullScreen = false;
         private FormWindowState previousWindowState = FormWindowState.Maximized;
         private FormBorderStyle previousBorderStyle = FormBorderStyle.Sizable;
@@ -70,7 +73,135 @@ namespace webview_pos
         {
             InitializeComponent();
             SetupFormProperties();
+            InitializeTrayIcon();
             InitializeWebViewAsync();
+        }
+
+        private void InitializeTrayIcon()
+        {
+            try
+            {
+                trayMenu = new ContextMenuStrip(this.components ?? new System.ComponentModel.Container());
+
+                var openItem = new ToolStripMenuItem("فتح شاشة الكاشير", null, (s, e) => ShowFromTray())
+                {
+                    Font = new Font(this.Font, FontStyle.Bold)
+                };
+
+                var fullScreenItem = new ToolStripMenuItem("تبديل ملء الشاشة (F11)", null, (s, e) => ToggleFullScreen());
+
+                var exitItem = new ToolStripMenuItem("إغلاق البرنامج نهائياً (Exit)", null, (s, e) =>
+                {
+                    isExplicitExit = true;
+                    Application.Exit();
+                });
+
+                trayMenu.Items.Add(openItem);
+                trayMenu.Items.Add(fullScreenItem);
+                trayMenu.Items.Add(new ToolStripSeparator());
+                trayMenu.Items.Add(exitItem);
+
+                trayIcon = new NotifyIcon(this.components ?? new System.ComponentModel.Container())
+                {
+                    Text = "UniFood Branch POS (يعمل في الخلفية)",
+                    ContextMenuStrip = trayMenu,
+                    Visible = true
+                };
+
+                if (this.Icon != null)
+                {
+                    trayIcon.Icon = this.Icon;
+                }
+                else
+                {
+                    string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                    if (File.Exists(iconPath))
+                    {
+                        trayIcon.Icon = new Icon(iconPath);
+                    }
+                    else
+                    {
+                        trayIcon.Icon = SystemIcons.Application;
+                    }
+                }
+
+                trayIcon.DoubleClick += (s, e) => ShowFromTray();
+                trayIcon.MouseClick += (s, e) =>
+                {
+                    if (e.Button == MouseButtons.Left)
+                    {
+                        ShowFromTray();
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[TrayIcon Error] " + ex.Message);
+            }
+        }
+
+        public void ShowFromTray()
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new Action(ShowFromTray));
+                return;
+            }
+
+            this.Show();
+            this.ShowInTaskbar = true;
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                ShowWindow(this.Handle, SW_RESTORE);
+            }
+            else
+            {
+                ShowWindow(this.Handle, SW_SHOW);
+            }
+
+            if (isFullScreen)
+            {
+                this.FormBorderStyle = FormBorderStyle.None;
+                this.WindowState = FormWindowState.Normal;
+                this.WindowState = FormWindowState.Maximized;
+            }
+
+            ForceBringToFront();
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            // إذا لم يكن الإغلاق طلباً صريحاً لإنهاء التطبيق (من قائمة التراي)
+            if (!isExplicitExit)
+            {
+                e.Cancel = true;
+                this.Hide();
+                this.ShowInTaskbar = false;
+
+                try
+                {
+                    trayIcon?.ShowBalloonTip(
+                        2500,
+                        "UniFood POS",
+                        "البرنامج ما زال يعمل في الخلفية بجانب الساعة لاستقبال وتنبيه الطلبات الجديدة لحظياً 🛎️",
+                        ToolTipIcon.Info
+                    );
+                }
+                catch { }
+                return;
+            }
+
+            try
+            {
+                if (trayIcon != null)
+                {
+                    trayIcon.Visible = false;
+                    trayIcon.Dispose();
+                }
+            }
+            catch { }
+
+            base.OnFormClosing(e);
         }
 
         private void SetupFormProperties()
@@ -359,6 +490,17 @@ namespace webview_pos
                         SendIpcResponse(reqId, isFullScreen);
                         break;
 
+                    case "minimize-to-tray":
+                        this.Hide();
+                        this.ShowInTaskbar = false;
+                        SendIpcResponse(reqId, new { success = true });
+                        break;
+
+                    case "exit-app":
+                        isExplicitExit = true;
+                        Application.Exit();
+                        break;
+
                     default:
                         if (reqId > 0)
                         {
@@ -517,7 +659,13 @@ namespace webview_pos
 
             try
             {
-                // أ. استعادة النافذة إن كانت مصغرة
+                // أ. إظهار النافذة إن كانت مخفية في التراي بالخلفية واستعادتها
+                if (!this.Visible)
+                {
+                    this.Show();
+                }
+                this.ShowInTaskbar = true;
+
                 if (this.WindowState == FormWindowState.Minimized)
                 {
                     ShowWindow(this.Handle, SW_RESTORE);
@@ -525,6 +673,13 @@ namespace webview_pos
                 else
                 {
                     ShowWindow(this.Handle, SW_SHOW);
+                }
+
+                if (isFullScreen)
+                {
+                    this.FormBorderStyle = FormBorderStyle.None;
+                    this.WindowState = FormWindowState.Normal;
+                    this.WindowState = FormWindowState.Maximized;
                 }
 
                 this.Visible = true;
