@@ -655,10 +655,10 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         
         {/* 1. Restaurant Operational Details Form */}
-        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
               <div className="flex items-center gap-2.5">
@@ -1218,155 +1218,175 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                         </div>
 
                         {/* قائمة الجوائز */}
-                        <div className="space-y-2.5">
+                        <div className="space-y-3">
                           {wheelPrizes.map((prize, idx) => (
-                            <div key={prize.id || idx} className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-colors flex flex-col md:flex-row items-stretch md:items-center gap-2.5">
-                              {/* إيموجي / أيقونة */}
-                              <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-lg shrink-0 shadow-2xs">
-                                <input
-                                  type="text"
-                                  value={prize.icon}
-                                  onChange={e => handleUpdatePrize(idx, { icon: e.target.value })}
-                                  className="w-full h-full text-center bg-transparent border-0 focus:ring-0 p-0"
-                                  title="تغيير الإيموجي"
-                                />
-                              </div>
+                            <div key={prize.id || idx} className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all space-y-2.5 shadow-2xs">
+                              {/* الصف الأول: الإيموجي + اسم الجائزة + رقم الشريحة وزر الحذف */}
+                              <div className="flex items-center gap-2.5">
+                                {/* إيموجي / أيقونة */}
+                                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-lg shrink-0 shadow-2xs">
+                                  <input
+                                    type="text"
+                                    value={prize.icon}
+                                    onChange={e => handleUpdatePrize(idx, { icon: e.target.value })}
+                                    className="w-full h-full text-center bg-transparent border-0 focus:ring-0 p-0 text-lg"
+                                    title="تغيير الإيموجي"
+                                  />
+                                </div>
 
-                              {/* اسم الشريحة / الجائزة */}
-                              <div className="flex-1 min-w-0">
-                                <label className="text-[10px] font-bold text-slate-500 block mb-0.5">اسم الجائزة المعروض في العجلة</label>
-                                <input
-                                  type="text"
-                                  value={prize.label}
-                                  onChange={e => handleUpdatePrize(idx, { label: e.target.value })}
-                                  placeholder="اسم الجائزة..."
-                                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500"
-                                />
-                              </div>
-
-                              {/* نوع الجائزة */}
-                              <div className="w-full md:w-36 shrink-0">
-                                <label className="text-[10px] font-bold text-slate-500 block mb-0.5">النوع</label>
-                                <select
-                                  value={prize.type}
-                                  onChange={e => {
-                                    const newType = e.target.value as any;
-                                    let newLabel = prize.label;
-                                    let newVal = prize.value;
-                                    let icon = prize.icon;
-                                    if (newType === 'POINTS') {
-                                      newLabel = '10 نقاط ولاء';
-                                      newVal = 10;
-                                      icon = '🌟';
-                                    } else if (newType === 'COUPON') {
-                                      newLabel = 'خصم 10% على طلبك';
-                                      newVal = 10;
-                                      icon = '🏷️';
-                                    } else if (newType === 'FREE_ITEM') {
-                                      newLabel = 'كانز بيبسي هدية';
-                                      newVal = 'كانز بيبسي هدية';
-                                      icon = '🍔';
-                                    } else if (newType === 'FREE_DELIVERY') {
-                                      newLabel = 'توصيل مجاني لطلبك';
-                                      newVal = 100;
-                                      icon = '🚚';
-                                    } else if (newType === 'BETTER_LUCK') {
-                                      newLabel = 'حظ أوفر';
-                                      newVal = 0;
-                                      icon = '🍀';
-                                    }
-                                    handleUpdatePrize(idx, { type: newType, label: newLabel, value: newVal, icon });
-                                  }}
-                                  className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500"
-                                >
-                                  <option value="COUPON">🏷️ كوبون خصم</option>
-                                  <option value="POINTS">🌟 نقاط ولاء</option>
-                                  <option value="FREE_ITEM">🍔 وجبة / صنف هدية</option>
-                                  <option value="FREE_DELIVERY">🚚 توصيل مجاني</option>
-                                  <option value="BETTER_LUCK">🍀 حظ أوفر</option>
-                                </select>
-                              </div>
-
-                              {/* تفاصيل القيمة بناءً على النوع */}
-                              {prize.type === 'COUPON' && (
-                                <div className="flex items-center gap-1.5 w-full md:w-44 shrink-0">
-                                  <div className="w-20 shrink-0">
-                                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">النوع</label>
-                                    <select
-                                      value={prize.discountType || 'PERCENT'}
-                                      onChange={e => handleUpdatePrize(idx, { discountType: e.target.value as any })}
-                                      className="w-full px-1.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700"
-                                    >
-                                      <option value="PERCENT">نسبة %</option>
-                                      <option value="FIXED">مبلغ ج.م</option>
-                                    </select>
+                                {/* اسم الشريحة / الجائزة */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <label className="text-[11px] font-bold text-slate-700 whitespace-nowrap">اسم الجائزة (يظهر للعميل بالعجلة)</label>
+                                    <span className="text-[10px] font-mono text-slate-400 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">شريحة #{idx + 1}</span>
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">الخصم</label>
+                                  <input
+                                    type="text"
+                                    value={prize.label}
+                                    onChange={e => handleUpdatePrize(idx, { label: e.target.value })}
+                                    placeholder="مثال: خصم 10% أو 10 نقاط ولاء..."
+                                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 shadow-2xs"
+                                  />
+                                </div>
+
+                                {/* زر الحذف */}
+                                <div className="shrink-0 self-end mb-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePrize(idx)}
+                                    disabled={wheelPrizes.length <= 2}
+                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                    title="حذف هذا الاختيار"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* الصف الثاني: نوع الجائزة + القيمة والخصم + نسبة احتمالية الظهور */}
+                              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-2 border-t border-slate-200/70 items-end">
+                                {/* نوع الجائزة */}
+                                <div className="sm:col-span-5">
+                                  <label className="text-[10px] font-bold text-slate-500 block mb-1">نوع الجائزة</label>
+                                  <select
+                                    value={prize.type}
+                                    onChange={e => {
+                                      const newType = e.target.value as any;
+                                      let newLabel = prize.label;
+                                      let newVal = prize.value;
+                                      let icon = prize.icon;
+                                      if (newType === 'POINTS') {
+                                        newLabel = '10 نقاط ولاء';
+                                        newVal = 10;
+                                        icon = '🌟';
+                                      } else if (newType === 'COUPON') {
+                                        newLabel = 'خصم 10% على طلبك';
+                                        newVal = 10;
+                                        icon = '🏷️';
+                                      } else if (newType === 'FREE_ITEM') {
+                                        newLabel = 'كانز بيبسي هدية';
+                                        newVal = 'كانز بيبسي هدية';
+                                        icon = '🍔';
+                                      } else if (newType === 'FREE_DELIVERY') {
+                                        newLabel = 'توصيل مجاني لطلبك';
+                                        newVal = 100;
+                                        icon = '🚚';
+                                      } else if (newType === 'BETTER_LUCK') {
+                                        newLabel = 'حظ أوفر';
+                                        newVal = 0;
+                                        icon = '🍀';
+                                      }
+                                      handleUpdatePrize(idx, { type: newType, label: newLabel, value: newVal, icon });
+                                    }}
+                                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500"
+                                  >
+                                    <option value="COUPON">🏷️ كوبون خصم</option>
+                                    <option value="POINTS">🌟 نقاط ولاء</option>
+                                    <option value="FREE_ITEM">🍔 وجبة / صنف هدية</option>
+                                    <option value="FREE_DELIVERY">🚚 توصيل مجاني</option>
+                                    <option value="BETTER_LUCK">🍀 حظ أوفر</option>
+                                  </select>
+                                </div>
+
+                                {/* تفاصيل القيمة بناءً على النوع */}
+                                <div className="sm:col-span-4">
+                                  {prize.type === 'COUPON' && (
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-20 shrink-0">
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">النوع</label>
+                                        <select
+                                          value={prize.discountType || 'PERCENT'}
+                                          onChange={e => handleUpdatePrize(idx, { discountType: e.target.value as any })}
+                                          className="w-full px-1.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700"
+                                        >
+                                          <option value="PERCENT">نسبة %</option>
+                                          <option value="FIXED">مبلغ ج.م</option>
+                                        </select>
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">الخصم</label>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={prize.value}
+                                          onChange={e => handleUpdatePrize(idx, { value: parseFloat(e.target.value) || 0 })}
+                                          className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {prize.type === 'POINTS' && (
+                                    <div>
+                                      <label className="text-[10px] font-bold text-slate-500 block mb-1">عدد النقاط</label>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        value={prize.value}
+                                        onChange={e => handleUpdatePrize(idx, { value: parseInt(e.target.value, 10) || 0 })}
+                                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800"
+                                      />
+                                    </div>
+                                  )}
+
+                                  {prize.type === 'FREE_ITEM' && (
+                                    <div>
+                                      <label className="text-[10px] font-bold text-slate-500 block mb-1">اسم الصنف المهداة</label>
+                                      <input
+                                        type="text"
+                                        value={String(prize.value || '')}
+                                        onChange={e => handleUpdatePrize(idx, { value: e.target.value })}
+                                        placeholder="مثال: كانز بيبسي هدية"
+                                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
+                                      />
+                                    </div>
+                                  )}
+
+                                  {(prize.type === 'FREE_DELIVERY' || prize.type === 'BETTER_LUCK') && (
+                                    <div>
+                                      <label className="text-[10px] font-bold text-slate-400 block mb-1">القيمة</label>
+                                      <div className="px-2.5 py-1.5 bg-slate-100 rounded-lg text-xs font-bold text-slate-500 text-center">
+                                        {prize.type === 'FREE_DELIVERY' ? 'توصيل مجاني 100%' : 'بدون مكافأة'}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* نسبة احتمالية الظهور % */}
+                                <div className="sm:col-span-3">
+                                  <label className="text-[10px] font-bold text-slate-500 block mb-1">نسبة الظهور</label>
+                                  <div className="relative">
                                     <input
                                       type="number"
                                       min="1"
-                                      value={prize.value}
-                                      onChange={e => handleUpdatePrize(idx, { value: parseFloat(e.target.value) || 0 })}
-                                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800"
+                                      max="100"
+                                      value={prize.weight}
+                                      onChange={e => handleUpdatePrize(idx, { weight: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                                      className="w-full pl-6 pr-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-black text-amber-700"
                                     />
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
                                   </div>
                                 </div>
-                              )}
-
-                              {prize.type === 'POINTS' && (
-                                <div className="w-full md:w-28 shrink-0">
-                                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">عدد النقاط</label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    value={prize.value}
-                                    onChange={e => handleUpdatePrize(idx, { value: parseInt(e.target.value, 10) || 0 })}
-                                    className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800"
-                                  />
-                                </div>
-                              )}
-
-                              {prize.type === 'FREE_ITEM' && (
-                                <div className="flex-1 min-w-0">
-                                  <label className="text-[10px] font-bold text-slate-500 block mb-0.5">اسم الصنف / الوجبة المهداة</label>
-                                  <input
-                                    type="text"
-                                    value={String(prize.value || '')}
-                                    onChange={e => handleUpdatePrize(idx, { value: e.target.value })}
-                                    placeholder="مثال: كانز بيبسي هدية"
-                                    className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
-                                  />
-                                </div>
-                              )}
-
-                              {/* نسبة احتمالية الظهور % */}
-                              <div className="w-full md:w-24 shrink-0">
-                                <label className="text-[10px] font-bold text-slate-500 block mb-0.5">نسبة الظهور</label>
-                                <div className="relative">
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="100"
-                                    value={prize.weight}
-                                    onChange={e => handleUpdatePrize(idx, { weight: Math.max(1, parseInt(e.target.value, 10) || 1) })}
-                                    className="w-full pl-6 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-black text-amber-700"
-                                  />
-                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
-                                </div>
-                              </div>
-
-                              {/* زر الحذف */}
-                              <div className="pt-4 md:pt-0 shrink-0 flex items-center justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemovePrize(idx)}
-                                  disabled={wheelPrizes.length <= 2}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                                  title="حذف هذا الاختيار"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
                               </div>
                             </div>
                           ))}
@@ -1404,7 +1424,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         </div>
 
         {/* 2. Payment Methods Management Form */}
-        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
               <div className="flex items-center gap-2.5">
@@ -1791,7 +1811,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
           {/* Auto-print toggle */}
           <div className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 ${
             autoPrintEnabled ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50'
