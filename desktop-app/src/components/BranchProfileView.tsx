@@ -52,6 +52,8 @@ import {
   printTestReceipt 
 } from '../services/printer';
 
+export type SettingsTab = 'PROFILE' | 'PAYMENT' | 'MARKETING' | 'PRINTER' | 'HOURS' | 'BLOCKED';
+
 export interface SpinWheelPrizeItem {
   id: string;
   label: string;
@@ -170,6 +172,12 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [blockedSearchQuery, setBlockedSearchQuery] = useState('');
   const [confirmUnblockUser, setConfirmUnblockUser] = useState<BlockedCustomerItem | null>(null);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
+
+  // 5. Active Settings Sub-Tab & Marketing State
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>('PROFILE');
+  const [marketingLoading, setMarketingLoading] = useState(false);
+  const [marketingSuccess, setMarketingSuccess] = useState(false);
+  const [marketingError, setMarketingError] = useState<string | null>(null);
 
   const fetchBlockedCustomers = async () => {
     try {
@@ -514,6 +522,56 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     }
   };
 
+  // Handle Save Marketing Settings (Free Delivery & Wheel of Fortune)
+  const handleSaveMarketing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMarketingError(null);
+    setMarketingSuccess(false);
+
+    try {
+      setMarketingLoading(true);
+      const existingCoordsMatch = branch?.address?.match(/\[GPS:[0-9.-]+,[0-9.-]+\]/);
+      let finalAddress = cleanAddressText(address).trim();
+      if (existingCoordsMatch && finalAddress) {
+        finalAddress = `${existingCoordsMatch[0]} ${finalAddress}`;
+      } else if (!finalAddress && existingCoordsMatch) {
+        finalAddress = existingCoordsMatch[0];
+      }
+
+      const res = await api.updateBranchDetails({
+        name: name.trim() || branch?.name || 'الفرع',
+        phone: phone.trim() || undefined,
+        address: finalAddress || undefined,
+        logoUrl: logoUrl.trim() || undefined,
+        deliveryType,
+        deliveryFee: parseFloat(deliveryFee) || 10,
+        allowDelivery,
+        allowPickup,
+        freeDeliveryEnabled,
+        freeDeliveryMinAmount: parseFloat(freeDeliveryMinAmount) || 0,
+        freeDeliveryDays,
+        freeDeliveryStartTime: freeDeliveryStartTime.trim() || null,
+        freeDeliveryEndTime: freeDeliveryEndTime.trim() || null,
+        freeDeliveryIncludesDeals,
+        googleMapsUrl: googleMapsUrl.trim() || null,
+        deliveryZoneMode,
+        spinWheelEnabled,
+        spinWheelCouponDays: parseInt(spinWheelCouponDays, 10) || 7,
+        spinWheelPrizes: JSON.stringify(wheelPrizes),
+      });
+
+      if (res.branch) {
+        setMarketingSuccess(true);
+        if (onUpdateBranch) onUpdateBranch({ ...res.branch, deliveryZones });
+        setTimeout(() => setMarketingSuccess(false), 3500);
+      }
+    } catch (err: any) {
+      setMarketingError(err.message || 'فشل حفظ إعدادات العروض والمكافآت');
+    } finally {
+      setMarketingLoading(false);
+    }
+  };
+
   // Handle Save Payment Methods
   const handleSavePaymentMethods = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -572,6 +630,15 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
       setHoursLoading(false);
     }
   };
+
+  const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType; badge?: string }[] = [
+    { id: 'PROFILE', label: 'بيانات الفرع والتوصيل', icon: Store },
+    { id: 'PAYMENT', label: 'طرق الدفع والمحافظ', icon: CreditCard },
+    { id: 'MARKETING', label: 'العروض والمكافآت', icon: Sparkles, badge: 'جديد' },
+    { id: 'PRINTER', label: 'الطابعة الحرارية', icon: Printer },
+    { id: 'HOURS', label: 'مواعيد العمل والبريك', icon: Clock },
+    { id: 'BLOCKED', label: 'العملاء المحظورين', icon: UserX, badge: blockedCustomers.length > 0 ? String(blockedCustomers.length) : undefined },
+  ];
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -655,9 +722,44 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        
-        {/* 1. Restaurant Operational Details Form */}
+      {/* Sub-Tabs Navigation Bar */}
+      <div className="bg-white rounded-3xl p-2 sm:p-2.5 border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5 sm:pb-0">
+          {SETTINGS_TABS.map((tab) => {
+            const isActive = activeSettingsTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSettingsTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-xs transition-all shrink-0 cursor-pointer ${
+                  isActive
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-600/20'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <span className="whitespace-nowrap">{tab.label}</span>
+                {tab.badge && (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-indigo-100 text-indigo-700'
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 1. Restaurant Operational Details Form */}
+      {activeSettingsTab === 'PROFILE' && (
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
@@ -978,453 +1080,26 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                     />
                   </label>
                 </div>
-
-                {/* إعدادات التوصيل المجاني (Free Delivery) */}
-                <div className="p-4 rounded-2xl border-2 transition-all bg-gradient-to-br from-indigo-50/60 via-purple-50/40 to-white border-indigo-200 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
-                        <Truck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-slate-900">عرض التوصيل المجاني (Free Delivery)</span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">جديد ✨</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500">توصيل مجاني للعملاء عند وصول قيمة أصنافهم للحد الأدنى</p>
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={freeDeliveryEnabled}
-                        onChange={e => setFreeDeliveryEnabled(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                    </label>
-                  </div>
-
-                  {freeDeliveryEnabled && (
-                    <div className="mt-4 pt-3 border-t border-indigo-100 space-y-3.5">
-                      {/* الحد الأدنى لقيمة الأصناف */}
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                          الحد الأدنى لقيمة الأصناف (بدون التوصيل) للحصول على توصيل مجاني
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            step="5"
-                            value={freeDeliveryMinAmount}
-                            onChange={e => setFreeDeliveryMinAmount(e.target.value)}
-                            placeholder="مثال: 250"
-                            className="w-full pl-12 pr-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
-                          />
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">ج.م</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 block mt-1">
-                          * يتم الحساب على أسعار الوجبات والإضافات فقط، دون إضافة رسوم التوصيل أو احتساب الكوبونات.
-                        </span>
-                      </div>
-
-                      {/* أيام التوفر */}
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700 block mb-1.5">
-                          أيام سريان التوصيل المجاني
-                        </label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { key: 'SAT', label: 'السبت' },
-                            { key: 'SUN', label: 'الأحد' },
-                            { key: 'MON', label: 'الإثنين' },
-                            { key: 'TUE', label: 'الثلاثاء' },
-                            { key: 'WED', label: 'الأربعاء' },
-                            { key: 'THU', label: 'الخميس' },
-                            { key: 'FRI', label: 'الجمعة' },
-                          ].map(day => {
-                            const isSelected = freeDeliveryDays.toUpperCase().includes(day.key);
-                            return (
-                              <button
-                                key={day.key}
-                                type="button"
-                                onClick={() => {
-                                  const parts = freeDeliveryDays.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-                                  let nextParts: string[];
-                                  if (parts.includes(day.key)) {
-                                    nextParts = parts.filter(p => p !== day.key);
-                                  } else {
-                                    nextParts = [...parts, day.key];
-                                  }
-                                  setFreeDeliveryDays(nextParts.join(','));
-                                }}
-                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border ${
-                                  isSelected
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                                }`}
-                              >
-                                {day.label}
-                              </button>
-                            );
-                          })}
-                          <button
-                            type="button"
-                            onClick={() => setFreeDeliveryDays('SUN,MON,TUE,WED,THU,FRI,SAT')}
-                            className="px-2 py-1 rounded-lg text-[10px] font-medium text-indigo-600 hover:bg-indigo-50"
-                          >
-                            طوال الأسبوع
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* نافذة الساعات اليومية */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="text-[11px] font-bold text-slate-700">
-                            أوقات التوصيل المجاني يومياً (اختياري)
-                          </label>
-                          {(freeDeliveryStartTime || freeDeliveryEndTime) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFreeDeliveryStartTime('');
-                                setFreeDeliveryEndTime('');
-                              }}
-                              className="text-[10px] text-rose-500 hover:underline"
-                            >
-                              إلغاء التحديد (طوال ساعات العمل)
-                            </button>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <span className="text-[10px] text-slate-400 block mb-0.5">من الساعة</span>
-                            <input
-                              type="time"
-                              value={freeDeliveryStartTime}
-                              onChange={e => setFreeDeliveryStartTime(e.target.value)}
-                              className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
-                            />
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-400 block mb-0.5">إلى الساعة</span>
-                            <input
-                              type="time"
-                              value={freeDeliveryEndTime}
-                              onChange={e => setFreeDeliveryEndTime(e.target.value)}
-                              className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
-                            />
-                          </div>
-                        </div>
-                        <span className="text-[10px] text-slate-400 block mt-1">
-                          اتركها فارغة إذا كان التوصيل المجاني متاحاً طوال ساعات عمل المطعم.
-                        </span>
-                      </div>
-
-                      {/* سريان العرض على قسم العروض */}
-                      <label className="p-3 rounded-xl border border-indigo-100 bg-white cursor-pointer transition-all flex items-center justify-between hover:border-indigo-300">
-                        <div className="flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-amber-500 shrink-0" />
-                          <div>
-                            <span className="text-xs font-bold text-slate-800 block">
-                              سريان التوصيل المجاني على قسم العروض
-                            </span>
-                            <span className="text-[10px] text-slate-500 block">
-                              عند إيقاف هذا الخيار، إذا كان بسلة العميل صنف من العروض يدفع رسوم التوصيل العادية
-                            </span>
-                          </div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={freeDeliveryIncludesDeals}
-                          onChange={e => setFreeDeliveryIncludesDeals(e.target.checked)}
-                          className="w-4 h-4 rounded text-indigo-600 focus:ring-0 cursor-pointer"
-                        />
-                      </label>
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. Spin The Wheel Settings */}
-                <div className="p-4 bg-gradient-to-br from-amber-500/10 via-purple-500/5 to-indigo-500/10 border border-amber-200/80 rounded-2xl space-y-3.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      <div>
-                        <span className="text-xs font-black text-slate-800 block">عجلة الحظ ومكافآت الطلبات 🎡 (Spin The Wheel)</span>
-                        <span className="text-[10px] text-slate-500 block">منح العملاء فرصة تدوير العجلة بعد إتمام الطلب لكسب نقاط أو كوبونات خصم</span>
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={spinWheelEnabled}
-                        onChange={e => setSpinWheelEnabled(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                    </label>
-                  </div>
-
-                  {spinWheelEnabled && (
-                    <div className="space-y-4 pt-3 border-t border-amber-200/60 animate-fadeIn">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">صلاحية كوبونات الخصم والجوائز الممنوحة من العجلة (بالأيام)</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="365"
-                          value={spinWheelCouponDays}
-                          onChange={e => setSpinWheelCouponDays(e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        />
-                        <span className="text-[10px] text-slate-500 mt-1 block">تكون الكوبونات صالحة لهذا العميل فقط ومرتبطة بحسابه وتُحفظ تلقائياً في قاعدة البيانات.</span>
-                      </div>
-
-                      {/* محرر خيارات وجوائز العجلة التفاعلي */}
-                      <div className="p-3.5 bg-white border border-amber-200 rounded-2xl space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-                          <div>
-                            <span className="text-xs font-black text-slate-900 block">🎯 شرائح وجوائز العجلة ونسب ظهورها للعميل</span>
-                            <span className="text-[10px] text-slate-500 block">حدد الأصناف، الخصومات، النقاط، ونسبة احتمالية ظهور كل اختيار</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-black border ${
-                              totalWeight === 100 
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}>
-                              مجموع النسب: {totalWeight}% {totalWeight === 100 ? '✅' : '⚖️'}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={handleAutoBalanceWeights}
-                              className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
-                              title="موازنة النسب بالتساوي ليصبح المجموع 100%"
-                            >
-                              موازنة 100% ⚖️
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleResetDefaultPrizes}
-                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
-                              title="استعادة الجوائز الافتراضية"
-                            >
-                              الافتراضي 🔄
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* قائمة الجوائز */}
-                        <div className="space-y-3">
-                          {wheelPrizes.map((prize, idx) => (
-                            <div key={prize.id || idx} className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all space-y-2.5 shadow-2xs">
-                              {/* الصف الأول: الإيموجي + اسم الجائزة + رقم الشريحة وزر الحذف */}
-                              <div className="flex items-center gap-2.5">
-                                {/* إيموجي / أيقونة */}
-                                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-lg shrink-0 shadow-2xs">
-                                  <input
-                                    type="text"
-                                    value={prize.icon}
-                                    onChange={e => handleUpdatePrize(idx, { icon: e.target.value })}
-                                    className="w-full h-full text-center bg-transparent border-0 focus:ring-0 p-0 text-lg"
-                                    title="تغيير الإيموجي"
-                                  />
-                                </div>
-
-                                {/* اسم الشريحة / الجائزة */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between gap-2 mb-1">
-                                    <label className="text-[11px] font-bold text-slate-700 whitespace-nowrap">اسم الجائزة (يظهر للعميل بالعجلة)</label>
-                                    <span className="text-[10px] font-mono text-slate-400 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">شريحة #{idx + 1}</span>
-                                  </div>
-                                  <input
-                                    type="text"
-                                    value={prize.label}
-                                    onChange={e => handleUpdatePrize(idx, { label: e.target.value })}
-                                    placeholder="مثال: خصم 10% أو 10 نقاط ولاء..."
-                                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 shadow-2xs"
-                                  />
-                                </div>
-
-                                {/* زر الحذف */}
-                                <div className="shrink-0 self-end mb-0.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemovePrize(idx)}
-                                    disabled={wheelPrizes.length <= 2}
-                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                                    title="حذف هذا الاختيار"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* الصف الثاني: نوع الجائزة + القيمة والخصم + نسبة احتمالية الظهور */}
-                              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-2 border-t border-slate-200/70 items-end">
-                                {/* نوع الجائزة */}
-                                <div className="sm:col-span-5">
-                                  <label className="text-[10px] font-bold text-slate-500 block mb-1">نوع الجائزة</label>
-                                  <select
-                                    value={prize.type}
-                                    onChange={e => {
-                                      const newType = e.target.value as any;
-                                      let newLabel = prize.label;
-                                      let newVal = prize.value;
-                                      let icon = prize.icon;
-                                      if (newType === 'POINTS') {
-                                        newLabel = '10 نقاط ولاء';
-                                        newVal = 10;
-                                        icon = '🌟';
-                                      } else if (newType === 'COUPON') {
-                                        newLabel = 'خصم 10% على طلبك';
-                                        newVal = 10;
-                                        icon = '🏷️';
-                                      } else if (newType === 'FREE_ITEM') {
-                                        newLabel = 'كانز بيبسي هدية';
-                                        newVal = 'كانز بيبسي هدية';
-                                        icon = '🍔';
-                                      } else if (newType === 'FREE_DELIVERY') {
-                                        newLabel = 'توصيل مجاني لطلبك';
-                                        newVal = 100;
-                                        icon = '🚚';
-                                      } else if (newType === 'BETTER_LUCK') {
-                                        newLabel = 'حظ أوفر';
-                                        newVal = 0;
-                                        icon = '🍀';
-                                      }
-                                      handleUpdatePrize(idx, { type: newType, label: newLabel, value: newVal, icon });
-                                    }}
-                                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500"
-                                  >
-                                    <option value="COUPON">🏷️ كوبون خصم</option>
-                                    <option value="POINTS">🌟 نقاط ولاء</option>
-                                    <option value="FREE_ITEM">🍔 وجبة / صنف هدية</option>
-                                    <option value="FREE_DELIVERY">🚚 توصيل مجاني</option>
-                                    <option value="BETTER_LUCK">🍀 حظ أوفر</option>
-                                  </select>
-                                </div>
-
-                                {/* تفاصيل القيمة بناءً على النوع */}
-                                <div className="sm:col-span-4">
-                                  {prize.type === 'COUPON' && (
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="w-20 shrink-0">
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">النوع</label>
-                                        <select
-                                          value={prize.discountType || 'PERCENT'}
-                                          onChange={e => handleUpdatePrize(idx, { discountType: e.target.value as any })}
-                                          className="w-full px-1.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700"
-                                        >
-                                          <option value="PERCENT">نسبة %</option>
-                                          <option value="FIXED">مبلغ ج.م</option>
-                                        </select>
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <label className="text-[10px] font-bold text-slate-500 block mb-1">الخصم</label>
-                                        <input
-                                          type="number"
-                                          min="1"
-                                          value={prize.value}
-                                          onChange={e => handleUpdatePrize(idx, { value: parseFloat(e.target.value) || 0 })}
-                                          className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800"
-                                        />
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {prize.type === 'POINTS' && (
-                                    <div>
-                                      <label className="text-[10px] font-bold text-slate-500 block mb-1">عدد النقاط</label>
-                                      <input
-                                        type="number"
-                                        min="1"
-                                        value={prize.value}
-                                        onChange={e => handleUpdatePrize(idx, { value: parseInt(e.target.value, 10) || 0 })}
-                                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800"
-                                      />
-                                    </div>
-                                  )}
-
-                                  {prize.type === 'FREE_ITEM' && (
-                                    <div>
-                                      <label className="text-[10px] font-bold text-slate-500 block mb-1">اسم الصنف المهداة</label>
-                                      <input
-                                        type="text"
-                                        value={String(prize.value || '')}
-                                        onChange={e => handleUpdatePrize(idx, { value: e.target.value })}
-                                        placeholder="مثال: كانز بيبسي هدية"
-                                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
-                                      />
-                                    </div>
-                                  )}
-
-                                  {(prize.type === 'FREE_DELIVERY' || prize.type === 'BETTER_LUCK') && (
-                                    <div>
-                                      <label className="text-[10px] font-bold text-slate-400 block mb-1">القيمة</label>
-                                      <div className="px-2.5 py-1.5 bg-slate-100 rounded-lg text-xs font-bold text-slate-500 text-center">
-                                        {prize.type === 'FREE_DELIVERY' ? 'توصيل مجاني 100%' : 'بدون مكافأة'}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* نسبة احتمالية الظهور % */}
-                                <div className="sm:col-span-3">
-                                  <label className="text-[10px] font-bold text-slate-500 block mb-1">نسبة الظهور</label>
-                                  <div className="relative">
-                                    <input
-                                      type="number"
-                                      min="1"
-                                      max="100"
-                                      value={prize.weight}
-                                      onChange={e => handleUpdatePrize(idx, { weight: Math.max(1, parseInt(e.target.value, 10) || 1) })}
-                                      className="w-full pl-6 pr-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-black text-amber-700"
-                                    />
-                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* زر إضافة جائزة جديدة */}
-                        <div className="pt-2 flex justify-start">
-                          <button
-                            type="button"
-                            onClick={handleAddPrize}
-                            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>إضافة اختيار / جائزة جديدة ➕</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </form>
             </div>
 
-          <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end">
-            <button
-              type="submit"
-              form="details-form"
-              disabled={detailsLoading}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-2"
-            >
-              {detailsLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span>حفظ بيانات المطعم</span>
-            </button>
+            <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end">
+              <button
+                type="submit"
+                form="details-form"
+                disabled={detailsLoading}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+              >
+                {detailsLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>حفظ بيانات الفرع والتوصيل</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 2. Payment Methods Management Form */}
-        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col">
+        {activeSettingsTab === 'PAYMENT' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
               <div className="flex items-center gap-2.5">
@@ -1770,18 +1445,496 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
               type="submit"
               form="payment-form"
               disabled={paymentLoading}
-              className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-md shadow-amber-600/20 transition-all active:scale-95 flex items-center gap-2"
+              className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-md shadow-amber-600/20 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
             >
               {paymentLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span>حفظ طرق الدفع</span>
             </button>
           </div>
         </div>
+      )}
 
-      </div>
+      {/* 3. Marketing & Customer Rewards (Free Delivery & Spin The Wheel) */}
+      {activeSettingsTab === 'MARKETING' && (
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col">
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">العروض والمكافآت والولاء</h3>
+                  <p className="text-[11px] text-slate-400">إعدادات التوصيل المجاني للطلبات وعجلة الحظ التفاعلية لزيادة مبيعات وتفاعل العملاء</p>
+                </div>
+              </div>
+            </div>
 
-      {/* 3. Thermal Printer & POS Settings Card */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm">
+            {marketingError && (
+              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                <span>{marketingError}</span>
+              </div>
+            )}
+
+            {marketingSuccess && (
+              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>تم حفظ إعدادات العروض والمكافآت بنجاح!</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveMarketing} id="marketing-form" className="space-y-6">
+              {/* إعدادات التوصيل المجاني (Free Delivery) */}
+              <div className="p-4 sm:p-5 rounded-2xl border-2 transition-all bg-gradient-to-br from-indigo-50/60 via-purple-50/40 to-white border-indigo-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                      <Truck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-slate-900">عرض التوصيل المجاني (Free Delivery)</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">جديد ✨</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">توصيل مجاني للعملاء عند وصول قيمة أصنافهم للحد الأدنى</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={freeDeliveryEnabled}
+                      onChange={e => setFreeDeliveryEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+
+                {freeDeliveryEnabled && (
+                  <div className="mt-4 pt-4 border-t border-indigo-100 space-y-4">
+                    {/* الحد الأدنى لقيمة الأصناف */}
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                        الحد الأدنى لقيمة الأصناف (بدون التوصيل) للحصول على توصيل مجاني
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="5"
+                          value={freeDeliveryMinAmount}
+                          onChange={e => setFreeDeliveryMinAmount(e.target.value)}
+                          placeholder="مثال: 250"
+                          className="w-full pl-12 pr-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
+                        />
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">ج.م</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 block mt-1">
+                        * يتم الحساب على أسعار الوجبات والإضافات فقط، دون إضافة رسوم التوصيل أو احتساب الكوبونات.
+                      </span>
+                    </div>
+
+                    {/* أيام التوفر */}
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                        أيام سريان التوصيل المجاني
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { key: 'SAT', label: 'السبت' },
+                          { key: 'SUN', label: 'الأحد' },
+                          { key: 'MON', label: 'الإثنين' },
+                          { key: 'TUE', label: 'الثلاثاء' },
+                          { key: 'WED', label: 'الأربعاء' },
+                          { key: 'THU', label: 'الخميس' },
+                          { key: 'FRI', label: 'الجمعة' },
+                        ].map(day => {
+                          const isSelected = freeDeliveryDays.toUpperCase().includes(day.key);
+                          return (
+                            <button
+                              key={day.key}
+                              type="button"
+                              onClick={() => {
+                                const parts = freeDeliveryDays.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+                                let nextParts: string[];
+                                if (parts.includes(day.key)) {
+                                  nextParts = parts.filter(p => p !== day.key);
+                                } else {
+                                  nextParts = [...parts, day.key];
+                                }
+                                setFreeDeliveryDays(nextParts.join(','));
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                isSelected
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                              }`}
+                            >
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => setFreeDeliveryDays('SUN,MON,TUE,WED,THU,FRI,SAT')}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors cursor-pointer"
+                        >
+                          طوال الأسبوع
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* نافذة الساعات اليومية */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700">
+                          أوقات التوصيل المجاني يومياً (اختياري)
+                        </label>
+                        {(freeDeliveryStartTime || freeDeliveryEndTime) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFreeDeliveryStartTime('');
+                              setFreeDeliveryEndTime('');
+                            }}
+                            className="text-[10px] text-rose-500 hover:underline cursor-pointer"
+                          >
+                            إلغاء التحديد (طوال ساعات العمل)
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block mb-0.5">من الساعة</span>
+                          <input
+                            type="time"
+                            value={freeDeliveryStartTime}
+                            onChange={e => setFreeDeliveryStartTime(e.target.value)}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block mb-0.5">إلى الساعة</span>
+                          <input
+                            type="time"
+                            value={freeDeliveryEndTime}
+                            onChange={e => setFreeDeliveryEndTime(e.target.value)}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-400 block mt-1">
+                        اتركها فارغة إذا كان التوصيل المجاني متاحاً طوال ساعات عمل المطعم.
+                      </span>
+                    </div>
+
+                    {/* سريان العرض على قسم العروض */}
+                    <label className="p-3.5 rounded-2xl border border-indigo-100 bg-white cursor-pointer transition-all flex items-center justify-between hover:border-indigo-300">
+                      <div className="flex items-center gap-2.5">
+                        <Tag className="w-4 h-4 text-amber-500 shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-slate-800 block">
+                            سريان التوصيل المجاني على قسم العروض
+                          </span>
+                          <span className="text-[11px] text-slate-500 block">
+                            عند إيقاف هذا الخيار، إذا كان بسلة العميل صنف من العروض يدفع رسوم التوصيل العادية
+                          </span>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={freeDeliveryIncludesDeals}
+                        onChange={e => setFreeDeliveryIncludesDeals(e.target.checked)}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* عجلة الحظ ومكافآت الطلبات (Spin The Wheel) */}
+              <div className="p-4 sm:p-5 bg-gradient-to-br from-amber-500/10 via-purple-500/5 to-indigo-500/10 border border-amber-200/80 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-sm shrink-0">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-slate-800 block">عجلة الحظ ومكافآت الطلبات 🎡 (Spin The Wheel)</span>
+                      <span className="text-[11px] text-slate-500 block">منح العملاء فرصة تدوير العجلة بعد إتمام الطلب لكسب نقاط أو كوبونات خصم</span>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={spinWheelEnabled}
+                      onChange={e => setSpinWheelEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+
+                {spinWheelEnabled && (
+                  <div className="space-y-4 pt-3 border-t border-amber-200/60 animate-fadeIn">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">صلاحية كوبونات الخصم والجوائز الممنوحة من العجلة (بالأيام)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="365"
+                        value={spinWheelCouponDays}
+                        onChange={e => setSpinWheelCouponDays(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                      <span className="text-[10px] text-slate-500 mt-1 block">تكون الكوبونات صالحة لهذا العميل فقط ومرتبطة بحسابه وتُحفظ تلقائياً في قاعدة البيانات.</span>
+                    </div>
+
+                    {/* محرر خيارات وجوائز العجلة التفاعلي */}
+                    <div className="p-4 bg-white border border-amber-200 rounded-2xl space-y-3.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div>
+                          <span className="text-xs font-black text-slate-900 block">🎯 شرائح وجوائز العجلة ونسب ظهورها للعميل</span>
+                          <span className="text-[11px] text-slate-500 block">حدد الأصناف، الخصومات، النقاط، ونسبة احتمالية ظهور كل اختيار</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-1 rounded-xl text-xs font-black border ${
+                            totalWeight === 100 
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            مجموع النسب: {totalWeight}% {totalWeight === 100 ? '✅' : '⚖️'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleAutoBalanceWeights}
+                            className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                            title="موازنة النسب بالتساوي ليصبح المجموع 100%"
+                          >
+                            موازنة 100% ⚖️
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleResetDefaultPrizes}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                            title="استعادة الجوائز الافتراضية"
+                          >
+                            الافتراضي 🔄
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* قائمة الجوائز */}
+                      <div className="space-y-3">
+                        {wheelPrizes.map((prize, idx) => (
+                          <div key={prize.id || idx} className="p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all space-y-3 shadow-2xs">
+                            {/* الصف الأول: الإيموجي + اسم الجائزة + رقم الشريحة وزر الحذف */}
+                            <div className="flex items-center gap-2.5">
+                              {/* إيموجي / أيقونة */}
+                              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-lg shrink-0 shadow-2xs">
+                                <input
+                                  type="text"
+                                  value={prize.icon}
+                                  onChange={e => handleUpdatePrize(idx, { icon: e.target.value })}
+                                  className="w-full h-full text-center bg-transparent border-0 focus:ring-0 p-0 text-lg"
+                                  title="تغيير الإيموجي"
+                                />
+                              </div>
+
+                              {/* اسم الشريحة / الجائزة */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <label className="text-xs font-bold text-slate-700 whitespace-nowrap">اسم الجائزة (يظهر للعميل بالعجلة)</label>
+                                  <span className="text-[10px] font-mono text-slate-400 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">شريحة #{idx + 1}</span>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={prize.label}
+                                  onChange={e => handleUpdatePrize(idx, { label: e.target.value })}
+                                  placeholder="مثال: خصم 10% أو 10 نقاط ولاء..."
+                                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 shadow-2xs"
+                                />
+                              </div>
+
+                              {/* زر الحذف */}
+                              <div className="shrink-0 self-end mb-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePrize(idx)}
+                                  disabled={wheelPrizes.length <= 2}
+                                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                  title="حذف هذا الاختيار"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* الصف الثاني: نوع الجائزة + القيمة والخصم + نسبة احتمالية الظهور */}
+                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2.5 border-t border-slate-200/70 items-end">
+                              {/* نوع الجائزة */}
+                              <div className="sm:col-span-5">
+                                <label className="text-[11px] font-bold text-slate-500 block mb-1">نوع الجائزة</label>
+                                <select
+                                  value={prize.type}
+                                  onChange={e => {
+                                    const newType = e.target.value as any;
+                                    let newLabel = prize.label;
+                                    let newVal = prize.value;
+                                    let icon = prize.icon;
+                                    if (newType === 'POINTS') {
+                                      newLabel = '10 نقاط ولاء';
+                                      newVal = 10;
+                                      icon = '🌟';
+                                    } else if (newType === 'COUPON') {
+                                      newLabel = 'خصم 10% على طلبك';
+                                      newVal = 10;
+                                      icon = '🏷️';
+                                    } else if (newType === 'FREE_ITEM') {
+                                      newLabel = 'كانز بيبسي هدية';
+                                      newVal = 'كانز بيبسي هدية';
+                                      icon = '🍔';
+                                    } else if (newType === 'FREE_DELIVERY') {
+                                      newLabel = 'توصيل مجاني لطلبك';
+                                      newVal = 100;
+                                      icon = '🚚';
+                                    } else if (newType === 'BETTER_LUCK') {
+                                      newLabel = 'حظ أوفر';
+                                      newVal = 0;
+                                      icon = '🍀';
+                                    }
+                                    handleUpdatePrize(idx, { type: newType, label: newLabel, value: newVal, icon });
+                                  }}
+                                  className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500"
+                                >
+                                  <option value="COUPON">🏷️ كوبون خصم</option>
+                                  <option value="POINTS">🌟 نقاط ولاء</option>
+                                  <option value="FREE_ITEM">🍔 وجبة / صنف هدية</option>
+                                  <option value="FREE_DELIVERY">🚚 توصيل مجاني</option>
+                                  <option value="BETTER_LUCK">🍀 حظ أوفر</option>
+                                </select>
+                              </div>
+
+                              {/* تفاصيل القيمة بناءً على النوع */}
+                              <div className="sm:col-span-4">
+                                {prize.type === 'COUPON' && (
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-20 shrink-0">
+                                      <label className="text-[11px] font-bold text-slate-500 block mb-1">النوع</label>
+                                      <select
+                                        value={prize.discountType || 'PERCENT'}
+                                        onChange={e => handleUpdatePrize(idx, { discountType: e.target.value as any })}
+                                        className="w-full px-1.5 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700"
+                                      >
+                                        <option value="PERCENT">نسبة %</option>
+                                        <option value="FIXED">مبلغ ج.م</option>
+                                      </select>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <label className="text-[11px] font-bold text-slate-500 block mb-1">الخصم</label>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        value={prize.value}
+                                        onChange={e => handleUpdatePrize(idx, { value: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-2 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {prize.type === 'POINTS' && (
+                                  <div>
+                                    <label className="text-[11px] font-bold text-slate-500 block mb-1">عدد النقاط</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={prize.value}
+                                      onChange={e => handleUpdatePrize(idx, { value: parseInt(e.target.value, 10) || 0 })}
+                                      className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800"
+                                    />
+                                  </div>
+                                )}
+
+                                {prize.type === 'FREE_ITEM' && (
+                                  <div>
+                                    <label className="text-[11px] font-bold text-slate-500 block mb-1">اسم الصنف المهداة</label>
+                                    <input
+                                      type="text"
+                                      value={String(prize.value || '')}
+                                      onChange={e => handleUpdatePrize(idx, { value: e.target.value })}
+                                      placeholder="مثال: كانز بيبسي هدية"
+                                      className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                                    />
+                                  </div>
+                                )}
+
+                                {(prize.type === 'FREE_DELIVERY' || prize.type === 'BETTER_LUCK') && (
+                                  <div>
+                                    <label className="text-[11px] font-bold text-slate-400 block mb-1">القيمة</label>
+                                    <div className="px-2.5 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-500 text-center">
+                                      {prize.type === 'FREE_DELIVERY' ? 'توصيل مجاني 100%' : 'بدون مكافأة'}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* نسبة احتمالية الظهور % */}
+                              <div className="sm:col-span-3">
+                                <label className="text-[11px] font-bold text-slate-500 block mb-1">نسبة الظهور</label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    value={prize.weight}
+                                    onChange={e => handleUpdatePrize(idx, { weight: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                                    className="w-full pl-6 pr-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-black text-amber-700"
+                                  />
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* زر إضافة جائزة جديدة */}
+                      <div className="pt-2 flex justify-start">
+                        <button
+                          type="button"
+                          onClick={handleAddPrize}
+                          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>إضافة اختيار / جائزة جديدة ➕</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </form>
+          </div>
+
+          <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end">
+            <button
+              type="submit"
+              form="marketing-form"
+              disabled={marketingLoading}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            >
+              {marketingLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              <span>حفظ إعدادات العروض والمكافآت</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Thermal Printer & POS Settings Card */}
+      {activeSettingsTab === 'PRINTER' && (
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 mb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
@@ -1862,9 +2015,11 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
           </div>
         </div>
       </div>
+      )}
 
-      {/* 4. Official Working Hours & Scheduled Orders Settings Card */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm">
+      {/* 5. Official Working Hours & Scheduled Orders Settings Card */}
+      {activeSettingsTab === 'HOURS' && (
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 mb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
@@ -1953,7 +2108,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
             <button
               type="submit"
               disabled={hoursLoading}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-2"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
             >
               {hoursLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span>حفظ مواعيد العمل والطلب المسبق</span>
@@ -1961,9 +2116,11 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
           </div>
         </form>
       </div>
+      )}
 
-      {/* 5. Blocked Customers Card */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-5">
+      {/* 6. Blocked Customers Card */}
+      {activeSettingsTab === 'BLOCKED' && (
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
@@ -2112,6 +2269,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* تأكيد فك الحظر عن العميل */}
       <ConfirmModal
