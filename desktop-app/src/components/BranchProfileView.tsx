@@ -37,7 +37,15 @@ import {
   FileSpreadsheet,
   Sparkles,
   ExternalLink,
-  Layers
+  Layers,
+  Eye,
+  CheckCircle2,
+  RotateCcw,
+  Sliders,
+  FileText,
+  LayoutTemplate,
+  Type,
+  AlignRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
@@ -49,7 +57,14 @@ import {
   setAutoPrintEnabled, 
   getPreferredPrinter, 
   setPreferredPrinter, 
-  printTestReceipt 
+  getSilentPrintEnabled,
+  setSilentPrintEnabled,
+  printTestReceipt,
+  type ReceiptConfig,
+  DEFAULT_RECEIPT_CONFIG,
+  getReceiptConfig,
+  saveReceiptConfig,
+  resetReceiptConfig
 } from '../services/printer';
 
 export type SettingsTab = 'PROFILE' | 'PAYMENT' | 'MARKETING' | 'PRINTER' | 'HOURS' | 'BLOCKED';
@@ -134,6 +149,9 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
   const [printerName, setPrinterNameState] = useState<string>(getPreferredPrinter());
   const [testingPrint, setTestingPrint] = useState(false);
   const [printTestSuccess, setPrintTestSuccess] = useState(false);
+  const [receiptConfig, setReceiptConfig] = useState<ReceiptConfig>(getReceiptConfig());
+  const [silentPrint, setSilentPrint] = useState(getSilentPrintEnabled());
+  const [receiptSaveSuccess, setReceiptSaveSuccess] = useState(false);
 
   // 2. Payment Methods States
   const p = branch?.paymentConfig;
@@ -390,7 +408,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     }
   };
 
-  // Handle Printer Settings
+  // Handle Printer & Receipt Designer Settings
   const handleToggleAutoPrint = (checked: boolean) => {
     setAutoPrintState(checked);
     setAutoPrintEnabled(checked);
@@ -401,11 +419,37 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
     setPreferredPrinter(val);
   };
 
+  const handleToggleSilentPrint = (checked: boolean) => {
+    setSilentPrint(checked);
+    setSilentPrintEnabled(checked);
+  };
+
+  const handleUpdateReceiptConfig = (patch: Partial<ReceiptConfig>) => {
+    setReceiptConfig(prev => {
+      const next = { ...prev, ...patch };
+      saveReceiptConfig(next);
+      return next;
+    });
+  };
+
+  const handleSaveReceiptSettings = () => {
+    saveReceiptConfig(receiptConfig);
+    setReceiptSaveSuccess(true);
+    toast.success('تم حفظ إعدادات وتصميم البون بنجاح 🧾');
+    setTimeout(() => setReceiptSaveSuccess(false), 3000);
+  };
+
+  const handleResetReceiptDefaults = () => {
+    const defaults = resetReceiptConfig();
+    setReceiptConfig(defaults);
+    toast.success('تمت استعادة تصميم البون الافتراضي 🔄');
+  };
+
   const handleTestPrintReceipt = async () => {
     try {
       setTestingPrint(true);
       setPrintTestSuccess(false);
-      await printTestReceipt(name || 'مطعم يونيفود');
+      await printTestReceipt(name || 'مطعم يونيفود', receiptConfig);
       setPrintTestSuccess(true);
       setTimeout(() => setPrintTestSuccess(false), 3000);
     } catch (err) {
@@ -722,8 +766,8 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
         </div>
       </div>
 
-      {/* Sub-Tabs Navigation Bar */}
-      <div className="bg-white rounded-3xl p-2 sm:p-2.5 border border-slate-200 shadow-sm">
+      {/* Sticky Sub-Tabs Navigation Bar */}
+      <div className="sticky top-16 md:top-[96px] z-30 bg-white/95 backdrop-blur-md rounded-3xl p-2 sm:p-2.5 border border-slate-200/90 shadow-md transition-all">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5 sm:pb-0">
           {SETTINGS_TABS.map((tab) => {
             const isActive = activeSettingsTab === tab.id;
@@ -1775,7 +1819,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2.5 border-t border-slate-200/70 items-end">
                               {/* نوع الجائزة */}
                               <div className="sm:col-span-5">
-                                <label className="text-[11px] font-bold text-slate-500 block mb-1">نوع الجائزة</label>
+                                <label className="text-[11px] font-bold text-slate-600 block mb-1 whitespace-nowrap">نوع الجائزة</label>
                                 <select
                                   value={prize.type}
                                   onChange={e => {
@@ -1806,7 +1850,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                                     }
                                     handleUpdatePrize(idx, { type: newType, label: newLabel, value: newVal, icon });
                                   }}
-                                  className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500"
+                                  className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500 shadow-2xs"
                                 >
                                   <option value="COUPON">🏷️ كوبون خصم</option>
                                   <option value="POINTS">🌟 نقاط ولاء</option>
@@ -1821,24 +1865,24 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                                 {prize.type === 'COUPON' && (
                                   <div className="flex items-center gap-1.5">
                                     <div className="w-20 shrink-0">
-                                      <label className="text-[11px] font-bold text-slate-500 block mb-1">النوع</label>
+                                      <label className="text-[11px] font-bold text-slate-600 block mb-1 whitespace-nowrap">النوع</label>
                                       <select
                                         value={prize.discountType || 'PERCENT'}
                                         onChange={e => handleUpdatePrize(idx, { discountType: e.target.value as any })}
-                                        className="w-full px-1.5 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700"
+                                        className="w-full px-1.5 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 shadow-2xs"
                                       >
                                         <option value="PERCENT">نسبة %</option>
                                         <option value="FIXED">مبلغ ج.م</option>
                                       </select>
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <label className="text-[11px] font-bold text-slate-500 block mb-1">الخصم</label>
+                                      <label className="text-[11px] font-bold text-slate-600 block mb-1 whitespace-nowrap">الخصم</label>
                                       <input
                                         type="number"
                                         min="1"
                                         value={prize.value}
                                         onChange={e => handleUpdatePrize(idx, { value: parseFloat(e.target.value) || 0 })}
-                                        className="w-full px-2 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800"
+                                        className="w-full px-2 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 shadow-2xs"
                                       />
                                     </div>
                                   </div>
@@ -1846,33 +1890,33 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
 
                                 {prize.type === 'POINTS' && (
                                   <div>
-                                    <label className="text-[11px] font-bold text-slate-500 block mb-1">عدد النقاط</label>
+                                    <label className="text-[11px] font-bold text-slate-600 block mb-1 whitespace-nowrap">عدد النقاط</label>
                                     <input
                                       type="number"
                                       min="1"
                                       value={prize.value}
                                       onChange={e => handleUpdatePrize(idx, { value: parseInt(e.target.value, 10) || 0 })}
-                                      className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800"
+                                      className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 shadow-2xs"
                                     />
                                   </div>
                                 )}
 
                                 {prize.type === 'FREE_ITEM' && (
                                   <div>
-                                    <label className="text-[11px] font-bold text-slate-500 block mb-1">اسم الصنف المهداة</label>
+                                    <label className="text-[11px] font-bold text-slate-600 block mb-1 whitespace-nowrap">اسم الصنف المهداة</label>
                                     <input
                                       type="text"
                                       value={String(prize.value || '')}
                                       onChange={e => handleUpdatePrize(idx, { value: e.target.value })}
                                       placeholder="مثال: كانز بيبسي هدية"
-                                      className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                                      className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 shadow-2xs"
                                     />
                                   </div>
                                 )}
 
                                 {(prize.type === 'FREE_DELIVERY' || prize.type === 'BETTER_LUCK') && (
                                   <div>
-                                    <label className="text-[11px] font-bold text-slate-400 block mb-1">القيمة</label>
+                                    <label className="text-[11px] font-bold text-slate-400 block mb-1 whitespace-nowrap">القيمة</label>
                                     <div className="px-2.5 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-500 text-center">
                                       {prize.type === 'FREE_DELIVERY' ? 'توصيل مجاني 100%' : 'بدون مكافأة'}
                                     </div>
@@ -1882,7 +1926,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
 
                               {/* نسبة احتمالية الظهور % */}
                               <div className="sm:col-span-3">
-                                <label className="text-[11px] font-bold text-slate-500 block mb-1">نسبة الظهور</label>
+                                <label className="text-[11px] font-bold text-slate-600 block mb-1 whitespace-nowrap">نسبة الظهور</label>
                                 <div className="relative">
                                   <input
                                     type="number"
@@ -1890,7 +1934,7 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
                                     max="100"
                                     value={prize.weight}
                                     onChange={e => handleUpdatePrize(idx, { weight: Math.max(1, parseInt(e.target.value, 10) || 1) })}
-                                    className="w-full pl-6 pr-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-black text-amber-700"
+                                    className="w-full pl-6 pr-2.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-black text-amber-700 shadow-2xs"
                                   />
                                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
                                 </div>
@@ -1934,87 +1978,718 @@ export const BranchProfileView: React.FC<BranchProfileViewProps> = ({
 
       {/* 4. Thermal Printer & POS Settings Card */}
       {activeSettingsTab === 'PRINTER' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-              <Printer className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-slate-900">إعدادات الطابعة الحرارية وطباعة البونات (Thermal POS)</h3>
-              <p className="text-xs text-slate-400">تحكم في الطباعة التلقائية فور قبول الطلبات واختبر جاهزية الطابعة</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            disabled={testingPrint}
-            onClick={handleTestPrintReceipt}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-xl text-xs font-black transition-all flex items-center gap-2 self-start sm:self-auto shadow-sm"
-          >
-            <Printer className={`w-4 h-4 ${testingPrint ? 'animate-bounce text-indigo-600' : ''}`} />
-            <span>{testingPrint ? 'جاري إرسال أمر الطباعة...' : 'طباعة بون تجريبي (Test)'}</span>
-          </button>
-        </div>
-
-        {printTestSuccess && (
-          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
-            <span>تم إرسال بون التجربة بنجاح إلى أمر طباعة الجهاز!</span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-          {/* Auto-print toggle */}
-          <div className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 ${
-            autoPrintEnabled ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50'
-          }`}>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-xs text-slate-900">الطباعة التلقائية للبون</span>
-                <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">موصى بها</span>
+        <div className="space-y-6">
+          {/* Header Card with Quick Actions */}
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                <Printer className="w-5 h-5" />
               </div>
-              <p className="text-[11px] text-slate-500 mt-1 leading-tight">
-                طباعة بون المطبخ مباشرة وبشكل فوري عند الضغط على "قبول وبدء التجهيز"
-              </p>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">إعدادات الطابعة وتصميم شكل البون الحراري (POS Thermal Receipt)</h3>
+                <p className="text-xs text-slate-400">تحكم بالكامل في تصميم ومحتوى بون المطبخ وبون العميل مع معاينة حية ومباشرة</p>
+              </div>
             </div>
 
-            <button
-              type="button"
-              role="switch"
-              aria-checked={autoPrintEnabled}
-              onClick={() => handleToggleAutoPrint(!autoPrintEnabled)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                autoPrintEnabled ? 'bg-indigo-600' : 'bg-slate-200'
-              }`}
-              dir="ltr"
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
-                  autoPrintEnabled ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
+            <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={handleResetReceiptDefaults}
+                className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="استعادة الضبط الافتراضي القياسي للبون"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                <span>الافتراضي 🔄</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={testingPrint}
+                onClick={handleTestPrintReceipt}
+                className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95"
+              >
+                <Printer className={`w-4 h-4 ${testingPrint ? 'animate-bounce text-indigo-600' : ''}`} />
+                <span>{testingPrint ? 'جاري إرسال البون...' : 'طباعة بون تجريبي 🖨️'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveReceiptSettings}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>حفظ التعديلات 💾</span>
+              </button>
+            </div>
           </div>
 
-          {/* Printer Selection / Name */}
-          <div className="p-4 rounded-2xl border-2 border-slate-200 bg-slate-50/50 space-y-2">
-            <label className="block text-xs font-bold text-slate-800">
-              طابعة البونات الحرارية (80mm / 58mm):
-            </label>
-            <input
-              type="text"
-              value={printerName}
-              onChange={e => handlePrinterNameChange(e.target.value)}
-              placeholder="مثال: Xprinter XP-80C أو Default Thermal Printer"
-              className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600"
-            />
-            <span className="text-[10px] text-slate-400 block">
-              💡 البرنامج يستخدم حوار الطباعة المباشر لنظام Windows أو الطابعة المحددة افتراضياً.
-            </span>
+          {printTestSuccess && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs flex items-center gap-2.5 animate-fadeIn">
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-bold">تم إرسال بون التجربة بنجاح إلى الطابعة الحرارية وفقاً للتصميم والتعديلات الحالية!</span>
+            </div>
+          )}
+
+          {receiptSaveSuccess && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs flex items-center gap-2.5 animate-fadeIn">
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-bold">تم حفظ كافة تفاصيل وتخصيصات شكل البون بنجاح وربطها بجهاز الكاشير!</span>
+            </div>
+          )}
+
+          {/* Designer Grid: Controls (Left) vs Live Thermal Mockup (Right) */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+            
+            {/* Left Column: Form Controls */}
+            <div className="xl:col-span-7 space-y-5">
+              
+              {/* Card 1: إعدادات الطابعة والورق */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <Sliders className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-900">إعدادات الطابعة ونوع الورق</h4>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Auto-print toggle */}
+                  <div className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 ${
+                    autoPrintEnabled ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50'
+                  }`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-slate-900">الطباعة التلقائية للبون</span>
+                        <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">موصى بها</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-tight">
+                        طباعة بون المطبخ فورياً عند الضغط على "قبول وبدء التجهيز"
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={autoPrintEnabled}
+                      onClick={() => handleToggleAutoPrint(!autoPrintEnabled)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        autoPrintEnabled ? 'bg-indigo-600' : 'bg-slate-200'
+                      }`}
+                      dir="ltr"
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                          autoPrintEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Silent Print toggle */}
+                  <div className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 ${
+                    silentPrint ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 bg-slate-50/50'
+                  }`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-slate-900">الطباعة الصامتة المباشرة</span>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">سريعة جداً</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-tight">
+                        إرسال البون مباشرة لرأس الطابعة دون فتح شاشة معاينة الطباعة للويندوز
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={silentPrint}
+                      onClick={() => handleToggleSilentPrint(!silentPrint)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        silentPrint ? 'bg-indigo-600' : 'bg-slate-200'
+                      }`}
+                      dir="ltr"
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                          silentPrint ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Paper Width (80mm vs 58mm) */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="block text-xs font-bold text-slate-700">عرض رول الورق الحراري (Paper Width)</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateReceiptConfig({ paperWidth: '80mm' })}
+                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                          receiptConfig.paperWidth === '80mm'
+                            ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-sm ring-2 ring-indigo-200'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>80 مم (عريض - الطابعات القياسية)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateReceiptConfig({ paperWidth: '58mm' })}
+                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                          receiptConfig.paperWidth === '58mm'
+                            ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-sm ring-2 ring-indigo-200'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>58 مم (ضيق - الطابعات المحمولة)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Printer Name Input */}
+                  <div className="space-y-1 pt-1">
+                    <label className="block text-xs font-bold text-slate-700">اسم الطابعة في نظام Windows (اختياري)</label>
+                    <input
+                      type="text"
+                      value={printerName}
+                      onChange={e => handlePrinterNameChange(e.target.value)}
+                      placeholder="مثال: Xprinter XP-80C أو اتركها فارغة لاستخدام الطابعة الافتراضية"
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white"
+                    />
+                  </div>
+
+                  {/* Feed Lines After Cut */}
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700">أسطر التغذية الفارغة بعد نهاية البون</label>
+                      <span className="text-xs font-bold font-mono text-indigo-600">{receiptConfig.feedLinesAfterCut || 2} أسطر</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map(num => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => handleUpdateReceiptConfig({ feedLinesAfterCut: num })}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                            (receiptConfig.feedLinesAfterCut || 2) === num
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-slate-400 block">تضمن عدم قص شفرة الطابعة لآخر سطر في البون المطبوع.</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: نمط البون وحجم خط المطبخ */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                  <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <LayoutTemplate className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-900">نمط البون وتنسيق الوجبات</h4>
+                </div>
+
+                <div className="space-y-3.5">
+                  {/* Mode Selector */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">نوع وتصميم البون المستهدف:</label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div
+                        onClick={() => handleUpdateReceiptConfig({ receiptMode: 'FULL' })}
+                        className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all space-y-1 ${
+                          receiptConfig.receiptMode === 'FULL'
+                            ? 'border-indigo-600 bg-indigo-50/60 shadow-sm'
+                            : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-slate-900">📄 بون حساب كامل</span>
+                          <input type="radio" checked={receiptConfig.receiptMode === 'FULL'} readOnly className="text-indigo-600" />
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">للعميل والكاشير، يشمل أسعار الأصناف والمجاميع وطريقة الدفع</p>
+                      </div>
+
+                      <div
+                        onClick={() => handleUpdateReceiptConfig({ receiptMode: 'KITCHEN' })}
+                        className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all space-y-1 ${
+                          receiptConfig.receiptMode === 'KITCHEN'
+                            ? 'border-indigo-600 bg-indigo-50/60 shadow-sm'
+                            : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-slate-900">🧑‍🍳 بون تحضير مطبخ</span>
+                          <input type="radio" checked={receiptConfig.receiptMode === 'KITCHEN'} readOnly className="text-indigo-600" />
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">للطهاة والمطبخ، يركز على الوجبات والإضافات والكميات بدون أسعار</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Font Size Selector */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">حجم خط أسماء الوجبات والأصناف:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'NORMAL', label: 'عادي (Normal)' },
+                        { id: 'LARGE', label: 'كبير (Large)' },
+                        { id: 'XLARGE', label: 'كبير جداً للمطبخ 🔥' }
+                      ].map(f => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => handleUpdateReceiptConfig({ itemFontSize: f.id as any })}
+                          className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            receiptConfig.itemFontSize === f.id
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Show Modifiers Toggle */}
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">إظهار تفاصيل الإضافات والملاحظات لكل وجبة</span>
+                      <span className="text-[10px] text-slate-500 block">مثل: + جبنة إضافية، بدون صوص، بطاطس مقلية...</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showItemModifiers}
+                      onChange={e => handleUpdateReceiptConfig({ showItemModifiers: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Card 3: ترويسة البون وهوية المطعم */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <Store className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-900">ترويسة البون وبيانات المطعم</h4>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">اسم المطعم على البون (اختياري)</label>
+                    <input
+                      type="text"
+                      value={receiptConfig.customBranchName || ''}
+                      onChange={e => handleUpdateReceiptConfig({ customBranchName: e.target.value })}
+                      placeholder={`الافتراضي: ${name || 'اسم الفرع المسجل'}`}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">اتركه فارغاً ليتم استخدام اسم الفرع المسجل تلقائياً.</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">رسالة ترحيبية أو جملة دعائية أعلى البون</label>
+                    <input
+                      type="text"
+                      value={receiptConfig.customHeaderMessage || ''}
+                      onChange={e => handleUpdateReceiptConfig({ customHeaderMessage: e.target.value })}
+                      placeholder="مثال: أهلاً وسهلاً بكم في فرعنا • خدمة سريعة ولذيذة"
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <label className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                      <span className="text-xs font-bold text-slate-800">شعار UniFood</span>
+                      <input
+                        type="checkbox"
+                        checked={receiptConfig.showHeaderLogo}
+                        onChange={e => handleUpdateReceiptConfig({ showHeaderLogo: e.target.checked })}
+                        className="w-4 h-4 rounded text-indigo-600"
+                      />
+                    </label>
+
+                    <label className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                      <span className="text-xs font-bold text-slate-800">عنوان الفرع</span>
+                      <input
+                        type="checkbox"
+                        checked={receiptConfig.showHeaderAddress}
+                        onChange={e => handleUpdateReceiptConfig({ showHeaderAddress: e.target.checked })}
+                        className="w-4 h-4 rounded text-indigo-600"
+                      />
+                    </label>
+
+                    <label className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                      <span className="text-xs font-bold text-slate-800">هاتف الفرع</span>
+                      <input
+                        type="checkbox"
+                        checked={receiptConfig.showHeaderPhone}
+                        onChange={e => handleUpdateReceiptConfig({ showHeaderPhone: e.target.checked })}
+                        className="w-4 h-4 rounded text-indigo-600"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4: بيانات الطلب والعميل */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                  <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-900">بيانات الطلب والعميل في البون</h4>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">رقم طلب بارز وبإطار عريض</span>
+                      <span className="text-[10px] text-slate-400 block">يظهر #101 بحجم كبير جداً للمطبخ</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showOrderNumberBig}
+                      onChange={e => handleUpdateReceiptConfig({ showOrderNumberBig: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">إبراز ملاحظات العميل</span>
+                      <span className="text-[10px] text-slate-400 block">إطار داكن للملاحظات يمنع نسيانها</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.highlightCustomerNotes}
+                      onChange={e => handleUpdateReceiptConfig({ highlightCustomerNotes: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <span className="text-xs font-bold text-slate-800">توقيت وتاريخ الطلب</span>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showOrderTime}
+                      onChange={e => handleUpdateReceiptConfig({ showOrderTime: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <span className="text-xs font-bold text-slate-800">نوع الطلب (توصيل / استلام)</span>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showOrderType}
+                      onChange={e => handleUpdateReceiptConfig({ showOrderType: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <span className="text-xs font-bold text-slate-800">طريقة الدفع (كاش / محفظة)</span>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showPaymentMethod}
+                      onChange={e => handleUpdateReceiptConfig({ showPaymentMethod: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <span className="text-xs font-bold text-slate-800">اسم العميل</span>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showCustomerName}
+                      onChange={e => handleUpdateReceiptConfig({ showCustomerName: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <span className="text-xs font-bold text-slate-800">هاتف العميل</span>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showCustomerPhone}
+                      onChange={e => handleUpdateReceiptConfig({ showCustomerPhone: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <span className="text-xs font-bold text-slate-800">عنوان ومنطقة التوصيل</span>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showDeliveryAddress}
+                      onChange={e => handleUpdateReceiptConfig({ showDeliveryAddress: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Card 5: الحسابات وتذييل البون */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                  <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <Receipt className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-900">تذييل البون والحسابات</h4>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">إظهار تفصيل الحسابات والخصومات</span>
+                      <span className="text-[10px] text-slate-500 block">عرض المجموع الفرعي، رسوم التوصيل، خصم الكوبون، والمجموع النهائي</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showSubtotalAndFees}
+                      onChange={e => handleUpdateReceiptConfig({ showSubtotalAndFees: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">الرسالة الختامية أسفل البون</label>
+                    <textarea
+                      rows={2}
+                      value={receiptConfig.customFooterMessage || ''}
+                      onChange={e => handleUpdateReceiptConfig({ customFooterMessage: e.target.value })}
+                      placeholder="مثال: شكراً لطلبكم ونتمنى لكم وجبة شهية ❤️ • باسورد الواي فاي: 12345678"
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white resize-none"
+                    />
+                  </div>
+
+                  <label className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer hover:bg-slate-50">
+                    <span className="text-xs font-bold text-slate-800">إظهار رابط المتجر الإلكتروني السريع (unifood.app)</span>
+                    <input
+                      type="checkbox"
+                      checked={receiptConfig.showDirectWebLink}
+                      onChange={e => handleUpdateReceiptConfig({ showDirectWebLink: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                  </label>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Right Column: Live Thermal Paper Mockup */}
+            <div className="xl:col-span-5 xl:sticky xl:top-[160px] space-y-4">
+              <div className="bg-slate-900 text-white rounded-3xl p-4 sm:p-5 shadow-xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-black">معاينة حية لشكل البون المطبوع</span>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 font-bold border border-slate-700">
+                    {receiptConfig.paperWidth} • {receiptConfig.receiptMode === 'KITCHEN' ? 'تذكرة مطبخ' : 'بون كامل'}
+                  </span>
+                </div>
+
+                {/* The Paper Mockup */}
+                <div className="flex justify-center py-2">
+                  <div
+                    className={`bg-white text-black p-4 sm:p-5 shadow-2xl rounded-sm font-mono text-center select-none transition-all ${
+                      receiptConfig.paperWidth === '58mm' ? 'w-[260px]' : 'w-[320px]'
+                    }`}
+                    style={{
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
+                      backgroundImage: 'linear-gradient(to bottom, #ffffff 0%, #fafaf8 100%)',
+                    }}
+                  >
+                    {/* Top Serrated Cut Line */}
+                    <div className="text-[10px] font-mono text-slate-300 tracking-widest mb-2 select-none overflow-hidden whitespace-nowrap">
+                      - - - - - - - - - - - - - - - - - - - - - - - -
+                    </div>
+
+                    {/* Header */}
+                    {receiptConfig.showHeaderLogo && (
+                      <div className="text-[10px] font-black tracking-wider text-slate-800 uppercase mb-0.5">
+                        UNIFOOD • منصة طلب وتوصيل
+                      </div>
+                    )}
+
+                    <div className="text-base font-black text-black leading-tight my-1">
+                      {receiptConfig.customBranchName?.trim() || name || branch?.name || 'اسم المطعم'}
+                    </div>
+
+                    <div className="text-[11px] font-bold text-slate-700 mb-1 leading-snug">
+                      {receiptConfig.customHeaderMessage?.trim() || 'منظومة طلب وتوصيل وجبات المطاعم'}
+                    </div>
+
+                    {receiptConfig.showHeaderAddress && (
+                      <div className="text-[10px] font-bold text-slate-600">العنوان: {address || 'مجمع الكليات - مبنى أ'}</div>
+                    )}
+                    {receiptConfig.showHeaderPhone && (
+                      <div className="text-[10px] font-bold text-slate-600">الهاتف: {phone || '01023231926'}</div>
+                    )}
+
+                    <div className="border-b-2 border-dashed border-black my-2"></div>
+
+                    {/* Order Number */}
+                    {receiptConfig.showOrderNumberBig ? (
+                      <div className="border-2 border-black p-1.5 my-2 bg-white">
+                        <div className="text-[10px] font-black">رقم الطلب</div>
+                        <div className="text-2xl font-black tracking-wider leading-none my-0.5">#101</div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center text-xs font-bold my-1">
+                        <span>رقم الطلب:</span>
+                        <span className="text-base font-black">#101</span>
+                      </div>
+                    )}
+
+                    {receiptConfig.showOrderTime && (
+                      <div className="flex justify-between items-center text-[11px] my-0.5">
+                        <span>الوقت:</span>
+                        <span className="font-bold">اليوم، 01:15 م</span>
+                      </div>
+                    )}
+
+                    {receiptConfig.showOrderType && (
+                      <div className="flex justify-between items-center text-[11px] my-0.5">
+                        <span>نوع الطلب:</span>
+                        <span className="font-black">توصيل للعنوان</span>
+                      </div>
+                    )}
+
+                    {receiptConfig.showPaymentMethod && (
+                      <div className="flex justify-between items-center text-[11px] my-0.5">
+                        <span>طريقة الدفع:</span>
+                        <span className="font-bold">كاش عند الاستلام</span>
+                      </div>
+                    )}
+
+                    {/* Customer Card */}
+                    {(receiptConfig.showCustomerName || receiptConfig.showCustomerPhone || receiptConfig.showDeliveryAddress) && (
+                      <div className="border border-black p-2 my-2 text-right text-[10px] space-y-0.5 bg-white">
+                        {receiptConfig.showCustomerName && <div><strong>العميل:</strong> أحمد محمود</div>}
+                        {receiptConfig.showCustomerPhone && <div><strong>الهاتف:</strong> 01012345678</div>}
+                        {receiptConfig.showDeliveryAddress && <div><strong>العنوان:</strong> مبنى كلية الهندسة - الدور الثاني</div>}
+                        <div className={`mt-1 ${receiptConfig.highlightCustomerNotes ? 'p-1.5 border-2 border-black font-black text-[11px] bg-slate-50' : 'font-bold'}`}>
+                          <strong>ملاحظات:</strong> بدون كاتشب، زيادة صوص المايونيز الحار
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border-b-2 border-solid border-black my-2"></div>
+
+                    {/* Items */}
+                    <div className="text-right">
+                      {receiptConfig.receiptMode === 'KITCHEN' ? (
+                        <div className="text-center font-black text-xs py-1 border-b-2 border-black mb-2">
+                          🧑‍🍳 تذكرة تحضير الوجبات (المطبخ)
+                        </div>
+                      ) : (
+                        <div className="flex justify-between font-black text-[11px] border-b border-black pb-1 mb-1">
+                          <span>الصنف / التفاصيل</span>
+                          <span>المبلغ</span>
+                        </div>
+                      )}
+
+                      {/* Item 1 */}
+                      <div className="border-b border-dashed border-black/60 py-1.5">
+                        <div className={`flex ${receiptConfig.receiptMode === 'KITCHEN' ? 'justify-start gap-2' : 'justify-between'} items-baseline font-black ${
+                          receiptConfig.itemFontSize === 'XLARGE' ? 'text-sm font-black' : receiptConfig.itemFontSize === 'LARGE' ? 'text-xs' : 'text-[11px]'
+                        }`}>
+                          <span className={receiptConfig.receiptMode === 'KITCHEN' ? 'px-1.5 py-0.5 border-2 border-black rounded text-xs' : ''}>2×</span>
+                          <span>كريب كرسبي سوبريم (كبير)</span>
+                          {receiptConfig.receiptMode === 'FULL' && <span className="font-mono">170 ج.م</span>}
+                        </div>
+                        {receiptConfig.showItemModifiers && (
+                          <div className="text-[10px] font-bold text-slate-800 pr-3 mt-0.5">
+                            + جبنة شيدر إضافية {receiptConfig.receiptMode === 'FULL' ? '(15 ج.م)' : ''}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Item 2 */}
+                      <div className="border-b border-dashed border-black/60 py-1.5">
+                        <div className={`flex ${receiptConfig.receiptMode === 'KITCHEN' ? 'justify-start gap-2' : 'justify-between'} items-baseline font-black ${
+                          receiptConfig.itemFontSize === 'XLARGE' ? 'text-sm font-black' : receiptConfig.itemFontSize === 'LARGE' ? 'text-xs' : 'text-[11px]'
+                        }`}>
+                          <span className={receiptConfig.receiptMode === 'KITCHEN' ? 'px-1.5 py-0.5 border-2 border-black rounded text-xs' : ''}>1×</span>
+                          <span>كانز بيبسي مثلج</span>
+                          {receiptConfig.receiptMode === 'FULL' && <span className="font-mono">20 ج.م</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-b-2 border-dashed border-black my-2"></div>
+
+                    {/* Totals or Kitchen summary */}
+                    {receiptConfig.receiptMode === 'FULL' && receiptConfig.showSubtotalAndFees ? (
+                      <div className="space-y-1 text-right text-[11px] font-bold my-1">
+                        <div className="flex justify-between">
+                          <span>المجموع الفرعي:</span>
+                          <span className="font-mono font-black">190 ج.م</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>رسوم التوصيل:</span>
+                          <span className="font-mono font-black">10 ج.م</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-black pt-1 border-t-2 border-black text-black">
+                          <span>الإجمالي المطلوب:</span>
+                          <span className="text-sm font-black font-mono">200 ج.م</span>
+                        </div>
+                      </div>
+                    ) : (
+                      receiptConfig.receiptMode === 'KITCHEN' && (
+                        <div className="text-center font-black text-xs my-1">إجمالي عدد الأصناف: 3 أصناف</div>
+                      )
+                    )}
+
+                    {/* Footer Message */}
+                    {receiptConfig.customFooterMessage?.trim() && (
+                      <>
+                        <div className="border-b border-dashed border-black my-2"></div>
+                        <div className="text-[10px] font-black text-black leading-tight my-1">
+                          {receiptConfig.customFooterMessage}
+                        </div>
+                      </>
+                    )}
+
+                    {receiptConfig.showDirectWebLink && (
+                      <div className="text-[9px] font-bold text-slate-700 mt-1.5 direction-ltr">
+                        order via: unifood.app
+                      </div>
+                    )}
+
+                    {/* Extra Feed Lines Demo */}
+                    <div className="py-2 flex flex-col items-center justify-center gap-1 text-[9px] text-slate-400">
+                      <span>✂️ - - - - - قص الورق التلقائي - - - - - ✂️</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={testingPrint}
+                  onClick={handleTestPrintReceipt}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 active:scale-95 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>طباعة تجربة للشكل المعروض الآن 🖨️</span>
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
-      </div>
       )}
 
       {/* 5. Official Working Hours & Scheduled Orders Settings Card */}

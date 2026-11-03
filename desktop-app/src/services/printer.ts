@@ -127,24 +127,125 @@ export const setReceiptPaperWidth = (width: '80mm' | '58mm'): void => {
   localStorage.setItem('unifood_receipt_width', width);
 };
 
-export const generateReceiptHtml = (order: any, branchName: string, paperWidth: '80mm' | '58mm' = '80mm'): string => {
-  const formattedDate = escapeHtml(new Date(order.createdAt || Date.now()).toLocaleString('ar-EG', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }));
+// ---------------------------------------------------------------------------
+// Receipt Layout & Visual Designer Configuration
+// ---------------------------------------------------------------------------
+export interface ReceiptConfig {
+  // ترويسة البون وهوية المطعم
+  showHeaderLogo: boolean;
+  customBranchName: string;
+  showHeaderAddress: boolean;
+  showHeaderPhone: boolean;
+  customHeaderMessage: string;
 
-  const is58 = paperWidth === '58mm';
+  // بيانات الطلب والعميل
+  showOrderNumberBig: boolean;
+  showOrderTime: boolean;
+  showOrderType: boolean;
+  showPaymentMethod: boolean;
+  showCustomerName: boolean;
+  showCustomerPhone: boolean;
+  showDeliveryAddress: boolean;
+  highlightCustomerNotes: boolean;
+
+  // الأصناف والمطبخ
+  receiptMode: 'FULL' | 'KITCHEN';
+  itemFontSize: 'NORMAL' | 'LARGE' | 'XLARGE';
+  showItemModifiers: boolean;
+
+  // التذييل والحسابات
+  showSubtotalAndFees: boolean;
+  customFooterMessage: string;
+  showDirectWebLink: boolean;
+  feedLinesAfterCut: number;
+  paperWidth: '80mm' | '58mm';
+}
+
+export const DEFAULT_RECEIPT_CONFIG: ReceiptConfig = {
+  showHeaderLogo: true,
+  customBranchName: '',
+  showHeaderAddress: true,
+  showHeaderPhone: true,
+  customHeaderMessage: '',
+  showOrderNumberBig: true,
+  showOrderTime: true,
+  showOrderType: true,
+  showPaymentMethod: true,
+  showCustomerName: true,
+  showCustomerPhone: true,
+  showDeliveryAddress: true,
+  highlightCustomerNotes: true,
+  receiptMode: 'FULL',
+  itemFontSize: 'NORMAL',
+  showItemModifiers: true,
+  showSubtotalAndFees: true,
+  customFooterMessage: 'شكراً لطلبكم عبر UniFood • وجبتك لحد عندك 🚀',
+  showDirectWebLink: false,
+  feedLinesAfterCut: 2,
+  paperWidth: '80mm',
+};
+
+export const getReceiptConfig = (): ReceiptConfig => {
+  try {
+    const raw = localStorage.getItem('unifood_receipt_config');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_RECEIPT_CONFIG, ...parsed };
+    }
+  } catch (_e) {}
+  const legacyWidth = (localStorage.getItem('unifood_receipt_width') as '80mm' | '58mm') || '80mm';
+  return { ...DEFAULT_RECEIPT_CONFIG, paperWidth: legacyWidth };
+};
+
+export const saveReceiptConfig = (config: Partial<ReceiptConfig>): ReceiptConfig => {
+  const current = getReceiptConfig();
+  const updated: ReceiptConfig = { ...current, ...config };
+  localStorage.setItem('unifood_receipt_config', JSON.stringify(updated));
+  if (updated.paperWidth) {
+    localStorage.setItem('unifood_receipt_width', updated.paperWidth);
+  }
+  return updated;
+};
+
+export const resetReceiptConfig = (): ReceiptConfig => {
+  localStorage.removeItem('unifood_receipt_config');
+  return { ...DEFAULT_RECEIPT_CONFIG };
+};
+
+export const generateReceiptHtml = (
+  order: any, 
+  branchName: string, 
+  paperWidth?: '80mm' | '58mm',
+  customConfig?: Partial<ReceiptConfig>
+): string => {
+  const config = { ...getReceiptConfig(), ...(customConfig || {}) };
+  const effectivePaperWidth = paperWidth || config.paperWidth || '80mm';
+  const is58 = effectivePaperWidth === '58mm';
+
   // عرض آمن جداً لمنع قص الأرقام والأسعار من الحافة اليسرى لورق الطابعة
   const bodyWidth = is58 ? '46mm' : '62mm';
   const fontSize = is58 ? '11px' : '12px';
   const titleSize = is58 ? '16px' : '19px';
 
-  const safeBranchName = escapeHtml(branchName);
+  const itemFontSize = config.itemFontSize === 'XLARGE' 
+    ? (is58 ? '14px' : '16px') 
+    : config.itemFontSize === 'LARGE' 
+    ? (is58 ? '13px' : '14px') 
+    : (is58 ? '12px' : '13px');
+
+  const safeBranchName = escapeHtml(config.customBranchName?.trim() || branchName || 'UniFood');
   const safeOrderNumber = escapeHtml(order.orderNumber || '—');
+
+  const formattedDate = escapeHtml(new Date(order.createdAt || Date.now()).toLocaleString('ar-EG', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }));
+
+  const isKitchenMode = config.receiptMode === 'KITCHEN';
 
   const itemsHtml = (order.items || []).map((item: any) => {
     let modifiersList: any[] = [];
-    if (item.selectedModifiers) {
+    if (item.selectedModifiers && config.showItemModifiers) {
       try {
         modifiersList = typeof item.selectedModifiers === 'string' 
           ? JSON.parse(item.selectedModifiers) 
@@ -152,11 +253,24 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
       } catch (e) {}
     }
     const modsText = modifiersList && modifiersList.length > 0 
-      ? `<div style="font-size: 11px; font-weight: 700; color: #000; padding-right: 8px; margin-top: 2px;">+ ${modifiersList.map((m: any) => `${escapeHtml(m.optionName)} (${escapeHtml(m.price)} ج.م)`).join('، ')}</div>`
+      ? `<div style="font-size: 11px; font-weight: 700; color: #000; padding-right: 8px; margin-top: 2px;">+ ${modifiersList.map((m: any) => isKitchenMode ? escapeHtml(m.optionName) : `${escapeHtml(m.optionName)} (${escapeHtml(m.price)} ج.م)`).join('، ')}</div>`
       : '';
+
+    if (isKitchenMode) {
+      return `
+        <div style="border-bottom: 1.5px dashed #000; padding: 6px 0;">
+          <div style="display: flex; align-items: baseline; justify-content: flex-start; gap: 6px; font-weight: 900; font-size: ${itemFontSize}; color: #000;">
+            <span style="display: inline-block; padding: 1px 6px; border: 2px solid #000; border-radius: 4px; font-size: 13px; font-weight: 900; background: #fff;">${escapeHtml(item.quantity)}×</span>
+            <span style="text-align: right; flex: 1;">${escapeHtml(item.itemName)} ${item.sizeName ? `(${escapeHtml(item.sizeName)})` : ''}</span>
+          </div>
+          ${modsText}
+        </div>
+      `;
+    }
+
     return `
       <div style="border-bottom: 1px dashed #000; padding: 5px 0;">
-        <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: ${is58 ? '12px' : '13px'}; color: #000;">
+        <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: ${itemFontSize}; color: #000;">
           <span style="text-align: right;">${escapeHtml(item.quantity)} × ${escapeHtml(item.itemName)} ${item.sizeName ? `(${escapeHtml(item.sizeName)})` : ''}</span>
           <span style="direction: ltr; font-weight: 900; padding-left: 4px; white-space: nowrap;">${escapeHtml(item.totalPrice)} ج.م</span>
         </div>
@@ -172,6 +286,57 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
     order.paymentMethod === 'INSTAPAY' ? (isDirectTransferOnDelivery ? 'إنستاباي (عند الاستلام)' : 'إنستاباي') :
     order.paymentMethod === 'CARD' ? 'بطاقة دفع' : (order.paymentMethod || 'نقدي')
   );
+
+  const hasCustomerInfo = config.showCustomerName || config.showCustomerPhone || config.showDeliveryAddress || order.notes || order.orderNotes;
+  const customerCardHtml = hasCustomerInfo ? `
+    <div class="customer-card">
+      ${config.showCustomerName ? `<div><strong>العميل:</strong> ${escapeHtml(order.customerName || 'عميل')}</div>` : ''}
+      ${config.showCustomerPhone ? `<div><strong>الهاتف:</strong> ${escapeHtml(order.customerPhone || '—')}</div>` : ''}
+      ${config.showDeliveryAddress && order.orderType === 'DELIVERY' && order.deliveryZoneName ? `<div><strong>منطقة التوصيل:</strong> ${escapeHtml(order.deliveryZoneName)}</div>` : ''}
+      ${config.showDeliveryAddress && order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${escapeHtml(getDisplayAddress(order.addressText, 'مقر العميل'))}</div>` : ''}
+      ${order.paymentSenderPhone ? `<div><strong>رقم المحول منه:</strong> ${escapeHtml(order.paymentSenderPhone)}</div>` : ''}
+      ${(order.notes || order.orderNotes) ? `
+        <div style="${config.highlightCustomerNotes ? 'margin-top: 4px; padding: 4px; border: 2px solid #000; background: #fff; font-weight: 900; font-size: 12px;' : 'font-weight: 900; margin-top: 2px;'}">
+          <strong>ملاحظات:</strong> ${escapeHtml(order.notes || order.orderNotes)}
+        </div>` : ''}
+    </div>
+  ` : '';
+
+  const totalsHtml = (!isKitchenMode && config.showSubtotalAndFees) ? `
+    <div style="margin: 4px 0;">
+      <div class="row">
+        <span>المجموع الفرعي:</span>
+        <span class="price-val">${escapeHtml(order.subtotal || 0)} ج.م</span>
+      </div>
+      ${order.orderType === 'DELIVERY' ? `
+      <div class="row">
+        <span>رسوم التوصيل:</span>
+        <span class="price-val">${escapeHtml(order.deliveryFee || 0)} ج.م</span>
+      </div>` : ''}
+      ${order.discount && order.discount > 0 ? `
+      <div class="row" style="font-weight: 900;">
+        <span>خصم الكوبون${order.promoCode ? ` (${escapeHtml(order.promoCode)})` : ''}:</span>
+        <span class="price-val">-${escapeHtml(order.discount)} ج.م</span>
+      </div>` : ''}
+      ${order.walletDiscount && order.walletDiscount > 0 ? `
+      <div class="row" style="font-weight: 900;">
+        <span>خصم المحفظة:</span>
+        <span class="price-val">-${escapeHtml(order.walletDiscount)} ج.م</span>
+      </div>` : ''}
+      <div class="row font-black" style="border-top: 2px solid #000; padding-top: 4px; margin-top: 4px; font-size: 15px;">
+        <span>الإجمالي المطلوب:</span>
+        <span class="price-val" style="font-size: 16px;">${escapeHtml(order.total || 0)} ج.م</span>
+      </div>
+    </div>
+  ` : (isKitchenMode ? `
+    <div style="text-align: center; font-weight: 900; font-size: 12px; margin: 4px 0; padding: 3px 0; border-top: 1.5px dashed #000;">
+      إجمالي عدد الأصناف: ${(order.items || []).reduce((acc: number, i: any) => acc + (Number(i.quantity) || 1), 0)} صنف
+    </div>
+  ` : '');
+
+  const feedLines = Array(Math.max(1, Math.min(6, config.feedLinesAfterCut || 2)))
+    .fill('<div style="height: 14px;"></div>')
+    .join('');
 
   return `
     <!DOCTYPE html>
@@ -252,93 +417,91 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
       </head>
       <body>
         <div class="center">
-          <div style="font-size: 11px; font-weight: 900; letter-spacing: 0.5px;">UNIFOOD • منصة طلب وتوصيل الوجبات</div>
+          ${config.showHeaderLogo ? '<div style="font-size: 11px; font-weight: 900; letter-spacing: 0.5px;">UNIFOOD • منصة طلب وتوصيل الوجبات</div>' : ''}
           <div style="font-size: ${titleSize}; font-weight: 900; margin: 2px 0;">${safeBranchName}</div>
-          <div style="font-size: 11px; font-weight: 800;">منظومة طلب وتوصيل وجبات المطاعم</div>
+          ${config.customHeaderMessage?.trim() 
+            ? `<div style="font-size: 11px; font-weight: 800; margin-bottom: 2px;">${escapeHtml(config.customHeaderMessage)}</div>`
+            : '<div style="font-size: 11px; font-weight: 800;">منظومة طلب وتوصيل وجبات المطاعم</div>'}
+          ${(config.showHeaderAddress && order.branchAddress) ? `<div style="font-size: 10px; font-weight: 700;">العنوان: ${escapeHtml(order.branchAddress)}</div>` : ''}
+          ${(config.showHeaderPhone && order.branchPhone) ? `<div style="font-size: 10px; font-weight: 700;">الهاتف: ${escapeHtml(order.branchPhone)}</div>` : ''}
           <div class="dashed"></div>
 
+          ${config.showOrderNumberBig ? `
+          <div style="border: 2px solid #000; padding: 4px; margin: 4px 0; text-align: center; background: #fff;">
+            <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">رقم الطلب</div>
+            <div style="font-size: 22px; font-weight: 900; letter-spacing: 1px;">#${safeOrderNumber}</div>
+          </div>
+          ` : `
           <div class="row">
             <span class="font-bold">رقم الطلب:</span>
-            <span class="price-val" style="font-size: 17px; font-weight: 900;">#${safeOrderNumber}</span>
+            <span class="price-val" style="font-size: 16px; font-weight: 900;">#${safeOrderNumber}</span>
           </div>
+          `}
+
+          ${config.showOrderTime ? `
           <div class="row">
             <span>الوقت:</span>
             <span style="font-size: 11px; font-weight: 800;">${formattedDate}</span>
-          </div>
+          </div>` : ''}
+
+          ${config.showOrderType ? `
           <div class="row">
             <span>نوع الطلب:</span>
             <span class="font-bold">${order.orderType === 'DELIVERY' ? 'توصيل للعنوان' : 'استلام من الفرع'}</span>
-          </div>
+          </div>` : ''}
+
           ${order.isScheduled && order.scheduledFor ? `
           <div style="border: 2px dashed #000; padding: 4px; margin: 4px 0; text-align: center; background: #eee;">
             <div style="font-weight: 900; font-size: 13px;">⏰ طلب مجدول لوقت لاحق</div>
             <div style="font-weight: 800; font-size: 11px;">موعد التسليم: ${new Date(order.scheduledFor).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })}</div>
           </div>` : ''}
+
+          ${config.showPaymentMethod ? `
           <div class="row">
             <span>طريقة الدفع:</span>
             <span class="font-bold">${paymentLabel}</span>
-          </div>
+          </div>` : ''}
+
           ${order.estimatedMinutes ? `
           <div class="row" style="font-weight: 900;">
             <span>الوقت المقدر:</span>
             <span>${escapeHtml(order.estimatedMinutes)} دقيقة</span>
           </div>` : ''}
 
-          <div class="customer-card">
-            <div><strong>العميل:</strong> ${escapeHtml(order.customerName || 'عميل')}</div>
-            <div><strong>الهاتف:</strong> ${escapeHtml(order.customerPhone || '—')}</div>
-            ${order.orderType === 'DELIVERY' && order.deliveryZoneName ? `<div><strong>منطقة التوصيل:</strong> ${escapeHtml(order.deliveryZoneName)}</div>` : ''}
-            ${order.orderType === 'DELIVERY' && order.addressText ? `<div><strong>العنوان:</strong> ${escapeHtml(getDisplayAddress(order.addressText, 'مقر العميل'))}</div>` : ''}
-            ${order.paymentSenderPhone ? `<div><strong>رقم المحول منه:</strong> ${escapeHtml(order.paymentSenderPhone)}</div>` : ''}
-            ${(order.notes || order.orderNotes) ? `<div style="font-weight: 900; margin-top: 2px;"><strong>ملاحظات:</strong> ${escapeHtml(order.notes || order.orderNotes)}</div>` : ''}
-          </div>
+          ${customerCardHtml}
 
           <div class="solid"></div>
 
           <div style="width: 100%; text-align: right;">
+            ${isKitchenMode ? `
+            <div style="text-align: center; font-weight: 900; font-size: 13px; padding: 3px 0; border-bottom: 2px solid #000; margin-bottom: 4px;">
+              🧑‍🍳 تذكرة تحضير الوجبات (المطبخ)
+            </div>
+            ` : `
             <div class="row font-bold" style="border-bottom: 1.5px solid #000; padding-bottom: 3px; font-size: 12px;">
               <span>الصنف / التفاصيل</span>
               <span class="price-val">المبلغ</span>
             </div>
+            `}
             ${itemsHtml}
-            ${(order.notes || order.orderNotes) ? `
-            <div style="margin-top: 5px; padding: 4px; border: 1.5px solid #000; border-radius: 4px; font-size: 11px; font-weight: 900; background: #fff;">
-              <strong>ملاحظات العميل:</strong> ${escapeHtml(order.notes || order.orderNotes)}
-            </div>` : ''}
           </div>
 
           <div class="dashed"></div>
 
-          <div style="margin: 4px 0;">
-            <div class="row">
-              <span>المجموع الفرعي:</span>
-              <span class="price-val">${escapeHtml(order.subtotal || 0)} ج.م</span>
-            </div>
-            ${order.orderType === 'DELIVERY' ? `
-            <div class="row">
-              <span>رسوم التوصيل:</span>
-              <span class="price-val">${escapeHtml(order.deliveryFee || 0)} ج.م</span>
-            </div>` : ''}
-            ${order.discount && order.discount > 0 ? `
-            <div class="row" style="font-weight: 900;">
-              <span>خصم الكوبون${order.promoCode ? ` (${escapeHtml(order.promoCode)})` : ''}:</span>
-              <span class="price-val">-${escapeHtml(order.discount)} ج.م</span>
-            </div>` : ''}
-            ${order.walletDiscount && order.walletDiscount > 0 ? `
-            <div class="row" style="font-weight: 900;">
-              <span>خصم المحفظة:</span>
-              <span class="price-val">-${escapeHtml(order.walletDiscount)} ج.م</span>
-            </div>` : ''}
-            <div class="row font-black" style="border-top: 2px solid #000; padding-top: 4px; margin-top: 4px; font-size: 15px;">
-              <span>الإجمالي المطلوب:</span>
-              <span class="price-val" style="font-size: 16px;">${escapeHtml(order.total || 0)} ج.م</span>
-            </div>
-          </div>
+          ${totalsHtml}
 
+          ${config.customFooterMessage?.trim() ? `
           <div class="dashed"></div>
-          <div style="font-size: 11px; font-weight: 800; margin-top: 4px;">
-            شكراً لطلبكم عبر UniFood • وجبتك لحد عندك 🚀
-          </div>
+          <div style="font-size: 11px; font-weight: 800; margin-top: 4px; line-height: 1.4;">
+            ${escapeHtml(config.customFooterMessage)}
+          </div>` : ''}
+
+          ${config.showDirectWebLink ? `
+          <div style="font-size: 10px; font-weight: 700; margin-top: 3px; direction: ltr; color: #333;">
+            order via: unifood.app
+          </div>` : ''}
+
+          ${feedLines}
         </div>
       </body>
     </html>
@@ -346,9 +509,15 @@ export const generateReceiptHtml = (order: any, branchName: string, paperWidth: 
 };
 
 // تنفيذ أمر الطباعة المباشرة الصامتة مع التراجع التلقائي والبدائل الموثوقة
-export const printOrderReceipt = async (order: any, branchName: string, forceDialog: boolean = false): Promise<boolean> => {
-  const paperWidth = getReceiptPaperWidth();
-  const html = generateReceiptHtml(order, branchName, paperWidth);
+export const printOrderReceipt = async (
+  order: any, 
+  branchName: string, 
+  forceDialog: boolean = false,
+  customConfig?: Partial<ReceiptConfig>
+): Promise<boolean> => {
+  const config = { ...getReceiptConfig(), ...(customConfig || {}) };
+  const paperWidth = config.paperWidth || getReceiptPaperWidth();
+  const html = generateReceiptHtml(order, branchName, paperWidth, config);
   const preferredPrinter = getPreferredPrinter();
   const isSilent = !forceDialog && getSilentPrintEnabled();
 
@@ -450,7 +619,7 @@ export const printReceiptWithDialog = (order: any, branchName: string): Promise<
   return printOrderReceipt(order, branchName, true);
 };
 
-export const printTestReceipt = (branchName: string): Promise<boolean> => {
+export const printTestReceipt = (branchName: string, customConfig?: Partial<ReceiptConfig>): Promise<boolean> => {
   const dummyOrder = {
     orderNumber: 999,
     createdAt: new Date().toISOString(),
@@ -480,7 +649,7 @@ export const printTestReceipt = (branchName: string): Promise<boolean> => {
     total: 115,
   };
 
-  return printOrderReceipt(dummyOrder, branchName);
+  return printOrderReceipt(dummyOrder, branchName, false, customConfig);
 };
 
 // دالة لتوليد وتحميل ملف تشغيل المتصفح بوضع الطباعة الصامتة الفورية (Kiosk Printing)
