@@ -77,7 +77,12 @@ namespace webview_pos
         {
             this.Text = "نظام استقبال وتجهيز طلبات الفروع | كاشير وإدارة الفرع | UniFood Branch";
             this.StartPosition = FormStartPosition.CenterScreen;
+
+            // تشغيل التطبيق تلقائياً في وضع ملء الشاشة الكامل بدون فريم (Borderless Fullscreen POS)
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.WindowState = FormWindowState.Normal;
             this.WindowState = FormWindowState.Maximized;
+            this.isFullScreen = true;
             this.MinimumSize = new Size(1024, 650);
 
             // تعيين الأيقونة إن وجدت
@@ -275,19 +280,24 @@ namespace webview_pos
                         break;
 
                     case "set-always-on-top":
-                        if (root.TryGetProperty("value", out var valProp))
                         {
-                            SetAlwaysOnTop(valProp.GetBoolean());
+                            bool enableTop = false;
+                            if (root.TryGetProperty("value", out var valProp))
+                            {
+                                enableTop = valProp.GetBoolean();
+                            }
+                            else if (root.TryGetProperty("data", out var dProp))
+                            {
+                                if (dProp.ValueKind == JsonValueKind.True) enableTop = true;
+                                else if (dProp.ValueKind == JsonValueKind.False) enableTop = false;
+                                else if (dProp.ValueKind == JsonValueKind.Object && dProp.TryGetProperty("value", out var innerVal))
+                                {
+                                    enableTop = innerVal.GetBoolean();
+                                }
+                            }
+                            SetAlwaysOnTop(enableTop);
+                            SendIpcResponse(reqId, this.TopMost);
                         }
-                        else if (root.TryGetProperty("data", out var dProp) && dProp.ValueKind == JsonValueKind.True)
-                        {
-                            SetAlwaysOnTop(true);
-                        }
-                        else
-                        {
-                            SetAlwaysOnTop(true);
-                        }
-                        SendIpcResponse(reqId, this.TopMost);
                         break;
 
                     case "toggle-always-on-top":
@@ -540,8 +550,15 @@ namespace webview_pos
                     BringWindowToTop(hCurrentWindow);
                 }
 
-                // ج. تثبيت النافذة في الواجهة العليا
+                // ج. تقديم النافذة للواجهة الحالية مؤقتاً لأخذ التركيز
                 SetWindowPos(hCurrentWindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+
+                // إذا لم يكن وضع التثبيت الدائم (Always on Top) مفعلاً بواسطة الكاشير،
+                // نزيل قفل TOPMOST فوراً حتى يتمكن الكاشير من فتح أي تطبيق آخر أو التبديل بين النوافذ بحرية!
+                if (!this.TopMost)
+                {
+                    SetWindowPos(hCurrentWindow, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                }
 
                 // د. وميض شريط المهام لتنبيه الكاشير
                 FlashWindow(hCurrentWindow, true);
@@ -591,8 +608,8 @@ namespace webview_pos
             }
             else if (!full && isFullScreen)
             {
-                this.FormBorderStyle = previousBorderStyle;
-                this.WindowState = previousWindowState;
+                this.FormBorderStyle = previousBorderStyle == FormBorderStyle.None ? FormBorderStyle.Sizable : previousBorderStyle;
+                this.WindowState = FormWindowState.Maximized;
                 isFullScreen = false;
             }
         }

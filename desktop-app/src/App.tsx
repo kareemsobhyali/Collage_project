@@ -468,17 +468,15 @@ export function App() {
 
     // استلام طلب جديد لحظياً!
     socket.on('new_order', (newOrder: any) => {
-      // 1. نقل شاشة البرنامج للواجهة وتثبيتها في المقدمة وأخذ الفوكس فوراً فوق أي برنامج (Electron & WebView2)
+      // 1. نقل شاشة البرنامج للواجهة وأخذ الفوكس فوراً (بدون قفل دائم يمنع فتح البرامج الأخرى)
       try {
         (window as any).electronAPI?.send?.('bring-to-front');
-        (window as any).electronAPI?.send?.('set-always-on-top', true);
         (window as any).electronAPI?.send?.('window-focus');
       } catch (_e) {}
 
       try {
         if ((window as any).chrome?.webview?.postMessage) {
           (window as any).chrome.webview.postMessage({ action: 'bring-to-front' });
-          (window as any).chrome.webview.postMessage({ action: 'set-always-on-top', value: true });
         }
       } catch (_e) {}
 
