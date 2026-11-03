@@ -809,25 +809,6 @@ export function App() {
         </div>
       )}
 
-      {/* 2. شريط التحويل لملء الشاشة الكامل (Full Screen) مثل الصورة رقم 2 */}
-      {!isFullscreen && (
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-3 sm:px-6 py-1.5 text-xs font-bold flex items-center justify-between gap-2 border-b border-indigo-700/50 z-50">
-          <div className="flex items-center gap-2 min-w-0">
-            <Maximize2 className="w-3.5 h-3.5 text-indigo-400 animate-pulse shrink-0" />
-            <span className="truncate text-slate-200">
-              لتكبير الشاشة بالكامل وإخفاء شريط العنوان وشريط المهام (مثل صورة POS 2):
-            </span>
-          </div>
-          <button
-            onClick={toggleFullScreen}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg font-black text-[11px] shrink-0 transition-transform active:scale-95 flex items-center gap-1.5 shadow-sm border border-indigo-400/40 cursor-pointer"
-          >
-            <Maximize2 className="w-3 h-3" />
-            <span>عرض ملء الشاشة الكامل ⛶</span>
-          </button>
-        </div>
-      )}
-
       {/* Top Application Header (Two-tier responsive layout) */}
       <header 
         onDoubleClick={toggleFullScreen}
