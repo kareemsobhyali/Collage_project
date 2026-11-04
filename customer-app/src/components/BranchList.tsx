@@ -98,11 +98,11 @@ const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
     return () => clearInterval(interval);
   }, [branch.closedUntil, branch.operationalStatus]);
 
-  if (branch.isOnline !== true) {
+  if (branch.isActive === false) {
     return (
-      <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-800 text-rose-300 backdrop-blur-md shadow-sm border border-rose-500/30 shrink-0 flex items-center gap-1">
-        <PowerOff className="w-3 h-3 text-rose-400" />
-        <span>مغلق مؤقتاً (غير متصل)</span>
+      <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-900 text-white backdrop-blur-md shadow-sm border border-white/20 shrink-0 flex items-center gap-1">
+        <PowerOff className="w-3 h-3" />
+        <span>موقوف إدارياً</span>
       </span>
     );
   }
@@ -112,6 +112,15 @@ const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
       <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-600 text-white backdrop-blur-md shadow-sm border border-white/20 shrink-0 flex items-center gap-1">
         <PowerOff className="w-3 h-3" />
         <span>مغلق حالياً</span>
+      </span>
+    );
+  }
+
+  if (!isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours)) {
+    return (
+      <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-600 text-white backdrop-blur-md shadow-sm border border-white/20 shrink-0 flex items-center gap-1">
+        <Clock className="w-3 h-3" />
+        <span>مغلق (خارج مواعيد العمل)</span>
       </span>
     );
   }
@@ -129,11 +138,12 @@ const BranchCountdownBadge: React.FC<{ branch: any }> = ({ branch }) => {
     );
   }
 
-  if (!isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours)) {
+  // فحص انقطاع الاتصال يظهر فقط إذا كان المطعم ضمن أوقات العمل ومفترض أن يكون مفتوحاً
+  if (branch.isOnline !== true) {
     return (
-      <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-rose-600 text-white backdrop-blur-md shadow-sm border border-white/20 shrink-0 flex items-center gap-1">
-        <Clock className="w-3 h-3" />
-        <span>مغلق (خارج مواعيد العمل)</span>
+      <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-800 text-rose-300 backdrop-blur-md shadow-sm border border-rose-500/30 shrink-0 flex items-center gap-1">
+        <PowerOff className="w-3 h-3 text-rose-400" />
+        <span>مغلق مؤقتاً (غير متصل)</span>
       </span>
     );
   }
@@ -909,15 +919,17 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
   // 2. ترتيب المطاعم: المفتوح أولاً ثم المشغول ثم المغلق في الأسفل (طلب المستخدم)
   const sortedFilteredBranches = useMemo(() => {
     return [...filteredBranches].sort((a, b) => {
-      const isAOffline = a.isOnline !== true;
-      const isAClosed = a.operationalStatus === 'CLOSED' || isAOffline;
+      const isAHoursClosed = !isBranchOpenByHours(a.openingTime, a.closingTime, a.isWithinWorkingHours);
+      const isAOffline = !isAHoursClosed && a.operationalStatus !== 'CLOSED' && a.isOnline !== true;
+      const isAClosed = a.operationalStatus === 'CLOSED' || isAHoursClosed || isAOffline;
       const isABusy = a.operationalStatus === 'BUSY';
-      const isAOpen = !isAOffline && !isAClosed && !isABusy && isBranchOpenByHours(a.openingTime, a.closingTime, a.isWithinWorkingHours);
+      const isAOpen = !isAClosed && !isABusy;
 
-      const isBOffline = b.isOnline !== true;
-      const isBClosed = b.operationalStatus === 'CLOSED' || isBOffline;
+      const isBHoursClosed = !isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours);
+      const isBOffline = !isBHoursClosed && b.operationalStatus !== 'CLOSED' && b.isOnline !== true;
+      const isBClosed = b.operationalStatus === 'CLOSED' || isBHoursClosed || isBOffline;
       const isBBusy = b.operationalStatus === 'BUSY';
-      const isBOpen = !isBOffline && !isBClosed && !isBBusy && isBranchOpenByHours(b.openingTime, b.closingTime, b.isWithinWorkingHours);
+      const isBOpen = !isBClosed && !isBBusy;
 
       // 1. المطاعم المفتوحة في البداية
       if (isAOpen && !isBOpen) return -1;
@@ -1609,14 +1621,11 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
               const payment = branch.paymentConfig;
               const gradientClass = BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length];
               const emoji = FOOD_EMOJIS[idx % FOOD_EMOJIS.length];
-              const isOffline = branch.isOnline !== true;
+              const isClosedByHours = !isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours);
               const isClosed = branch.operationalStatus === 'CLOSED';
               const isBusy = branch.operationalStatus === 'BUSY';
-              const isOpenNow =
-                !isOffline &&
-                !isClosed &&
-                !isBusy &&
-                isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours);
+              const isUnexpectedlyOffline = !isClosedByHours && !isClosed && branch.isOnline !== true;
+              const isOpenNow = !isUnexpectedlyOffline && !isClosed && !isBusy && !isClosedByHours;
               const isFav = favBranchIds.includes(branch.id);
               const crowdLevel = branch.crowdLevel || 'LOW';
               const estimatedPrep = branch.estimatedPrepMins || '15-25 د';
@@ -1789,21 +1798,21 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
                         </div>
                       )}
 
-                      {isOffline && (
+                      {isUnexpectedlyOffline && (
                         <div className="p-2 bg-slate-100 rounded-xl border border-slate-300 text-[11px] text-slate-800 flex items-center gap-1.5 font-bold">
                           <PowerOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           <span>مغلق مؤقتاً (سيستم استقبال الطلبات غير متصل حالياً)</span>
                         </div>
                       )}
 
-                      {!isOffline && isClosed && (
+                      {isClosed && (
                         <div className="p-2 bg-rose-50 rounded-xl border border-rose-200 text-[11px] text-rose-900 flex items-center gap-1.5 font-bold">
                           <PowerOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           <span>المطعم مغلق حالياً حتى إشعار آخر</span>
                         </div>
                       )}
 
-                      {!isOffline && !isClosed && !isBusy && !isBranchOpenByHours(branch.openingTime, branch.closingTime, branch.isWithinWorkingHours) && (
+                      {!isClosed && isClosedByHours && (
                         <div className="p-2 bg-rose-50 rounded-xl border border-rose-200 text-[11px] text-rose-900 flex items-center gap-1.5 font-bold">
                           <Clock className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           <span>مغلق لانتهاء مواعيد العمل ({branch.openingTime || '08:00'} - {branch.closingTime || '22:00'})</span>

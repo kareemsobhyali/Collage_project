@@ -1775,18 +1775,17 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // التحقق من اتصال سيستم المطعم بالإنترنت وفتح شاشة الاستقبال
-    if (!isBranchOnline(branch.id)) {
-      res.status(400).json({
-        error: `عذراً، سيستم استقبال الطلبات في مطعم "${branch.name}" غير متصل حالياً (انقطاع في الإنترنت أو إغلاق التطبيق). لا يمكن إرسال الطلب حتى يعود اتصال المطعم حفاظاً على وجبتك ووقتك.`,
-      });
-      return;
-    }
-
     // التحقق من حالة استقبال الطلبات (مغلق مؤقتاً أو مغلق تماماً أو خارج مواعيد العمل الرسمية)
     const currentTime = new Date();
     if (branch.operationalStatus === "CLOSED") {
       res.status(400).json({ error: "عذراً، هذا المطعم مغلق حالياً ولا يستقبل أي طلبات فورية أو حجز مسبق." });
+      return;
+    }
+
+    if (!isBranchWithinWorkingHours(branch.openingTime, branch.closingTime, currentTime, branch.workingDays)) {
+      res.status(400).json({
+        error: `عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || "08:00"} - ${branch.closingTime || "22:00"}). غير متاح عمل طلبات أو حجز مسبق طالما الفرع مغلق.`,
+      });
       return;
     }
 
@@ -1798,9 +1797,10 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    if (!isBranchWithinWorkingHours(branch.openingTime, branch.closingTime, currentTime, branch.workingDays)) {
+    // التحقق من اتصال سيستم المطعم بالإنترنت وفتح شاشة الاستقبال (فقط أثناء وقت العمل الرسمي)
+    if (!isBranchOnline(branch.id)) {
       res.status(400).json({
-        error: `عذراً، المطعم مغلق حالياً لانتهاء مواعيد العمل الرسمية (${branch.openingTime || "08:00"} - ${branch.closingTime || "22:00"}). غير متاح عمل طلبات أو حجز مسبق طالما الفرع مغلق.`,
+        error: `عذراً، سيستم استقبال الطلبات في مطعم "${branch.name}" غير متصل حالياً (انقطاع في الإنترنت أو إغلاق التطبيق). لا يمكن إرسال الطلب حتى يعود اتصال المطعم حفاظاً على وجبتك ووقتك.`,
       });
       return;
     }
