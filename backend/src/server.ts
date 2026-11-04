@@ -473,7 +473,7 @@ if (fs.existsSync(customerDistPath)) {
       targetBranchSlug = segments[1];
     } else if (segments.length === 2 && (segments[0] === 'r' || segments[0] === 'branch' || segments[0] === 'b')) {
       targetBranchSlug = segments[1];
-    } else if (segments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'pos', 'api', 'socket.io', 'uploads', 'manifest.json', 'favicon.ico', 'sw.js', 'robots.txt'].includes(segments[0].toLowerCase())) {
+    } else if (segments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'pos', 'manager', 'restaurant', 'partner', 'portal', 'api', 'socket.io', 'uploads', 'manifest.json', 'favicon.ico', 'sw.js', 'robots.txt'].includes(segments[0].toLowerCase())) {
       targetBranchSlug = segments[0];
     }
 
@@ -481,7 +481,7 @@ if (fs.existsSync(customerDistPath)) {
     const userAgent = String(req.headers['user-agent'] || '');
     const isIos = /iphone|ipad|ipod/i.test(userAgent);
     if (isIos && isApkRequest) {
-      if (targetBranchSlug && !['admin', 'driver', 'delivery', 'api'].includes(targetBranchSlug.toLowerCase())) {
+      if (targetBranchSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'api'].includes(targetBranchSlug.toLowerCase())) {
         return res.redirect(302, `/r/${encodeURIComponent(targetBranchSlug)}`);
       } else {
         let refererSlug: string | null = null;
@@ -491,7 +491,7 @@ if (fs.existsSync(customerDistPath)) {
             refererSlug = refUrl.searchParams.get('branch') || refUrl.searchParams.get('r');
           } catch (_e) {}
         }
-        if (refererSlug && !['admin', 'driver', 'delivery', 'api'].includes(refererSlug.toLowerCase())) {
+        if (refererSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'api'].includes(refererSlug.toLowerCase())) {
           return res.redirect(302, `/r/${encodeURIComponent(refererSlug)}`);
         }
         return res.redirect(302, '/');
@@ -500,7 +500,7 @@ if (fs.existsSync(customerDistPath)) {
 
     let html = fs.readFileSync(indexPath, "utf8");
 
-    if (targetBranchSlug && !['admin', 'driver', 'delivery', 'api'].includes(targetBranchSlug.toLowerCase())) {
+    if (targetBranchSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'api'].includes(targetBranchSlug.toLowerCase())) {
       try {
         const cleanSlug = targetBranchSlug.trim();
         const branch = await prisma.branch.findFirst({
@@ -810,9 +810,10 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(` Database: PostgreSQL`);
   console.log(` 1. Student Portal:      http://localhost:${PORT}/`);
   console.log(` 2. Admin Dashboard:     http://localhost:${PORT}/admin`);
-  console.log(` 3. Delivery Portal:     http://localhost:${PORT}/delivery`);
-  console.log(` 4. Restaurant POS:      http://localhost:${PORT}/branch/`);
-  console.log(` 5. API Health Check:    http://localhost:${PORT}/api/health`);
+  console.log(` 3. Restaurant Manager:  http://localhost:${PORT}/manager`);
+  console.log(` 4. Delivery Portal:     http://localhost:${PORT}/delivery`);
+  console.log(` 5. Restaurant POS:      http://localhost:${PORT}/branch/`);
+  console.log(` 6. API Health Check:    http://localhost:${PORT}/api/health`);
   console.log(`===============================================`);
 
   // تشغيل خدمة الواتساب الذاتية لإرسال أكواد الـ OTP والإشعارات

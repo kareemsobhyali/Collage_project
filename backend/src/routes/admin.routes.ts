@@ -82,7 +82,50 @@ router.post("/login", async (req: Request, res: Response) => {
     });
 
     if (!admin) {
-      res.status(401).json({ error: "بيانات دخول الأدمن غير صحيحة" });
+      // التحقق مما إذا كانت بيانات الدخول تخص مدير فرع / مطعم شريك (BranchUser)
+      const branchUser = await prisma.branchUser.findFirst({
+        where: {
+          username: { equals: identifier, mode: "insensitive" },
+        },
+        include: { branch: true },
+      });
+
+      if (branchUser) {
+        if (!branchUser.branch.isActive) {
+          res.status(403).json({ error: "هذا المطعم موقوف حالياً من قِبل إدارة المنظومة" });
+          return;
+        }
+
+        const isMatch = await bcrypt.compare(password, branchUser.password);
+        if (isMatch) {
+          const token = generateToken({
+            branchUserId: branchUser.id,
+            branchId: branchUser.branchId,
+            username: branchUser.username,
+          }, "365d");
+
+          res.json({
+            success: true,
+            token,
+            user: {
+              id: branchUser.id,
+              name: `مدير مطعم ${branchUser.branch.name}`,
+              phone: branchUser.username,
+              role: "BRANCH_MANAGER",
+              branchId: branchUser.branchId,
+              branchName: branchUser.branch.name,
+              branchLogo: branchUser.branch.logoUrl,
+            },
+            branch: {
+              ...branchUser.branch,
+              hasSettingsPassword: Boolean(branchUser.branch.settingsPassword),
+            },
+          });
+          return;
+        }
+      }
+
+      res.status(401).json({ error: "بيانات تسجيل الدخول غير صحيحة" });
       return;
     }
 

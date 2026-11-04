@@ -2538,6 +2538,15 @@ export const AdminPage: React.FC = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل تسجيل الدخول');
 
+      if (data.user?.role === 'BRANCH_MANAGER') {
+        localStorage.setItem('branch_token', data.token);
+        localStorage.setItem('branch_info', JSON.stringify(data.branch || data.user));
+        localStorage.setItem('admin_token', data.token);
+        localStorage.setItem('admin_user', JSON.stringify(data.user));
+        window.location.href = '/manager';
+        return;
+      }
+
       localStorage.setItem('admin_token', data.token);
       localStorage.setItem('admin_user', JSON.stringify(data.user));
       localStorage.setItem('customer_token', data.token);
@@ -3223,6 +3232,18 @@ export const AdminPage: React.FC = () => {
               <ArrowLeft className="w-4 h-4" />
             </button>
           </form>
+
+          <div className="mt-4 p-3 bg-indigo-50/70 border border-indigo-100 rounded-2xl flex items-center justify-between text-xs">
+            <div className="text-[11px] text-indigo-900 font-medium">
+              🏪 هل أنت صاحب أو مدير مطعم شريك؟
+            </div>
+            <a
+              href="/manager"
+              className="px-2.5 py-1 bg-white hover:bg-indigo-600 hover:text-white border border-indigo-200 text-indigo-700 font-bold rounded-lg text-[11px] transition-all shadow-2xs shrink-0"
+            >
+              لوحة تحكم المطعم
+            </a>
+          </div>
 
           <div className="mt-6 pt-5 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
             <button

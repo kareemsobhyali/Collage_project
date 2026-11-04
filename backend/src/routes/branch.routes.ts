@@ -63,6 +63,15 @@ router.post("/login", async (req: Request, res: Response) => {
     res.json({
       success: true,
       token,
+      user: {
+        id: branchUser.id,
+        name: `مدير مطعم ${branchUser.branch.name}`,
+        phone: branchUser.username,
+        role: "BRANCH_MANAGER",
+        branchId: branchUser.branchId,
+        branchName: branchUser.branch.name,
+        branchLogo: branchUser.branch.logoUrl,
+      },
       branch: {
         ...branchUser.branch,
         hasSettingsPassword: Boolean(branchUser.branch.settingsPassword),
@@ -2937,6 +2946,90 @@ router.put("/support-tickets/:id", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Branch update support-ticket error:", error);
     res.status(500).json({ error: "فشل تحديث تذكرة الدعم" });
+  }
+});
+
+// إحصائيات ومبيعات وتقارير الفرع
+router.get("/stats", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - 7);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const [
+      totalOrders,
+      todayOrders,
+      completedOrders,
+      todayCompletedOrders,
+      monthCompletedOrders,
+      itemsCount,
+      categoriesCount,
+      activeDriversCount,
+      paymentBreakdown,
+    ] = await Promise.all([
+      prisma.order.count({ where: { branchId } }),
+      prisma.order.count({ where: { branchId, createdAt: { gte: startOfToday } } }),
+      prisma.order.findMany({
+        where: { branchId, status: "COMPLETED" },
+        select: { total: true, subtotal: true, paymentMethod: true, createdAt: true },
+      }),
+      prisma.order.findMany({
+        where: { branchId, status: "COMPLETED", createdAt: { gte: startOfToday } },
+        select: { total: true, subtotal: true, paymentMethod: true },
+      }),
+      prisma.order.findMany({
+        where: { branchId, status: "COMPLETED", createdAt: { gte: startOfMonth } },
+        select: { total: true },
+      }),
+      prisma.menuItem.count({ where: { branchId } }),
+      prisma.menuCategory.count({ where: { branchId } }),
+      prisma.deliveryDriver.count({ where: { branchId, isActive: true } }),
+      prisma.order.groupBy({
+        by: ["paymentMethod"],
+        where: { branchId, status: "COMPLETED" },
+        _sum: { total: true },
+        _count: { id: true },
+      }),
+    ]);
+
+    const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const todayRevenue = todayCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const monthRevenue = monthCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const averageOrderValue = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
+
+    res.json({
+      success: true,
+      stats: {
+        totalOrders,
+        todayOrders,
+        completedOrdersCount: completedOrders.length,
+        todayCompletedCount: todayCompletedOrders.length,
+        totalRevenue,
+        todayRevenue,
+        monthRevenue,
+        averageOrderValue: Math.round(averageOrderValue * 10) / 10,
+        itemsCount,
+        categoriesCount,
+        activeDriversCount,
+        paymentBreakdown: paymentBreakdown.map(p => ({
+          method: p.paymentMethod,
+          total: p._sum.total || 0,
+          count: p._count.id,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Branch stats error:", error);
+    res.status(500).json({ error: "فشل استرجاع إحصائيات الفرع" });
   }
 });
 

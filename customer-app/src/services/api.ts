@@ -145,6 +145,21 @@ function getAdminHeaders(isFormData: boolean = false): HeadersInit {
   return headers;
 }
 
+function getBranchHeaders(isFormData: boolean = false): HeadersInit {
+  const token =
+    localStorage.getItem('branch_token') ||
+    localStorage.getItem('admin_token') ||
+    localStorage.getItem('token');
+  const headers: Record<string, string> = {};
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 function getDriverHeaders(isFormData: boolean = false): HeadersInit {
   const token =
     localStorage.getItem('driver_token') ||
@@ -1451,6 +1466,392 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل حفظ إعدادات الدعم');
+    return data;
+  },
+
+  // ==========================================
+  // Branch / Restaurant Manager API Methods
+  // ==========================================
+  async branchLogin(username: string, password: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تسجيل دخول المطعم');
+    return data;
+  },
+
+  async getBranchProfile() {
+    const res = await fetch(`${API_BASE_URL}/branch/profile`, {
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب بيانات المطعم');
+    return data;
+  },
+
+  async updateBranchDetails(dataObj: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/details`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(dataObj),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث بيانات المطعم');
+    return data;
+  },
+
+  async updateBranchOperationalStatus(status: 'OPEN' | 'BUSY' | 'CLOSED', durationMinutes?: number, reason?: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/operational-status`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify({ status, durationMinutes, reason }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث حالة المطعم');
+    return data;
+  },
+
+  async updateBranchPaymentMethods(dataObj: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/payment-methods`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(dataObj),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث طرق الدفع');
+    return data;
+  },
+
+  async updateBranchWorkingHours(dataObj: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/settings/working-hours`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(dataObj),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث مواعيد العمل');
+    return data;
+  },
+
+  async updateBranchSettingsPassword(currentPassword?: string, newPassword?: string | null) {
+    const res = await fetch(`${API_BASE_URL}/branch/settings-password`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث رمز حماية الإعدادات');
+    return data;
+  },
+
+  async getBranchOrders(status?: string) {
+    const url = status ? `${API_BASE_URL}/branch/orders?status=${status}` : `${API_BASE_URL}/branch/orders`;
+    const res = await fetch(url, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع الطلبات');
+    return data;
+  },
+
+  async updateBranchOrderStatus(id: string, status: string, extraData?: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/orders/${id}/status`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify({ status, ...extraData }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث حالة الطلب');
+    return data;
+  },
+
+  async assignBranchDriver(orderId: string, driverId: string | null) {
+    const res = await fetch(`${API_BASE_URL}/branch/orders/${orderId}/assign-driver`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify({ driverId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعيين كابتن التوصيل');
+    return data;
+  },
+
+  async getBranchMenuManagement() {
+    const res = await fetch(`${API_BASE_URL}/branch/menu`, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب قائمة المنيو');
+    return data;
+  },
+
+  async createBranchCategory(name: string, displayOrder = 0, isDealsCategory = false) {
+    const res = await fetch(`${API_BASE_URL}/branch/categories`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify({ name, displayOrder, isDealsCategory }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إنشاء القسم');
+    return data;
+  },
+
+  async updateBranchCategory(id: string, name: string, displayOrder: number, isDealsCategory?: boolean) {
+    const res = await fetch(`${API_BASE_URL}/branch/categories/${id}`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify({ name, displayOrder, isDealsCategory }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث القسم');
+    return data;
+  },
+
+  async deleteBranchCategory(id: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/categories/${id}`, {
+      method: 'DELETE',
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف القسم');
+    return data;
+  },
+
+  async reorderBranchMenu(payload: { categoryIds?: string[]; itemsByCategory?: Record<string, string[]> }) {
+    const res = await fetch(`${API_BASE_URL}/branch/menu/reorder`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حفظ ترتيب المنيو');
+    return data;
+  },
+
+  async createBranchItem(itemData: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/items`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(itemData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إضافة الوجبة');
+    return data;
+  },
+
+  async updateBranchItem(id: string, itemData: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/items/${id}`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(itemData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث الوجبة');
+    return data;
+  },
+
+  async toggleBranchItemAvailability(id: string, isAvailable: boolean, durationMinutes?: number) {
+    const res = await fetch(`${API_BASE_URL}/branch/items/${id}/availability`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify({ isAvailable, durationMinutes }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعديل حالة توفر الصنف');
+    return data;
+  },
+
+  async deleteBranchItem(id: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/items/${id}`, {
+      method: 'DELETE',
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف الوجبة');
+    return data;
+  },
+
+  async importBranchBulkMenu(payload: { items: any[]; replaceExisting?: boolean }) {
+    const res = await fetch(`${API_BASE_URL}/branch/menu/import-bulk`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استيراد الأصناف');
+    return data;
+  },
+
+  async getBranchModifierGroups() {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-groups`, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب مجموعات الإضافات');
+    return data;
+  },
+
+  async createBranchModifierGroup(groupData: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-groups`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(groupData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إنشاء قسم الإضافات');
+    return data;
+  },
+
+  async updateBranchModifierGroup(id: string, groupData: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-groups/${id}`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(groupData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث قسم الإضافات');
+    return data;
+  },
+
+  async deleteBranchModifierGroup(id: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-groups/${id}`, {
+      method: 'DELETE',
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف قسم الإضافات');
+    return data;
+  },
+
+  async addBranchModifierOption(groupId: string, optionData: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-groups/${groupId}/options`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(optionData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إضافة خيار الإضافة');
+    return data;
+  },
+
+  async updateBranchModifierOption(id: string, dataObj: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-options/${id}`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(dataObj),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعديل خيار الإضافة');
+    return data;
+  },
+
+  async deleteBranchModifierOption(id: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-options/${id}`, {
+      method: 'DELETE',
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف خيار الإضافة');
+    return data;
+  },
+
+  async linkBranchModifierGroupTargets(groupId: string, payload: { categoryIds?: string[]; itemIds?: string[]; action?: 'LINK' | 'UNLINK' }) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-groups/${groupId}/bulk-link-targets`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل ربط الإضافات');
+    return data;
+  },
+
+  async getBranchDeliveryZones() {
+    const res = await fetch(`${API_BASE_URL}/branch/delivery-zones`, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع مناطق التوصيل');
+    return data;
+  },
+
+  async addBranchDeliveryZone(name: string, fee: number) {
+    const res = await fetch(`${API_BASE_URL}/branch/delivery-zones`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify({ name, fee }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إضافة منطقة التوصيل');
+    return data;
+  },
+
+  async deleteBranchDeliveryZone(id: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/delivery-zones/${id}`, {
+      method: 'DELETE',
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف منطقة التوصيل');
+    return data;
+  },
+
+  async getBranchDrivers() {
+    const res = await fetch(`${API_BASE_URL}/branch/drivers`, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع كباتن التوصيل');
+    return data;
+  },
+
+  async createBranchDriver(driverData: { name: string; phone: string; username: string; password: string }) {
+    const res = await fetch(`${API_BASE_URL}/branch/drivers`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(driverData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إضافة كابتن التوصيل');
+    return data;
+  },
+
+  async updateBranchDriver(id: string, driverData: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/drivers/${id}`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(driverData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث بيانات الكابتن');
+    return data;
+  },
+
+  async deleteBranchDriver(id: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/drivers/${id}`, {
+      method: 'DELETE',
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف كابتن التوصيل');
+    return data;
+  },
+
+  async getBranchSupportTickets() {
+    const res = await fetch(`${API_BASE_URL}/branch/support-tickets`, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع بلاغات العملاء');
+    return data;
+  },
+
+  async updateBranchSupportTicket(id: string, payload: { status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'; branchNotes?: string }) {
+    const res = await fetch(`${API_BASE_URL}/branch/support-tickets/${id}`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث الشكوى');
+    return data;
+  },
+
+  async getBranchStats() {
+    const res = await fetch(`${API_BASE_URL}/branch/stats`, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع إحصائيات الفرع');
     return data;
   },
 };

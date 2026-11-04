@@ -26,6 +26,7 @@ import { MyOrdersModal } from './components/MyOrdersModal';
 import { ProfileModal } from './components/ProfileModal';
 const AdminPage = React.lazy(() => import('./components/AdminPage').then(m => ({ default: m.AdminPage })));
 const DriverPortal = React.lazy(() => import('./components/DriverPortal').then(m => ({ default: m.DriverPortal })));
+const BranchPortal = React.lazy(() => import('./components/BranchPortal').then(m => ({ default: m.BranchPortal })));
 import { GroupCartModal } from './components/GroupCartModal';
 import { SpinTheWheelModal } from './components/SpinTheWheelModal';
 import { Logo } from './components/Logo';
@@ -68,11 +69,11 @@ export function getRequestedBranchKeyFromUrl(): string | null {
       }
       if (hashSegments.length >= 2 && ['apk', 'download', 'install'].includes(hashSegments[hashSegments.length - 1].toLowerCase())) {
         const target = hashSegments[0] === 'r' ? hashSegments[1] : hashSegments[0];
-        if (target && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
+        if (target && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
           try { return decodeURIComponent(target).trim(); } catch { return target.trim(); }
         }
       }
-      if (hashSegments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(hashSegments[0].toLowerCase())) {
+      if (hashSegments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install'].includes(hashSegments[0].toLowerCase())) {
         try { return decodeURIComponent(hashSegments[0]).trim(); } catch { return hashSegments[0].trim(); }
       }
     }
@@ -88,19 +89,19 @@ export function getRequestedBranchKeyFromUrl(): string | null {
     // دعم روابط /:slug/apk أو /r/:slug/apk
     if (pathParts.length >= 2 && ['apk', 'download', 'install'].includes(pathParts[pathParts.length - 1].toLowerCase())) {
       const target = pathParts[0] === 'r' ? pathParts[1] : pathParts[0];
-      if (target && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
+      if (target && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
         return target.trim();
       }
     }
     // دعم روابط /apk/:slug
     if (pathParts.length >= 2 && ['apk', 'download', 'install'].includes(pathParts[0].toLowerCase())) {
       const target = pathParts[1];
-      if (target && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
+      if (target && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
         return target.trim();
       }
     }
     // دعم المسار المباشر مثل /shawarma-campus
-    if (pathParts.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install', 'pos'].includes(pathParts[0].toLowerCase())) {
+    if (pathParts.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install', 'pos'].includes(pathParts[0].toLowerCase())) {
       return pathParts[0].trim();
     }
 
@@ -144,6 +145,34 @@ export function App() {
     window.location.hash.includes('delivery') ||
     window.location.hash.includes('elviery')
   );
+
+  const isBranchRoute = typeof window !== 'undefined' && (
+    (window as any).AndroidBridge?.getFlavor?.() === 'manager' ||
+    (window as any).AndroidBridge?.getFlavor?.() === 'branch' ||
+    window.location.pathname.startsWith('/manager') ||
+    window.location.pathname.startsWith('/restaurant') ||
+    window.location.pathname.startsWith('/partner') ||
+    window.location.pathname.startsWith('/branch-portal') ||
+    window.location.search.includes('manager') ||
+    window.location.search.includes('restaurant') ||
+    window.location.search.includes('partner') ||
+    window.location.hash.includes('manager') ||
+    window.location.hash.includes('restaurant') ||
+    window.location.hash.includes('partner')
+  );
+
+  const isBranchUserRole = typeof window !== 'undefined' && (() => {
+    try {
+      const savedUser = localStorage.getItem('admin_user') || localStorage.getItem('branch_info');
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        if (u.role === 'BRANCH_MANAGER' || (u.branchId && u.role !== 'SUPERADMIN')) return true;
+      }
+    } catch {}
+    return false;
+  })();
+
+  const showBranchPortal = isBranchRoute || (isAdminRoute && isBranchUserRole);
 
   const groupParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('group') : null;
   const isIosDevice = typeof window !== 'undefined' && /iphone|ipad|ipod/i.test(window.navigator.userAgent);
@@ -376,7 +405,7 @@ export function App() {
 
   // جلب فوري ومباشر لقائمة المطعم عند وجود فرع بالرابط لمنع أي وميض أو ظهور للصفحة الرئيسية
   useEffect(() => {
-    if (isAdminRoute || showDriverPortal) return;
+    if (isAdminRoute || showDriverPortal || showBranchPortal) return;
     const directKey = requestedBranchKey;
     if (directKey) {
       if ((window as any).__UNIFOOD_BRANCH_NOT_FOUND__) {
@@ -436,7 +465,7 @@ export function App() {
           } catch (_e) {}
         });
     }
-  }, [requestedBranchKey, isAdminRoute, showDriverPortal]);
+  }, [requestedBranchKey, isAdminRoute, showDriverPortal, showBranchPortal]);
   // مفتاح تخزين السلة في ذاكرة المتصفح المحلية
   const CART_STORAGE_KEY = 'unifood_customer_cart';
 
@@ -586,13 +615,13 @@ export function App() {
 
   // تهيئة حارس الرجوع الأولي لمنع الخروج المفاجئ
   useEffect(() => {
-    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal || isApkRoute) return;
+    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal || showBranchPortal || isApkRoute) return;
     try {
       window.history.replaceState({ uniFoodRoot: true, depth: 0 }, '');
       window.history.pushState({ uniFoodStep: 1, depth: 1 }, '');
       historyDepthRef.current = 1;
     } catch (_e) {}
-  }, [isAdminRoute, showDriverPortal, isApkRoute]);
+  }, [isAdminRoute, showDriverPortal, showBranchPortal, isApkRoute]);
 
   // تتبع فتح الشاشات الفرعية والنوافذ لدفع خطوة في الـ History
   const currentNavStateKey = [
@@ -625,7 +654,7 @@ export function App() {
 
   // الاستماع لحدث الرجوع (popstate)
   useEffect(() => {
-    if (isAdminRoute || showDriverPortal || isApkRoute) return;
+    if (isAdminRoute || showDriverPortal || showBranchPortal || isApkRoute) return;
     const handlePopState = () => {
       // إذا كان حدث popstate التلقائي صادراً من المتصفح خلال أول 1500 ملي ثانية من فتح الصفحة -> تجاهله لمنع الخروج التلقائي
       if (Date.now() - isMountedTimeRef.current < 1500) {
@@ -709,6 +738,7 @@ export function App() {
   }, [
     isAdminRoute,
     showDriverPortal,
+    showBranchPortal,
     isApkRoute,
     showExitAppDialog,
     customizingItem,
@@ -760,7 +790,7 @@ export function App() {
 
   // فحص روابط التفعيل السريع من الواتساب (WhatsApp Magic Link Auto-Activation)
   useEffect(() => {
-    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal) return;
+    if (typeof window === 'undefined' || isAdminRoute || showDriverPortal || showBranchPortal) return;
     const params = new URLSearchParams(window.location.search);
     const verifyToken = params.get('verifyToken');
 
@@ -791,7 +821,7 @@ export function App() {
           setLoading(false);
         });
     }
-  }, [isAdminRoute, showDriverPortal]);
+  }, [isAdminRoute, showDriverPortal, showBranchPortal]);
 
   // إخفاء إشعار التفعيل التلقائي بعد 6 ثوانٍ
   useEffect(() => {
@@ -802,7 +832,7 @@ export function App() {
 
   // إذا دخل العميل برابط دعوة للسلة الجماعية: يفتح السلة إن كان مسجلاً، أو يطلب تسجيل الدخول أولاً
   useEffect(() => {
-    if (pendingOpenGroupCart && !isAdminRoute && !showDriverPortal) {
+    if (pendingOpenGroupCart && !isAdminRoute && !showDriverPortal && !showBranchPortal) {
       if (user) {
         setShowGroupCartModal(true);
         setPendingOpenGroupCart(false);
@@ -810,7 +840,7 @@ export function App() {
         setShowAuthModal(true);
       }
     }
-  }, [pendingOpenGroupCart, user, isAdminRoute, showDriverPortal]);
+  }, [pendingOpenGroupCart, user, isAdminRoute, showDriverPortal, showBranchPortal]);
 
   const handleReturnHome = () => {
     // إذا كان التطبيق مخصصاً لمطعم مثبت، يمنع الخروج للموقع الرئيسي
@@ -986,7 +1016,7 @@ export function App() {
 
   // مزامنة المانيفست وأيقونة التطبيق لشاشة الهاتف مع الفرع المختار
   useEffect(() => {
-    if (isAdminRoute || showDriverPortal) return;
+    if (isAdminRoute || showDriverPortal || showBranchPortal) return;
     if (selectedBranch && (selectedBranch.slug || selectedBranch.id)) {
       const branchSlug = (selectedBranch.slug || selectedBranch.id).toLowerCase();
 
@@ -1012,10 +1042,10 @@ export function App() {
         document.head.appendChild(apple);
       }
     }
-  }, [selectedBranch, isAdminRoute, showDriverPortal]);
+  }, [selectedBranch, isAdminRoute, showDriverPortal, showBranchPortal]);
 
   useEffect(() => {
-    if (isAdminRoute) return;
+    if (isAdminRoute || showDriverPortal || showBranchPortal) return;
     loadBranches();
     registerServiceWorker();
 
@@ -1352,6 +1382,14 @@ export function App() {
       registerNativeBackgroundSession(token, 'STUDENT', user.id);
     }
   }, [user?.id]);
+
+  if (showBranchPortal) {
+    return (
+      <React.Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-bold" dir="rtl">جاري تحميل لوحة تحكم مدير المطعم...</div>}>
+        <BranchPortal onClose={() => { window.location.href = '/'; }} />
+      </React.Suspense>
+    );
+  }
 
   if (isAdminRoute) {
     return (
