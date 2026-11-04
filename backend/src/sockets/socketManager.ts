@@ -351,6 +351,29 @@ export function initSocket(server: any): SocketIOServer {
       }
     });
 
+    // انضمام هاتف بوابة الرسائل SMS Gateway Device واستقبال الأوامر الفورية
+    socket.on("register_sms_gateway", async (data: { deviceKey: string; batteryLevel?: number; isCharging?: boolean; simOperator?: string }) => {
+      if (!data || !data.deviceKey) return;
+      try {
+        const { smsGatewayService } = await import("../services/smsGateway.service.js");
+        const device = await smsGatewayService.verifyDevice(data.deviceKey);
+        if (device && device.isActive) {
+          socket.join("sms_gateway_device_room");
+          smsGatewayService.registerDeviceSocket(socket.id);
+          await smsGatewayService.updateHeartbeat(data.deviceKey, {
+            batteryLevel: data.batteryLevel,
+            isCharging: data.isCharging,
+            simOperator: data.simOperator,
+          });
+          socket.emit("sms_gateway:registered", { success: true, deviceName: device.deviceName });
+        } else {
+          socket.emit("sms_gateway:registered", { success: false, error: "مفتاح الجهاز غير صالح أو تم إيقافه" });
+        }
+      } catch (err) {
+        console.warn("[Socket SMS Gateway] Register error:", err);
+      }
+    });
+
     // الطلاب في السلة الجماعية التشاركية (متاح عبر كود المشاركة)
     socket.on("join_group_cart", (shareCode: string) => {
       if (shareCode && typeof shareCode === "string") {

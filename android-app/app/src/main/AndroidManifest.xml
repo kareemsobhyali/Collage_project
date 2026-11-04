@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:allowBackup="false"
@@ -41,6 +44,12 @@
         <!-- خدمة الإشعارات والتنبيهات الخلفية الحية المستقلة -->
         <service
             android:name="com.unifood.app.UniFoodNotificationService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- خدمة بوابة رسائل الـ SMS المباشرة من الشريحة -->
+        <service
+            android:name="com.unifood.app.UniFoodSmsGatewayService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

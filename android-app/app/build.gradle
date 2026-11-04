@@ -94,6 +94,16 @@ android {
             buildConfigField "boolean", "KEEP_SCREEN_ON", "true"
             buildConfigField "int", "STATUS_BAR_COLOR", "0xFF065F46"
         }
+        smsGateway {
+            dimension "role"
+            applicationId "com.unifood.smsgateway"
+            resValue "string", "app_name", "UniFood SMS Gateway | بوابة الرسائل"
+            buildConfigField "String", "START_URL", "\"${baseServerUrl}/sms-gateway-client\""
+            buildConfigField "String", "FLAVOR_PATH", "\"/sms-gateway-client\""
+            buildConfigField "String", "FLAVOR_TYPE", "\"smsGateway\""
+            buildConfigField "boolean", "KEEP_SCREEN_ON", "true"
+            buildConfigField "int", "STATUS_BAR_COLOR", "0xFF0369A1"
+        }
     }
 
     compileOptions {

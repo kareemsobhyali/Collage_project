@@ -20,6 +20,7 @@ import customerRoutes from "./routes/customer.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import driverRoutes from "./routes/driver.routes.js";
 import notificationsRoutes from "./routes/notifications.routes.js";
+import smsGatewayRoutes from "./routes/smsGateway.routes.js";
 import { authLimiter, authIpLimiter, pinLimiter, orderLimiter, generalApiLimiter, uploadLimiter } from "./middleware/rateLimiter.js";
 import { isAllowedCorsOrigin, getTrustedAppBaseUrl, serializeJsonForHtmlScript, escapeHtmlAttr } from "./utils/safeFetch.js";
 import prisma from "./prisma.js";
@@ -355,6 +356,7 @@ app.use("/api/branch", branchRoutes);
 app.use("/api/customer", customerRoutes);
 app.use("/api/driver", driverRoutes);
 app.use("/api/notifications", notificationsRoutes);
+app.use("/api/sms-gateway", smsGatewayRoutes);
 app.use("/api/upload", uploadRoutes);
 
 // فحص صحة الخادم وقاعدة البيانات
@@ -473,7 +475,7 @@ if (fs.existsSync(customerDistPath)) {
       targetBranchSlug = segments[1];
     } else if (segments.length === 2 && (segments[0] === 'r' || segments[0] === 'branch' || segments[0] === 'b')) {
       targetBranchSlug = segments[1];
-    } else if (segments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'pos', 'manager', 'restaurant', 'partner', 'portal', 'api', 'socket.io', 'uploads', 'manifest.json', 'favicon.ico', 'sw.js', 'robots.txt'].includes(segments[0].toLowerCase())) {
+    } else if (segments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'pos', 'manager', 'restaurant', 'partner', 'portal', 'sms-gateway-client', 'api', 'socket.io', 'uploads', 'manifest.json', 'favicon.ico', 'sw.js', 'robots.txt'].includes(segments[0].toLowerCase())) {
       targetBranchSlug = segments[0];
     }
 
@@ -481,7 +483,7 @@ if (fs.existsSync(customerDistPath)) {
     const userAgent = String(req.headers['user-agent'] || '');
     const isIos = /iphone|ipad|ipod/i.test(userAgent);
     if (isIos && isApkRequest) {
-      if (targetBranchSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'api'].includes(targetBranchSlug.toLowerCase())) {
+      if (targetBranchSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'sms-gateway-client', 'api'].includes(targetBranchSlug.toLowerCase())) {
         return res.redirect(302, `/r/${encodeURIComponent(targetBranchSlug)}`);
       } else {
         let refererSlug: string | null = null;
@@ -491,7 +493,7 @@ if (fs.existsSync(customerDistPath)) {
             refererSlug = refUrl.searchParams.get('branch') || refUrl.searchParams.get('r');
           } catch (_e) {}
         }
-        if (refererSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'api'].includes(refererSlug.toLowerCase())) {
+        if (refererSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'sms-gateway-client', 'api'].includes(refererSlug.toLowerCase())) {
           return res.redirect(302, `/r/${encodeURIComponent(refererSlug)}`);
         }
         return res.redirect(302, '/');
@@ -500,7 +502,7 @@ if (fs.existsSync(customerDistPath)) {
 
     let html = fs.readFileSync(indexPath, "utf8");
 
-    if (targetBranchSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'api'].includes(targetBranchSlug.toLowerCase())) {
+    if (targetBranchSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'sms-gateway-client', 'api'].includes(targetBranchSlug.toLowerCase())) {
       try {
         const cleanSlug = targetBranchSlug.trim();
         const branch = await prisma.branch.findFirst({

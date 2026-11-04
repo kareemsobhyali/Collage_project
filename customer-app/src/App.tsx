@@ -27,6 +27,7 @@ import { ProfileModal } from './components/ProfileModal';
 const AdminPage = React.lazy(() => import('./components/AdminPage').then(m => ({ default: m.AdminPage })));
 const DriverPortal = React.lazy(() => import('./components/DriverPortal').then(m => ({ default: m.DriverPortal })));
 const BranchPortal = React.lazy(() => import('./components/BranchPortal').then(m => ({ default: m.BranchPortal })));
+const SmsGatewayClientPage = React.lazy(() => import('./components/SmsGatewayClientPage').then(m => ({ default: m.SmsGatewayClientPage })));
 import { GroupCartModal } from './components/GroupCartModal';
 import { SpinTheWheelModal } from './components/SpinTheWheelModal';
 import { Logo } from './components/Logo';
@@ -69,11 +70,11 @@ export function getRequestedBranchKeyFromUrl(): string | null {
       }
       if (hashSegments.length >= 2 && ['apk', 'download', 'install'].includes(hashSegments[hashSegments.length - 1].toLowerCase())) {
         const target = hashSegments[0] === 'r' ? hashSegments[1] : hashSegments[0];
-        if (target && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
+        if (target && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'sms-gateway-client', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
           try { return decodeURIComponent(target).trim(); } catch { return target.trim(); }
         }
       }
-      if (hashSegments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install'].includes(hashSegments[0].toLowerCase())) {
+      if (hashSegments.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'sms-gateway-client', 'apk', 'download', 'install'].includes(hashSegments[0].toLowerCase())) {
         try { return decodeURIComponent(hashSegments[0]).trim(); } catch { return hashSegments[0].trim(); }
       }
     }
@@ -89,19 +90,19 @@ export function getRequestedBranchKeyFromUrl(): string | null {
     // دعم روابط /:slug/apk أو /r/:slug/apk
     if (pathParts.length >= 2 && ['apk', 'download', 'install'].includes(pathParts[pathParts.length - 1].toLowerCase())) {
       const target = pathParts[0] === 'r' ? pathParts[1] : pathParts[0];
-      if (target && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
+      if (target && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'sms-gateway-client', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
         return target.trim();
       }
     }
     // دعم روابط /apk/:slug
     if (pathParts.length >= 2 && ['apk', 'download', 'install'].includes(pathParts[0].toLowerCase())) {
       const target = pathParts[1];
-      if (target && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
+      if (target && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'sms-gateway-client', 'apk', 'download', 'install'].includes(target.toLowerCase())) {
         return target.trim();
       }
     }
     // دعم المسار المباشر مثل /shawarma-campus
-    if (pathParts.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'apk', 'download', 'install', 'pos'].includes(pathParts[0].toLowerCase())) {
+    if (pathParts.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'manager', 'restaurant', 'partner', 'portal', 'branch-portal', 'sms-gateway-client', 'apk', 'download', 'install', 'pos'].includes(pathParts[0].toLowerCase())) {
       return pathParts[0].trim();
     }
 
@@ -173,6 +174,13 @@ export function App() {
   })();
 
   const showBranchPortal = isBranchRoute || (isAdminRoute && isBranchUserRole);
+
+  const isSmsGatewayRoute = typeof window !== 'undefined' && (
+    (window as any).AndroidBridge?.getFlavor?.() === 'smsGateway' ||
+    window.location.pathname.startsWith('/sms-gateway-client') ||
+    window.location.search.includes('sms-gateway') ||
+    window.location.hash.includes('sms-gateway')
+  );
 
   const groupParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('group') : null;
   const isIosDevice = typeof window !== 'undefined' && /iphone|ipad|ipod/i.test(window.navigator.userAgent);
@@ -1382,6 +1390,14 @@ export function App() {
       registerNativeBackgroundSession(token, 'STUDENT', user.id);
     }
   }, [user?.id]);
+
+  if (isSmsGatewayRoute) {
+    return (
+      <React.Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-bold" dir="rtl">جاري تحميل بوابة رسائل SMS...</div>}>
+        <SmsGatewayClientPage />
+      </React.Suspense>
+    );
+  }
 
   if (showBranchPortal) {
     return (

@@ -18,6 +18,8 @@ import {
   Settings, 
   TrendingUp, 
   CheckCircle, 
+  CheckCircle2,
+  Battery,
   X, 
   Save, 
   RotateCw,
@@ -130,7 +132,18 @@ export const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'DELIVERY_ZONES' | 'ORDERS' | 'FINANCE' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'FLASH_DEALS' | 'WHATSAPP' | 'SETTINGS' | 'SUPPORT'>('BRANCHES');
+  const [activeTab, setActiveTab] = useState<'BRANCHES' | 'DELIVERY_ZONES' | 'ORDERS' | 'FINANCE' | 'DRIVERS' | 'REVIEWS' | 'STUDENTS' | 'ANALYTICS' | 'BANNERS' | 'PROMOS' | 'FLASH_DEALS' | 'WHATSAPP' | 'SMS_GATEWAY' | 'SETTINGS' | 'SUPPORT'>('BRANCHES');
+
+  // SMS Gateway States
+  const [smsOverview, setSmsOverview] = useState<any | null>(null);
+  const [loadingSmsOverview, setLoadingSmsOverview] = useState(false);
+  const [testSmsPhone, setTestSmsPhone] = useState('');
+  const [testSmsMessage, setTestSmsMessage] = useState('');
+  const [sendingTestSms, setSendingTestSms] = useState(false);
+  const [testSmsFeedback, setTestSmsFeedback] = useState<{ success: boolean; text: string } | null>(null);
+  const [savingChannelMode, setSavingChannelMode] = useState(false);
+  const [regeneratingKey, setRegeneratingKey] = useState(false);
+  const [copiedKeyToast, setCopiedKeyToast] = useState(false);
   const [supportTickets, setSupportTickets] = useState<any[]>([]);
   const [loadingSupportTickets, setLoadingSupportTickets] = useState(false);
   const [supportFilter, setSupportFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL');
@@ -1345,6 +1358,92 @@ export const AdminPage: React.FC = () => {
       fetchWhatsAppAlertSettings();
       const interval = setInterval(() => {
         fetchWhatsAppAccounts();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
+
+  const fetchSmsGatewayOverview = async () => {
+    try {
+      setLoadingSmsOverview(true);
+      const res = await api.getSmsGatewayOverview();
+      if (res?.success) {
+        setSmsOverview(res);
+      }
+    } catch (err: any) {
+      console.warn('Could not load SMS gateway overview:', err);
+    } finally {
+      setLoadingSmsOverview(false);
+    }
+  };
+
+  const handleSaveChannelMode = async (mode: string) => {
+    try {
+      setSavingChannelMode(true);
+      const res = await api.updateSmsGatewaySettings(mode);
+      if (res?.success) {
+        setSmsOverview((prev: any) => prev ? { ...prev, channelMode: mode } : prev);
+      }
+    } catch (err: any) {
+      alert(err.message || 'فشل تحديث قناة التفعيل');
+    } finally {
+      setSavingChannelMode(false);
+    }
+  };
+
+  const handleRegenerateDeviceKey = async () => {
+    if (!confirm('هل أنت متأكد من تجديد مفتاح الجهاز السري؟ ستحتاج لتحديث المفتاح في تطبيق الهاتف.')) return;
+    try {
+      setRegeneratingKey(true);
+      const res = await api.regenerateSmsGatewayKey(smsOverview?.device?.id);
+      if (res?.device) {
+        setSmsOverview((prev: any) => prev ? { ...prev, device: res.device } : prev);
+        alert('تم تجديد مفتاح الهاتف بنجاح!');
+      }
+    } catch (err: any) {
+      alert(err.message || 'فشل تجديد المفتاح');
+    } finally {
+      setRegeneratingKey(false);
+    }
+  };
+
+  const handleSendAdminTestSms = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testSmsPhone.trim()) {
+      alert('يرجى إدخال رقم الهاتف لإرسال الرسالة التجريبية');
+      return;
+    }
+    try {
+      setSendingTestSms(true);
+      setTestSmsFeedback(null);
+      const res = await api.sendTestSms(testSmsPhone.trim(), testSmsMessage.trim() || undefined);
+      setTestSmsFeedback({
+        success: true,
+        text: res.message || 'تم إدراج الرسالة وبثها لهاتفك المتصل بنجاح! 📱',
+      });
+      fetchSmsGatewayOverview();
+    } catch (err: any) {
+      setTestSmsFeedback({
+        success: false,
+        text: err.message || 'فشل إرسال الرسالة التجريبية',
+      });
+    } finally {
+      setSendingTestSms(false);
+    }
+  };
+
+  const handleCopyDeviceKey = () => {
+    if (!smsOverview?.device?.deviceKey) return;
+    navigator.clipboard.writeText(smsOverview.device.deviceKey);
+    setCopiedKeyToast(true);
+    setTimeout(() => setCopiedKeyToast(false), 2500);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'SMS_GATEWAY') {
+      fetchSmsGatewayOverview();
+      const interval = setInterval(() => {
+        fetchSmsGatewayOverview();
       }, 5000);
       return () => clearInterval(interval);
     }
@@ -3555,6 +3654,21 @@ export const AdminPage: React.FC = () => {
                 <span>بوت الواتساب و OTP</span>
                 {whatsAppStatus?.isConnected && (
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                )}
+              </button>
+
+              <button
+                onClick={() => setActiveTab('SMS_GATEWAY')}
+                className={`h-9 sm:h-10 flex items-center gap-2 px-3 sm:px-4 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === 'SMS_GATEWAY'
+                    ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25 ring-1 ring-sky-400/40'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-white border border-slate-200 shadow-2xs'
+                }`}
+              >
+                <Smartphone className="w-4 h-4 shrink-0 text-sky-400" />
+                <span>بوابة رسائل SMS (هاتفك)</span>
+                {smsOverview?.device?.isOnline && (
+                  <span className="w-2 h-2 rounded-full bg-sky-300 animate-pulse shrink-0" />
                 )}
               </button>
 
@@ -7746,8 +7860,357 @@ export const AdminPage: React.FC = () => {
           </div>
         )}
 
+        {/* 4.7.2 Tab: Android SMS Gateway Management */}
+        {activeTab === 'SMS_GATEWAY' && (
+          <div className="space-y-6">
+            {/* Top Gateway Info Banner */}
+            <div className="bg-gradient-to-r from-sky-50 via-indigo-50/50 to-white border border-sky-200/80 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-600 flex items-center justify-center shrink-0 shadow-2xs">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900">
+                      بوابة رسائل الـ SMS المباشرة (Android SMS Gateway)
+                    </h3>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                      smsOverview?.device?.isOnline
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}>
+                      {smsOverview?.device?.isOnline ? '● الهاتف متصل بالخادم' : '○ الهاتف غير متصل'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+                    إرسال أكواد تفعيل الحسابات (OTP) واستعادة كلمات المرور لعملائك مباشرة كرسائل SMS عبر شريحة هاتفك بتكلفة الباقة العادية وبدون مصاريف إضافية.
+                  </p>
+                </div>
+              </div>
 
-        {/* 4.8 Tab: System & Security Settings */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchSmsGatewayOverview}
+                  disabled={loadingSmsOverview}
+                  className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingSmsOverview ? 'animate-spin' : ''}`} />
+                  <span>تحديث الحالة</span>
+                </button>
+
+                <a
+                  href="/sms-gateway-client"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-black shadow-md shadow-sky-600/25 transition-all flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>فتح واجهة الهاتف (/sms-gateway-client)</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Device Hardware & Metrics Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-1">
+                <div className="flex items-center justify-between text-slate-500 text-xs">
+                  <span>حالة هاتف البوابة</span>
+                  <Smartphone className="w-4 h-4 text-sky-500" />
+                </div>
+                <div className="text-sm font-black text-slate-900 truncate">
+                  {smsOverview?.device?.deviceName || 'هاتف الإدارة الأساسي'}
+                </div>
+                <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                  <span>آخر اتصال:</span>
+                  <span className="font-mono text-slate-700 font-bold">
+                    {smsOverview?.device?.lastSeenAt
+                      ? new Date(smsOverview.device.lastSeenAt).toLocaleTimeString('ar-EG')
+                      : 'لم يتصل بعد'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-1">
+                <div className="flex items-center justify-between text-slate-500 text-xs">
+                  <span>بطارية الهاتف والشحن</span>
+                  <Battery className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="text-sm font-black text-emerald-600 font-mono">
+                  {smsOverview?.device?.batteryLevel !== null && smsOverview?.device?.batteryLevel !== undefined
+                    ? `${smsOverview.device.batteryLevel}%`
+                    : '100%'}
+                  {smsOverview?.device?.isCharging && (
+                    <span className="text-[11px] text-amber-500 font-sans mr-1">⚡ شاحن متصل</span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  {smsOverview?.device?.simOperator || 'شريحة SIM نشطة'}
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-1">
+                <div className="flex items-center justify-between text-slate-500 text-xs">
+                  <span>رسائل اليوم الناجحة</span>
+                  <Send className="w-4 h-4 text-indigo-500" />
+                </div>
+                <div className="text-xl font-black text-indigo-600 font-mono">
+                  {smsOverview?.stats?.todaySentCount || 0}
+                </div>
+                <div className="text-[11px] text-slate-500">رسالة SMS تم تسليمها اليوم</div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-1">
+                <div className="flex items-center justify-between text-slate-500 text-xs">
+                  <span>الرسائل في طابور الانتظار</span>
+                  <Clock className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="text-xl font-black text-amber-600 font-mono">
+                  {smsOverview?.stats?.pendingCount || 0}
+                </div>
+                <div className="text-[11px] text-slate-500">بانتظار التقاط الهاتف والإرسال</div>
+              </div>
+            </div>
+
+            {/* Device Key & Verification Channel Mode Settings */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Card 1: Pairing Key */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Key className="w-4 h-4 text-sky-500" />
+                    <h4 className="text-sm font-black text-slate-900">مفتاح ربط الهاتف السري (Device Key)</h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateDeviceKey}
+                    disabled={regeneratingKey}
+                    className="text-[11px] text-slate-500 hover:text-rose-600 font-bold transition-colors cursor-pointer"
+                  >
+                    تجديد المفتاح
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  يستخدم تطبيق الهاتف هذا المفتاح للتحقق من هويته واستقبال الرسائل المصرح بإرسالها من السيرفر.
+                </p>
+
+                <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
+                  <code className="text-xs font-mono font-black text-sky-700 flex-1 truncate select-all px-2">
+                    {smsOverview?.device?.deviceKey || 'UNIFOOD-SMS-GATEWAY-2026'}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={handleCopyDeviceKey}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all shadow-2xs shrink-0 cursor-pointer"
+                  >
+                    {copiedKeyToast ? 'تم النسخ! ✅' : 'نسخ المفتاح 📋'}
+                  </button>
+                </div>
+
+                <div className="p-3 bg-sky-50/70 border border-sky-100 rounded-2xl text-[11px] text-sky-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <span>💡 كيفية الربط في دقيقة:</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-slate-600 pr-1 leading-relaxed">
+                    <li>ثبّت ملف الـ APK الخاص بالبوابة على هاتفك الأندرويد.</li>
+                    <li>افتح التطبيق، واكتب رابط السيرفر ثم الصق مفتاح الربط بالأعلى.</li>
+                    <li>امنح التطبيق صلاحية إرسال الرسائل واضغط &quot;تشغيل الخدمة&quot;.</li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Card 2: Verification Channel Strategy */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <ShieldCheck className="w-4 h-4 text-purple-500" />
+                  <h4 className="text-sm font-black text-slate-900">قنوات إرسال كود التفعيل للعملاء</h4>
+                </div>
+
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  حدد كيف تفضل وصول أكواد التفعيل واستعادة الحساب إلى العملاء عند التسجيل:
+                </p>
+
+                <div className="space-y-2.5">
+                  {[
+                    {
+                      id: 'USER_CHOICE',
+                      title: 'إتاحة الخيار للعميل (مستحسن 🌟)',
+                      desc: 'يختار العميل في واجهة التسجيل بين واتساب أو رسالة SMS عادية، مع إمكانية التبديل بنقرة واحدة.',
+                    },
+                    {
+                      id: 'WHATSAPP_FALLBACK_SMS',
+                      title: 'تحويل تلقائي ذكي (WhatsApp First + Fallback)',
+                      desc: 'الإرسال أولاً عبر واتساب؛ وإذا تعذر الاتصال أو حدث خطأ، يتم الإرسال فوراً كرسالة SMS من هاتفك.',
+                    },
+                    {
+                      id: 'SMS_ONLY',
+                      title: 'رسائل SMS عبر هاتفك فقط (SMS Gateway Only)',
+                      desc: 'إرسال كافة أكواد التفعيل حصرياً كرسائل SMS من شريحة هاتفك دون استخدام الواتساب.',
+                    },
+                    {
+                      id: 'WHATSAPP_ONLY',
+                      title: 'واتساب فقط (WhatsApp Only)',
+                      desc: 'إرسال الرسائل عبر حسابات الواتساب المرتبطة فقط دون استخدام رسائل الـ SMS.',
+                    },
+                  ].map((opt) => (
+                    <label
+                      key={opt.id}
+                      onClick={() => handleSaveChannelMode(opt.id)}
+                      className={`p-3 rounded-2xl border flex items-start gap-3 cursor-pointer transition-all ${
+                        smsOverview?.channelMode === opt.id
+                          ? 'bg-sky-50/80 border-sky-400 ring-1 ring-sky-300'
+                          : 'bg-slate-50/50 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="channelMode"
+                        checked={smsOverview?.channelMode === opt.id}
+                        onChange={() => handleSaveChannelMode(opt.id)}
+                        className="mt-1 text-sky-600 focus:ring-sky-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-black text-slate-900 block">{opt.title}</span>
+                        <span className="text-[11px] text-slate-500 leading-relaxed block mt-0.5">
+                          {opt.desc}
+                        </span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Test SMS Card */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                <Send className="w-4 h-4 text-emerald-500" />
+                <h4 className="text-sm font-black text-slate-900">إرسال رسالة SMS تجريبية إلى رقمك</h4>
+              </div>
+
+              {testSmsFeedback && (
+                <div className={`p-3 rounded-xl text-xs flex items-center gap-2 animate-fadeIn ${
+                  testSmsFeedback.success
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                    : 'bg-rose-50 border border-rose-200 text-rose-800'
+                }`}>
+                  {testSmsFeedback.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                  )}
+                  <span>{testSmsFeedback.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSendAdminTestSms} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم الهاتف</label>
+                  <input
+                    type="tel"
+                    placeholder="010XXXXXXXX"
+                    value={testSmsPhone}
+                    onChange={e => setTestSmsPhone(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-sky-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">نص الرسالة</label>
+                  <input
+                    type="text"
+                    placeholder="رسالة تجريبية من UniFood للتأكد من اتصال الهاتف"
+                    value={testSmsMessage}
+                    onChange={e => setTestSmsMessage(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    disabled={sendingTestSms}
+                    className="w-full h-10 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{sendingTestSms ? 'جاري الإرسال...' : 'إرسال الرسالة التجريبية 📱'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Recent SMS Message Logs Table */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-slate-500" />
+                  <h4 className="text-sm font-black text-slate-900">سجل الرسائل الأخيرة (SMS Logs)</h4>
+                </div>
+                <span className="text-xs text-slate-500 font-mono">
+                  {smsOverview?.recentLogs?.length || 0} رسالة مسجلة
+                </span>
+              </div>
+
+              {smsOverview?.recentLogs && smsOverview.recentLogs.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50/70">
+                        <th className="py-2.5 px-3">رقم الهاتف</th>
+                        <th className="py-2.5 px-3">النوع</th>
+                        <th className="py-2.5 px-3">نص الرسالة</th>
+                        <th className="py-2.5 px-3">الحالة</th>
+                        <th className="py-2.5 px-3">الوقت والتاريخ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {smsOverview.recentLogs.map((log: any) => (
+                        <tr key={log.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-800">
+                            {log.phone}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
+                              {log.type === 'OTP' ? 'كود تفعيل' : log.type === 'ALERT' ? 'تنبيه' : 'مخصص'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 max-w-xs truncate text-slate-600" title={log.message}>
+                            {log.message}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                              log.status === 'SENT'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : log.status === 'PENDING'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}>
+                              {log.status === 'SENT' ? 'تم الإرسال ✅' : log.status === 'PENDING' ? 'قيد الإرسال ⏳' : 'فشل ❌'}
+                            </span>
+                            {log.errorReason && (
+                              <span className="block text-[10px] text-rose-500 mt-0.5" title={log.errorReason}>
+                                {log.errorReason}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                            {new Date(log.createdAt).toLocaleString('ar-EG')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400 text-xs">
+                  لا توجد رسائل SMS مسجلة في السجل حتى الآن.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {activeTab === 'SETTINGS' && (
           <div className="space-y-6">
             {/* Header info banner */}
@@ -9193,6 +9656,33 @@ export const AdminPage: React.FC = () => {
                   <span className="text-xs font-black block text-slate-900">بوت الواتساب و OTP</span>
                   <span className="text-[10px] text-slate-500 block">
                     {whatsAppStatus?.isConnected ? 'متصل بنجاح ✅' : 'بانتظار المسح ⚠️'}
+                  </span>
+                </div>
+              </button>
+
+              {/* SMS GATEWAY */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('SMS_GATEWAY');
+                  setShowMobileMoreMenu(false);
+                }}
+                className={`p-3.5 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 ${
+                  activeTab === 'SMS_GATEWAY'
+                    ? 'bg-sky-50 border-sky-500 text-sky-900 shadow-sm ring-1 ring-sky-300'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-600 flex items-center justify-center">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
+                  <span className={`w-2.5 h-2.5 rounded-full ${smsOverview?.device?.isOnline ? 'bg-sky-500 animate-pulse' : 'bg-rose-500'}`} />
+                </div>
+                <div>
+                  <span className="text-xs font-black block text-slate-900">بوابة SMS (هاتفك)</span>
+                  <span className="text-[10px] text-slate-500 block">
+                    {smsOverview?.device?.isOnline ? 'الهاتف متصل 🟢' : 'الهاتف غير متصل 🔴'}
                   </span>
                 </div>
               </button>

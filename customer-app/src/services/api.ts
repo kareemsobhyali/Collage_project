@@ -176,11 +176,11 @@ function getDriverHeaders(isFormData: boolean = false): HeadersInit {
 
 export const api = {
   // 1. تسجيل مستخدم جديد
-  async register(name: string, phone: string, password: string) {
+  async register(name: string, phone: string, password: string, channel?: 'WHATSAPP' | 'SMS') {
     const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, password }),
+      body: JSON.stringify({ name, phone, password, channel }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -188,6 +188,7 @@ export const api = {
       err.data = data;
       err.requireVerification = data.requireVerification;
       err.phone = data.phone;
+      err.channel = data.channel;
       throw err;
     }
     return data;
@@ -206,24 +207,25 @@ export const api = {
       err.data = data;
       err.requireVerification = data.requireVerification;
       err.phone = data.phone;
+      err.channel = data.channel;
       throw err;
     }
     return data;
   },
 
-  // 2.1 طلب كود استعادة كلمة المرور عبر الواتساب
-  async forgotPassword(phone: string) {
+  // 2.1 طلب كود استعادة كلمة المرور عبر الواتساب أو SMS
+  async forgotPassword(phone: string, channel?: 'WHATSAPP' | 'SMS') {
     const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phone, channel }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل إرسال كود التحقق');
     return data;
   },
 
-  // 2.2 التحقق من صحة كود الواتساب
+  // 2.2 التحقق من صحة كود الواتساب أو الـ SMS
   async verifyResetOtp(phone: string, otp: string) {
     const res = await fetch(`${API_BASE_URL}/auth/verify-reset-otp`, {
       method: 'POST',
@@ -235,7 +237,7 @@ export const api = {
     return data;
   },
 
-  // 2.3 تعيين كلمة المرور الجديدة بعد التحقق من كود الواتساب
+  // 2.3 تعيين كلمة المرور الجديدة بعد التحقق من كود الواتساب أو SMS
   async resetPassword(phone: string, otp: string, newPassword: string) {
     const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
       method: 'POST',
@@ -247,7 +249,7 @@ export const api = {
     return data;
   },
 
-  // 2.4 تأكيد وتفعيل رقم الهاتف بواسطة كود الواتساب
+  // 2.4 تأكيد وتفعيل رقم الهاتف بواسطة كود الواتساب أو SMS
   async verifyPhoneCode(phone: string, code: string) {
     const res = await fetch(`${API_BASE_URL}/auth/verify-phone-code`, {
       method: 'POST',
@@ -271,12 +273,12 @@ export const api = {
     return data;
   },
 
-  // 2.6 إعادة إرسال كود ورابط التفعيل عبر الواتساب
-  async resendVerificationOtp(phone: string) {
+  // 2.6 إعادة إرسال كود ورابط التفعيل عبر الواتساب أو SMS
+  async resendVerificationOtp(phone: string, channel?: 'WHATSAPP' | 'SMS') {
     const res = await fetch(`${API_BASE_URL}/auth/resend-verification-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phone, channel }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل إعادة إرسال كود التفعيل');
@@ -1852,6 +1854,55 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/branch/stats`, { headers: getBranchHeaders() });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل استرجاع إحصائيات الفرع');
+    return data;
+  },
+
+  // 35. خدمات بوابة الرسائل SMS Gateway
+  async getSmsConfig() {
+    const res = await fetch(`${API_BASE_URL}/sms-gateway/config`);
+    const data = await res.json();
+    return data;
+  },
+
+  async getSmsGatewayOverview() {
+    const res = await fetch(`${API_BASE_URL}/sms-gateway/admin/overview`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل جلب بيانات بوابة الرسائل');
+    return data;
+  },
+
+  async updateSmsGatewaySettings(channelMode: string) {
+    const res = await fetch(`${API_BASE_URL}/sms-gateway/admin/settings`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ channelMode }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث إعدادات بوابة الرسائل');
+    return data;
+  },
+
+  async regenerateSmsGatewayKey(deviceId?: string) {
+    const res = await fetch(`${API_BASE_URL}/sms-gateway/admin/regenerate-key`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ deviceId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تجديد مفتاح الجهاز');
+    return data;
+  },
+
+  async sendTestSms(phone: string, message?: string) {
+    const res = await fetch(`${API_BASE_URL}/sms-gateway/admin/test-sms`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ phone, message }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إرسال الرسالة التجريبية');
     return data;
   },
 };

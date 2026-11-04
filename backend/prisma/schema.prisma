@@ -508,6 +508,43 @@ model BranchBlockedCustomer {
   @@index([userId])
 }
 
+model SmsGatewayDevice {
+  id           String          @id @default(uuid())
+  deviceName   String
+  deviceKey    String          @unique
+  phoneNumber  String?
+  simOperator  String?
+  batteryLevel Int?
+  isCharging   Boolean         @default(false)
+  isOnline     Boolean         @default(false)
+  lastSeenAt   DateTime?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  logs         SmsMessageLog[]
+
+  @@index([deviceKey])
+  @@index([isActive])
+}
+
+model SmsMessageLog {
+  id          String            @id @default(uuid())
+  phone       String
+  message     String            @db.Text
+  type        String            @default("OTP") // OTP, ALERT, CUSTOM
+  status      String            @default("PENDING") // PENDING, SENT, FAILED
+  errorReason String?
+  deviceId    String?
+  device      SmsGatewayDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+  sentAt      DateTime?
+
+  @@index([status])
+  @@index([phone])
+  @@index([deviceId])
+}
+
+
 
 
 

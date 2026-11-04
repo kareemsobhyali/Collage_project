@@ -45,11 +45,134 @@ function clearOtpFailures(key: string) {
   failedOtpAttempts.delete(key);
 }
 
+/**
+ * دالة موحدة وذكية لإرسال كود التفعيل ورابط الدخول السريع عبر القناة المناسبة (واتساب أو SMS)
+ */
+async function dispatchVerificationOtp(
+  phone: string,
+  code: string,
+  magicLink: string,
+  name?: string,
+  preferredChannel?: string
+): Promise<{ channel: "WHATSAPP" | "SMS"; message: string }> {
+  const { smsGatewayService } = await import("../services/smsGateway.service.js");
+  const { whatsappService } = await import("../services/whatsapp.service.js");
 
-// تسجيل حساب عميل جديد (طالب / مستخدم) مع إرسال كود ورابط التفعيل عبر الواتساب
+  const mode = await smsGatewayService.getVerificationChannelMode();
+  let targetChannel: "WHATSAPP" | "SMS" = "WHATSAPP";
+
+  const requested = String(preferredChannel || "").toUpperCase();
+  if (requested === "SMS") {
+    targetChannel = "SMS";
+  } else if (requested === "WHATSAPP") {
+    targetChannel = "WHATSAPP";
+  } else if (mode === "SMS_ONLY") {
+    targetChannel = "SMS";
+  } else if (mode === "WHATSAPP_FALLBACK_SMS") {
+    let isWaOnline = true;
+    try {
+      const statuses = await whatsappService.getAllAccountsStatus();
+      isWaOnline = statuses.some((s: any) => s.isConnected && s.isActive && (s.sendOtp || s.isDefault));
+    } catch {
+      isWaOnline = false;
+    }
+    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
+  } else {
+    targetChannel = "WHATSAPP";
+  }
+
+  if (targetChannel === "SMS") {
+    await smsGatewayService.sendOtpSms(phone, code, magicLink, name);
+    return {
+      channel: "SMS",
+      message: "تم إرسال كود التفعيل ورابط التفعيل السريع في رسالة SMS إلى هاتفك 📱",
+    };
+  } else {
+    try {
+      await whatsappService.sendVerificationOtp(phone, code, magicLink, name);
+      return {
+        channel: "WHATSAPP",
+        message: "تم إرسال كود ورابط التفعيل السريع إلى رقم الواتساب الخاص بك 💬",
+      };
+    } catch (waErr) {
+      if (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE") {
+        console.warn("[Auth OTP] WhatsApp failed, falling back to SMS Gateway:", waErr);
+        await smsGatewayService.sendOtpSms(phone, code, magicLink, name);
+        return {
+          channel: "SMS",
+          message: "تعذر الإرسال عبر الواتساب، وتم إرسال كود التفعيل في رسالة SMS لهاتفك 📱",
+        };
+      }
+      throw waErr;
+    }
+  }
+}
+
+/**
+ * دالة موحدة لإرسال كود استعادة كلمة المرور عبر القناة المناسبة
+ */
+async function dispatchPasswordResetOtp(
+  phone: string,
+  code: string,
+  preferredChannel?: string
+): Promise<{ channel: "WHATSAPP" | "SMS"; message: string }> {
+  const { smsGatewayService } = await import("../services/smsGateway.service.js");
+  const { whatsappService } = await import("../services/whatsapp.service.js");
+
+  const mode = await smsGatewayService.getVerificationChannelMode();
+  let targetChannel: "WHATSAPP" | "SMS" = "WHATSAPP";
+
+  const requested = String(preferredChannel || "").toUpperCase();
+  if (requested === "SMS") {
+    targetChannel = "SMS";
+  } else if (requested === "WHATSAPP") {
+    targetChannel = "WHATSAPP";
+  } else if (mode === "SMS_ONLY") {
+    targetChannel = "SMS";
+  } else if (mode === "WHATSAPP_FALLBACK_SMS") {
+    let isWaOnline = true;
+    try {
+      const statuses = await whatsappService.getAllAccountsStatus();
+      isWaOnline = statuses.some((s: any) => s.isConnected && s.isActive && (s.sendOtp || s.isDefault));
+    } catch {
+      isWaOnline = false;
+    }
+    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
+  } else {
+    targetChannel = "WHATSAPP";
+  }
+
+  if (targetChannel === "SMS") {
+    await smsGatewayService.sendPasswordResetSms(phone, code);
+    return {
+      channel: "SMS",
+      message: "تم إرسال كود استعادة كلمة المرور في رسالة SMS إلى هاتفك 📱",
+    };
+  } else {
+    try {
+      await whatsappService.sendOtp(phone, code);
+      return {
+        channel: "WHATSAPP",
+        message: "تم إرسال كود استعادة كلمة المرور إلى واتساب هذا الرقم 💬",
+      };
+    } catch (waErr) {
+      if (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE") {
+        console.warn("[Reset OTP] WhatsApp failed, falling back to SMS Gateway:", waErr);
+        await smsGatewayService.sendPasswordResetSms(phone, code);
+        return {
+          channel: "SMS",
+          message: "تعذر الإرسال عبر الواتساب، وتم إرسال كود الاستعادة في رسالة SMS لهاتفك 📱",
+        };
+      }
+      throw waErr;
+    }
+  }
+}
+
+// تسجيل حساب عميل جديد (طالب / مستخدم) مع إرسال كود ورابط التفعيل عبر الواتساب أو SMS
 router.post("/register", async (req: Request, res: Response) => {
   try {
-    const { name, phone, password } = req.body;
+    const { name, phone, password, channel } = req.body;
 
     if (!name || !phone || !password) {
       res.status(400).json({ error: "الرجاء إدخال الاسم، رقم الهاتف، وكلمة المرور" });
@@ -93,14 +216,14 @@ router.post("/register", async (req: Request, res: Response) => {
         const baseUrl = getTrustedAppBaseUrl(req);
         const magicLink = `${baseUrl}/?verifyToken=${magicToken}`;
 
-        const { whatsappService } = await import("../services/whatsapp.service.js");
-        await whatsappService.sendVerificationOtp(cleanPhone, otpCode, magicLink, existing.name);
+        const dispatchRes = await dispatchVerificationOtp(cleanPhone, otpCode, magicLink, existing.name, channel);
 
         res.status(200).json({
           success: true,
           requireVerification: true,
           phone: cleanPhone,
-          message: "هذا الحساب مسجل بالفعل ولكنه بانتظار التفعيل. تم إرسال كود ورابط التفعيل مجدداً إلى واتساب 💬",
+          channel: dispatchRes.channel,
+          message: dispatchRes.message,
         });
         return;
       }
@@ -149,14 +272,14 @@ router.post("/register", async (req: Request, res: Response) => {
     const baseUrl = getTrustedAppBaseUrl(req);
     const magicLink = `${baseUrl}/?verifyToken=${magicToken}`;
 
-    const { whatsappService } = await import("../services/whatsapp.service.js");
-    await whatsappService.sendVerificationOtp(cleanPhone, otpCode, magicLink, user.name);
+    const dispatchRes = await dispatchVerificationOtp(cleanPhone, otpCode, magicLink, user.name, channel);
 
     res.status(201).json({
       success: true,
       requireVerification: true,
       phone: cleanPhone,
-      message: "تم إنشاء الحساب بنجاح! تم إرسال كود التفعيل ورابط التفعيل السريع إلى رقم الواتساب الخاص بك 💬",
+      channel: dispatchRes.channel,
+      message: dispatchRes.message,
     });
   } catch (error) {
     console.error("Register error:", error);
@@ -383,10 +506,10 @@ router.get("/me", authenticateUser, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 1. طلب كود استعادة كلمة المرور عبر الواتساب (Forgot Password OTP)
+// 1. طلب كود استعادة كلمة المرور عبر الواتساب أو SMS (Forgot Password OTP)
 router.post("/forgot-password", async (req: Request, res: Response) => {
   try {
-    const { phone } = req.body;
+    const { phone, channel } = req.body;
     if (!phone) {
       res.status(400).json({ error: "يرجى إدخال رقم الهاتف المسجل" });
       return;
@@ -458,14 +581,13 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
       },
     });
 
-    // إرسال الكود فوراً عبر خدمة الواتساب الذاتية
-    const { whatsappService } = await import("../services/whatsapp.service.js");
-    const sendRes = await whatsappService.sendOtp(cleanPhone, otp);
+    // إرسال الكود فوراً عبر خدمة الواتساب أو بوابة الـ SMS
+    const dispatchRes = await dispatchPasswordResetOtp(cleanPhone, otp, channel);
 
     res.json({
       success: true,
-      simulated: sendRes.simulated,
-      message: "تم إرسال كود التحقق بنجاح إلى رقم الواتساب الخاص بك",
+      channel: dispatchRes.channel,
+      message: dispatchRes.message,
     });
   } catch (error) {
     console.error("Forgot password error:", error);
@@ -857,10 +979,10 @@ router.get("/verify-phone-link", async (req: Request, res: Response) => {
   }
 });
 
-// 7. إعادة إرسال كود ورابط التفعيل عبر الواتساب
+// 7. إعادة إرسال كود ورابط التفعيل عبر الواتساب أو SMS
 router.post("/resend-verification-otp", async (req: Request, res: Response) => {
   try {
-    const { phone } = req.body;
+    const { phone, channel } = req.body;
     if (!phone) {
       res.status(400).json({ error: "يرجى إدخال رقم الهاتف" });
       return;
@@ -929,13 +1051,12 @@ router.post("/resend-verification-otp", async (req: Request, res: Response) => {
     const baseUrl = getTrustedAppBaseUrl(req);
     const magicLink = `${baseUrl}/?verifyToken=${magicToken}`;
 
-    const { whatsappService } = await import("../services/whatsapp.service.js");
-    const sendRes = await whatsappService.sendVerificationOtp(cleanPhone, otpCode, magicLink, user.name);
+    const dispatchRes = await dispatchVerificationOtp(cleanPhone, otpCode, magicLink, user.name, channel);
 
     res.json({
       success: true,
-      simulated: sendRes.simulated,
-      message: "تم إرسال كود ورابط التفعيل مجدداً إلى واتساب الرقم 💬",
+      channel: dispatchRes.channel,
+      message: dispatchRes.message,
     });
   } catch (error) {
     console.error("Resend verification otp error:", error);

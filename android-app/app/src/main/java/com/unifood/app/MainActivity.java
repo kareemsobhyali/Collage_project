@@ -857,5 +857,65 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {
             }
         }
+
+        @JavascriptInterface
+        public boolean isSmsPermissionGranted() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                return checkSelfPermission(Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED;
+            }
+            return true;
+        }
+
+        @JavascriptInterface
+        public void requestSmsPermission() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    requestPermissions(new String[]{
+                            Manifest.permission.SEND_SMS,
+                            Manifest.permission.READ_PHONE_STATE
+                    }, 2001);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public boolean isSmsGatewayRunning() {
+            return UniFoodSmsGatewayService.isServiceRunning;
+        }
+
+        @JavascriptInterface
+        public void startSmsGateway(String serverUrl, String deviceKey) {
+            String targetUrl = (serverUrl != null && !serverUrl.trim().isEmpty()) ? serverUrl.trim() : getActiveStartUrl();
+            UniFoodSmsGatewayService.startGatewayService(MainActivity.this, targetUrl, deviceKey != null ? deviceKey.trim() : "");
+        }
+
+        @JavascriptInterface
+        public void stopSmsGateway() {
+            UniFoodSmsGatewayService.stopGatewayService(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public boolean sendNativeSmsTest(String phone, String message) {
+            try {
+                android.telephony.SmsManager smsManager = null;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    smsManager = getSystemService(android.telephony.SmsManager.class);
+                }
+                if (smsManager == null) {
+                    smsManager = android.telephony.SmsManager.getDefault();
+                }
+                if (smsManager == null) return false;
+
+                java.util.ArrayList<String> parts = smsManager.divideMessage(message);
+                if (parts.size() > 1) {
+                    smsManager.sendMultipartTextMessage(phone, null, parts, null, null);
+                } else {
+                    smsManager.sendTextMessage(phone, null, message, null, null);
+                }
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
     }
 }
