@@ -2788,16 +2788,20 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
     const expiresAt = new Date(Date.now() + couponDays * 24 * 60 * 60 * 1000);
 
     const prizeType = selectedPrize.type || 'COUPON';
+    // لا يتم صرف أو تفعيل الجائزة للعميل إلا عند اكتمال الطلب والتسليم الفعلي
+    const isPendingDelivery = order.status !== "COMPLETED";
 
     if (prizeType === "POINTS") {
-      // إيداع النقاط فوراً في حساب المستخدم
-      const pts = Math.max(1, Number(selectedPrize.value || selectedPrize.amount) || 10);
-      await prisma.user.update({
-        where: { id: userId },
-        data: { loyaltyPoints: { increment: pts } },
-      });
+      // إيداع النقاط فقط إذا كان الطلب مكتملاً بالفعل، وإلا تنتظر حتى التسليم
+      if (!isPendingDelivery) {
+        const pts = Math.max(1, Number(selectedPrize.value || selectedPrize.amount) || 10);
+        await prisma.user.update({
+          where: { id: userId },
+          data: { loyaltyPoints: { increment: pts } },
+        });
+      }
     } else if (prizeType === "COUPON") {
-      // توليد كود خصم خاص بالعميل ومربوط بحسابه
+      // توليد كود خصم خاص بالعميل ومربوط بحسابه ولكن غير مفعل إلا بعد اكتمال الطلب
       const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
       couponCode = `LUCKY-${randSuffix}`;
       const discountType = selectedPrize.discountType === "FIXED" ? "FIXED" : "PERCENT";
@@ -2818,7 +2822,7 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
           assignedUserName: order.customerName,
           applicableBranchIds: JSON.stringify([order.branchId]),
           expiresAt,
-          isActive: true,
+          isActive: !isPendingDelivery,
         },
       }).catch((err) => {
         console.error("Failed to create spin wheel promo code:", err);
@@ -2843,7 +2847,7 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
           assignedUserName: order.customerName,
           applicableBranchIds: JSON.stringify([order.branchId]),
           expiresAt,
-          isActive: true,
+          isActive: !isPendingDelivery,
         },
       }).catch((err) => {
         console.error("Failed to create spin wheel promo code:", err);
@@ -2868,7 +2872,7 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
           assignedUserName: order.customerName,
           applicableBranchIds: JSON.stringify([order.branchId]),
           expiresAt,
-          isActive: true,
+          isActive: !isPendingDelivery,
         },
       }).catch((err) => {
         console.error("Failed to create free item gift promo code:", err);
@@ -2882,6 +2886,8 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
       ...selectedPrize,
       couponCode,
       expiresAt: (prizeType === "COUPON" || prizeType === "FREE_DELIVERY" || prizeType === "FREE_ITEM") ? expiresAt.toISOString() : undefined,
+      isPendingDelivery,
+      status: isPendingDelivery ? "PENDING_DELIVERY" : "AWARDED",
     };
 
     const updatedOrder = await prisma.order.update({
@@ -2902,7 +2908,9 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
       prize: prizeData,
       order: updatedOrder,
       user: updatedUser,
-      message: `مبروك! فزت بـ ${selectedPrize.label} 🎉`,
+      message: isPendingDelivery
+        ? `مبروك! فزت بـ ${selectedPrize.label} 🎉 (سيتم تفعيلها وإضافتها لحسابك فور استلام واكتمال الطلب بنجاح)`
+        : `مبروك! فزت بـ ${selectedPrize.label} 🎉 وتمت إضافتها لحسابك`,
     });
   } catch (error) {
     console.error("Spin wheel error:", error);

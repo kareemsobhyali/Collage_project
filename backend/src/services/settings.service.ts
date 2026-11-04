@@ -1,4 +1,5 @@
 import prisma from "../prisma.js";
+import { notifyUserUpdated } from "../sockets/socketManager.js";
 
 export interface LoyaltySettings {
   enabled: boolean;
@@ -79,6 +80,72 @@ export async function awardLoyaltyPointsIfCompleted(orderId: string): Promise<nu
   } catch (err) {
     console.error("awardLoyaltyPointsIfCompleted error:", err);
     return 0;
+  }
+}
+
+/**
+ * تفعيل جائزة عجلة الحظ وإيداع النقاط أو تفعيل الكوبون عند اكتمال الطلب والتسليم الفعلي فقط
+ */
+export async function activateWheelPrizeIfCompleted(orderId: string): Promise<any | null> {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { branch: true },
+    });
+    if (!order || order.status !== "COMPLETED" || !order.wheelSpun || !order.wheelReward) {
+      return null;
+    }
+
+    let reward: any;
+    try {
+      reward = typeof order.wheelReward === "string" ? JSON.parse(order.wheelReward) : order.wheelReward;
+    } catch {
+      return null;
+    }
+
+    if (!reward || reward.status === "AWARDED" || reward.isPendingDelivery === false) {
+      return null; // Already activated or not pending
+    }
+
+    const prizeType = reward.type;
+    const userId = order.userId;
+
+    if (prizeType === "POINTS") {
+      const pts = Math.max(1, Number(reward.value || reward.amount) || 10);
+      await prisma.user.update({
+        where: { id: userId },
+        data: { loyaltyPoints: { increment: pts } },
+      });
+    } else if (prizeType === "COUPON" || prizeType === "FREE_DELIVERY" || prizeType === "FREE_ITEM") {
+      if (reward.couponCode) {
+        await prisma.promoCode.updateMany({
+          where: { code: reward.couponCode },
+          data: { isActive: true },
+        });
+      }
+    }
+
+    reward.isPendingDelivery = false;
+    reward.status = "AWARDED";
+    reward.deliveredAt = new Date().toISOString();
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { wheelReward: JSON.stringify(reward) },
+    });
+
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, loyaltyPoints: true, walletBalance: true },
+    });
+    if (updatedUser) {
+      notifyUserUpdated(userId, updatedUser);
+    }
+
+    return reward;
+  } catch (err) {
+    console.error("activateWheelPrizeIfCompleted error:", err);
+    return null;
   }
 }
 

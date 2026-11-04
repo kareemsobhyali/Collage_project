@@ -4,7 +4,7 @@ import prisma from "../prisma.js";
 import { generateToken, authenticateDriver, AuthRequest } from "../middleware/auth.js";
 import { authLimiter } from "../middleware/rateLimiter.js";
 import { notifyOrderStatusChanged, notifyDriverRejectedOrder, notifyDriverReturnedOrder } from "../sockets/socketManager.js";
-import { awardLoyaltyPointsIfCompleted } from "../services/settings.service.js";
+import { awardLoyaltyPointsIfCompleted, activateWheelPrizeIfCompleted } from "../services/settings.service.js";
 import { getDriverBranchConfig, markOrderAcceptedByDriver, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
 import { handleDriverRejectionWithFallback } from "../services/dispatch.service.js";
 
@@ -536,8 +536,9 @@ router.put("/orders/:id/deliver", authLimiter, async (req: AuthRequest, res: Res
       },
     });
 
-    // إيداع نقاط الولاء في حساب الطالب عند اكتمال واستلام الطلب
+    // إيداع نقاط الولاء في حساب الطالب وتفعيل مكافأة عجلة الحظ عند اكتمال واستلام الطلب
     await awardLoyaltyPointsIfCompleted(orderId);
+    await activateWheelPrizeIfCompleted(orderId);
 
     // إشعار الطالب والفرع باكتمال التسليم
     notifyOrderStatusChanged(order.id, order.branchId, updated, driverId);

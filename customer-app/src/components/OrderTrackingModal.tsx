@@ -570,28 +570,44 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
           )}
 
           {order.wheelSpun && order.wheelReward && (
-            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base shrink-0">🎡</span>
-                <span className="text-[11px] font-bold truncate">
-                  هدية عجلة الحظ: {(() => {
-                    try {
-                      const r = typeof order.wheelReward === 'string' ? JSON.parse(order.wheelReward) : order.wheelReward;
-                      return r?.label || 'مكافأة مميزة';
-                    } catch {
-                      return 'مكافأة مميزة';
-                    }
-                  })()}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowWheelModal(true)}
-                className="text-[10px] text-amber-800 underline font-black shrink-0 cursor-pointer"
-              >
-                عرض الهدية
-              </button>
-            </div>
+            (() => {
+              let r: any = null;
+              try {
+                r = typeof order.wheelReward === 'string' ? JSON.parse(order.wheelReward) : order.wheelReward;
+              } catch {}
+              const isDelivered = status === 'COMPLETED' || r?.status === 'AWARDED' || r?.isPendingDelivery === false;
+              const isVoided = status === 'REJECTED' || r?.status === 'CANCELLED' || r?.voided;
+
+              return (
+                <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+                  isVoided
+                    ? 'bg-slate-50 border-slate-200 text-slate-500'
+                    : isDelivered
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                }`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base shrink-0">{isVoided ? '❌' : isDelivered ? '🎁' : '⏳'}</span>
+                    <span className="text-[11px] font-bold truncate">
+                      {isVoided
+                        ? `عجلة الحظ: ملغاة لعدم اكتمال الطلب (${r?.label || ''})`
+                        : isDelivered
+                        ? `تم تفعيل جائزتك في حسابك: ${r?.label || 'مكافأة مميزة'}`
+                        : `جائزتك بالعجلة (تتفعل عند الاستلام): ${r?.label || 'مكافأة مميزة'}`}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowWheelModal(true)}
+                    className={`text-[10px] underline font-black shrink-0 cursor-pointer ${
+                      isVoided ? 'text-slate-600' : isDelivered ? 'text-emerald-700' : 'text-amber-800'
+                    }`}
+                  >
+                    عرض التفاصيل
+                  </button>
+                </div>
+              );
+            })()
           )}
 
           {/* Total Fulfillment Celebration Banner if Completed */}
@@ -834,21 +850,70 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 )}
               </div>
             ) : (
-              <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-center text-rose-700 space-y-2.5">
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-center text-rose-700 space-y-3">
                 <XCircle className="w-12 h-12 mx-auto text-rose-500" />
-                <h4 className="font-black text-sm">تم الاعتذار عن الطلب</h4>
-                {order.notes?.includes('سبب الإلغاء:') ? (
+                <div>
+                  <h4 className="font-black text-sm text-rose-900">تم الاعتذار عن الطلب وإلغاؤه</h4>
+                  <p className="text-xs text-rose-600 mt-0.5">نعتذر لك جداً عن هذا الإلغاء ونشكر تفهمك</p>
+                </div>
+
+                {order.notes?.includes('سبب الإلغاء:') && (
                   <div className="bg-white/90 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 font-bold space-y-1 text-right">
                     <span className="text-[11px] text-rose-500 font-bold block">سبب الاعتذار المسجل من المطعم:</span>
                     <p className="text-xs font-black text-rose-900 leading-relaxed">
-                      {order.notes.split('سبب الإلغاء:')[1].trim()}
+                      {order.notes.split('سبب الإلغاء:')[1].split('[تعويض')[0].trim()}
                     </p>
                   </div>
-                ) : (
-                  <p className="text-xs text-rose-600">
-                    تم الاعتذار عن هذا الطلب من المطعم. إذا كان لديك استفسار يمكنك التواصل مع الفرع مباشرة.
-                  </p>
                 )}
+
+                {/* هدية الاعتذار والتعويض */}
+                {(() => {
+                  const comp = order.cancellationCompensation;
+                  const hasNoteComp = order.notes?.includes('[تعويض العميل:');
+                  if (!comp && !hasNoteComp) return null;
+
+                  return (
+                    <div className="p-3.5 bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-100/60 border border-amber-300 rounded-2xl text-right space-y-2 animate-fadeIn shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🎁</span>
+                        <div>
+                          <span className="text-xs font-black text-amber-950 block">هدية اعتذار خاصة مقدمة لك من المطعم</span>
+                          <span className="text-[10px] text-amber-700 block">تقديراً لوقتك واعتذاراً عن عدم التمكن من تجهيز الطلب</span>
+                        </div>
+                      </div>
+
+                      {comp?.type === 'COUPON' && (
+                        <div className="space-y-1 bg-white p-2.5 rounded-xl border border-amber-200">
+                          <span className="text-[10px] font-bold text-slate-500 block">كود الخصم المخصص لطلبك القادم:</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-sm font-black text-amber-600 tracking-wider">
+                              {comp.code}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-black">
+                              خصم {comp.value}{comp.discountType === 'PERCENT' ? '%' : ' ج.م'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {comp?.type === 'POINTS' && (
+                        <div className="p-2.5 rounded-xl bg-white border border-indigo-200 text-indigo-900 text-xs font-black flex items-center justify-between">
+                          <span>✨ تمت إضافة نقاط ولاء لمحفظتك:</span>
+                          <span className="px-2.5 py-1 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-700 font-mono text-xs">
+                            +{comp.amount} نقطة
+                          </span>
+                        </div>
+                      )}
+
+                      {!comp && hasNoteComp && (
+                        <p className="text-xs font-bold text-amber-900 bg-white p-2.5 rounded-xl border border-amber-200">
+                          {order.notes.split('[تعويض العميل:')[1].split(']')[0]}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {order.walletDiscount > 0 && (
                   <p className="text-[11px] font-black text-emerald-700 bg-emerald-50 py-1.5 px-3 rounded-xl border border-emerald-200">
                     ✓ تم استرداد {order.walletDiscount} ج.م إلى رصيد محفظتك بنجاح.

@@ -212,7 +212,11 @@ export const SpinTheWheelModal: React.FC<SpinTheWheelModalProps> = ({
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
             {wonPrize
-              ? 'تم إضافة المكافأة فوراً لحسابك'
+              ? (order.status === 'REJECTED' || wonPrize.status === 'CANCELLED')
+                ? 'تم إلغاء المكافأة لعدم اكتمال الطلب'
+                : (order.status === 'COMPLETED' || wonPrize.isPendingDelivery === false || wonPrize.status === 'AWARDED')
+                ? 'تم تفعيل المكافأة وإيداعها بحسابك بنجاح 🎉'
+                : 'تم حفظ جائزتك، وسيتم تفعيلها بحسابك فور اكتمال الطلب 🚚'
               : `شكراً لطلبك من مطعم ${order.branch?.name || ''}، ليك لفة حظ مجانية!`}
           </p>
         </div>
@@ -306,9 +310,27 @@ export const SpinTheWheelModal: React.FC<SpinTheWheelModalProps> = ({
               </div>
             </div>
 
+            {/* Status notice */}
+            {order.status === 'REJECTED' || wonPrize.status === 'CANCELLED' ? (
+              <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs">
+                ❌ تم إلغاء هذه المكافأة نظراً لإلغاء هذا الطلب قبل استلامه.
+              </div>
+            ) : (order.status !== 'COMPLETED' && wonPrize.isPendingDelivery !== false && wonPrize.status !== 'AWARDED') ? (
+              <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs flex items-center gap-2">
+                <span className="text-base shrink-0 animate-pulse">⏳</span>
+                <span>
+                  تم تسجيل جائزتك بنجاح! سيتم إيداعها وتفعيلها في حسابك تلقائياً فور استلام واكتمال الطلب بنجاح.
+                </span>
+              </div>
+            ) : (
+              <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-1.5">
+                <span>✓ تم تفعيل الجائزة بنجاح في حسابك!</span>
+              </div>
+            )}
+
             {wonPrize.type === 'POINTS' && (
               <p className="text-[11px] text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60">
-                ✨ تم إضافة <strong className="text-amber-400 font-black">{wonPrize.value || wonPrize.amount || 10} نقطة ولاء</strong> إلى محفظتك بنجاح، ويمكنك تحويلها لرصيد نقدي في طلباتك القادمة!
+                ✨ قيمة الجائزة: <strong className="text-amber-400 font-black">{wonPrize.value || wonPrize.amount || 10} نقطة ولاء</strong>، يمكنك تحويلها لرصيد نقدي في طلباتك القادمة بعد اكتمال الطلب!
               </p>
             )}
 

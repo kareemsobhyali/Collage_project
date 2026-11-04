@@ -12,9 +12,10 @@ import {
   notifyDriverUnassigned,
   latestDriverLocations,
   isDriverOnline,
-  notifySupportTicketUpdated
+  notifySupportTicketUpdated,
+  notifyUserUpdated
 } from "../sockets/socketManager.js";
-import { awardLoyaltyPointsIfCompleted, sendOrderCancellationWhatsAppAlert, getRestaurantLocationSettings } from "../services/settings.service.js";
+import { awardLoyaltyPointsIfCompleted, activateWheelPrizeIfCompleted, sendOrderCancellationWhatsAppAlert, getRestaurantLocationSettings } from "../services/settings.service.js";
 import { getDriverBranchConfig, canDriverServeBranch, setDriverBranchConfig, deleteDriverBranchConfig, isOrderAcceptedByDriver, clearOrderAcceptedByDriver } from "../services/driver.service.js";
 import { restoreFlashDealsForOrder } from "../services/flashDeal.service.js";
 import { findBestSmartDriverForBranch } from "../services/dispatch.service.js";
@@ -1945,7 +1946,15 @@ router.post("/customers/:userId/unblock", async (req: AuthRequest, res: Response
 router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { status, estimatedMinutes, reason } = req.body; // "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"
+    const { 
+      status, 
+      estimatedMinutes, 
+      reason,
+      compensationType,
+      compensationValue,
+      compensationDiscountType,
+      compensationNote
+    } = req.body; // "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"
     const branchId = req.branch!.branchId;
 
     const validStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "REJECTED"];
@@ -1979,6 +1988,8 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
       updateData.estimatedMinutes = Number(estimatedMinutes);
     }
 
+    let compensationDetails: any = null;
+
     if (status === "ACCEPTED" || status === "PREPARING") {
       if (!existingOrder.acceptedAt) {
         updateData.acceptedAt = now;
@@ -2004,11 +2015,88 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
           ? `${existingOrder.notes} | سبب الإلغاء: ${rawReason}`
           : `سبب الإلغاء: ${rawReason}`;
       }
+
+      // إعداد بيانات تعويض العميل إذا اختار المطعم إرسال تعويض
+      if (compensationType === "POINTS" && Number(compensationValue) > 0) {
+        const pts = Math.max(1, Math.round(Number(compensationValue)));
+        compensationDetails = {
+          type: "POINTS",
+          amount: pts,
+          note: compensationNote?.trim() || null,
+          message: `تم إضافة ${pts} نقطة ولاء لمحفظتك كتعويض واعتذار من المطعم 🎁`,
+        };
+      } else if (compensationType === "COUPON" && Number(compensationValue) > 0) {
+        const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const couponCode = `SORRY-${randSuffix}`;
+        const discType = compensationDiscountType === "FIXED" ? "FIXED" : "PERCENT";
+        const val = Math.max(1, Number(compensationValue));
+        const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // صلاحية 14 يوماً
+
+        compensationDetails = {
+          type: "COUPON",
+          code: couponCode,
+          discountType: discType,
+          value: val,
+          expiresAt: expiresAt.toISOString(),
+          note: compensationNote?.trim() || null,
+          message: `تم منحك كود خصم خاص (${couponCode}) بقيمة ${val}${discType === "PERCENT" ? "%" : " ج.م"} كاعتذار من المطعم لطلبك القادم 🏷️`,
+        };
+      }
+
+      if (compensationDetails) {
+        const compText = `[تعويض العميل: ${compensationDetails.message}${compensationDetails.note ? ` | ${compensationDetails.note}` : ''}]`;
+        updateData.notes = updateData.notes ? `${updateData.notes} | ${compText}` : compText;
+      }
     }
 
     let updatedOrder: any;
     if (status === "REJECTED" && existingOrder.status !== "REJECTED") {
       updatedOrder = await prisma.$transaction(async (tx) => {
+        // إذا كان هناك جائزة من عجلة الحظ قيد التوصيل، يتم إلغاؤها / إبطالها لعدم اكتمال الطلب
+        if (existingOrder.wheelReward) {
+          try {
+            const parsedReward = typeof existingOrder.wheelReward === "string" ? JSON.parse(existingOrder.wheelReward) : existingOrder.wheelReward;
+            if (parsedReward.isPendingDelivery || parsedReward.status === "PENDING_DELIVERY") {
+              parsedReward.isPendingDelivery = false;
+              parsedReward.status = "CANCELLED";
+              parsedReward.voided = true;
+              updateData.wheelReward = JSON.stringify(parsedReward);
+              if (parsedReward.couponCode) {
+                await tx.promoCode.updateMany({
+                  where: { code: parsedReward.couponCode },
+                  data: { isActive: false, maxUses: 0 },
+                });
+              }
+            }
+          } catch (_e) {}
+        }
+
+        // تنفيذ تعويض العميل (نقاط أو كود خصم)
+        if (compensationDetails?.type === "POINTS") {
+          await tx.user.update({
+            where: { id: existingOrder.userId },
+            data: { loyaltyPoints: { increment: compensationDetails.amount } },
+          });
+        } else if (compensationDetails?.type === "COUPON") {
+          await tx.promoCode.create({
+            data: {
+              code: compensationDetails.code,
+              discountType: compensationDetails.discountType,
+              value: compensationDetails.value,
+              minOrder: 0,
+              maxUses: 1,
+              oncePerUser: true,
+              showInDeals: false,
+              assignedUserId: existingOrder.userId,
+              assignedUserPhone: existingOrder.customerPhone,
+              assignedUserName: existingOrder.customerName,
+              applicableBranchIds: JSON.stringify([branchId]),
+              expiresAt: new Date(compensationDetails.expiresAt),
+              isActive: true,
+            },
+          });
+        }
+
         // تحديث ذري مشروط بعدم كون الطلب ملغى مسبقاً لمنع التكرار المتزامن (Race Condition)
         const claim = await tx.order.updateMany({
           where: { id, branchId, status: { not: "REJECTED" } },
@@ -2072,6 +2160,17 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
         return orderRes;
       });
 
+      // إشعار المستخدم فوراً إذا تم إيداع نقاط تعويض له
+      if (compensationDetails?.type === "POINTS") {
+        const freshUser = await prisma.user.findUnique({
+          where: { id: existingOrder.userId },
+          select: { id: true, loyaltyPoints: true, walletBalance: true },
+        });
+        if (freshUser) {
+          notifyUserUpdated(existingOrder.userId, freshUser);
+        }
+      }
+
       // إرسال تنبيه واتساب فوري لمشرفي المنظومة بأن المطعم كنسل هذا الطلب
       sendOrderCancellationWhatsAppAlert(id, (req.body.reason || req.body.notes || "").trim()).catch(() => {});
     } else {
@@ -2099,14 +2198,16 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
         },
       });
 
-      // إيداع نقاط الولاء في محفظة الطالب فقط عند اكتمال الطلب والتسليم الفعلي
+      // إيداع نقاط الولاء وتفعيل جائزة عجلة الحظ عند اكتمال الطلب والتسليم الفعلي
       if (status === "COMPLETED") {
         await awardLoyaltyPointsIfCompleted(id);
+        await activateWheelPrizeIfCompleted(id);
       }
     }
 
     updatedOrder = {
       ...updatedOrder,
+      cancellationCompensation: compensationDetails,
       isDriverAccepted: Boolean(updatedOrder.driverPickedUpAt) || (updatedOrder.driverId ? await isOrderAcceptedByDriver(id) : false),
     };
 

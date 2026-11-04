@@ -30,7 +30,10 @@ import {
   ArrowRight,
   Copy,
   ExternalLink,
-  Navigation
+  Navigation,
+  Gift,
+  Sparkles,
+  Percent
 } from 'lucide-react';
 import { api, getFullImageUrl } from '../services/api';
 import { toast } from '../utils/toast';
@@ -173,9 +176,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [acceptingOrder, setAcceptingOrder] = useState<any | null>(null);
   const [prepMinutes, setPrepMinutes] = useState<number>(15);
 
-  // Rejection & Cancellation Dialog State
+  // Rejection & Cancellation Dialog State with Compensation
   const [rejectingOrder, setRejectingOrder] = useState<any | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [compensationType, setCompensationType] = useState<'NONE' | 'COUPON' | 'POINTS'>('NONE');
+  const [compensationValue, setCompensationValue] = useState<string>('15');
+  const [compensationDiscountType, setCompensationDiscountType] = useState<'PERCENT' | 'FIXED'>('PERCENT');
+  const [compensationNote, setCompensationNote] = useState<string>('');
 
   // مزامنة الطلب المفتوح مع التحديثات اللحظية وإرجاع الكاشير فوراً لشاشة الطلبات الجديدة إذا أُلغي الطلب من العميل أو تغيرت حالته من جديد (PENDING)
   useEffect(() => {
@@ -459,6 +466,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     const finalReason = rejectionReason.trim() || 'نفاد المكونات المطلوبة';
     const nowIso = new Date().toISOString();
 
+    const compPayload = compensationType !== 'NONE' ? {
+      type: compensationType,
+      value: parseFloat(compensationValue) || 10,
+      discountType: compensationDiscountType,
+      note: compensationNote.trim() || undefined,
+    } : undefined;
+
     setRejectingOrder(null);
     setAcceptingOrder(null);
     soundNotifier.stopRepeatingAlarm();
@@ -472,7 +486,22 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     onDetailedOrderOpenChange?.(false);
     setSelectedTab('PENDING');
     window.scrollTo(0, 0);
-    await handleUpdateStatus(orderToReject.id, 'REJECTED', undefined, finalReason);
+
+    try {
+      setUpdatingId(orderToReject.id);
+      await api.updateOrderStatus(orderToReject.id, 'REJECTED', undefined, finalReason, compPayload);
+      toast.success(
+        compPayload
+          ? `تم إلغاء الطلب وإرسال التعويض للعميل بنجاح 🎁`
+          : 'تم إلغاء الطلب وإشعار العميل بنجاح'
+      );
+      onRefreshOrders();
+    } catch (error: any) {
+      toast.error(error.message || 'فشل إلغاء الطلب');
+      onRefreshOrders();
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const handleConfirmAccept = async () => {
@@ -1297,6 +1326,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         onClick={() => {
                           setRejectingOrder(dOrder);
                           setRejectionReason('نفاد المكونات المطلوبة');
+                          setCompensationType('NONE');
+                          setCompensationValue('15');
+                          setCompensationDiscountType('PERCENT');
+                          setCompensationNote('');
                         }}
                         className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
                       >
@@ -1320,27 +1353,63 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   )}
 
                   {isPreparing && (
-                    <button
-                      type="button"
-                      disabled={updatingId === dOrder.id}
-                      onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
-                      className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>جاهز للاستلام / انتهى التحضير</span>
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRejectingOrder(dOrder);
+                          setRejectionReason('عطل طارئ وضغط شديد في المطبخ');
+                          setCompensationType('COUPON');
+                          setCompensationValue('15');
+                          setCompensationDiscountType('PERCENT');
+                          setCompensationNote('');
+                        }}
+                        className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                        title="إلغاء الطلب مع خيار تعويض العميل"
+                      >
+                        <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                        <span>إلغاء الطلب</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updatingId === dOrder.id}
+                        onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
+                        className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span>جاهز للاستلام / انتهى التحضير</span>
+                      </button>
+                    </div>
                   )}
 
                   {isReady && (
-                    <button
-                      type="button"
-                      disabled={updatingId === dOrder.id}
-                      onClick={() => handleUpdateStatus(dOrder.id, 'COMPLETED')}
-                      className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>تأكيد التسليم (مكتمل)</span>
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRejectingOrder(dOrder);
+                          setRejectionReason('تعذر تسليم أو توصيل الطلب للعميل');
+                          setCompensationType('COUPON');
+                          setCompensationValue('20');
+                          setCompensationDiscountType('PERCENT');
+                          setCompensationNote('');
+                        }}
+                        className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                        title="إلغاء الطلب مع خيار تعويض العميل"
+                      >
+                        <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                        <span>إلغاء الطلب</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updatingId === dOrder.id}
+                        onClick={() => handleUpdateStatus(dOrder.id, 'COMPLETED')}
+                        className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span>تأكيد التسليم (مكتمل)</span>
+                      </button>
+                    </div>
                   )}
 
                   {isCompleted && (
@@ -1784,7 +1853,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     })()}
 
                     {/* Quick Acceptance Action Buttons on Card for PENDING orders */}
-                    {isPending && (
+                    {isPending ? (
                       <div className="pt-2 flex items-center gap-1.5 border-t border-amber-200/80" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
@@ -1804,13 +1873,38 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           onClick={() => {
                             setRejectingOrder(order);
                             setRejectionReason('نفاد المكونات المطلوبة');
+                            setCompensationType('NONE');
+                            setCompensationValue('15');
+                            setCompensationDiscountType('PERCENT');
+                            setCompensationNote('');
                           }}
                           className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold active:scale-95 transition-all"
                         >
                           رفض
                         </button>
                       </div>
-                    )}
+                    ) : (isPreparing || isReady) ? (
+                      <div className="pt-2 flex items-center justify-between gap-1.5 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRejectingOrder(order);
+                            setRejectionReason(isPreparing ? 'عطل طارئ وضغط شديد في المطبخ' : 'تعذر تسليم أو توصيل الطلب');
+                            setCompensationType('COUPON');
+                            setCompensationValue('15');
+                            setCompensationDiscountType('PERCENT');
+                            setCompensationNote('');
+                          }}
+                          className="px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50 border border-rose-200/80 rounded-lg transition-all"
+                          title="إلغاء الطلب مع خيار تعويض العميل"
+                        >
+                          إلغاء الطلب
+                        </button>
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          {isPreparing ? 'قيد التحضير 👨‍🍳' : 'جاهز للاستلام 📦'}
+                        </span>
+                      </div>
+                    ) : null}
 
                     {/* 4. Footer link to open */}
                     <div className="pt-1 flex items-center justify-between text-[11px] font-black text-indigo-600 group-hover:text-indigo-700 border-t border-slate-100">
@@ -2179,81 +2273,295 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         </div>
       )}
 
-      {/* Rejection & Cancellation Dialog */}
+      {/* Rejection & Cancellation with Compensation Dialog */}
       {rejectingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-3 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-lg max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-slate-50/70 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0 shadow-2xs">
                   <XCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-black text-slate-800 text-sm">رفض الطلب #{rejectingOrder.orderNumber}</h4>
-                  <p className="text-[11px] text-slate-400">يرجى توضيح سبب الرفض لإشعار العميل والسيستم</p>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-slate-900 text-sm">
+                      {rejectingOrder.status === 'PENDING' ? 'رفض الطلب' : 'إلغاء الطلب'} #{rejectingOrder.orderNumber}
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                      {rejectingOrder.status === 'PENDING' ? 'طلب جديد' : rejectingOrder.status === 'READY' ? 'جاهز للاستلام' : 'قيد التحضير'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    العميل: <strong className="text-slate-700">{rejectingOrder.customerName}</strong> ({rejectingOrder.customerPhone})
+                  </p>
                 </div>
               </div>
               <button 
                 onClick={() => setRejectingOrder(null)} 
-                className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 font-medium">
-              اختر سبباً سريعاً أو اكتب سبباً مخصصاً:
-            </p>
+            {/* Scrollable Content */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 custom-scrollbar text-right">
+              {/* 1. Reason Selection */}
+              <div>
+                <label className="block text-xs font-black text-slate-800 mb-1.5">
+                  1. سبب الإلغاء / الاعتذار:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {[
+                    'نفاد المكونات المطلوبة',
+                    'عطل طارئ وضغط شديد في المطبخ',
+                    'تأخر غير متوقع في التحضير',
+                    'العنوان خارج نطاق التوصيل المتاح',
+                    'طلب العميل إلغاء الأوردر',
+                    'تعذر التواصل مع العميل لتأكيد الطلب'
+                  ].map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => setRejectionReason(reason)}
+                      className={`text-right p-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-between cursor-pointer ${
+                        rejectionReason === reason
+                          ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-2xs font-black'
+                          : 'bg-slate-50/80 border-slate-200/90 hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      <span className="truncate min-w-0">{reason}</span>
+                      {rejectionReason === reason && <Check className="w-3.5 h-3.5 text-rose-600 shrink-0 mr-1" />}
+                    </button>
+                  ))}
+                </div>
 
-            <div className="space-y-1.5">
-              {[
-                'نفاد المكونات المطلوبة',
-                'ضغط طلبات شديد والمطعم غير قادر على الاستلام حالياً',
-                'المطعم في استراحة / إغلاق مؤقت',
-                'العنوان خارج نطاق التوصيل المتاح',
-                'العميل لم يستجب لتأكيد الطلب',
-                'خطأ في بيانات أو أصناف الطلب'
-              ].map((reason) => (
-                <button
-                  key={reason}
-                  type="button"
-                  onClick={() => setRejectionReason(reason)}
-                  className={`w-full text-right p-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-between ${
-                    rejectionReason === reason
-                      ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-sm'
-                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  <span>{reason}</span>
-                  {rejectionReason === reason && <Check className="w-4 h-4 text-rose-600 shrink-0" />}
-                </button>
-              ))}
+                <div className="mt-2">
+                  <textarea
+                    rows={2}
+                    value={rejectionReason}
+                    onChange={e => setRejectionReason(e.target.value)}
+                    placeholder="اكتب تفاصيل أو سبباً مخصصاً للإلغاء..."
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Customer Compensation */}
+              <div className="p-3.5 rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <Gift className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-slate-900 block">2. تقديم تعويض للعميل كاعتذار</span>
+                      <span className="text-[10px] text-slate-500 block">إرسال كود خصم أو نقاط ولاء للحفاظ على رضا العميل</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Compensation Type Selector */}
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCompensationType('NONE')}
+                    className={`py-2 px-2 rounded-xl text-xs font-black transition-all border text-center cursor-pointer ${
+                      compensationType === 'NONE'
+                        ? 'bg-white border-slate-400 text-slate-800 shadow-xs ring-2 ring-slate-200'
+                        : 'bg-white/60 border-slate-200 text-slate-500 hover:bg-white'
+                    }`}
+                  >
+                    بدون تعويض
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCompensationType('COUPON')}
+                    className={`py-2 px-2 rounded-xl text-xs font-black transition-all border text-center flex items-center justify-center gap-1 cursor-pointer ${
+                      compensationType === 'COUPON'
+                        ? 'bg-amber-500 border-amber-600 text-white shadow-sm ring-2 ring-amber-300'
+                        : 'bg-white/60 border-slate-200 text-slate-700 hover:bg-white'
+                    }`}
+                  >
+                    <Percent className="w-3.5 h-3.5" />
+                    <span>كوبون خصم</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCompensationType('POINTS')}
+                    className={`py-2 px-2 rounded-xl text-xs font-black transition-all border text-center flex items-center justify-center gap-1 cursor-pointer ${
+                      compensationType === 'POINTS'
+                        ? 'bg-indigo-600 border-indigo-700 text-white shadow-sm ring-2 ring-indigo-300'
+                        : 'bg-white/60 border-slate-200 text-slate-700 hover:bg-white'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>نقاط ولاء</span>
+                  </button>
+                </div>
+
+                {/* If Coupon chosen */}
+                {compensationType === 'COUPON' && (
+                  <div className="space-y-2.5 pt-1 bg-white p-3 rounded-xl border border-amber-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-slate-700">نوع وقيمة الخصم:</span>
+                      <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 text-[10px] font-black">
+                        <button
+                          type="button"
+                          onClick={() => setCompensationDiscountType('PERCENT')}
+                          className={`px-2 py-0.5 rounded-md transition-all ${
+                            compensationDiscountType === 'PERCENT' ? 'bg-amber-500 text-white' : 'text-slate-600'
+                          }`}
+                        >
+                          نسبة %
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCompensationDiscountType('FIXED')}
+                          className={`px-2 py-0.5 rounded-md transition-all ${
+                            compensationDiscountType === 'FIXED' ? 'bg-amber-500 text-white' : 'text-slate-600'
+                          }`}
+                        >
+                          مبلغ ج.م
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick values chips */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {(compensationDiscountType === 'PERCENT' ? ['10', '15', '20', '25', '30'] : ['10', '15', '20', '30', '50']).map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setCompensationValue(val)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                            compensationValue === val
+                              ? 'bg-amber-500 border-amber-600 text-white'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {val}{compensationDiscountType === 'PERCENT' ? '%' : ' ج.م'}
+                        </button>
+                      ))}
+                      <div className="relative w-20">
+                        <input
+                          type="number"
+                          min="1"
+                          value={compensationValue}
+                          onChange={e => setCompensationValue(e.target.value)}
+                          placeholder="مخصص"
+                          className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-center"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-amber-700 font-bold">
+                      💡 سيتم توليد كود خصم خاص (مثل SORRY-XXXX) صالح لمدة 14 يوماً ومربوط بحساب هذا العميل فقط.
+                    </p>
+                  </div>
+                )}
+
+                {/* If Points chosen */}
+                {compensationType === 'POINTS' && (
+                  <div className="space-y-2.5 pt-1 bg-white p-3 rounded-xl border border-indigo-200">
+                    <span className="text-[11px] font-bold text-slate-700 block">عدد نقاط الولاء المهداة للمحفظة:</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {['10', '20', '30', '50', '100'].map((pts) => (
+                        <button
+                          key={pts}
+                          type="button"
+                          onClick={() => setCompensationValue(pts)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                            compensationValue === pts
+                              ? 'bg-indigo-600 border-indigo-700 text-white'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {pts} نقطة
+                        </button>
+                      ))}
+                      <div className="relative w-20">
+                        <input
+                          type="number"
+                          min="1"
+                          value={compensationValue}
+                          onChange={e => setCompensationValue(e.target.value)}
+                          placeholder="مخصص"
+                          className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-center"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-indigo-700 font-bold">
+                      💡 تضاف النقاط فوراً لرصيد محفظة العميل ويصله إشعار لحظي بالمكافأة.
+                    </p>
+                  </div>
+                )}
+
+                {/* Optional Note for customer */}
+                {compensationType !== 'NONE' && (
+                  <div>
+                    <input
+                      type="text"
+                      value={compensationNote}
+                      onChange={e => setCompensationNote(e.target.value)}
+                      placeholder="رسالة اعتذار مخصصة إضافية للعميل (اختياري)..."
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Live Notification Preview */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+                <span className="text-[10px] font-black text-slate-500 block">
+                  📨 معاينة ما سيصل للعميل في التطبيق والإشعار:
+                </span>
+                <p className="text-xs text-slate-800 font-bold leading-relaxed">
+                  نعتذر منك جداً عن عدم إمكانية تنفيذ الطلب #{rejectingOrder.orderNumber} بسبب "{rejectionReason || 'نفاد المكونات'}".
+                  {compensationType === 'COUPON' && (
+                    <span className="text-amber-800 font-black block mt-0.5">
+                      🎁 وقدمنا لك كود خصم خاص بقيمة {compensationValue}{compensationDiscountType === 'PERCENT' ? '%' : ' ج.م'} لطلبك القادم اعتذاراً منا ❤️
+                    </span>
+                  )}
+                  {compensationType === 'POINTS' && (
+                    <span className="text-indigo-800 font-black block mt-0.5">
+                      🌟 وأودعنا في محفظتك {compensationValue} نقطة ولاء فورية تعويضاً واعتذاراً منا ❤️
+                    </span>
+                  )}
+                  {compensationNote.trim() && (
+                    <span className="text-slate-600 block mt-0.5 font-medium italic">
+                      "{compensationNote.trim()}"
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
 
-            <div className="pt-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1">سبب مخصص أو ملاحظة إضافية للعميل:</label>
-              <textarea
-                rows={2}
-                value={rejectionReason}
-                onChange={e => setRejectionReason(e.target.value)}
-                placeholder="اكتب سبب الإلغاء هنا..."
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none"
-              />
-            </div>
-
-            <div className="pt-2 flex gap-2">
+            {/* Footer Buttons */}
+            <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-100 flex items-center gap-2.5 shrink-0">
               <button
                 type="button"
                 disabled={updatingId === rejectingOrder.id || !rejectionReason.trim()}
                 onClick={handleConfirmReject}
-                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md shadow-rose-600/20 transition-all active:scale-95"
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-rose-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                {updatingId === rejectingOrder.id ? 'جارٍ الإلغاء...' : 'تأكيد رفض الطلب وإشعار العميل'}
+                <XCircle className="w-4 h-4" />
+                <span>
+                  {updatingId === rejectingOrder.id
+                    ? 'جارٍ إلغاء الطلب...'
+                    : compensationType !== 'NONE'
+                    ? 'تأكيد الإلغاء وإرسال التعويض للعميل 🎁'
+                    : 'تأكيد إلغاء الطلب وإشعار العميل'}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setRejectingOrder(null)}
-                className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold"
+                className="px-5 py-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 تراجع
               </button>

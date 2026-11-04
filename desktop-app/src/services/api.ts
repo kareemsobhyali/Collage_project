@@ -267,11 +267,29 @@ export const api = {
     return data;
   },
 
-  async updateOrderStatus(orderId: string, status: string, estimatedMinutes?: number, reason?: string) {
+  async updateOrderStatus(
+    orderId: string, 
+    status: string, 
+    estimatedMinutes?: number, 
+    reason?: string,
+    compensation?: {
+      type: 'NONE' | 'COUPON' | 'POINTS';
+      value?: number;
+      discountType?: 'PERCENT' | 'FIXED';
+      note?: string;
+    }
+  ) {
+    const payload: any = { status, estimatedMinutes, reason };
+    if (compensation && compensation.type !== 'NONE') {
+      payload.compensationType = compensation.type;
+      payload.compensationValue = compensation.value;
+      payload.compensationDiscountType = compensation.discountType;
+      payload.compensationNote = compensation.note;
+    }
     const res = await fetch(`${API_BASE_URL}/branch/orders/${orderId}/status`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ status, estimatedMinutes, reason }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل تحديث حالة الطلب');
