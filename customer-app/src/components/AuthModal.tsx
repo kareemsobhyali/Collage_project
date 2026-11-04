@@ -23,16 +23,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [otpChannel, setOtpChannel] = useState<'WHATSAPP' | 'SMS'>('WHATSAPP');
-  const [smsGatewayConfig, setSmsGatewayConfig] = useState<{ channelMode: string; isSmsGatewayOnline: boolean; isWhatsAppOnline?: boolean } | null>(null);
+  const [_smsGatewayConfig, setSmsGatewayConfig] = useState<{ channelMode: string; isSmsGatewayOnline: boolean; isWhatsAppOnline?: boolean } | null>(null);
 
   useEffect(() => {
     api.getSmsConfig().then(cfg => {
-      if (cfg) {
-        setSmsGatewayConfig(cfg);
-        if (cfg.channelMode === 'SMS_ONLY' || (!cfg.isWhatsAppOnline && cfg.channelMode !== 'WHATSAPP_ONLY')) {
-          setOtpChannel('SMS');
-        }
-      }
+      if (cfg) setSmsGatewayConfig(cfg);
     }).catch(() => {});
   }, []);
 
@@ -335,35 +330,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
               </div>
             </div>
 
-            {mode === 'REGISTER' && (!smsGatewayConfig || smsGatewayConfig.channelMode === 'USER_CHOICE' || !smsGatewayConfig.channelMode) && (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">طريقة استلام كود التفعيل:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setOtpChannel('WHATSAPP')}
-                    className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                      otpChannel === 'WHATSAPP'
-                        ? 'bg-emerald-50 border-emerald-400 text-emerald-800 shadow-2xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>واتساب (WhatsApp)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOtpChannel('SMS')}
-                    className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                      otpChannel === 'SMS'
-                        ? 'bg-indigo-50 border-indigo-400 text-indigo-800 shadow-2xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Phone className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>رسالة SMS</span>
-                  </button>
-                </div>
+            {mode === 'REGISTER' && (
+              <div className="p-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl flex items-center gap-2 text-xs text-emerald-800">
+                <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-[11px] font-bold">يصلك كود التفعيل ورابط الدخول المباشر عبر الواتساب (WhatsApp) 💬</span>
               </div>
             )}
 
@@ -440,46 +410,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
               </p>
             </div>
 
-            {smsGatewayConfig?.channelMode === 'USER_CHOICE' && (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">استلام الكود عبر:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setOtpChannel('WHATSAPP')}
-                    className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                      otpChannel === 'WHATSAPP'
-                        ? 'bg-emerald-50 border-emerald-400 text-emerald-800 shadow-2xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>واتساب</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOtpChannel('SMS')}
-                    className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                      otpChannel === 'SMS'
-                        ? 'bg-indigo-50 border-indigo-400 text-indigo-800 shadow-2xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Phone className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>رسالة SMS</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-3 text-white rounded-xl text-xs font-black shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 ${
-                otpChannel === 'SMS' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'
-              }`}
+              className="w-full py-3 text-white rounded-xl text-xs font-black shadow-md bg-emerald-600 hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>{loading ? 'جاري الإرسال...' : otpChannel === 'SMS' ? 'إرسال كود التحقق عبر SMS 📱' : 'إرسال كود التحقق عبر واتساب 💬'}</span>
+              <span>{loading ? 'جاري الإرسال...' : 'إرسال كود التحقق عبر واتساب 💬'}</span>
             </button>
 
             <button
@@ -601,38 +537,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
                 </span>
               </div>
               <p className="text-[11px] leading-relaxed text-slate-700">
-                {otpChannel === 'SMS' ? (
-                  <>
-                    أرسلنا لك رسالة SMS عادية على هاتفك تحتوي على كود التفعيل ورابط التفعيل المباشر. يمكنك كتابة الكود بالأسفل أو الضغط على الرابط.
-                  </>
-                ) : (
-                  <>
-                    أرسلنا لك رسالة عبر <strong>الواتساب</strong>، يمكنك الضغط مباشرة على <strong>رابط التفعيل</strong> في الرسالة للدخول فوراً دون كتابة أي كود!
-                  </>
-                )}
+                أرسلنا لك رسالة عبر <strong>الواتساب</strong>، يمكنك الضغط مباشرة على <strong>رابط التفعيل</strong> في الرسالة للدخول فوراً أو كتابة الكود بالأسفل!
               </p>
             </div>
 
-            {/* زر التبديل التلقائي في حال عدم وصول الرسالة */}
+            {/* إعادة إرسال رسالة الواتساب */}
             <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
               <span className="text-slate-600 font-medium text-[11px]">
-                {otpChannel === 'WHATSAPP' ? 'لم تصلك رسالة الواتساب؟' : 'لم تصلك رسالة الـ SMS؟'}
+                لم تصلك رسالة الواتساب؟
               </span>
               <button
                 type="button"
                 disabled={resendCooldown > 0 || loading}
-                onClick={() => {
-                  const nextChannel = otpChannel === 'WHATSAPP' ? 'SMS' : 'WHATSAPP';
-                  setOtpChannel(nextChannel);
-                  handleResendVerification(nextChannel);
-                }}
+                onClick={() => handleResendVerification('WHATSAPP')}
                 className={`text-[11px] font-black px-2.5 py-1 rounded-lg border transition-all ${
                   resendCooldown > 0
                     ? 'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
-                    : 'bg-white hover:bg-slate-100 text-indigo-700 border-indigo-200 shadow-2xs cursor-pointer'
+                    : 'bg-white hover:bg-slate-100 text-emerald-700 border-emerald-200 shadow-2xs cursor-pointer'
                 }`}
               >
-                {otpChannel === 'WHATSAPP' ? '📱 الإرسال عبر SMS عادية' : '💬 الإرسال عبر واتساب'}
+                {resendCooldown > 0 ? `انتظر (${resendCooldown} ث)` : '💬 إعادة إرسال الكود'}
               </button>
             </div>
 

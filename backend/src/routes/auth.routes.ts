@@ -46,19 +46,19 @@ function clearOtpFailures(key: string) {
 }
 
 /**
- * دالة موحدة وذكية لإرسال كود التفعيل ورابط الدخول السريع عبر القناة المناسبة (واتساب أو SMS)
+ * دالة موحدة لإرسال كود التفعيل عبر الواتساب حصرياً
+ * في حال كان الواتساب غير متصل أو واجه تعذراً، يتم تفعيل الحساب تلقائياً فوراً (Auto-Verify)
+ * لتفادي تعليق العميل أو منعه من إتمام طلبه
  */
 async function dispatchVerificationOtp(
   phone: string,
   code: string,
   magicLink: string,
   name?: string,
-  preferredChannel?: string
-): Promise<{ channel: "WHATSAPP" | "SMS"; message: string }> {
-  const { smsGatewayService } = await import("../services/smsGateway.service.js");
+  _preferredChannel?: string
+): Promise<{ channel: "WHATSAPP"; message: string; autoVerified?: boolean }> {
   const { whatsappService } = await import("../services/whatsapp.service.js");
 
-  const mode = await smsGatewayService.getVerificationChannelMode();
   let isWaOnline = false;
   try {
     const statuses = await whatsappService.getAllAccountsStatus();
@@ -67,67 +67,50 @@ async function dispatchVerificationOtp(
     isWaOnline = false;
   }
 
-  let targetChannel: "WHATSAPP" | "SMS" = "WHATSAPP";
-  const requested = String(preferredChannel || "").toUpperCase();
-  if (requested === "SMS") {
-    targetChannel = "SMS";
-  } else if (requested === "WHATSAPP") {
-    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
-  } else if (mode === "SMS_ONLY") {
-    targetChannel = "SMS";
-  } else if (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE") {
-    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
-  } else {
-    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
+  // إذا لم يكن الواتساب متصلاً، نفعل حساب العميل فوراً بتجربة شراء سلسة
+  if (!isWaOnline) {
+    console.log("[Auth OTP] WhatsApp is offline/not-paired -> Auto-verifying customer seamlessly.");
+    return {
+      channel: "WHATSAPP",
+      autoVerified: true,
+      message: "تم إنشاء وتفعيل حسابك بنجاح! مرحباً بك في UniFood 🎉",
+    };
   }
 
-  if (targetChannel === "SMS") {
-    await smsGatewayService.sendOtpSms(phone, code, magicLink, name);
-    return {
-      channel: "SMS",
-      message: "تم إرسال كود التفعيل ورابط التفعيل السريع في رسالة SMS إلى هاتفك 📱",
-    };
-  } else {
-    try {
-      const waRes = await whatsappService.sendVerificationOtp(phone, code, magicLink, name);
-      if (!waRes.success && (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE")) {
-        console.warn("[Auth OTP] WhatsApp was not connected, falling back to SMS Gateway");
-        await smsGatewayService.sendOtpSms(phone, code, magicLink, name);
-        return {
-          channel: "SMS",
-          message: "تم إرسال كود التفعيل في رسالة SMS لهاتفك 📱",
-        };
-      }
+  try {
+    const waRes = await whatsappService.sendVerificationOtp(phone, code, magicLink, name);
+    if (!waRes.success) {
+      console.warn("[Auth OTP] WhatsApp delivery failed -> Auto-verifying customer seamlessly.");
       return {
         channel: "WHATSAPP",
-        message: "تم إرسال كود ورابط التفعيل السريع إلى رقم الواتساب الخاص بك 💬",
+        autoVerified: true,
+        message: "تم إنشاء وتفعيل حسابك بنجاح! مرحباً بك في UniFood 🎉",
       };
-    } catch (waErr) {
-      if (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE") {
-        console.warn("[Auth OTP] WhatsApp failed, falling back to SMS Gateway:", waErr);
-        await smsGatewayService.sendOtpSms(phone, code, magicLink, name);
-        return {
-          channel: "SMS",
-          message: "تعذر الإرسال عبر الواتساب، وتم إرسال كود التفعيل في رسالة SMS لهاتفك 📱",
-        };
-      }
-      throw waErr;
     }
+    return {
+      channel: "WHATSAPP",
+      message: "تم إرسال كود ورابط التفعيل السريع إلى رقم الواتساب الخاص بك 💬",
+    };
+  } catch (waErr) {
+    console.warn("[Auth OTP] WhatsApp error -> Auto-verifying customer seamlessly:", waErr);
+    return {
+      channel: "WHATSAPP",
+      autoVerified: true,
+      message: "تم إنشاء وتفعيل حسابك بنجاح! مرحباً بك في UniFood 🎉",
+    };
   }
 }
 
 /**
- * دالة موحدة لإرسال كود استعادة كلمة المرور عبر القناة المناسبة
+ * دالة موحدة لإرسال كود استعادة كلمة المرور عبر الواتساب حصرياً
  */
 async function dispatchPasswordResetOtp(
   phone: string,
   code: string,
-  preferredChannel?: string
-): Promise<{ channel: "WHATSAPP" | "SMS"; message: string }> {
-  const { smsGatewayService } = await import("../services/smsGateway.service.js");
+  _preferredChannel?: string
+): Promise<{ channel: "WHATSAPP"; message: string }> {
   const { whatsappService } = await import("../services/whatsapp.service.js");
 
-  const mode = await smsGatewayService.getVerificationChannelMode();
   let isWaOnline = false;
   try {
     const statuses = await whatsappService.getAllAccountsStatus();
@@ -136,53 +119,24 @@ async function dispatchPasswordResetOtp(
     isWaOnline = false;
   }
 
-  let targetChannel: "WHATSAPP" | "SMS" = "WHATSAPP";
-  const requested = String(preferredChannel || "").toUpperCase();
-  if (requested === "SMS") {
-    targetChannel = "SMS";
-  } else if (requested === "WHATSAPP") {
-    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
-  } else if (mode === "SMS_ONLY") {
-    targetChannel = "SMS";
-  } else if (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE") {
-    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
-  } else {
-    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
-  }
-
-  if (targetChannel === "SMS") {
-    await smsGatewayService.sendPasswordResetSms(phone, code);
-    return {
-      channel: "SMS",
-      message: "تم إرسال كود استعادة كلمة المرور في رسالة SMS إلى هاتفك 📱",
-    };
-  } else {
+  if (isWaOnline) {
     try {
       const waRes = await whatsappService.sendOtp(phone, code);
-      if (!waRes.success && (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE")) {
-        console.warn("[Reset OTP] WhatsApp was not connected, falling back to SMS Gateway");
-        await smsGatewayService.sendPasswordResetSms(phone, code);
+      if (waRes.success) {
         return {
-          channel: "SMS",
-          message: "تم إرسال كود الاستعادة في رسالة SMS لهاتفك 📱",
+          channel: "WHATSAPP",
+          message: "تم إرسال كود استعادة كلمة المرور إلى واتساب هذا الرقم 💬",
         };
       }
-      return {
-        channel: "WHATSAPP",
-        message: "تم إرسال كود استعادة كلمة المرور إلى واتساب هذا الرقم 💬",
-      };
     } catch (waErr) {
-      if (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE") {
-        console.warn("[Reset OTP] WhatsApp failed, falling back to SMS Gateway:", waErr);
-        await smsGatewayService.sendPasswordResetSms(phone, code);
-        return {
-          channel: "SMS",
-          message: "تعذر الإرسال عبر الواتساب، وتم إرسال كود الاستعادة في رسالة SMS لهاتفك 📱",
-        };
-      }
-      throw waErr;
+      console.warn("[Reset OTP] WhatsApp error:", waErr);
     }
   }
+
+  return {
+    channel: "WHATSAPP",
+    message: "تم تسجيل طلبك. إذا لم يصلك كود الواتساب، يمكنك التواصل مع خدمة الدعم.",
+  };
 }
 
 // تسجيل حساب عميل جديد (طالب / مستخدم) مع إرسال كود ورابط التفعيل عبر الواتساب أو SMS
@@ -289,6 +243,33 @@ router.post("/register", async (req: Request, res: Response) => {
     const magicLink = `${baseUrl}/?verifyToken=${magicToken}`;
 
     const dispatchRes = await dispatchVerificationOtp(cleanPhone, otpCode, magicLink, user.name, channel);
+
+    if (dispatchRes.autoVerified) {
+      const token = generateToken({
+        userId: user.id,
+        phone: user.phone,
+        role: user.role,
+      });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true, phoneVerifiedAt: new Date() },
+      });
+      res.status(201).json({
+        success: true,
+        requireVerification: false,
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          phone: user.phone,
+          role: user.role,
+          walletBalance: 0,
+          loyaltyPoints: initialPoints,
+        },
+        message: "تم إنشاء حسابك وتفعيله بنجاح! مرحباً بك في UniFood 🎉",
+      });
+      return;
+    }
 
     res.status(201).json({
       success: true,
