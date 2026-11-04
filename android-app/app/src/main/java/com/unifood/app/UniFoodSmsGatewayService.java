@@ -238,7 +238,15 @@ public class UniFoodSmsGatewayService extends Service {
             return new SendResult(false, "تعذر تهيئة نظام إرسال الرسائل في الهاتف");
         }
 
-        String targetPhone = phone.trim().replaceAll("[^0-9+]", "");
+        String rawPhone = phone.trim().replaceAll("[^0-9+]", "");
+        String targetPhone = rawPhone;
+        // Standardize Egyptian mobile numbers: Egyptian domestic SIM cards natively send to 01XXXXXXXXX
+        if (targetPhone.startsWith("201") && targetPhone.length() == 12) {
+            targetPhone = "0" + targetPhone.substring(2);
+        } else if (targetPhone.startsWith("+201") && targetPhone.length() == 13) {
+            targetPhone = "0" + targetPhone.substring(3);
+        }
+
         try {
             ArrayList<String> parts = smsManager.divideMessage(message);
             if (parts.size() > 1) {

@@ -737,7 +737,13 @@ class WhatsAppService {
     if (session && session.isConnected && session.sock) {
       try {
         const jid = this.formatEgyptianJid(phone);
-        await session.sock.sendMessage(jid, { text });
+        // حماية الطلب بمهلة 5 ثوانٍ كحد أقصى لمنع تعليق عملية التسجيل إن كان سوكت الواتساب معلقاً
+        await Promise.race([
+          session.sock.sendMessage(jid, { text }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("WhatsApp socket timed out after 5s")), 5000)
+          ),
+        ]);
         console.log(`[WhatsApp:${session.account.name}] Sent verification OTP to ${jid} successfully.`);
         return { success: true, simulated: false };
       } catch (err) {

@@ -296,10 +296,11 @@ class SmsGatewayService {
 
   /**
    * إرسال رسالة تفعيل OTP عبر الـ SMS
+   * يتم إرسال الكود الصريح بدون روابط خارجية لضمان قبول الرسالة فوراً من شركات المحمول وتفادي فلاتر الحظر الأمني Anti-Phishing
    */
-  async sendOtpSms(phone: string, otpCode: string, magicLink: string, userName?: string) {
-    const displayName = userName ? `عزيزي ${userName}، ` : "";
-    const message = `${displayName}كود تفعيل حسابك في UniFood هو: ${otpCode}\n\nللتفعيل المباشر بضغطة واحدة:\n${magicLink}`;
+  async sendOtpSms(phone: string, otpCode: string, _magicLink?: string, userName?: string) {
+    const displayName = userName ? `أهلاً ${userName}، ` : "";
+    const message = `${displayName}كود تفعيل حسابك في UniFood هو: ${otpCode}\n(صالح لمدة 15 دقيقة)`;
     return this.queueSms(phone, message, "OTP");
   }
 
