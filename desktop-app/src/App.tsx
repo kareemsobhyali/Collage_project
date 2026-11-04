@@ -1198,6 +1198,7 @@ export function App() {
         {activeTab === 'MODIFIERS' && (
           <ModifiersManager
             modifierGroups={modifierGroups}
+            categories={categories}
             onRefresh={loadData}
           />
         )}

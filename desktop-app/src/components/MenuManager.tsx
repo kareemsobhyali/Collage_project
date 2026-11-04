@@ -19,7 +19,10 @@ import {
   ArrowDown,
   ArrowUpDown,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Sliders,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { api, getFullImageUrl, getPublicWebUrl } from '../services/api';
 import { toast } from '../utils/toast';
@@ -89,7 +92,126 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
     setCollapsedCategoryIds(new Set());
   };
 
-  useLockBodyScroll(showCategoryModal || showItemModal || showBulkImportModal || showBulkEditorModal || showReorderModal || !!confirmDelete);
+  // ربط سريع لإضافات بقسم كامل
+  const [catModifierModalData, setCatModifierModalData] = useState<{
+    category: any;
+    selectedGroupIds: string[];
+    mode: 'APPEND' | 'REPLACE' | 'REMOVE';
+  } | null>(null);
+  const [submittingCatModifiers, setSubmittingCatModifiers] = useState(false);
+
+  // تحديد متعدد للأصناف للإجراءات السريعة
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+
+  // نافذة ربط الإضافات للأصناف المحددة جماعياً
+  const [showBulkItemModifiersModal, setShowBulkItemModifiersModal] = useState(false);
+  const [bulkItemModifierGroupIds, setBulkItemModifierGroupIds] = useState<string[]>([]);
+  const [bulkItemModifierMode, setBulkItemModifierMode] = useState<'APPEND' | 'REPLACE' | 'REMOVE'>('APPEND');
+  const [submittingBulkItemModifiers, setSubmittingBulkItemModifiers] = useState(false);
+
+  useLockBodyScroll(
+    showCategoryModal || 
+    showItemModal || 
+    showBulkImportModal || 
+    showBulkEditorModal || 
+    showReorderModal || 
+    !!confirmDelete ||
+    !!catModifierModalData ||
+    showBulkItemModifiersModal
+  );
+
+  // تبديل تحديد صنف مفرد
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
+
+  // تبديل تحديد كافة أصناف قسم معين
+  const handleToggleSelectAllCategory = (cat: any) => {
+    const catItemIds = (cat.items || []).map((it: any) => it.id);
+    if (catItemIds.length === 0) return;
+    const isAllSelected = catItemIds.every((id: string) => selectedItemIds.has(id));
+
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      if (isAllSelected) {
+        catItemIds.forEach((id: string) => next.delete(id));
+      } else {
+        catItemIds.forEach((id: string) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  // إلغاء كافة التحديدات
+  const handleClearSelection = () => {
+    setSelectedItemIds(new Set());
+  };
+
+  // حفظ ربط الإضافات بالقسم
+  const handleSaveCategoryModifiers = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catModifierModalData) return;
+    if (catModifierModalData.selectedGroupIds.length === 0 && catModifierModalData.mode !== 'REPLACE') {
+      toast.error('يرجى تحديد قسم إضافات واحد على الأقل');
+      return;
+    }
+
+    try {
+      setSubmittingCatModifiers(true);
+      const res = await api.linkModifiersToCategory(
+        catModifierModalData.category.id,
+        catModifierModalData.selectedGroupIds,
+        catModifierModalData.mode
+      );
+      toast.success(`تم بنجاح تحديث إضافات قسم "${catModifierModalData.category.name}" (${res.affectedItemsCount || 0} صنف) ⚡`);
+      setCatModifierModalData(null);
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل ربط الإضافات بالقسم');
+    } finally {
+      setSubmittingCatModifiers(false);
+    }
+  };
+
+  // حفظ ربط الإضافات للأصناف المحددة جماعياً
+  const handleSaveBulkItemModifiers = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const itemIds = Array.from(selectedItemIds);
+    if (itemIds.length === 0) {
+      toast.error('لم يتم تحديد أي صنف');
+      return;
+    }
+    if (bulkItemModifierGroupIds.length === 0 && bulkItemModifierMode !== 'REPLACE') {
+      toast.error('يرجى تحديد قسم إضافات واحد على الأقل');
+      return;
+    }
+
+    try {
+      setSubmittingBulkItemModifiers(true);
+      const res = await api.bulkLinkModifiersToItems(
+        itemIds,
+        bulkItemModifierGroupIds,
+        bulkItemModifierMode
+      );
+      toast.success(`تم بنجاح تطبيق الإضافات على (${res.affectedItemsCount || itemIds.length}) صنف ⚡`);
+      setShowBulkItemModifiersModal(false);
+      setBulkItemModifierGroupIds([]);
+      setSelectedItemIds(new Set());
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل ربط الإضافات بالأصناف المحددة');
+    } finally {
+      setSubmittingBulkItemModifiers(false);
+    }
+  };
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [itemName, setItemName] = useState('');
   const [itemCategoryId, setItemCategoryId] = useState('');
@@ -685,6 +807,45 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                         <span className="hidden sm:inline">ترتيب الأصناف</span>
                       </button>
                     )}
+
+                    {/* زر ربط إضافات بكامل القسم */}
+                    <button
+                      type="button"
+                      onClick={() => setCatModifierModalData({
+                        category: cat,
+                        selectedGroupIds: [],
+                        mode: 'APPEND'
+                      })}
+                      className="px-2.5 py-1 text-xs font-black text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg transition-all border border-amber-300 cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
+                      title={`ربط أقسام إضافات بجميع أصناف قسم "${cat.name}" دفعة واحدة`}
+                    >
+                      <Sliders className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span className="hidden sm:inline">ربط إضافات بالقسم</span>
+                      <span className="text-[10px] bg-amber-200/80 text-amber-900 px-1 rounded-full font-bold">⚡</span>
+                    </button>
+
+                    {/* زر تحديد كافة أصناف القسم لإجراءات جماعية */}
+                    {(cat.items?.length || 0) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectAllCategory(cat)}
+                        className="px-2 py-1 text-xs font-bold text-slate-600 hover:text-indigo-700 bg-white hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer flex items-center gap-1 shadow-2xs"
+                        title="تحديد كل أصناف هذا القسم لتطبيق تعديلات وإضافات جماعية"
+                      >
+                        {(cat.items || []).every((it: any) => selectedItemIds.has(it.id)) ? (
+                          <>
+                            <CheckSquare className="w-3.5 h-3.5 text-indigo-600" />
+                            <span className="hidden md:inline text-indigo-700">إلغاء التحديد</span>
+                          </>
+                        ) : (
+                          <>
+                            <Square className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="hidden md:inline">تحديد الكل</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => handleOpenEditCategory(cat)}
@@ -726,7 +887,9 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                     key={item.id}
                     id={`menu-item-${item.id}`}
                     className={`bg-white rounded-2xl border p-4 transition-all shadow-sm flex flex-col justify-between ${
-                      item.isAvailable ? 'border-slate-200' : 'border-rose-200 bg-rose-50/20 opacity-80'
+                      selectedItemIds.has(item.id)
+                        ? 'ring-2 ring-indigo-500 border-indigo-400 bg-indigo-50/15'
+                        : item.isAvailable ? 'border-slate-200' : 'border-rose-200 bg-rose-50/20 opacity-80'
                     }`}
                   >
                     <div>
@@ -745,14 +908,31 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-1.5">
-                            <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5 flex-wrap">
-                              <span>{item.name}</span>
-                              {item.isDeal && (
-                                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-black border border-amber-200 shrink-0">
-                                  🏷️ عرض خاص
-                                </span>
-                              )}
-                            </h4>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleItemSelection(item.id);
+                                }}
+                                className={`w-5 h-5 rounded-md flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                                  selectedItemIds.has(item.id)
+                                    ? 'bg-indigo-600 text-white shadow-xs'
+                                    : 'bg-white hover:bg-slate-100 text-slate-400 border border-slate-300'
+                                }`}
+                                title={selectedItemIds.has(item.id) ? 'إلغاء تحديد الصنف' : 'تحديد هذا الصنف'}
+                              >
+                                {selectedItemIds.has(item.id) && <Check className="w-3 h-3 stroke-[3]" />}
+                              </button>
+                              <h4 className="font-black text-sm text-slate-900 flex items-center gap-1.5 flex-wrap truncate">
+                                <span>{item.name}</span>
+                                {item.isDeal && (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-black border border-amber-200 shrink-0">
+                                    🏷️ عرض خاص
+                                  </span>
+                                )}
+                              </h4>
+                            </div>
                             <span
                               className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-mono text-[10px] font-black shrink-0"
                               title="ترتيب الصنف داخل القسم"
@@ -1364,6 +1544,442 @@ export const MenuManager: React.FC<MenuManagerProps> = ({ categories, modifierGr
           onRefresh();
         }}
       />
+
+      {/* شريط الإجراءات السريعة العائم عند تحديد أصناف متعددة */}
+      {selectedItemIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-md text-white px-4 sm:px-6 py-3 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-3 sm:gap-4 animate-in slide-in-from-bottom-5">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-xs font-black">
+              {selectedItemIds.size}
+            </div>
+            <span className="text-xs sm:text-sm font-black hidden sm:inline">صنف محدد</span>
+          </div>
+          <div className="h-5 w-px bg-slate-700 shrink-0" />
+          <button
+            type="button"
+            onClick={() => {
+              setBulkItemModifierGroupIds([]);
+              setBulkItemModifierMode('APPEND');
+              setShowBulkItemModifiersModal(true);
+            }}
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+          >
+            <Sliders className="w-4 h-4" />
+            <span>⚡ ربط الإضافات للأصناف المحددة ({selectedItemIds.size})</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleClearSelection}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap"
+          >
+            إلغاء ✕
+          </button>
+        </div>
+      )}
+
+      {/* نافذة الربط السريع لأقسام الإضافات بقسم أصناف كامل */}
+      {catModifierModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-1.5">
+                    <span>ربط أقسام إضافات بقسم:</span>
+                    <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                      {catModifierModalData.category.name}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    تطبيق سريع على كافة أصناف هذا القسم ({catModifierModalData.category.items?.length || 0} صنف)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCatModifierModalData(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategoryModifiers} className="flex-1 flex flex-col min-h-0 space-y-4">
+              {/* نمط تطبيق الإضافات */}
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl shrink-0">
+                <label className="text-xs font-black text-slate-700 block mb-2">طريقة تطبيق الإضافات على أصناف القسم:</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCatModifierModalData({ ...catModifierModalData, mode: 'APPEND' })}
+                    className={`p-2.5 rounded-xl border text-right transition-all flex flex-col gap-1 cursor-pointer ${
+                      catModifierModalData.mode === 'APPEND'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950 ring-1 ring-emerald-300'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black">➕ إضافة ودمج</span>
+                      {catModifierModalData.mode === 'APPEND' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                    </div>
+                    <span className="text-[10px] text-slate-500 leading-tight">يضيف الإضافات المحددة ويُبقي على إضافات الصنف السابقة</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCatModifierModalData({ ...catModifierModalData, mode: 'REPLACE' })}
+                    className={`p-2.5 rounded-xl border text-right transition-all flex flex-col gap-1 cursor-pointer ${
+                      catModifierModalData.mode === 'REPLACE'
+                        ? 'bg-amber-50 border-amber-300 text-amber-950 ring-1 ring-amber-300'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black">🔄 استبدال شامل</span>
+                      {catModifierModalData.mode === 'REPLACE' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                    </div>
+                    <span className="text-[10px] text-slate-500 leading-tight">تكون هذه الإضافات فقط هي المرتبطة وتُحذف القديمة</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCatModifierModalData({ ...catModifierModalData, mode: 'REMOVE' })}
+                    className={`p-2.5 rounded-xl border text-right transition-all flex flex-col gap-1 cursor-pointer ${
+                      catModifierModalData.mode === 'REMOVE'
+                        ? 'bg-rose-50 border-rose-300 text-rose-950 ring-1 ring-rose-300'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black">➖ فك وإزالة</span>
+                      {catModifierModalData.mode === 'REMOVE' && <Check className="w-3.5 h-3.5 text-rose-600" />}
+                    </div>
+                    <span className="text-[10px] text-slate-500 leading-tight">يزيل هذه الإضافات فقط من جميع أصناف القسم</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* قائمة مجموعات الإضافات */}
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <span className="text-xs font-black text-slate-700">
+                    أقسام الإضافات المتاحة ({modifierGroups.length}):
+                  </span>
+                  {modifierGroups.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCatModifierModalData({
+                          ...catModifierModalData,
+                          selectedGroupIds: modifierGroups.map(g => g.id)
+                        })}
+                        className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                      >
+                        تحديد الكل
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setCatModifierModalData({
+                          ...catModifierModalData,
+                          selectedGroupIds: []
+                        })}
+                        className="text-[11px] font-bold text-slate-400 hover:underline cursor-pointer"
+                      >
+                        إلغاء التحديد
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-y-auto no-scrollbar space-y-2 flex-1 pr-1">
+                  {modifierGroups.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-xs">
+                      لا توجد أقسام إضافات مضافة بعد. توجه لتبويب "أقسام الإضافات" لإنشائها أولاً.
+                    </div>
+                  ) : (
+                    modifierGroups.map((group) => {
+                      const isChecked = catModifierModalData.selectedGroupIds.includes(group.id);
+                      return (
+                        <label
+                          key={group.id}
+                          className={`flex items-start gap-3 p-3 rounded-2xl border transition-all cursor-pointer ${
+                            isChecked
+                              ? 'bg-amber-50/80 border-amber-300 text-slate-900 shadow-2xs'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setCatModifierModalData({
+                                  ...catModifierModalData,
+                                  selectedGroupIds: [...catModifierModalData.selectedGroupIds, group.id]
+                                });
+                              } else {
+                                setCatModifierModalData({
+                                  ...catModifierModalData,
+                                  selectedGroupIds: catModifierModalData.selectedGroupIds.filter(id => id !== group.id)
+                                });
+                              }
+                            }}
+                            className="mt-0.5 rounded text-amber-600 focus:ring-0 w-4 h-4 cursor-pointer"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-xs">{group.title}</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                  group.isRequired ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {group.isRequired ? 'إجباري' : 'اختياري'}
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  (أقصى: {group.maxSelection})
+                                </span>
+                              </div>
+                            </div>
+                            {group.options && group.options.length > 0 && (
+                              <div className="text-[11px] text-slate-500 mt-1 truncate">
+                                {group.options.map((o: any) => o.name).join('، ')}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* زر التطبيق */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+                <span className="text-xs text-slate-500">
+                  محدد: <strong className="text-slate-800">{catModifierModalData.selectedGroupIds.length}</strong> قسم إضافات
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCatModifierModalData(null)}
+                    disabled={submittingCatModifiers}
+                    className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingCatModifiers || (catModifierModalData.selectedGroupIds.length === 0 && catModifierModalData.mode !== 'REPLACE')}
+                    className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                  >
+                    {submittingCatModifiers ? 'جاري التطبيق...' : `تطبيق على قسم ${catModifierModalData.category.name} ⚡`}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* نافذة الربط السريع لأقسام الإضافات بالأصناف المحددة جماعياً */}
+      {showBulkItemModifiersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-bold">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-1.5">
+                    <span>ربط إضافات بالأصناف المحددة</span>
+                    <span className="text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200 font-mono">
+                      ({selectedItemIds.size} صنف)
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    سيتم تطبيق الإضافات المحددة على كافة الأصناف التي قمت باختيارها دفعة واحدة
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkItemModifiersModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBulkItemModifiers} className="flex-1 flex flex-col min-h-0 space-y-4">
+              {/* نمط تطبيق الإضافات */}
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl shrink-0">
+                <label className="text-xs font-black text-slate-700 block mb-2">طريقة تطبيق الإضافات:</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkItemModifierMode('APPEND')}
+                    className={`p-2.5 rounded-xl border text-right transition-all flex flex-col gap-1 cursor-pointer ${
+                      bulkItemModifierMode === 'APPEND'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950 ring-1 ring-emerald-300'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black">➕ إضافة ودمج</span>
+                      {bulkItemModifierMode === 'APPEND' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                    </div>
+                    <span className="text-[10px] text-slate-500 leading-tight">يضيف الإضافات ويحتفظ بالإضافات السابقة للأصناف</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkItemModifierMode('REPLACE')}
+                    className={`p-2.5 rounded-xl border text-right transition-all flex flex-col gap-1 cursor-pointer ${
+                      bulkItemModifierMode === 'REPLACE'
+                        ? 'bg-amber-50 border-amber-300 text-amber-950 ring-1 ring-amber-300'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black">🔄 استبدال شامل</span>
+                      {bulkItemModifierMode === 'REPLACE' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                    </div>
+                    <span className="text-[10px] text-slate-500 leading-tight">تكون هذه الإضافات فقط هي المرتبطة وتُحذف القديمة</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkItemModifierMode('REMOVE')}
+                    className={`p-2.5 rounded-xl border text-right transition-all flex flex-col gap-1 cursor-pointer ${
+                      bulkItemModifierMode === 'REMOVE'
+                        ? 'bg-rose-50 border-rose-300 text-rose-950 ring-1 ring-rose-300'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black">➖ فك وإزالة</span>
+                      {bulkItemModifierMode === 'REMOVE' && <Check className="w-3.5 h-3.5 text-rose-600" />}
+                    </div>
+                    <span className="text-[10px] text-slate-500 leading-tight">يزيل هذه الإضافات فقط من الأصناف المحددة</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* قائمة مجموعات الإضافات */}
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <span className="text-xs font-black text-slate-700">
+                    أقسام الإضافات ({modifierGroups.length}):
+                  </span>
+                  {modifierGroups.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBulkItemModifierGroupIds(modifierGroups.map(g => g.id))}
+                        className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                      >
+                        تحديد الكل
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setBulkItemModifierGroupIds([])}
+                        className="text-[11px] font-bold text-slate-400 hover:underline cursor-pointer"
+                      >
+                        إلغاء التحديد
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-y-auto no-scrollbar space-y-2 flex-1 pr-1">
+                  {modifierGroups.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-xs">
+                      لا توجد أقسام إضافات بعد. توجه لتبويب "أقسام الإضافات" لإنشائها أولاً.
+                    </div>
+                  ) : (
+                    modifierGroups.map((group) => {
+                      const isChecked = bulkItemModifierGroupIds.includes(group.id);
+                      return (
+                        <label
+                          key={group.id}
+                          className={`flex items-start gap-3 p-3 rounded-2xl border transition-all cursor-pointer ${
+                            isChecked
+                              ? 'bg-indigo-50/80 border-indigo-300 text-slate-900 shadow-2xs'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setBulkItemModifierGroupIds([...bulkItemModifierGroupIds, group.id]);
+                              } else {
+                                setBulkItemModifierGroupIds(bulkItemModifierGroupIds.filter(id => id !== group.id));
+                              }
+                            }}
+                            className="mt-0.5 rounded text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-xs">{group.title}</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                  group.isRequired ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {group.isRequired ? 'إجباري' : 'اختياري'}
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  (أقصى: {group.maxSelection})
+                                </span>
+                              </div>
+                            </div>
+                            {group.options && group.options.length > 0 && (
+                              <div className="text-[11px] text-slate-500 mt-1 truncate">
+                                {group.options.map((o: any) => o.name).join('، ')}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* زر التطبيق */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+                <span className="text-xs text-slate-500">
+                  محدد: <strong className="text-slate-800">{bulkItemModifierGroupIds.length}</strong> قسم إضافات
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkItemModifiersModal(false)}
+                    disabled={submittingBulkItemModifiers}
+                    className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingBulkItemModifiers || (bulkItemModifierGroupIds.length === 0 && bulkItemModifierMode !== 'REPLACE')}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                  >
+                    {submittingBulkItemModifiers ? 'جاري التطبيق...' : `تطبيق على (${selectedItemIds.size}) صنف ⚡`}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

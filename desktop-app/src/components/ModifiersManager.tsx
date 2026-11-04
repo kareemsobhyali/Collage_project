@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit, Check, X, ToggleLeft, ToggleRight, Sliders, Tag, AlertCircle, Layers } from 'lucide-react';
+import { Plus, Trash2, Edit, Check, X, ToggleLeft, ToggleRight, Sliders, Tag, AlertCircle, Layers, Search, CheckSquare, Square } from 'lucide-react';
 import { api } from '../services/api';
 import { toast } from '../utils/toast';
 import { ConfirmModal } from './ConfirmModal';
@@ -7,10 +7,11 @@ import { useLockBodyScroll } from '../utils/scrollLock';
 
 interface ModifiersManagerProps {
   modifierGroups: any[];
+  categories?: any[];
   onRefresh: () => void;
 }
 
-export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGroups, onRefresh }) => {
+export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGroups, categories = [], onRefresh }) => {
   // Group Modal (Create or Edit)
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
@@ -38,8 +39,66 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
   const [confirmDeleteOption, setConfirmDeleteOption] = useState<{ id: string; name: string } | null>(null);
   const [deletingOption, setDeletingOption] = useState(false);
 
+  // نافذة ربط مجموعة الإضافات بأقسام أو أصناف المنيو
+  const [targetGroupForLinking, setTargetGroupForLinking] = useState<any | null>(null);
+  const [linkTab, setLinkTab] = useState<'CATEGORIES' | 'ITEMS'>('CATEGORIES');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [targetAction, setTargetAction] = useState<'LINK' | 'UNLINK'>('LINK');
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [submittingTargetLink, setSubmittingTargetLink] = useState(false);
+
   // Lock background scroll when any modal is active
-  useLockBodyScroll(showGroupModal || showOptionModal || !!confirmDeleteGroup || !!confirmDeleteOption);
+  useLockBodyScroll(
+    showGroupModal || 
+    showOptionModal || 
+    !!confirmDeleteGroup || 
+    !!confirmDeleteOption || 
+    !!targetGroupForLinking
+  );
+
+  // فتح نافذة الربط لمجموعة محددة
+  const handleOpenTargetLinkModal = (group: any) => {
+    setTargetGroupForLinking(group);
+    setLinkTab('CATEGORIES');
+    setSelectedCategoryIds([]);
+    setSelectedItemIds([]);
+    setTargetAction('LINK');
+    setItemSearchQuery('');
+  };
+
+  // حفظ الربط السريع
+  const handleSaveTargetLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetGroupForLinking) return;
+
+    if (linkTab === 'CATEGORIES' && selectedCategoryIds.length === 0) {
+      toast.error('يرجى تحديد قسم أصناف واحد على الأقل');
+      return;
+    }
+    if (linkTab === 'ITEMS' && selectedItemIds.length === 0) {
+      toast.error('يرجى تحديد صنف واحد على الأقل');
+      return;
+    }
+
+    try {
+      setSubmittingTargetLink(true);
+      const res = await api.bulkLinkModifierGroupTargets(targetGroupForLinking.id, {
+        categoryIds: linkTab === 'CATEGORIES' ? selectedCategoryIds : [],
+        itemIds: linkTab === 'ITEMS' ? selectedItemIds : [],
+        action: targetAction,
+      });
+
+      const actionText = targetAction === 'LINK' ? 'ربط' : 'فك ربط';
+      toast.success(`تم ${actionText} قسم "${targetGroupForLinking.title}" بنجاح بـ (${res.affectedItemsCount || 0}) صنف ⚡`);
+      setTargetGroupForLinking(null);
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تحديث ربط الإضافات');
+    } finally {
+      setSubmittingTargetLink(false);
+    }
+  };
 
   const handleOpenCreateGroup = () => {
     setEditingGroupId(null);
@@ -267,6 +326,19 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+                </div>
+
+                {/* زر الربط السريع بأقسام وأصناف المنيو */}
+                <div className="mb-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenTargetLinkModal(group)}
+                    className="w-full py-1.5 px-3 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-900 border border-amber-200/80 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer"
+                    title="ربط قسم الإضافات هذا بأقسام المنيو أو بأصناف محددة دفعة واحدة"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>⚡ ربط بأقسام أو أصناف المنيو</span>
+                  </button>
                 </div>
 
                 {/* Options List */}
@@ -563,6 +635,274 @@ export const ModifiersManager: React.FC<ModifiersManagerProps> = ({ modifierGrou
         onConfirm={handleExecuteDeleteOption}
         onClose={() => !deletingOption && setConfirmDeleteOption(null)}
       />
+
+      {/* نافذة ربط قسم الإضافات بأقسام أو أصناف المنيو */}
+      {targetGroupForLinking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-1.5">
+                    <span>ربط قسم الإضافات:</span>
+                    <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                      {targetGroupForLinking.title}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    حدد الأقسام أو الأصناف التي ترغب في ربط هذا القسم بها دفعة واحدة
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTargetGroupForLinking(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTargetLink} className="flex-1 flex flex-col min-h-0 space-y-3.5">
+              {/* التبديل بين الربط حسب الأقسام أو حسب الأصناف */}
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setLinkTab('CATEGORIES')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    linkTab === 'CATEGORIES'
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📁 ربط حسب أقسام المنيو كاملة ({categories.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLinkTab('ITEMS')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    linkTab === 'ITEMS'
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🍔 ربط حسب أصناف محددة
+                </button>
+              </div>
+
+              {/* نوع الإجراء (ربط أو فك ربط) */}
+              <div className="flex items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl shrink-0">
+                <span className="text-xs font-black text-slate-700">نوع الإجراء:</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTargetAction('LINK')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      targetAction === 'LINK'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    ➕ ربط الإضافة بالأصناف
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTargetAction('UNLINK')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      targetAction === 'UNLINK'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    ➖ فك الربط وإزالة الإضافة
+                  </button>
+                </div>
+              </div>
+
+              {/* محتوى التبويب: الأقسام */}
+              {linkTab === 'CATEGORIES' && (
+                <div className="flex-1 min-h-0 flex flex-col">
+                  <div className="flex items-center justify-between mb-2 shrink-0">
+                    <span className="text-xs font-black text-slate-700">
+                      اختر الأقسام التي تريد تطبيق الإضافة عليها:
+                    </span>
+                    {categories.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCategoryIds(categories.map(c => c.id))}
+                          className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                        >
+                          تحديد الكل
+                        </button>
+                        <span className="text-slate-300">•</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCategoryIds([])}
+                          className="text-[11px] font-bold text-slate-400 hover:underline cursor-pointer"
+                        >
+                          إلغاء التحديد
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="overflow-y-auto no-scrollbar space-y-2 flex-1 pr-1">
+                    {categories.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400 text-xs">
+                        لا توجد أقسام منيو متاحة حالياً.
+                      </div>
+                    ) : (
+                      categories.map((cat) => {
+                        const isChecked = selectedCategoryIds.includes(cat.id);
+                        return (
+                          <label
+                            key={cat.id}
+                            className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer ${
+                              isChecked
+                                ? 'bg-indigo-50/80 border-indigo-300 text-slate-900 shadow-2xs'
+                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCategoryIds([...selectedCategoryIds, cat.id]);
+                                  } else {
+                                    setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== cat.id));
+                                  }
+                                }}
+                                className="rounded text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
+                              />
+                              <span className="font-bold text-xs">{cat.name}</span>
+                            </div>
+                            <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                              {cat.items?.length || 0} صنف
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* محتوى التبويب: الأصناف المحددة */}
+              {linkTab === 'ITEMS' && (
+                <div className="flex-1 min-h-0 flex flex-col space-y-2">
+                  <div className="relative shrink-0">
+                    <input
+                      type="text"
+                      value={itemSearchQuery}
+                      onChange={(e) => setItemSearchQuery(e.target.value)}
+                      placeholder="بحث سريع باسم الصنف..."
+                      className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                    />
+                    <Search className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5" />
+                  </div>
+
+                  <div className="overflow-y-auto no-scrollbar space-y-3 flex-1 pr-1">
+                    {categories.map((cat) => {
+                      const filteredItems = (cat.items || []).filter((it: any) =>
+                        !itemSearchQuery.trim() || it.name.toLowerCase().includes(itemSearchQuery.trim().toLowerCase())
+                      );
+                      if (filteredItems.length === 0) return null;
+
+                      return (
+                        <div key={cat.id} className="space-y-1.5">
+                          <div className="text-[11px] font-black text-slate-400 px-1 flex items-center justify-between">
+                            <span>{cat.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const ids = filteredItems.map((i: any) => i.id);
+                                const isAll = ids.every((id: string) => selectedItemIds.includes(id));
+                                if (isAll) {
+                                  setSelectedItemIds(selectedItemIds.filter(id => !ids.includes(id)));
+                                } else {
+                                  setSelectedItemIds(Array.from(new Set([...selectedItemIds, ...ids])));
+                                }
+                              }}
+                              className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer"
+                            >
+                              تحديد أصناف القسم
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {filteredItems.map((item: any) => {
+                              const isChecked = selectedItemIds.includes(item.id);
+                              return (
+                                <label
+                                  key={item.id}
+                                  className={`flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer transition-all ${
+                                    isChecked
+                                      ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-black'
+                                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedItemIds([...selectedItemIds, item.id]);
+                                      } else {
+                                        setSelectedItemIds(selectedItemIds.filter(id => id !== item.id));
+                                      }
+                                    }}
+                                    className="rounded text-indigo-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                  />
+                                  <span className="truncate">{item.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* زر التطبيق */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+                <span className="text-xs text-slate-500">
+                  {linkTab === 'CATEGORIES' ? (
+                    <>محدد: <strong className="text-slate-800">{selectedCategoryIds.length}</strong> قسم</>
+                  ) : (
+                    <>محدد: <strong className="text-slate-800">{selectedItemIds.length}</strong> صنف</>
+                  )}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTargetGroupForLinking(null)}
+                    disabled={submittingTargetLink}
+                    className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingTargetLink || (linkTab === 'CATEGORIES' ? selectedCategoryIds.length === 0 : selectedItemIds.length === 0)}
+                    className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                  >
+                    {submittingTargetLink ? 'جاري التنفيذ...' : (
+                      targetAction === 'LINK' ? 'تطبيق الربط السريع ⚡' : 'فك الربط ⚡'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

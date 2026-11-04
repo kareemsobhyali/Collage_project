@@ -1456,6 +1456,245 @@ router.post("/items/:id/link-modifiers", async (req: AuthRequest, res: Response)
   }
 });
 
+// 15-ب. ربط سريع لأقسام إضافات بكامل أصناف قسم معين في المنيو دفعة واحدة
+router.post("/categories/:id/link-modifiers", async (req: AuthRequest, res: Response) => {
+  try {
+    const categoryId = req.params.id as string;
+    const branchId = req.branch!.branchId;
+    const { modifierGroupIds, mode = "APPEND" } = req.body;
+
+    if (!Array.isArray(modifierGroupIds)) {
+      res.status(400).json({ error: "يجب تمرير مصفوفة modifierGroupIds" });
+      return;
+    }
+
+    const category = await prisma.menuCategory.findFirst({
+      where: { id: categoryId, branchId },
+      include: { items: { select: { id: true } } },
+    });
+
+    if (!category) {
+      res.status(404).json({ error: "القسم غير موجود أو لا يتبع هذا الفرع" });
+      return;
+    }
+
+    const itemIds = category.items.map((it) => it.id);
+    if (itemIds.length === 0) {
+      res.json({ success: true, count: 0, message: "لا توجد أصناف في هذا القسم حالياً" });
+      return;
+    }
+
+    // التحقق من صحة أقسام الإضافات التابعة للفرع
+    const validGroups = await prisma.modifierGroup.findMany({
+      where: { id: { in: modifierGroupIds.map(String) }, branchId },
+      select: { id: true },
+    });
+    const validGroupIds = validGroups.map((g) => g.id);
+
+    if (mode === "REMOVE") {
+      if (validGroupIds.length > 0) {
+        await prisma.itemModifierGroupLink.deleteMany({
+          where: {
+            itemId: { in: itemIds },
+            groupId: { in: validGroupIds },
+          },
+        });
+      }
+    } else if (mode === "REPLACE") {
+      await prisma.$transaction([
+        prisma.itemModifierGroupLink.deleteMany({
+          where: { itemId: { in: itemIds } },
+        }),
+        ...(validGroupIds.length > 0
+          ? [
+              prisma.itemModifierGroupLink.createMany({
+                data: itemIds.flatMap((itemId) =>
+                  validGroupIds.map((groupId) => ({ itemId, groupId }))
+                ),
+                skipDuplicates: true,
+              }),
+            ]
+          : []),
+      ]);
+    } else {
+      // APPEND (دمج الإضافات مع الحفاظ على الإضافات السابقة لكل صنف)
+      if (validGroupIds.length > 0) {
+        await prisma.itemModifierGroupLink.createMany({
+          data: itemIds.flatMap((itemId) =>
+            validGroupIds.map((groupId) => ({ itemId, groupId }))
+          ),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    notifyBranchMenuChanged(branchId);
+    res.json({
+      success: true,
+      affectedItemsCount: itemIds.length,
+      linkedGroupsCount: validGroupIds.length,
+      mode,
+    });
+  } catch (error) {
+    console.error("Link category modifiers error:", error);
+    res.status(500).json({ error: "فشل ربط الإضافات بأصناف القسم" });
+  }
+});
+
+// 15-ج. ربط سريع لمجموعة أصناف محددة بقسم أو عدة أقسام إضافات دفعة واحدة
+router.post("/items/bulk-link-modifiers", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const { itemIds, modifierGroupIds, mode = "APPEND" } = req.body;
+
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      res.status(400).json({ error: "يجب تمرير مصفوفة الأصناف itemIds" });
+      return;
+    }
+    if (!Array.isArray(modifierGroupIds)) {
+      res.status(400).json({ error: "يجب تمرير مصفوفة أقسام الإضافات modifierGroupIds" });
+      return;
+    }
+
+    // التحقق من ملكية الأصناف للفرع
+    const ownedItems = await prisma.menuItem.findMany({
+      where: { id: { in: itemIds.map(String) }, branchId },
+      select: { id: true },
+    });
+    const validItemIds = ownedItems.map((i) => i.id);
+
+    if (validItemIds.length === 0) {
+      res.status(404).json({ error: "لم يتم العثور على أي أصناف صالحة لهذا الفرع" });
+      return;
+    }
+
+    // التحقق من ملكية أقسام الإضافات للفرع
+    const ownedGroups = await prisma.modifierGroup.findMany({
+      where: { id: { in: modifierGroupIds.map(String) }, branchId },
+      select: { id: true },
+    });
+    const validGroupIds = ownedGroups.map((g) => g.id);
+
+    if (mode === "REMOVE") {
+      if (validGroupIds.length > 0) {
+        await prisma.itemModifierGroupLink.deleteMany({
+          where: {
+            itemId: { in: validItemIds },
+            groupId: { in: validGroupIds },
+          },
+        });
+      }
+    } else if (mode === "REPLACE") {
+      await prisma.$transaction([
+        prisma.itemModifierGroupLink.deleteMany({
+          where: { itemId: { in: validItemIds } },
+        }),
+        ...(validGroupIds.length > 0
+          ? [
+              prisma.itemModifierGroupLink.createMany({
+                data: validItemIds.flatMap((itemId) =>
+                  validGroupIds.map((groupId) => ({ itemId, groupId }))
+                ),
+                skipDuplicates: true,
+              }),
+            ]
+          : []),
+      ]);
+    } else {
+      // APPEND
+      if (validGroupIds.length > 0) {
+        await prisma.itemModifierGroupLink.createMany({
+          data: validItemIds.flatMap((itemId) =>
+            validGroupIds.map((groupId) => ({ itemId, groupId }))
+          ),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    notifyBranchMenuChanged(branchId);
+    res.json({
+      success: true,
+      affectedItemsCount: validItemIds.length,
+      linkedGroupsCount: validGroupIds.length,
+      mode,
+    });
+  } catch (error) {
+    console.error("Bulk link modifiers error:", error);
+    res.status(500).json({ error: "فشل ربط الإضافات بالأصناف المحددة" });
+  }
+});
+
+// 15-د. ربط قسم إضافات معين بأقسام أو أصناف متعددة دفعة واحدة (من شاشة الإضافات)
+router.post("/modifier-groups/:id/bulk-link-targets", async (req: AuthRequest, res: Response) => {
+  try {
+    const groupId = req.params.id as string;
+    const branchId = req.branch!.branchId;
+    const { categoryIds, itemIds, action = "LINK" } = req.body;
+
+    const group = await prisma.modifierGroup.findFirst({
+      where: { id: groupId, branchId },
+    });
+    if (!group) {
+      res.status(404).json({ error: "قسم الإضافات غير موجود أو لا يتبع هذا الفرع" });
+      return;
+    }
+
+    let targetItemIds: string[] = [];
+
+    // جلب أصناف الأقسام المحددة
+    if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+      const itemsInCategories = await prisma.menuItem.findMany({
+        where: { categoryId: { in: categoryIds.map(String) }, branchId },
+        select: { id: true },
+      });
+      targetItemIds.push(...itemsInCategories.map((it) => it.id));
+    }
+
+    // جلب الأصناف المحددة يدوياً
+    if (Array.isArray(itemIds) && itemIds.length > 0) {
+      const explicitItems = await prisma.menuItem.findMany({
+        where: { id: { in: itemIds.map(String) }, branchId },
+        select: { id: true },
+      });
+      targetItemIds.push(...explicitItems.map((it) => it.id));
+    }
+
+    // إزالة التكرارات
+    targetItemIds = Array.from(new Set(targetItemIds));
+
+    if (targetItemIds.length === 0) {
+      res.status(400).json({ error: "يرجى تحديد قسم أصناف واحد على الأقل أو صنف واحد" });
+      return;
+    }
+
+    if (action === "UNLINK") {
+      await prisma.itemModifierGroupLink.deleteMany({
+        where: {
+          groupId,
+          itemId: { in: targetItemIds },
+        },
+      });
+    } else {
+      // LINK
+      await prisma.itemModifierGroupLink.createMany({
+        data: targetItemIds.map((itemId) => ({ itemId, groupId })),
+        skipDuplicates: true,
+      });
+    }
+
+    notifyBranchMenuChanged(branchId);
+    res.json({
+      success: true,
+      affectedItemsCount: targetItemIds.length,
+      action,
+    });
+  } catch (error) {
+    console.error("Bulk link modifier group targets error:", error);
+    res.status(500).json({ error: "فشل ربط مجموعة الإضافات بالأهداف المحددة" });
+  }
+});
+
 // 16. جلب طلبات الفرع (شامل عدد طلبات العميل وملاحظات المطعم وحالة الحظر)
 router.get("/orders", async (req: AuthRequest, res: Response) => {
   try {

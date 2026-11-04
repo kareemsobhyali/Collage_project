@@ -476,6 +476,42 @@ export const api = {
     return data;
   },
 
+  // ربط سريع لأقسام إضافات بكامل أصناف قسم معين دفعة واحدة
+  async linkModifiersToCategory(categoryId: string, modifierGroupIds: string[], mode: 'APPEND' | 'REPLACE' | 'REMOVE' = 'APPEND') {
+    const res = await fetch(`${API_BASE_URL}/branch/categories/${categoryId}/link-modifiers`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ modifierGroupIds, mode }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل ربط الإضافات بقسم الأصناف');
+    return data;
+  },
+
+  // ربط سريع لعدة أصناف بأقسام إضافات دفعة واحدة
+  async bulkLinkModifiersToItems(itemIds: string[], modifierGroupIds: string[], mode: 'APPEND' | 'REPLACE' | 'REMOVE' = 'APPEND') {
+    const res = await fetch(`${API_BASE_URL}/branch/items/bulk-link-modifiers`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ itemIds, modifierGroupIds, mode }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل ربط الإضافات بالأصناف المحددة');
+    return data;
+  },
+
+  // ربط مجموعة إضافات بأقسام أو أصناف محددة
+  async bulkLinkModifierGroupTargets(groupId: string, payload: { categoryIds?: string[]; itemIds?: string[]; action?: 'LINK' | 'UNLINK' }) {
+    const res = await fetch(`${API_BASE_URL}/branch/modifier-groups/${groupId}/bulk-link-targets`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل ربط مجموعة الإضافات');
+    return data;
+  },
+
   // رفع الصور
   async uploadImage(file: File) {
     const formData = new FormData();
