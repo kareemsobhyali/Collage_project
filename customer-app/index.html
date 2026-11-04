@@ -32,13 +32,7 @@
               branch = hSegs[0] === 'r' ? hSegs[1] : hSegs[0];
             }
           }
-          if (!branch) {
-            try {
-              branch = localStorage.getItem('pwa_installed_branch') || '';
-            } catch(_err) {}
-          }
           if (branch && branch !== 'admin' && branch !== 'driver' && branch !== 'api') {
-            try { localStorage.setItem('pwa_installed_branch', decodeURIComponent(branch).toLowerCase()); } catch(e) {}
             var manifestUrl = '/manifest.json?branch=' + encodeURIComponent(branch);
             var icon192 = '/api/branch-icon/' + encodeURIComponent(branch) + '-192.png';
             var icon512 = '/api/branch-icon/' + encodeURIComponent(branch) + '-512.png';

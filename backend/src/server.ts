@@ -239,9 +239,9 @@ app.get("/manifest.json", async (req, res) => {
           OR: [
             { slug: { equals: cleanParam, mode: "insensitive" } },
             { id: cleanParam },
-            { slug: { contains: cleanParam, mode: "insensitive" } },
-            { name: { contains: cleanParam, mode: "insensitive" } },
+            { name: { equals: cleanParam, mode: "insensitive" } },
           ],
+          isActive: true,
         },
       });
 
@@ -279,14 +279,13 @@ app.get("/manifest.json", async (req, res) => {
           short_name: branch.name,
           description: `اطلب وجبتك المفضلة من ${branch.name} مباشرة وسريعاً بدون انتظار`,
           start_url: `/r/${encodeURIComponent(branchKey)}`,
-          scope: "/",
+          scope: `/r/${encodeURIComponent(branchKey)}`,
           id: `/r/${encodeURIComponent(branchKey)}`,
           display: "standalone",
           display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
           prefer_related_applications: false,
-          handle_links: "preferred",
           launch_handler: {
-            client_mode: ["navigate-existing", "auto"],
+            client_mode: "auto",
           },
           background_color: "#ffffff",
           theme_color: "#4f46e5",
@@ -510,8 +509,8 @@ if (fs.existsSync(customerDistPath)) {
               { slug: { equals: cleanSlug, mode: "insensitive" } },
               { id: cleanSlug },
               { name: { equals: cleanSlug, mode: "insensitive" } },
-              { name: { contains: cleanSlug, mode: "insensitive" } },
             ],
+            isActive: true,
           },
         });
 
@@ -569,7 +568,6 @@ if (fs.existsSync(customerDistPath)) {
             isActive: branch.isActive,
             isOnline: isBranchOnline(branch.id),
           });
-          const safeBranchKeyJson = serializeJsonForHtmlScript(String(branchKey).toLowerCase());
           const iosAppleTags = `
             <meta name="apple-mobile-web-app-title" content="${safeBranchName}">
             <meta name="apple-mobile-web-app-capable" content="yes">
@@ -579,11 +577,21 @@ if (fs.existsSync(customerDistPath)) {
             <link rel="apple-touch-icon" sizes="180x180" href="${branchIcon192}">
             <script>
               window.__UNIFOOD_INITIAL_BRANCH__ = ${initialBranchJson};
-              try { localStorage.setItem('pwa_installed_branch', ${safeBranchKeyJson}); } catch(e) {}
             </script>
           `;
           // استخدام دالة استبدال لتعطيل أنماط $& و $' الخاصة في String.replace
           html = html.replace("</head>", () => `${iosAppleTags}</head>`);
+        } else {
+          // المطعم غير متاح أو تم حذفه من المنظومة
+          const safeSlugJson = serializeJsonForHtmlScript(cleanSlug);
+          const notFoundTags = `
+            <meta name="robots" content="noindex, nofollow">
+            <script>
+              window.__UNIFOOD_BRANCH_NOT_FOUND__ = { requestedKey: ${safeSlugJson}, isDeleted: true };
+            </script>
+          `;
+          html = html.replace(/<title>.*?<\/title>/i, () => `<title>المطعم غير متاح أو تم حذفه | UniFood</title>`);
+          html = html.replace("</head>", () => `${notFoundTags}</head>`);
         }
       } catch (_e) {}
     }

@@ -40,10 +40,10 @@ import { InstallApkPage, parseApkRoute } from './components/InstallApkPage';
 export function getRequestedBranchKeyFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    // 0. التحقق أولاً من الفرع المحقون مسبقاً من السيرفر
-    const serverInjected = (window as any).__UNIFOOD_INITIAL_BRANCH__;
-    if (serverInjected && (serverInjected.slug || serverInjected.id)) {
-      return (serverInjected.slug || serverInjected.id).trim();
+    // 0. التحقق مما إذا كان السيرفر أعلن صراحة أن المطعم بالرابط محذوف أو غير موجود
+    const serverNotFound = (window as any).__UNIFOOD_BRANCH_NOT_FOUND__;
+    if (serverNotFound && serverNotFound.requestedKey) {
+      return String(serverNotFound.requestedKey).trim();
     }
 
     // 1. فحص معاملات الاستعلام (Query Parameters)
@@ -102,18 +102,10 @@ export function getRequestedBranchKeyFromUrl(): string | null {
       return pathParts[0].trim();
     }
 
-    // 4. فحص التطبيق المثبت (PWA Standalone)
-    const isStandalone = (
-      isRunningInNativeApk() ||
-      params.get('installed') === '1' ||
-      window.location.search.includes('installed=1') ||
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true ||
-      document.referrer.includes('android-app://')
-    );
-    if (isStandalone) {
-      const saved = localStorage.getItem('pwa_installed_branch');
-      if (saved) return saved.trim();
+    // 4. التحقق من الفرع المحقون مسبقاً من السيرفر (Server Injected Branch)
+    const serverInjected = (window as any).__UNIFOOD_INITIAL_BRANCH__;
+    if (serverInjected && (serverInjected.slug || serverInjected.id)) {
+      return (serverInjected.slug || serverInjected.id).trim();
     }
   } catch (_e) {}
   return null;
@@ -181,6 +173,60 @@ export function App() {
       );
       setIsApkRoute(isStandalone || isIosDevice ? false : info.isApkPage);
       setApkSlug(info.branchSlug);
+
+      // مزامنة المطعم عند تغير الرابط لحظياً (لحماية السلة والبيانات من التداخل)
+      const currentBranchKey = getRequestedBranchKeyFromUrl();
+      const activeBranchId = selectedBranchRef.current?.id;
+      const activeBranchSlug = selectedBranchRef.current?.slug?.toLowerCase();
+      const normalizedCurrent = currentBranchKey ? currentBranchKey.toLowerCase() : null;
+
+      if (!currentBranchKey || !normalizedCurrent) {
+        // إذا رجع المستخدم للصفحة الرئيسية
+        if (selectedBranchRef.current) {
+          setSelectedBranch(null);
+          setBranchCategories([]);
+        }
+        setDeletedBranchInfo(null);
+        return;
+      }
+
+      const targetKey: string = currentBranchKey;
+
+      // إذا اختلف المطعم المطلوب في الرابط عن المطعم النشط حالياً
+      const isSameBranch = activeBranchId === targetKey || 
+        (activeBranchSlug && activeBranchSlug === normalizedCurrent);
+
+      if (!isSameBranch) {
+        // تفريغ سلة وقوائم المطعم السابق فوراً لمنع أي خلط بين مطعمين
+        setCart([]);
+        setCustomizingItem(null);
+        setShowCartModal(false);
+        setBranchCategories([]);
+
+        api.getBranchMenu(targetKey)
+          .then((data) => {
+            if (data && data.branch) {
+              setSelectedBranch({
+                ...data.branch,
+                reviews: data.reviews || [],
+                banners: data.banners || [],
+                flashDeals: data.flashDeals || [],
+                promos: data.promos || [],
+              });
+              setBranchCategories(data.categories || []);
+              setDeletedBranchInfo(null);
+            }
+          })
+          .catch((err) => {
+            console.warn('Navigation to branch failed or branch deleted:', err);
+            setSelectedBranch(null);
+            setBranchCategories([]);
+            setDeletedBranchInfo({
+              key: targetKey,
+              message: 'عذراً، هذا المطعم غير متاح أو تم حذفه من المنظومة'
+            });
+          });
+      }
     };
 
     window.addEventListener('popstate', handleUrlChange);
@@ -233,8 +279,40 @@ export function App() {
   const socketRef = useRef<any>(null);
   const selectedBranchRef = useRef<any>(null);
 
+  const [deletedBranchInfo, setDeletedBranchInfo] = useState<{ key: string; message?: string } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const notFound = (window as any).__UNIFOOD_BRANCH_NOT_FOUND__;
+    if (notFound && notFound.requestedKey) {
+      try {
+        const cached = localStorage.getItem('unifood_cached_branches');
+        if (cached) {
+          const list = JSON.parse(cached);
+          if (Array.isArray(list)) {
+            const cleanKey = String(notFound.requestedKey).toLowerCase();
+            const filtered = list.filter((b: any) => 
+              b.id !== notFound.requestedKey && 
+              (!b.slug || b.slug.toLowerCase() !== cleanKey)
+            );
+            localStorage.setItem('unifood_cached_branches', JSON.stringify(filtered));
+          }
+        }
+        const pwaSaved = localStorage.getItem('pwa_installed_branch');
+        if (pwaSaved && pwaSaved.toLowerCase() === String(notFound.requestedKey).toLowerCase()) {
+          localStorage.removeItem('pwa_installed_branch');
+        }
+      } catch (_e) {}
+      return {
+        key: String(notFound.requestedKey),
+        message: notFound.message || 'المطعم غير متاح أو تم حذفه من المنظومة'
+      };
+    }
+    return null;
+  });
+
   const [selectedBranch, setSelectedBranch] = useState<any | null>(() => {
     if (typeof window === 'undefined') return null;
+    // إذا كان السيرفر أعلن صراحة أن المطعم بالرابط محذوف أو غير موجود، لا نقرأ من الكاش المحلي أبداً
+    if ((window as any).__UNIFOOD_BRANCH_NOT_FOUND__) return null;
     try {
       // 0. التحقق أولاً من الفرع المحقون مسبقاً من السيرفر (Server Injected Branch) لفتح المنيو فوراً بدون تأخير
       const serverInjected = (window as any).__UNIFOOD_INITIAL_BRANCH__;
@@ -289,6 +367,12 @@ export function App() {
     if (isAdminRoute || showDriverPortal) return;
     const directKey = requestedBranchKey;
     if (directKey) {
+      if ((window as any).__UNIFOOD_BRANCH_NOT_FOUND__) {
+        setSelectedBranch(null);
+        setBranchCategories([]);
+        return;
+      }
+
       api.getBranchMenu(directKey)
         .then((data) => {
           if (data && data.branch) {
@@ -300,10 +384,44 @@ export function App() {
               promos: data.promos || [],
             });
             setBranchCategories(data.categories || []);
+            setDeletedBranchInfo(null);
+            // تفريغ السلة إذا كانت تخص مطعماً آخر
+            setCart(prevCart => {
+              if (prevCart.length > 0 && prevCart[0].branchId !== data.branch.id) {
+                return [];
+              }
+              return prevCart;
+            });
           }
         })
         .catch((err) => {
           console.warn('Could not directly fetch branch menu:', err);
+          setSelectedBranch(null);
+          setBranchCategories([]);
+          setCart([]);
+          setDeletedBranchInfo({
+            key: directKey,
+            message: 'عذراً، هذا المطعم غير متاح أو تم حذفه من المنظومة'
+          });
+          // تنظيف الكاش المحلي فوراً حتى لا يظل الرابط يفتح المطعم المحذوف
+          try {
+            const cached = localStorage.getItem('unifood_cached_branches');
+            if (cached) {
+              const list = JSON.parse(cached);
+              if (Array.isArray(list)) {
+                const cleanKey = String(directKey).toLowerCase();
+                const filtered = list.filter((b: any) => 
+                  b.id !== directKey && 
+                  (!b.slug || b.slug.toLowerCase() !== cleanKey)
+                );
+                localStorage.setItem('unifood_cached_branches', JSON.stringify(filtered));
+              }
+            }
+            const pwaSaved = localStorage.getItem('pwa_installed_branch');
+            if (pwaSaved && pwaSaved.toLowerCase() === String(directKey).toLowerCase()) {
+              localStorage.removeItem('pwa_installed_branch');
+            }
+          } catch (_e) {}
         });
     }
   }, [requestedBranchKey, isAdminRoute, showDriverPortal]);
@@ -387,21 +505,15 @@ export function App() {
         (pathParts.length === 1 && !['admin', 'driver', 'delivery', 'elviery', 'apk', 'download', 'install'].includes(pathParts[0].toLowerCase()));
 
       const hasBranchInQuery = Boolean(params.get('r') || params.get('branch') || params.get('b'));
-      const savedBranch = (localStorage.getItem('pwa_installed_branch') || '').trim().toLowerCase();
       const currentBranchKey = (selectedBranch?.slug || selectedBranch?.id || '').trim().toLowerCase();
 
-      // 1. إذا كان التطبيق في وضع Standalone وله فرع بالمسار أو بالاستعلام أو بالتخزين أو محدد
-      if (isStandaloneMode && (hasBranchInPath || hasBranchInQuery || savedBranch || selectedBranch)) {
+      // 1. إذا كان التطبيق في وضع Standalone وله فرع صريح بالمسار أو بالاستعلام أو محدد حالياً
+      if (isStandaloneMode && (hasBranchInPath || hasBranchInQuery || selectedBranch)) {
         return true;
       }
 
       // 2. إذا كان المسار صريحاً لفرع ومحدد كـ PWA
       if (hasBranchInPath && (params.get('installed') === '1' || isStandaloneMode)) {
-        return true;
-      }
-
-      // 3. إذا كان الفرع الحالي يطابق الفرع المثبت في التخزين
-      if (savedBranch && currentBranchKey && (savedBranch === currentBranchKey || savedBranch.includes(currentBranchKey))) {
         return true;
       }
 
@@ -766,9 +878,6 @@ export function App() {
           let cleanBranchParam = branchParam;
           try { cleanBranchParam = decodeURIComponent(branchParam); } catch {}
           const normalized = cleanBranchParam.trim().toLowerCase();
-          try {
-            localStorage.setItem('pwa_installed_branch', normalized);
-          } catch (_e) {}
           const target = loadedBranches.find(
             (b: any) =>
               b.id === cleanBranchParam ||
@@ -791,6 +900,7 @@ export function App() {
                     promos: menuData.promos || [],
                   });
                   setBranchCategories(menuData.categories || []);
+                  setDeletedBranchInfo(null);
                   if (itemParam && Array.isArray(menuData.categories)) {
                     for (const cat of menuData.categories) {
                       const found = (cat.items || []).find((it: any) => it.id === itemParam);
@@ -802,7 +912,16 @@ export function App() {
                   }
                 }
               })
-              .catch((err) => console.warn('Could not auto-open branch:', err));
+              .catch((err) => {
+                console.warn('Could not auto-open branch:', err);
+                setSelectedBranch(null);
+                setBranchCategories([]);
+                setCart([]);
+                setDeletedBranchInfo({
+                  key: cleanBranchParam,
+                  message: 'عذراً، هذا المطعم غير متاح أو تم حذفه من المنظومة'
+                });
+              });
           }
         }
       }
@@ -818,9 +937,6 @@ export function App() {
     if (isAdminRoute || showDriverPortal) return;
     if (selectedBranch && (selectedBranch.slug || selectedBranch.id)) {
       const branchSlug = (selectedBranch.slug || selectedBranch.id).toLowerCase();
-      try {
-        localStorage.setItem('pwa_installed_branch', branchSlug);
-      } catch (_e) {}
 
       // تحديث رابط الـ Manifest المخصص للفرع
       const manifestUrl = `/manifest.json?branch=${encodeURIComponent(branchSlug)}`;
@@ -1530,7 +1646,40 @@ export function App() {
           ? 'pt-1.5 px-3 pb-3 sm:pt-2 sm:px-4 sm:pb-4'
           : 'p-3 sm:p-4'
       }`}>
-        {selectedBranch ? (
+        {deletedBranchInfo ? (
+          <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
+            <div className="w-20 h-20 rounded-3xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center text-4xl mb-4 shadow-sm">
+              🏪
+            </div>
+            <span className="px-3.5 py-1 bg-rose-100 text-rose-700 text-xs font-black rounded-full mb-3">
+              رابط غير متاح
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-2">
+              عذراً، هذا المطعم غير متاح أو تم حذفه
+            </h2>
+            <p className="text-sm text-slate-600 max-w-md mb-6 leading-relaxed">
+              المطعم الذي تحاول الوصول إليه عبر الرابط لم يعد متوفراً على منصة UniFood (ربما تم حذفه من قِبل الإدارة أو تم إيقاف حسابه).
+            </p>
+            <button
+              onClick={() => {
+                setDeletedBranchInfo(null);
+                setSelectedBranch(null);
+                try {
+                  const newUrl = new URL(window.location.href);
+                  newUrl.pathname = '/';
+                  newUrl.search = '';
+                  newUrl.hash = '';
+                  window.history.pushState({}, '', newUrl.toString());
+                } catch (_e) {}
+                loadBranches();
+              }}
+              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-black shadow-lg shadow-indigo-600/30 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            >
+              <span>تصفح جميع المطاعم المتاحة</span>
+              <span>🍔</span>
+            </button>
+          </div>
+        ) : selectedBranch ? (
           <BranchMenu
             branch={selectedBranch}
             categories={branchCategories}
@@ -1563,7 +1712,7 @@ export function App() {
             onOpenReviews={() => setShowReviewsModal(true)}
             onCloseReviews={() => setShowReviewsModal(false)}
           />
-        ) : (requestedBranchKey || isDedicatedRestaurantApp) ? (
+        ) : (!deletedBranchInfo && (requestedBranchKey || isDedicatedRestaurantApp)) ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500 py-16 animate-fadeIn">
             <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             <span className="text-xs font-bold text-slate-600">جاري فتح قائمة المطعم...</span>

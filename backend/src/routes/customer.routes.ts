@@ -78,7 +78,7 @@ router.get("/manifest", async (req: Request, res: Response) => {
           OR: [
             { slug: { equals: branchParam, mode: "insensitive" } },
             { id: branchParam },
-            { name: { contains: branchParam, mode: "insensitive" } }
+            { name: { equals: branchParam, mode: "insensitive" } }
           ],
           isActive: true
         }
@@ -91,14 +91,13 @@ router.get("/manifest", async (req: Request, res: Response) => {
           short_name: branch.name,
           description: `اطلب وجبتك المفضلة من ${branch.name} مباشرة من تطبيق الموبايل`,
           start_url: `/r/${encodeURIComponent(branchKey)}`,
-          scope: "/",
+          scope: `/r/${encodeURIComponent(branchKey)}`,
           id: `/r/${encodeURIComponent(branchKey)}`,
           display: "standalone",
           display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
           prefer_related_applications: false,
-          handle_links: "preferred",
           launch_handler: {
-            client_mode: ["navigate-existing", "auto"]
+            client_mode: "auto"
           },
           background_color: "#ffffff",
           theme_color: "#4f46e5",
