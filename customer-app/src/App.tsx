@@ -50,14 +50,25 @@ export function getRequestedBranchKeyFromUrl(): string | null {
       return String(serverNotFound.requestedKey).trim();
     }
 
-    // 1. فحص معاملات الاستعلام (Query Parameters)
+    // 1. فحص النطاق الفرعي (Subdomain Routing مثل divado.unifood.store)
+    const host = window.location.hostname.toLowerCase();
+    const hostParts = host.split('.');
+    if (hostParts.length >= 3) {
+      const sub = hostParts[0];
+      const ignoredSubs = ['www', 'api', 'admin', 'driver', 'app', 'cdn', 'mail', 'localhost', 'pos', 'portal', 'static'];
+      if (!ignoredSubs.includes(sub) && !/^\d+$/.test(sub)) {
+        return sub;
+      }
+    }
+
+    // 2. فحص معاملات الاستعلام (Query Parameters)
     const params = new URLSearchParams(window.location.search);
     const bParam = params.get('branch') || params.get('r') || params.get('b') || params.get('slug');
     if (bParam) {
       try { return decodeURIComponent(bParam).trim(); } catch { return bParam.trim(); }
     }
 
-    // 2. فحص مسار الهاش (Hash Routing)
+    // 3. فحص مسار الهاش (Hash Routing)
     if (window.location.hash) {
       const hash = window.location.hash.replace(/^#+/, '');
       const hashMatch = hash.match(/(?:branch|r|b)[\/=]([^&?\/]+)/i);
@@ -864,9 +875,8 @@ export function App() {
         newUrl.searchParams.delete('branch');
         newUrl.searchParams.delete('r');
         newUrl.searchParams.delete('b');
-        if (newUrl.pathname.startsWith('/branch') || newUrl.pathname.startsWith('/r/') || newUrl.pathname.startsWith('/b/')) {
-          newUrl.pathname = '/';
-        }
+        newUrl.searchParams.delete('slug');
+        newUrl.pathname = '/';
         window.history.pushState({}, '', newUrl.toString());
       } catch (_e) {}
     }
@@ -890,12 +900,28 @@ export function App() {
         try {
           const newUrl = new URL(window.location.href);
           const slugOrId = branch.slug || branch.id;
-          if (!newUrl.pathname.startsWith('/r/') && !newUrl.pathname.startsWith('/branch/')) {
-            newUrl.pathname = `/r/${encodeURIComponent(slugOrId)}`;
+
+          // مسح معاملات الاستعلام لتنظيف الرابط
+          newUrl.searchParams.delete('branch');
+          newUrl.searchParams.delete('r');
+          newUrl.searchParams.delete('b');
+          newUrl.searchParams.delete('slug');
+
+          // فحص هل الموقع يعمل عبر نطاق فرعي (Subdomain مثل divado.unifood.store)
+          const hostParts = window.location.hostname.toLowerCase().split('.');
+          const isSubdomain = hostParts.length >= 3 && !['www', 'api', 'admin', 'driver', 'app', 'cdn', 'mail', 'localhost', 'pos', 'portal', 'static'].includes(hostParts[0]) && !/^\d+$/.test(hostParts[0]);
+
+          if (isSubdomain) {
+            newUrl.pathname = '/';
+          } else {
+            // الرابط النظيف المباشر: unifood.store/:slug
+            newUrl.pathname = `/${encodeURIComponent(slugOrId)}`;
           }
-          newUrl.searchParams.set('branch', slugOrId);
-          const isCurrentUrlAlreadyBranch = window.location.pathname.includes(slugOrId) || window.location.search.includes(slugOrId);
-          if (isCurrentUrlAlreadyBranch) {
+
+          const currentCleanPath = window.location.pathname.replace(/^\/+|\/+$/g, '');
+          const isCurrentUrlAlreadyBranch = currentCleanPath === slugOrId || (isSubdomain && currentCleanPath === '');
+
+          if (isCurrentUrlAlreadyBranch && !window.location.search.includes('branch=')) {
             window.history.replaceState({ branchId: branch.id }, '', newUrl.toString());
           } else {
             window.history.pushState({ branchId: branch.id }, '', newUrl.toString());

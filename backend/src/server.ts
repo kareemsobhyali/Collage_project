@@ -279,9 +279,9 @@ app.get("/manifest.json", async (req, res) => {
           name: `${branch.name} | UniFood`,
           short_name: branch.name,
           description: `اطلب وجبتك المفضلة من ${branch.name} مباشرة وسريعاً بدون انتظار`,
-          start_url: `/r/${encodeURIComponent(branchKey)}`,
-          scope: `/r/${encodeURIComponent(branchKey)}`,
-          id: `/r/${encodeURIComponent(branchKey)}`,
+          start_url: `/${encodeURIComponent(branchKey)}`,
+          scope: `/${encodeURIComponent(branchKey)}/`,
+          id: `/${encodeURIComponent(branchKey)}`,
           display: "standalone",
           display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
           prefer_related_applications: false,
@@ -479,12 +479,23 @@ if (fs.existsSync(customerDistPath)) {
       targetBranchSlug = segments[0];
     }
 
+    // التحقق من النطاق الفرعي (Subdomain Routing مثل divado.unifood.store)
+    const hostHeader = (req.headers.host || '').toLowerCase().split(':')[0];
+    const hostParts = hostHeader.split('.');
+    if (!targetBranchSlug && hostParts.length >= 3) {
+      const sub = hostParts[0];
+      const ignoredSubs = ['www', 'api', 'admin', 'driver', 'app', 'cdn', 'mail', 'localhost', 'pos', 'portal', 'static'];
+      if (!ignoredSubs.includes(sub) && !/^\d+$/.test(sub)) {
+        targetBranchSlug = sub;
+      }
+    }
+
     // إذا كان الزائر على هاتف آيفون (iOS) وطلب رابط تثبيت الـ APK، يتم تحويله مباشرة لصفحة المطعم أو الموقع فوراً
     const userAgent = String(req.headers['user-agent'] || '');
     const isIos = /iphone|ipad|ipod/i.test(userAgent);
     if (isIos && isApkRequest) {
       if (targetBranchSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'sms-gateway-client', 'api'].includes(targetBranchSlug.toLowerCase())) {
-        return res.redirect(302, `/r/${encodeURIComponent(targetBranchSlug)}`);
+        return res.redirect(302, `/${encodeURIComponent(targetBranchSlug)}`);
       } else {
         let refererSlug: string | null = null;
         if (req.headers.referer) {
@@ -494,7 +505,7 @@ if (fs.existsSync(customerDistPath)) {
           } catch (_e) {}
         }
         if (refererSlug && !['admin', 'driver', 'delivery', 'manager', 'restaurant', 'partner', 'portal', 'sms-gateway-client', 'api'].includes(refererSlug.toLowerCase())) {
-          return res.redirect(302, `/r/${encodeURIComponent(refererSlug)}`);
+          return res.redirect(302, `/${encodeURIComponent(refererSlug)}`);
         }
         return res.redirect(302, '/');
       }
@@ -553,7 +564,7 @@ if (fs.existsSync(customerDistPath)) {
           // 4. حقن سكريبت وعلامات iOS المخصصة لاسم وأيقونة ورابط التثبيت على الآيفون والبيانات المبدئية
           // الرابط الأساسي يُبنى من قائمة النطاقات الموثوقة فقط (منع تسميم ترويسة Host)
           const trustedBaseUrl = getTrustedAppBaseUrl(req as any);
-          const absoluteBranchStartUrl = escapeHtmlAttr(`${trustedBaseUrl}/r/${encodeURIComponent(branchKey)}`);
+          const absoluteBranchStartUrl = escapeHtmlAttr(`${trustedBaseUrl}/${encodeURIComponent(branchKey)}`);
           // تسلسل JSON آمن داخل وسم script (تحويل < و > و & إلى صيغ يونيكود لمنع كسر الوسم)
           const initialBranchJson = serializeJsonForHtmlScript({
             id: branch.id,

@@ -533,7 +533,7 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
     e.stopPropagation();
     const branchKey = branch?.slug || branch?.id;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const link = `${origin}/?branch=${encodeURIComponent(branchKey)}`;
+    const link = `${origin}/${encodeURIComponent(branchKey)}`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(link);

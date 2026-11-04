@@ -196,7 +196,7 @@ export const InstallApkPage: React.FC<{
     if (isIos) {
       const searchParams = new URLSearchParams(window.location.search);
       const cleanSlug = slug || parseApkRoute().branchSlug || searchParams.get('branch') || searchParams.get('r') || searchParams.get('slug');
-      const target = cleanSlug ? `/r/${encodeURIComponent(cleanSlug)}` : '/';
+      const target = cleanSlug ? `/${encodeURIComponent(cleanSlug)}` : '/';
       window.location.replace(target);
     }
   }, [isIos, slug]);
@@ -311,7 +311,7 @@ export const InstallApkPage: React.FC<{
 
           // إذا كان التطبيق مفتوحاً بالفعل في وضع التثبيت (Standalone)، نتوجه مباشرة إلى منيو المطعم
           if (isInstalled) {
-            const directTarget = `/r/${encodeURIComponent(branchKey)}`;
+            const directTarget = `/${encodeURIComponent(branchKey)}`;
             window.location.replace(directTarget);
             return;
           }
@@ -323,7 +323,7 @@ export const InstallApkPage: React.FC<{
               canonical.rel = 'canonical';
               document.head.appendChild(canonical);
             }
-            canonical.href = window.location.origin + `/r/${encodeURIComponent(branchKey)}`;
+            canonical.href = window.location.origin + `/${encodeURIComponent(branchKey)}`;
           } catch (_e) {}
 
           let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
@@ -348,7 +348,7 @@ export const InstallApkPage: React.FC<{
 
   // الرابط المباشر للمطعم في المتصفح أو التطبيق
   const webTargetUrl = meta?.isBranch && (meta.slug || meta.branchId)
-    ? `/r/${encodeURIComponent(meta.slug || meta.branchId || '')}`
+    ? `/${encodeURIComponent(meta.slug || meta.branchId || '')}`
     : '/';
 
   // فتح الصفحة مباشرة في تطبيق Google Chrome (لتخطي متصفح الواتساب والفيسبوك)
@@ -378,7 +378,7 @@ export const InstallApkPage: React.FC<{
       if (meta?.isBranch && (meta.slug || meta.branchId)) {
         const branchKey = (meta.slug || meta.branchId || '').trim();
         if (branchKey) {
-          const targetUrl = `/r/${encodeURIComponent(branchKey)}`;
+          const targetUrl = `/${encodeURIComponent(branchKey)}`;
           try {
             localStorage.setItem('pwa_installed_branch', branchKey.toLowerCase());
             window.history.replaceState({}, '', targetUrl);

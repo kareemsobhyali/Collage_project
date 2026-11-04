@@ -391,7 +391,7 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
     if (!branch) return;
     const key = branch.slug || branch.id;
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://unifood.store';
-    const directUrl = `${origin}/r/${key}`;
+    const directUrl = `${origin}/${key}`;
     navigator.clipboard.writeText(directUrl).then(() => {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);

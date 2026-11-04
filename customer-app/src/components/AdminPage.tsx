@@ -3976,7 +3976,7 @@ export const AdminPage: React.FC = () => {
                                   className="inline-block px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200/80 truncate max-w-full"
                                   dir="ltr"
                                 >
-                                  ?branch={branch.slug}
+                                  /{branch.slug}
                                 </span>
                               </div>
                             )}
@@ -4128,7 +4128,7 @@ export const AdminPage: React.FC = () => {
                           type="button"
                           onClick={() => {
                             const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                            const link = `${origin}/?branch=${branch.slug || branch.id}`;
+                            const link = `${origin}/${branch.slug || branch.id}`;
                             navigator.clipboard.writeText(link);
                             alert(`تم نسخ رابط الطلب المباشر لمطعم (${branch.name}) بنجاح:\n${link}`);
                           }}
@@ -10461,7 +10461,7 @@ export const AdminPage: React.FC = () => {
                   معرف الرابط المباشر للمطعم (Slug / Endpoint)
                 </label>
                 <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-purple-500" dir="ltr">
-                  <span className="text-xs font-mono font-bold text-purple-400 select-none whitespace-nowrap shrink-0">?branch=</span>
+                  <span className="text-xs font-mono font-bold text-purple-600 select-none whitespace-nowrap shrink-0">unifood.store/</span>
                   <input
                     type="text"
                     value={newSlug}
@@ -10471,7 +10471,7 @@ export const AdminPage: React.FC = () => {
                     dir="ltr"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">يسمح بمشاركة رابط مباشر ومخصص للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
+                <p className="text-[10px] text-slate-500 mt-1">الرابط المباشر للمطعم (مثال: unifood.store/divado أو divado.unifood.store)</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -10727,7 +10727,7 @@ export const AdminPage: React.FC = () => {
                   معرف الرابط المباشر للمطعم (Slug / Endpoint)
                 </label>
                 <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-purple-500" dir="ltr">
-                  <span className="text-xs font-mono font-bold text-purple-400 select-none whitespace-nowrap shrink-0">?branch=</span>
+                  <span className="text-xs font-mono font-bold text-purple-600 select-none whitespace-nowrap shrink-0">unifood.store/</span>
                   <input
                     type="text"
                     value={editSlug}
@@ -10737,7 +10737,7 @@ export const AdminPage: React.FC = () => {
                     dir="ltr"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">يسمح بمشاركة رابط مباشر ومخصص للمطعم عبر واتساب أو فيسبوك أو QR Code</p>
+                <p className="text-[10px] text-slate-500 mt-1">الرابط المباشر للمطعم (مثال: unifood.store/divado أو divado.unifood.store)</p>
 
                 {editingBranch && (
                   <div className="mt-2.5 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-2">

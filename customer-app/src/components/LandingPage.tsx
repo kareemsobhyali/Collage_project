@@ -134,7 +134,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     e.stopPropagation();
     const branchKey = branch.slug || branch.id;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const link = `${origin}/?branch=${encodeURIComponent(branchKey)}`;
+    const link = `${origin}/${encodeURIComponent(branchKey)}`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(link);
@@ -256,7 +256,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <h3 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors">رابط مباشر وواجهة مخصصة لكل مطعم</h3>
             <p className="text-xs text-slate-600 leading-relaxed font-normal">
-              كل مطعم يمتلك واجهة ومنيو برابط إلكتروني خاص (مثل unifood.store/r/shawarma) يمكن للعميل فتحه مباشرة ومشاركته عبر واتساب دون تشتيت.
+              كل مطعم يمتلك واجهة ومنيو برابط إلكتروني خاص ومباشر (مثل unifood.store/divado أو divado.unifood.store) يمكن للعميل فتحه مباشرة ومشاركته عبر واتساب دون تشتيت.
             </p>
           </div>
 
