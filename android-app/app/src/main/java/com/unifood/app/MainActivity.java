@@ -919,6 +919,52 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public String getActiveSimCards() {
+            org.json.JSONArray arr = new org.json.JSONArray();
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                            checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+                        return arr.toString();
+                    }
+                    android.telephony.SubscriptionManager sm = (android.telephony.SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                    if (sm != null) {
+                        List<android.telephony.SubscriptionInfo> list = sm.getActiveSubscriptionInfoList();
+                        if (list != null) {
+                            for (android.telephony.SubscriptionInfo info : list) {
+                                org.json.JSONObject obj = new org.json.JSONObject();
+                                obj.put("subscriptionId", info.getSubscriptionId());
+                                obj.put("slotIndex", info.getSimSlotIndex());
+                                obj.put("simSlot", info.getSimSlotIndex() + 1);
+                                CharSequence dn = info.getDisplayName();
+                                obj.put("displayName", dn != null ? dn.toString() : ("SIM " + (info.getSimSlotIndex() + 1)));
+                                CharSequence cn = info.getCarrierName();
+                                obj.put("carrierName", cn != null ? cn.toString() : "");
+                                arr.put(obj);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.w("MainActivity", "getActiveSimCards error: " + e.getMessage());
+            }
+            return arr.toString();
+        }
+
+        @JavascriptInterface
+        public int getSelectedSimSubscriptionId() {
+            SharedPreferences prefs = getSharedPreferences(UniFoodSmsGatewayService.PREFS_NAME, Context.MODE_PRIVATE);
+            return prefs.getInt(UniFoodSmsGatewayService.KEY_SELECTED_SIM_ID, -1);
+        }
+
+        @JavascriptInterface
+        public void setSelectedSimSubscriptionId(int subId) {
+            SharedPreferences prefs = getSharedPreferences(UniFoodSmsGatewayService.PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit().putInt(UniFoodSmsGatewayService.KEY_SELECTED_SIM_ID, subId).apply();
+            Log.i("MainActivity", "Selected SIM subscriptionId updated to: " + subId);
+        }
+
+        @JavascriptInterface
         public void startSmsGateway(String serverUrl, String deviceKey) {
             String targetUrl = (serverUrl != null && !serverUrl.trim().isEmpty()) ? serverUrl.trim() : getActiveStartUrl();
             UniFoodSmsGatewayService.startGatewayService(MainActivity.this, targetUrl, deviceKey != null ? deviceKey.trim() : "");
@@ -942,12 +988,15 @@ public class MainActivity extends Activity {
                 android.telephony.SmsManager smsManager = null;
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                        int subId = android.telephony.SubscriptionManager.getDefaultSmsSubscriptionId();
-                        if (subId != android.telephony.SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                        SharedPreferences prefs = getSharedPreferences(UniFoodSmsGatewayService.PREFS_NAME, Context.MODE_PRIVATE);
+                        int selectedSubId = prefs.getInt(UniFoodSmsGatewayService.KEY_SELECTED_SIM_ID, -1);
+                        int targetSubId = selectedSubId != -1 ? selectedSubId : android.telephony.SubscriptionManager.getDefaultSmsSubscriptionId();
+
+                        if (targetSubId != android.telephony.SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                smsManager = getSystemService(android.telephony.SmsManager.class).createForSubscriptionId(subId);
+                                smsManager = getSystemService(android.telephony.SmsManager.class).createForSubscriptionId(targetSubId);
                             } else {
-                                smsManager = android.telephony.SmsManager.getSmsManagerForSubscriptionId(subId);
+                                smsManager = android.telephony.SmsManager.getSmsManagerForSubscriptionId(targetSubId);
                             }
                         }
                     }

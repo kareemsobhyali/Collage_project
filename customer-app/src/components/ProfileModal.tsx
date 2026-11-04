@@ -569,14 +569,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
           {/* Student Wallet & Loyalty Points Card */}
           {(() => {
-            const ppp = typeof loyaltySettings?.pointsPerPound === 'number' && loyaltySettings.pointsPerPound > 0
-              ? loyaltySettings.pointsPerPound
+            const ppp = Number(loyaltySettings?.pointsPerPound) > 0
+              ? Number(loyaltySettings.pointsPerPound)
               : 0.1;
-            const redemptionRate = typeof loyaltySettings?.pointsRedemptionRate === 'number' && loyaltySettings.pointsRedemptionRate > 0
-              ? loyaltySettings.pointsRedemptionRate
+            const redemptionRate = Number(loyaltySettings?.pointsRedemptionRate) > 0
+              ? Number(loyaltySettings.pointsRedemptionRate)
               : 1;
-            const minPoints = typeof loyaltySettings?.minPointsToRedeem === 'number'
-              ? loyaltySettings.minPointsToRedeem
+            const minPoints = Number(loyaltySettings?.minPointsToRedeem) >= 0
+              ? Number(loyaltySettings.minPointsToRedeem)
               : 0;
 
             const rawCashback = ppp * redemptionRate * 100;

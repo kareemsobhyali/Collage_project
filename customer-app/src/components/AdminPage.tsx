@@ -78,8 +78,11 @@ import {
   Copy,
   ExternalLink,
   Crosshair,
-  ArrowUpDown
+  ArrowUpDown,
+  Megaphone,
+  FileUp
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 
 import { io } from 'socket.io-client';
@@ -144,6 +147,20 @@ export const AdminPage: React.FC = () => {
   const [savingChannelMode, setSavingChannelMode] = useState(false);
   const [regeneratingKey, setRegeneratingKey] = useState(false);
   const [copiedKeyToast, setCopiedKeyToast] = useState(false);
+
+  // SMS Bulk Marketing Campaign States
+  const [smsSubTab, setSmsSubTab] = useState<'OVERVIEW' | 'MARKETING'>('OVERVIEW');
+  const [campaignTitle, setCampaignTitle] = useState('');
+  const [campaignMessage, setCampaignMessage] = useState('');
+  const [campaignInputMode, setCampaignInputMode] = useState<'EXCEL' | 'PASTE' | 'CUSTOMERS'>('EXCEL');
+  const [rawPastedNumbers, setRawPastedNumbers] = useState('');
+  const [uploadedExcelName, setUploadedExcelName] = useState<string | null>(null);
+  const [excelNumbersList, setExcelNumbersList] = useState<string[]>([]);
+  const [registeredCustomersList, setRegisteredCustomersList] = useState<{ phone: string; name: string }[]>([]);
+  const [loadingRegisteredCustomers, setLoadingRegisteredCustomers] = useState(false);
+  const [sendingCampaign, setSendingCampaign] = useState(false);
+  const [campaignFeedback, setCampaignFeedback] = useState<{ success: boolean; text: string } | null>(null);
+  const [cancellingCampaign, setCancellingCampaign] = useState(false);
   const [supportTickets, setSupportTickets] = useState<any[]>([]);
   const [loadingSupportTickets, setLoadingSupportTickets] = useState(false);
   const [supportFilter, setSupportFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL');
@@ -1439,6 +1456,147 @@ export const AdminPage: React.FC = () => {
     setTimeout(() => setCopiedKeyToast(false), 2500);
   };
 
+  // Extract Egyptian phones helper
+  const extractEgyptianPhones = (items: string[]): string[] => {
+    const set = new Set<string>();
+    for (const item of items) {
+      if (!item) continue;
+      const matches = String(item).match(/(?:(?:\+|00)?20|0)?(1[0125][0-9]{8})/g);
+      if (matches) {
+        for (const m of matches) {
+          const digits = m.replace(/[^0-9]/g, '');
+          let clean = digits;
+          if (digits.startsWith('201') && digits.length === 12) clean = '0' + digits.substring(2);
+          else if (digits.startsWith('00201') && digits.length === 14) clean = '0' + digits.substring(4);
+          else if (digits.startsWith('1') && digits.length === 10) clean = '0' + digits;
+
+          if (/^01[0125][0-9]{8}$/.test(clean)) {
+            set.add(clean);
+          }
+        }
+      }
+    }
+    return Array.from(set);
+  };
+
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadedExcelName(file.name);
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      
+      const allTextValues: string[] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const worksheet = workbook.Sheets[sheetName];
+        const rows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        for (const row of rows) {
+          if (Array.isArray(row)) {
+            for (const cell of row) {
+              if (cell !== null && cell !== undefined) {
+                allTextValues.push(String(cell));
+              }
+            }
+          }
+        }
+      }
+
+      const extracted = extractEgyptianPhones(allTextValues);
+      setExcelNumbersList(extracted);
+      if (extracted.length === 0) {
+        alert('لم يتم العثور على أي أرقام هواتف مصرية صالحة (010, 011, 012, 015) داخل ملف الإكسل.');
+      }
+    } catch (err: any) {
+      alert('فشل قراءة ملف الإكسل: ' + (err.message || 'تأكد من سلامة تنسيق الملف'));
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const pastedValidNumbers = React.useMemo(() => {
+    if (!rawPastedNumbers.trim()) return [];
+    return extractEgyptianPhones([rawPastedNumbers]);
+  }, [rawPastedNumbers]);
+
+  const handleFetchRegisteredCustomers = async () => {
+    try {
+      setLoadingRegisteredCustomers(true);
+      const res = await api.getRegisteredCustomerPhones();
+      if (res?.customers) {
+        setRegisteredCustomersList(res.customers);
+      }
+    } catch (err: any) {
+      alert(err.message || 'فشل استيراد أرقام العملاء');
+    } finally {
+      setLoadingRegisteredCustomers(false);
+    }
+  };
+
+  const activeTargetNumbers = React.useMemo(() => {
+    if (campaignInputMode === 'EXCEL') return excelNumbersList;
+    if (campaignInputMode === 'PASTE') return pastedValidNumbers;
+    if (campaignInputMode === 'CUSTOMERS') return registeredCustomersList.map(c => c.phone);
+    return [];
+  }, [campaignInputMode, excelNumbersList, pastedValidNumbers, registeredCustomersList]);
+
+  const smsCharCount = campaignMessage.length;
+  const smsPartsPerMsg = smsCharCount === 0 ? 0 : smsCharCount <= 70 ? 1 : Math.ceil(smsCharCount / 67);
+  const totalSmsQuota = activeTargetNumbers.length * smsPartsPerMsg;
+
+  const handleLaunchCampaign = async () => {
+    if (activeTargetNumbers.length === 0) {
+      alert('الرجاء تحديد أو رفع أرقام الهواتف المستهدفة أولاً');
+      return;
+    }
+    if (!campaignMessage.trim()) {
+      alert('الرجاء كتابة نص الرسالة التسويقية');
+      return;
+    }
+
+    if (!confirm(`هل أنت متأكد من إطلاق الحملة التسويقية؟\n\n- عدد الأرقام المستهدفة: ${activeTargetNumbers.length} رقم\n- عدد أجزاء الرسالة: ${smsPartsPerMsg} SMS لكل رقم\n- إجمالي الرسائل: ${totalSmsQuota} رسالة SMS من شريحة هاتفك`)) {
+      return;
+    }
+
+    try {
+      setSendingCampaign(true);
+      setCampaignFeedback(null);
+      const res = await api.sendSmsMarketingCampaign(
+        activeTargetNumbers,
+        campaignMessage.trim(),
+        campaignTitle.trim() || undefined
+      );
+
+      setCampaignFeedback({
+        success: true,
+        text: res.message || `تم إدراج ${activeTargetNumbers.length} رسالة بنجاح في طابور الإرسال!`,
+      });
+      fetchSmsGatewayOverview();
+    } catch (err: any) {
+      setCampaignFeedback({
+        success: false,
+        text: err.message || 'فشل إطلاق الحملة التسويقية',
+      });
+    } finally {
+      setSendingCampaign(false);
+    }
+  };
+
+  const handleCancelPendingMarketing = async () => {
+    if (!confirm('هل أنت متأكد من إلغاء كافة الرسائل التسويقية المعلقة في طابور الإرسال؟')) return;
+    try {
+      setCancellingCampaign(true);
+      const res = await api.cancelPendingMarketingSms();
+      alert(res.message || 'تم إلغاء الرسائل المعلقة بنجاح');
+      fetchSmsGatewayOverview();
+    } catch (err: any) {
+      alert(err.message || 'فشل إلغاء الرسائل');
+    } finally {
+      setCancellingCampaign(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'SMS_GATEWAY') {
       fetchSmsGatewayOverview();
@@ -1780,7 +1938,14 @@ export const AdminPage: React.FC = () => {
     try {
       setSavingLoyaltySettings(true);
       setLoyaltySaveSuccess(false);
-      const res = await api.updateLoyaltySettings(loyaltySettings);
+      const cleaned = {
+        enabled: Boolean(loyaltySettings.enabled),
+        pointsRedemptionRate: Math.max(0, Number(loyaltySettings.pointsRedemptionRate) || 0),
+        pointsPerPound: Math.max(0, Number(loyaltySettings.pointsPerPound) || 0),
+        minPointsToRedeem: Math.max(0, parseInt(String(loyaltySettings.minPointsToRedeem), 10) || 0),
+        welcomePoints: Math.max(0, parseInt(String(loyaltySettings.welcomePoints), 10) || 0),
+      };
+      const res = await api.updateLoyaltySettings(cleaned);
       if (res?.settings) {
         setLoyaltySettings(res.settings);
       }
@@ -7911,6 +8076,38 @@ export const AdminPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Sub-Tabs Switcher: Overview vs Marketing Campaigns */}
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+              <button
+                type="button"
+                onClick={() => setSmsSubTab('OVERVIEW')}
+                className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                  smsSubTab === 'OVERVIEW'
+                    ? 'bg-slate-900 text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>📊 حالة الهاتف والأجهزة والإعدادات</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSmsSubTab('MARKETING')}
+                className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                  smsSubTab === 'MARKETING'
+                    ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-600/25 ring-2 ring-sky-400'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                <Megaphone className="w-4 h-4 text-amber-300" />
+                <span>📢 حملات الرسائل التسويقية (Excel & أرقام)</span>
+                <span className="bg-amber-400 text-amber-950 text-[10px] px-1.5 py-0.2 rounded-full font-black">جديد</span>
+              </button>
+            </div>
+
+            {smsSubTab === 'OVERVIEW' ? (
+              <>
             {/* Device Hardware & Metrics Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-1">
@@ -8209,8 +8406,350 @@ export const AdminPage: React.FC = () => {
                 </div>
               )}
             </div>
+          </>
+        ) : (
+          /* SMS Marketing Campaigns Suite */
+          <div className="space-y-6">
+            {/* Campaign Feedback Alert */}
+            {campaignFeedback && (
+              <div className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between gap-3 animate-fadeIn ${
+                campaignFeedback.success
+                  ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border border-rose-200 text-rose-800'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {campaignFeedback.success ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                  )}
+                  <span>{campaignFeedback.text}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCampaignFeedback(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Target Audience / Numbers Selection Card */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-sky-600" />
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900">1. تحديد أرقام الهواتف المستهدفة</h4>
+                    <p className="text-[11px] text-slate-500">اختر طريقة تزويد الأرقام (ملف إكسل، لصق يدوي، أو عملاء يونيفود)</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setCampaignInputMode('EXCEL')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                      campaignInputMode === 'EXCEL'
+                        ? 'bg-white text-sky-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>ملف إكسل / CSV</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCampaignInputMode('PASTE')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                      campaignInputMode === 'PASTE'
+                        ? 'bg-white text-sky-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>لصق الأرقام</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCampaignInputMode('CUSTOMERS');
+                      if (registeredCustomersList.length === 0) {
+                        handleFetchRegisteredCustomers();
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                      campaignInputMode === 'CUSTOMERS'
+                        ? 'bg-white text-sky-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>عملاء يونيفود</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mode 1: Excel File Upload */}
+              {campaignInputMode === 'EXCEL' && (
+                <div className="space-y-3">
+                  <label className="border-2 border-dashed border-sky-300 hover:border-sky-400 bg-sky-50/40 hover:bg-sky-50/70 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all group">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleExcelUpload}
+                      className="sr-only"
+                    />
+                    <div className="w-12 h-12 rounded-2xl bg-sky-100 group-hover:bg-sky-200 text-sky-600 flex items-center justify-center mb-2.5 transition-colors shadow-2xs">
+                      <FileUp className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-black text-slate-800 block">
+                      اضغط لاختيار ملف إكسل أو CSV من جهازك
+                    </span>
+                    <span className="text-[11px] text-slate-500 block mt-1">
+                      يدعم صيغ .xlsx و .xls و .csv (يقوم النظام تلقائياً باكتشاف عمود الأرقام واستخراج كافة أرقام الموبايل المصرية)
+                    </span>
+                  </label>
+
+                  {uploadedExcelName && (
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <span className="font-bold text-slate-800 block">{uploadedExcelName}</span>
+                          <span className="text-[11px] text-emerald-700 font-bold block">
+                            تم استخراج {excelNumbersList.length} رقماً مصرياً فريداً
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUploadedExcelName(null);
+                          setExcelNumbersList([]);
+                        }}
+                        className="text-rose-500 hover:text-rose-700 text-xs font-bold"
+                      >
+                        إلغاء الملف
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Mode 2: Paste Numbers */}
+              {campaignInputMode === 'PASTE' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>الصق أرقام الهواتف هنا (مفصولة بأسطر جديدة أو مسافات أو فواصل):</span>
+                    <span className="text-sky-700 font-black">
+                      {pastedValidNumbers.length} رقم صالح تم التعرف عليه
+                    </span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={rawPastedNumbers}
+                    onChange={e => setRawPastedNumbers(e.target.value)}
+                    placeholder={`01012345678\n01123456789\n01234567890\n01512345678`}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-sky-500 focus:bg-white transition-colors"
+                  />
+                </div>
+              )}
+
+              {/* Mode 3: Registered Customers */}
+              {campaignInputMode === 'CUSTOMERS' && (
+                <div className="p-4 bg-indigo-50/60 border border-indigo-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-black text-indigo-950 block">استيراد جميع عملاء يونيفود المسجلين</span>
+                    <span className="text-[11px] text-indigo-700 block mt-0.5">
+                      {registeredCustomersList.length > 0
+                        ? `تم استيراد ${registeredCustomersList.length} عميلاً بأرقام هواتف صالحة ومؤكدة.`
+                        : 'اضغط على الزر لجلب كافة أرقام العملاء المسجلين في المنظومة مباشرة.'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleFetchRegisteredCustomers}
+                    disabled={loadingRegisteredCustomers}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingRegisteredCustomers ? 'animate-spin' : ''}`} />
+                    <span>{loadingRegisteredCustomers ? 'جاري الاستيراد...' : 'تحديث واستيراد العملاء'}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Numbers Summary Pill */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                <span className="font-bold text-slate-700">إجمالي الأرقام المستهدفة حالياً:</span>
+                <span className="text-sm font-black font-mono text-sky-700 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                  {activeTargetNumbers.length} رقم هاتف
+                </span>
+              </div>
+            </div>
+
+            {/* Message Composer & Live Smartphone Preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column: Composer */}
+              <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <Send className="w-5 h-5 text-indigo-600" />
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900">2. كتابة وتجهيز الرسالة التسويقية</h4>
+                    <p className="text-[11px] text-slate-500">اكتب نص العرض الترويجي أو كود الخصم للعملاء</p>
+                  </div>
+                </div>
+
+                {/* Campaign Title (Internal Name) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">اسم الحملة (للأرشفة في لوحة التحكم):</label>
+                  <input
+                    type="text"
+                    value={campaignTitle}
+                    onChange={e => setCampaignTitle(e.target.value)}
+                    placeholder="مثال: خصم 20% لكل طلبات عطلة نهاية الأسبوع"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-sky-500 focus:bg-white"
+                  />
+                </div>
+
+                {/* Message Body */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700">نص رسالة الـ SMS:</label>
+                    <div className="text-[11px] font-mono font-bold text-slate-500">
+                      {smsCharCount} حرف • {smsPartsPerMsg} SMS لكل عميل
+                    </div>
+                  </div>
+                  <textarea
+                    rows={5}
+                    value={campaignMessage}
+                    onChange={e => setCampaignMessage(e.target.value)}
+                    placeholder="أهلاً بك! خصم خاص 20% اليوم على جميع وجباتك المفضلة من UniFood! استخدم كوبون UNIFREE واطلب الآن من الرابط: unifood.store 🍔🚀"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-sky-500 focus:bg-white transition-colors leading-relaxed"
+                  />
+                </div>
+
+                {/* Quick Templates & Shortcuts */}
+                <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                  <span className="text-[11px] font-bold text-slate-500">قوالب سريعة:</span>
+                  <button
+                    type="button"
+                    onClick={() => setCampaignMessage('خصم حصري 20% على طلبك القادم من UniFood! اطلب الآن ووفر كاش باك مع كل وجبة: https://unifood.store 🍔')}
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    خصم 20%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCampaignMessage('توصيل مجاني اليوم على كافة المطاعم المفضلة لطلاب الحرم الجامعي! افتح يونيفود واطلب الآن: https://unifood.store 🛵')}
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    توصيل مجاني
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCampaignMessage('سلة الشلة متوفرة الآن! جمع أوردرك أنت وأصحابك في سلة واحدة بدون مصاريف توصيل مكررة: https://unifood.store 👥')}
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    سلة الشلة
+                  </button>
+                </div>
+
+                {/* Quota & Calculation Card */}
+                <div className="p-3.5 bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-2xl flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-black text-slate-800 block">إجمالي رسائل الـ SMS التي سيتم إرسالها:</span>
+                    <span className="text-[11px] text-slate-600 block mt-0.5">
+                      {activeTargetNumbers.length} رقم × {smsPartsPerMsg} أجزاء رسالة
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-base font-black font-mono text-indigo-700">
+                      {totalSmsQuota} رسالة SMS
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">من رصيد شريحتك</span>
+                  </div>
+                </div>
+
+                {/* Launch Campaign Button */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleLaunchCampaign}
+                    disabled={sendingCampaign || activeTargetNumbers.length === 0 || !campaignMessage.trim()}
+                    className="w-full py-3.5 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 active:scale-95 text-white rounded-2xl text-xs sm:text-sm font-black shadow-lg shadow-sky-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {sendingCampaign ? (
+                      <>
+                        <RotateCw className="w-4 h-4 animate-spin" />
+                        <span>جاري إدراج الحملة في طابور الإرسال...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Megaphone className="w-4 h-4 text-amber-300" />
+                        <span>بدء إرسال الحملة التسويقية لـ {activeTargetNumbers.length} رقم الآن 🚀</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Smartphone Live Preview */}
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-sm text-white flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <Smartphone className="w-4 h-4 text-emerald-400" />
+                    <h4 className="text-xs font-black text-white">معاينة مباشرة في شاشة العميل (SMS)</h4>
+                  </div>
+
+                  {/* Mock Phone Frame */}
+                  <div className="border border-slate-700 rounded-2xl p-3 bg-slate-950 shadow-inner space-y-3 font-sans">
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pb-2 border-b border-slate-800">
+                      <span className="font-bold text-slate-300">رسائل SMS القصيرة</span>
+                      <span>الآن</span>
+                    </div>
+
+                    <div className="p-3 bg-indigo-600 text-white rounded-2xl rounded-tr-xs text-[11px] leading-relaxed shadow-md">
+                      {campaignMessage.trim() || 'اكتب نص الرسالة لترى المعاينة الحية هنا...'}
+                    </div>
+
+                    <div className="text-[10px] text-slate-500 text-left font-mono">
+                      {smsPartsPerMsg > 1 ? `1/${smsPartsPerMsg} SMS` : 'SMS'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3 bg-slate-800/60 border border-slate-800 rounded-xl text-[11px] text-slate-400 leading-relaxed">
+                  💡 <strong>ملاحظة أمان:</strong> يقوم هاتف البوابة بإرسال كل رسالة مع فاصل زمني آمن (حوالي ثانيتين بين الرسائل) لضمان عدم حظر الشريحة ووصول كافة الرسائل بنجاح.
+                </div>
+              </div>
+            </div>
+
+            {/* Cancel Pending Marketing Messages Card */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-black text-slate-900">إدارة الطابور وإلغاء الحملات</h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  يمكنك إلغاء الرسائل التسويقية المعلقة في الطابور التي لم تُرسل بعد في أي وقت بنقرة واحدة.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelPendingMarketing}
+                disabled={cancellingCampaign}
+                className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{cancellingCampaign ? 'جاري الإلغاء...' : 'إلغاء الرسائل التسويقية المعلقة'}</span>
+              </button>
+            </div>
           </div>
         )}
+      </div>
+    )}
         {activeTab === 'SETTINGS' && (
           <div className="space-y-6">
             {/* Header info banner */}
@@ -8253,7 +8792,7 @@ export const AdminPage: React.FC = () => {
                   </span>
                 </div>
 
-                <form onSubmit={handleSaveLoyaltySettings} className="space-y-5">
+                <form onSubmit={handleSaveLoyaltySettings} noValidate className="space-y-5">
                   {/* Master Toggle */}
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
                     <div>
@@ -8275,6 +8814,100 @@ export const AdminPage: React.FC = () => {
 
                   {/* Settings Inputs */}
                   <div className="space-y-4">
+                    {/* Live Dynamic Cashback Controller & Quick Presets */}
+                    <div className="p-4 bg-gradient-to-br from-purple-50 via-indigo-50 to-purple-50 border border-purple-200/90 rounded-2xl space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0">
+                            <Gift className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-black text-purple-950 block">نسبة الكاش باك الممنوحة للعميل</span>
+                            <span className="text-[10px] text-purple-700">تحدد نسبة الخصم المسترجع للعميل كرصيد محفظة عند الطلب</span>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="text-xs sm:text-sm font-black font-mono text-purple-800 bg-white px-3 py-1.5 rounded-xl shadow-2xs border border-purple-200 inline-block">
+                            كاش باك {((loyaltySettings.pointsPerPound || 0) * (loyaltySettings.pointsRedemptionRate || 0) * 100).toFixed(2).replace(/\.00$/, '')}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick Preset Buttons */}
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[11px] font-bold text-purple-900 block">اختر نسبة جاهزة بنقرة واحدة:</span>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[5, 10, 15, 20].map((pct) => {
+                            const currentPct = Math.round((loyaltySettings.pointsPerPound || 0) * (loyaltySettings.pointsRedemptionRate || 0) * 100);
+                            const isActive = currentPct === pct;
+                            return (
+                              <button
+                                key={pct}
+                                type="button"
+                                onClick={() => {
+                                  // Standardize: 1 point per 10 EGP (0.1 pt/EGP), adjust pointsRedemptionRate
+                                  const ppp = 0.1;
+                                  const newRate = Math.round((pct / (ppp * 100)) * 100) / 100;
+                                  setLoyaltySettings({
+                                    ...loyaltySettings,
+                                    pointsPerPound: ppp,
+                                    pointsRedemptionRate: newRate,
+                                  });
+                                }}
+                                className={`py-2 px-1 rounded-xl text-xs font-black transition-all cursor-pointer text-center ${
+                                  isActive
+                                    ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-400'
+                                    : 'bg-white text-purple-800 border border-purple-200 hover:bg-purple-100/70'
+                                }`}
+                              >
+                                {pct}%
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Direct Custom % Input */}
+                      <div className="flex items-center justify-between gap-3 pt-1 border-t border-purple-200/60">
+                        <span className="text-[11px] font-bold text-purple-900">أو اكتب نسبة كاش باك مخصصة:</span>
+                        <div className="relative w-28">
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            max="100"
+                            value={(() => {
+                              const val = (loyaltySettings.pointsPerPound || 0) * (loyaltySettings.pointsRedemptionRate || 0) * 100;
+                              return Math.round(val * 100) / 100;
+                            })()}
+                            onChange={(e) => {
+                              const customPct = Math.max(0, parseFloat(e.target.value) || 0);
+                              const ppp = loyaltySettings.pointsPerPound > 0 ? loyaltySettings.pointsPerPound : 0.1;
+                              const newRate = Math.round((customPct / (ppp * 100)) * 100) / 100;
+                              setLoyaltySettings({
+                                ...loyaltySettings,
+                                pointsPerPound: ppp,
+                                pointsRedemptionRate: newRate,
+                              });
+                            }}
+                            className="w-full bg-white border border-purple-300 rounded-xl pr-3 pl-7 py-1.5 text-xs font-mono font-black text-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-400 text-center"
+                          />
+                          <span className="absolute left-2.5 top-1.5 text-xs text-purple-600 font-black">%</span>
+                        </div>
+                      </div>
+
+                      {/* Live explanation */}
+                      <div className="text-[11px] text-purple-800 font-medium bg-white/80 p-2.5 rounded-xl border border-purple-100 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+                        <span>
+                          {loyaltySettings.pointsPerPound < 1 && loyaltySettings.pointsPerPound > 0
+                            ? `يكتسب العميل 1 نقطة لكل ${Math.round((1 / loyaltySettings.pointsPerPound) * 10) / 10} ج.م • كل 1 نقطة = ${loyaltySettings.pointsRedemptionRate} ج.م رصيد بالمحفظة`
+                            : `يكتسب العميل ${loyaltySettings.pointsPerPound} نقطة لكل 1 ج.م • كل 1 نقطة = ${loyaltySettings.pointsRedemptionRate} ج.م رصيد بالمحفظة`}
+                        </span>
+                      </div>
+                    </div>
+
                     {/* Points Redemption Rate */}
                     <div>
                       <label className="text-xs font-bold text-slate-700 block mb-1.5">
@@ -8286,7 +8919,7 @@ export const AdminPage: React.FC = () => {
                           step="any"
                           min="0"
                           value={loyaltySettings.pointsRedemptionRate}
-                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsRedemptionRate: parseFloat(e.target.value) || 0 })}
+                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsRedemptionRate: Math.max(0, parseFloat(e.target.value) || 0) })}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-3.5 pl-24 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                           required
                         />
@@ -8294,32 +8927,9 @@ export const AdminPage: React.FC = () => {
                           ج.م / نقطة
                         </span>
                       </div>
-                      <div className="mt-2 p-2.5 bg-purple-50/70 border border-purple-200/60 rounded-xl text-[11px] text-purple-800 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
-                        <span>
-                          مثال عملي: كل <strong>100 نقطة</strong> تعادل حالياً <strong>{(100 * loyaltySettings.pointsRedemptionRate).toFixed(1)} جنيه</strong> في محفظة العميل.
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Live Dynamic Cashback Banner in Admin */}
-                    <div className="p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border border-purple-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5 text-xs font-black text-purple-900">
-                          <Gift className="w-4 h-4 text-purple-600 shrink-0" />
-                          <span>نسبة الكاش باك التلقائية الممنوحة للعميل:</span>
-                        </div>
-                        <div className="text-[11px] text-purple-700 font-medium">
-                          {loyaltySettings.pointsPerPound < 1 && loyaltySettings.pointsPerPound > 0
-                            ? `يكتسب العميل 1 نقطة لكل ${Math.round((1 / loyaltySettings.pointsPerPound) * 10) / 10} ج.م • كل 1 نقطة = ${loyaltySettings.pointsRedemptionRate} ج.م رصيد`
-                            : `يكتسب العميل ${loyaltySettings.pointsPerPound} نقطة لكل 1 ج.م • كل 1 نقطة = ${loyaltySettings.pointsRedemptionRate} ج.م رصيد`}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-xs sm:text-sm font-black font-mono text-purple-700 bg-white px-3 py-1.5 rounded-xl shadow-2xs border border-purple-200">
-                          كاش باك {((loyaltySettings.pointsPerPound || 0) * (loyaltySettings.pointsRedemptionRate || 0) * 100).toFixed(2).replace(/\.00$/, '')}%
-                        </div>
-                      </div>
+                      <span className="text-[10px] text-slate-500 block mt-1">
+                        كم جنيه يحصل عليه العميل في محفظته مقابل كل 1 نقطة يستبدلها (مثال: 1.0 تعني كل نقطة = 1 جنيه).
+                      </span>
                     </div>
 
                     {/* Min Points to Redeem */}
@@ -8352,7 +8962,7 @@ export const AdminPage: React.FC = () => {
                           min="0"
                           step="any"
                           value={loyaltySettings.pointsPerPound}
-                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsPerPound: parseFloat(e.target.value) || 0 })}
+                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsPerPound: Math.max(0, parseFloat(e.target.value) || 0) })}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                           required
                         />

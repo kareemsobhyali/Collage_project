@@ -193,4 +193,78 @@ router.post("/admin/test-sms", requireSuperAdmin, async (req: Request, res: Resp
   }
 });
 
+// 9. لوحة الإدارة: إطلاق حملة رسائل تسويقية جماعية
+router.post("/admin/campaign", requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const { numbers, message, title } = req.body;
+    if (!Array.isArray(numbers) || numbers.length === 0) {
+      res.status(400).json({ error: "يرجى تحديد أرقام الهواتف المستهدفة للحملة التسويقية" });
+      return;
+    }
+
+    if (!message || !message.trim()) {
+      res.status(400).json({ error: "الرجاء كتابة نص الرسالة التسويقية" });
+      return;
+    }
+
+    const result = await smsGatewayService.sendBulkMarketingSms(numbers, message, title);
+    res.json({
+      message: `تم إدراج الحملة التسويقية بنجاح بعدد ${result.totalQueued} رسالة في طابور الإرسال! 🚀`,
+      ...result,
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "فشل إطلاق الحملة التسويقية" });
+  }
+});
+
+// 10. لوحة الإدارة: استيراد أرقام العملاء المسجلين
+router.get("/admin/registered-customer-phones", requireSuperAdmin, async (_req: Request, res: Response) => {
+  try {
+    const { prisma } = await import("../prisma.js");
+    const customers = await prisma.user.findMany({
+      where: {
+        role: "CUSTOMER",
+        phone: { not: "" },
+      },
+      select: {
+        phone: true,
+        name: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const uniqueMap = new Map<string, string>();
+    for (const c of customers) {
+      const clean = c.phone.trim();
+      if (/^01[0125][0-9]{8}$/.test(clean) && !uniqueMap.has(clean)) {
+        uniqueMap.set(clean, c.name);
+      }
+    }
+
+    const list = Array.from(uniqueMap.entries()).map(([phone, name]) => ({ phone, name }));
+    res.json({
+      success: true,
+      count: list.length,
+      customers: list,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "فشل استيراد أرقام العملاء" });
+  }
+});
+
+// 11. لوحة الإدارة: إلغاء الرسائل التسويقية المعلقة في الطابور
+router.post("/admin/cancel-pending-marketing", requireSuperAdmin, async (_req: Request, res: Response) => {
+  try {
+    const result = await smsGatewayService.cancelPendingMarketingMessages();
+    res.json({
+      success: true,
+      message: `تم إلغاء ${result.cancelledCount} رسالة تسويقية معلقة بنجاح.`,
+      ...result,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "فشل إلغاء الرسائل التسويقية" });
+  }
+});
+
 export default router;

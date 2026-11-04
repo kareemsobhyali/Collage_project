@@ -20,24 +20,42 @@ class SmsGatewayService {
    * استرجاع أو إنشاء جهاز SMS Gateway الافتراضي
    */
   async getOrCreateDefaultDevice() {
-    let device = await prisma.smsGatewayDevice.findFirst({
-      where: { isActive: true },
-      orderBy: { createdAt: "asc" },
-    });
-
-    if (!device) {
-      device = await prisma.smsGatewayDevice.create({
-        data: {
-          deviceName: "هاتف الإدارة الأساسي (Android SMS Gateway)",
-          deviceKey: this.defaultDeviceKey,
-          isOnline: false,
-          batteryLevel: 100,
-          isCharging: false,
-        },
+    try {
+      let device = await prisma.smsGatewayDevice.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "asc" },
       });
-    }
 
-    return device;
+      if (!device) {
+        device = await prisma.smsGatewayDevice.create({
+          data: {
+            deviceName: "هاتف الإدارة الأساسي (Android SMS Gateway)",
+            deviceKey: this.defaultDeviceKey,
+            isOnline: false,
+            batteryLevel: 100,
+            isCharging: false,
+          },
+        });
+      }
+
+      return device;
+    } catch (err: any) {
+      console.warn("[SmsGateway] Could not access SmsGatewayDevice table from DB, using fallback mock:", err?.message);
+      return {
+        id: "default-gateway-device",
+        deviceName: "هاتف الإدارة الأساسي (Android SMS Gateway)",
+        deviceKey: this.defaultDeviceKey,
+        phoneNumber: null,
+        simOperator: null,
+        batteryLevel: 100,
+        isCharging: false,
+        isOnline: false,
+        lastSeenAt: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
   }
 
   /**
@@ -46,9 +64,16 @@ class SmsGatewayService {
   async verifyDevice(deviceKey: string) {
     if (!deviceKey) return null;
     const cleanKey = deviceKey.trim();
-    return prisma.smsGatewayDevice.findUnique({
-      where: { deviceKey: cleanKey },
-    });
+    try {
+      return await prisma.smsGatewayDevice.findUnique({
+        where: { deviceKey: cleanKey },
+      });
+    } catch (err: any) {
+      if (cleanKey === this.defaultDeviceKey) {
+        return await this.getOrCreateDefaultDevice();
+      }
+      return null;
+    }
   }
 
   /**
@@ -58,27 +83,32 @@ class SmsGatewayService {
     const device = await this.verifyDevice(deviceKey);
     if (!device) return null;
 
-    const updated = await prisma.smsGatewayDevice.update({
-      where: { id: device.id },
-      data: {
-        isOnline: true,
-        lastSeenAt: new Date(),
-        batteryLevel: data.batteryLevel !== undefined ? Math.round(data.batteryLevel) : device.batteryLevel,
-        isCharging: data.isCharging !== undefined ? Boolean(data.isCharging) : device.isCharging,
-        simOperator: data.simOperator || device.simOperator,
-        phoneNumber: data.phoneNumber || device.phoneNumber,
-      },
-    });
-
-    // إشعار لوحة الأدمن بتحديث حالة جهاز الرسائل لحظياً
     try {
-      const io = getIO();
-      if (io) {
-        io.to("admin_room").emit("sms_gateway:device_updated", updated);
-      }
-    } catch (_e) {}
+      const updated = await prisma.smsGatewayDevice.update({
+        where: { id: device.id },
+        data: {
+          isOnline: true,
+          lastSeenAt: new Date(),
+          batteryLevel: data.batteryLevel !== undefined ? Math.round(data.batteryLevel) : device.batteryLevel,
+          isCharging: data.isCharging !== undefined ? Boolean(data.isCharging) : device.isCharging,
+          simOperator: data.simOperator || device.simOperator,
+          phoneNumber: data.phoneNumber || device.phoneNumber,
+        },
+      });
 
-    return updated;
+      // إشعار لوحة الأدمن بتحديث حالة جهاز الرسائل لحظياً
+      try {
+        const io = getIO();
+        if (io) {
+          io.to("admin_room").emit("sms_gateway:device_updated", updated);
+        }
+      } catch (_e) {}
+
+      return updated;
+    } catch (err: any) {
+      console.warn("[SmsGateway] updateHeartbeat warning:", err?.message);
+      return device;
+    }
   }
 
   /**
@@ -97,32 +127,39 @@ class SmsGatewayService {
   /**
    * إضافة رسالة SMS إلى طابور الإرسال وإرسالها فوراً إن كان الجهاز متصلاً
    */
-  async queueSms(phone: string, message: string, type: "OTP" | "ALERT" | "CUSTOM" = "OTP") {
+  async queueSms(phone: string, message: string, type: "OTP" | "ALERT" | "CUSTOM" | "MARKETING" = "OTP") {
     const cleanPhone = String(phone).trim().replace(/\s+/g, "");
     const device = await this.getOrCreateDefaultDevice();
 
-    const log = await prisma.smsMessageLog.create({
-      data: {
-        phone: cleanPhone,
-        message: message.trim(),
-        type,
-        status: "PENDING",
-        deviceId: device.id,
-      },
-    });
+    let logId: string = crypto.randomUUID();
+    let dispatchedImmediately = false;
+
+    try {
+      const log = await prisma.smsMessageLog.create({
+        data: {
+          phone: cleanPhone,
+          message: message.trim(),
+          type,
+          status: "PENDING",
+          deviceId: device.id,
+        },
+      });
+      logId = log.id;
+    } catch (dbErr: any) {
+      console.warn("[SmsGateway] Could not persist smsMessageLog to DB:", dbErr?.message);
+    }
 
     // محاولة الإرسال الفوري المباشر عبر السوكت إذا كان تطبيق الأندرويد متصلاً
-    let dispatchedImmediately = false;
     try {
       const io = getIO();
       if (io) {
         // إرسال لغرفة أجهزة الـ SMS أو سوكت الجهاز المحدد
         io.to("sms_gateway_device_room").emit("sms:send", {
-          id: log.id,
-          phone: log.phone,
-          message: log.message,
-          type: log.type,
-          createdAt: log.createdAt,
+          id: logId,
+          phone: cleanPhone,
+          message: message.trim(),
+          type,
+          createdAt: new Date(),
         });
         dispatchedImmediately = true;
       }
@@ -132,7 +169,7 @@ class SmsGatewayService {
 
     return {
       success: true,
-      logId: log.id,
+      logId,
       dispatchedImmediately,
     };
   }
@@ -272,6 +309,93 @@ class SmsGatewayService {
   async sendPasswordResetSms(phone: string, otpCode: string) {
     const message = `كود استعادة كلمة المرور لحسابك في UniFood هو: ${otpCode}\nصلاحية الكود 5 دقائق، لا تشاركه مع أحد.`;
     return this.queueSms(phone, message, "OTP");
+  }
+
+  /**
+   * إرسال حملة رسائل تسويقية جماعية من ملف إكسل أو قائمة أرقام
+   */
+  async sendBulkMarketingSms(numbers: string[], message: string, title?: string) {
+    const validNumbers = Array.from(new Set(
+      numbers
+        .map(n => String(n).trim().replace(/[^0-9]/g, ""))
+        .map(n => {
+          if (n.startsWith("201") && n.length === 12) return "0" + n.substring(2);
+          if (n.startsWith("00201") && n.length === 14) return "0" + n.substring(4);
+          return n;
+        })
+        .filter(n => /^01[0125][0-9]{8}$/.test(n))
+    ));
+
+    if (validNumbers.length === 0) {
+      throw new Error("لم يتم العثور على أي أرقام هواتف مصرية صالحة (010, 011, 012, 015)");
+    }
+
+    const cleanMessage = String(message || "").trim();
+    if (!cleanMessage) {
+      throw new Error("نص الرسالة التسويقية مطلوب");
+    }
+
+    const device = await this.getOrCreateDefaultDevice();
+
+    const createdLogs = await prisma.$transaction(
+      validNumbers.map(phone =>
+        prisma.smsMessageLog.create({
+          data: {
+            phone,
+            message: cleanMessage,
+            type: "MARKETING",
+            status: "PENDING",
+            deviceId: device.id,
+          },
+        })
+      )
+    );
+
+    try {
+      const io = getIO();
+      if (io) {
+        io.to("sms_gateway_device_room").emit("sms:campaign_queued", {
+          count: createdLogs.length,
+          title: title || "حملة تسويقية جديدة",
+        });
+        io.to("admin_room").emit("sms_gateway:campaign_started", {
+          count: createdLogs.length,
+        });
+      }
+    } catch (_e) {}
+
+    return {
+      success: true,
+      totalQueued: createdLogs.length,
+      sampleNumbers: validNumbers.slice(0, 5),
+    };
+  }
+
+  /**
+   * إلغاء الرسائل التسويقية المعلقة في الطابور
+   */
+  async cancelPendingMarketingMessages() {
+    const res = await prisma.smsMessageLog.updateMany({
+      where: {
+        status: "PENDING",
+        type: "MARKETING",
+      },
+      data: {
+        status: "FAILED",
+        errorReason: "تم إلغاء الإرسال من لوحة الإدارة",
+      },
+    });
+
+    try {
+      const io = getIO();
+      if (io) {
+        io.to("admin_room").emit("sms_gateway:campaign_cancelled", {
+          cancelledCount: res.count,
+        });
+      }
+    } catch (_e) {}
+
+    return { cancelledCount: res.count };
   }
 }
 

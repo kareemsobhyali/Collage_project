@@ -736,6 +736,7 @@ export const api = {
   async getWallet() {
     const res = await fetch(`${API_BASE_URL}/customer/wallet`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل جلب بيانات المحفظة');
@@ -1080,7 +1081,9 @@ export const api = {
   // 37. إعدادات نظام نقاط الولاء
   async getPublicLoyaltySettings() {
     try {
-      const res = await fetch(`${API_BASE_URL}/customer/public/loyalty-settings`);
+      const res = await fetch(`${API_BASE_URL}/customer/public/loyalty-settings`, {
+        cache: 'no-store',
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       return data;
@@ -1092,6 +1095,7 @@ export const api = {
   async getLoyaltySettings() {
     const res = await fetch(`${API_BASE_URL}/admin/settings/loyalty`, {
       headers: getAdminHeaders(),
+      cache: 'no-store',
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل جلب إعدادات نظام النقاط');
@@ -1903,6 +1907,36 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل إرسال الرسالة التجريبية');
+    return data;
+  },
+
+  async sendSmsMarketingCampaign(numbers: string[], message: string, title?: string) {
+    const res = await fetch(`${API_BASE_URL}/sms-gateway/admin/campaign`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ numbers, message, title }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إطلاق الحملة التسويقية');
+    return data;
+  },
+
+  async getRegisteredCustomerPhones() {
+    const res = await fetch(`${API_BASE_URL}/sms-gateway/admin/registered-customer-phones`, {
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استيراد أرقام العملاء');
+    return data;
+  },
+
+  async cancelPendingMarketingSms() {
+    const res = await fetch(`${API_BASE_URL}/sms-gateway/admin/cancel-pending-marketing`, {
+      method: 'POST',
+      headers: getAdminHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إلغاء الرسائل التسويقية');
     return data;
   },
 };

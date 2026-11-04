@@ -194,13 +194,17 @@ public class UniFoodSmsGatewayService extends Service {
         SmsManager smsManager = null;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
-                if (subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                int selectedSubId = prefs.getInt(KEY_SELECTED_SIM_ID, -1);
+                int targetSubId = selectedSubId != -1 ? selectedSubId : SubscriptionManager.getDefaultSmsSubscriptionId();
+
+                if (targetSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        smsManager = getSystemService(SmsManager.class).createForSubscriptionId(subId);
+                        smsManager = getSystemService(SmsManager.class).createForSubscriptionId(targetSubId);
                     } else {
-                        smsManager = SmsManager.getSmsManagerForSubscriptionId(subId);
+                        smsManager = SmsManager.getSmsManagerForSubscriptionId(targetSubId);
                     }
+                    Log.i(TAG, "Using target SIM subscriptionId: " + targetSubId + (selectedSubId != -1 ? " (User Selected)" : " (System Default)"));
                 } else {
                     SubscriptionManager subManager = (SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
                     if (subManager != null) {
@@ -379,6 +383,22 @@ public class UniFoodSmsGatewayService extends Service {
 
     private String getSimOperatorName() {
         try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            int selectedSubId = prefs.getInt(KEY_SELECTED_SIM_ID, -1);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1 && selectedSubId != -1) {
+                SubscriptionManager sm = (SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                if (sm != null) {
+                    List<SubscriptionInfo> list = sm.getActiveSubscriptionInfoList();
+                    if (list != null) {
+                        for (SubscriptionInfo info : list) {
+                            if (info.getSubscriptionId() == selectedSubId) {
+                                return "شريحة " + (info.getSimSlotIndex() + 1) + " (" + info.getDisplayName() + ")";
+                            }
+                        }
+                    }
+                }
+            }
+
             TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
             if (tm != null) {
                 String op = tm.getNetworkOperatorName();

@@ -31,6 +31,9 @@ export const SmsGatewayClientPage: React.FC = () => {
   const [hasSmsPermission, setHasSmsPermission] = useState(false);
   const [isNativeApp, setIsNativeApp] = useState(false);
 
+  const [availableSims, setAvailableSims] = useState<any[]>([]);
+  const [selectedSubId, setSelectedSubId] = useState<number>(-1);
+
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const [simOperator, setSimOperator] = useState<string>('جاري الفحص...');
   const [todaySentCount, setTodaySentCount] = useState<number>(0);
@@ -51,6 +54,14 @@ export const SmsGatewayClientPage: React.FC = () => {
       try {
         setHasSmsPermission(Boolean(bridge.isSmsPermissionGranted?.()));
         setIsServiceRunning(Boolean(bridge.isSmsGatewayRunning?.()));
+        if (bridge.getActiveSimCards) {
+          const simsJson = bridge.getActiveSimCards();
+          const parsed = JSON.parse(simsJson || '[]');
+          setAvailableSims(parsed);
+        }
+        if (bridge.getSelectedSimSubscriptionId) {
+          setSelectedSubId(bridge.getSelectedSimSubscriptionId());
+        }
       } catch (_e) {}
     }
 
@@ -72,6 +83,14 @@ export const SmsGatewayClientPage: React.FC = () => {
       try {
         setHasSmsPermission(Boolean(bridge.isSmsPermissionGranted?.()));
         setIsServiceRunning(Boolean(bridge.isSmsGatewayRunning?.()));
+        if (bridge.getActiveSimCards) {
+          const simsJson = bridge.getActiveSimCards();
+          const parsed = JSON.parse(simsJson || '[]');
+          setAvailableSims(parsed);
+        }
+        if (bridge.getSelectedSimSubscriptionId) {
+          setSelectedSubId(bridge.getSelectedSimSubscriptionId());
+        }
       } catch (_e) {}
     }
 
@@ -106,6 +125,16 @@ export const SmsGatewayClientPage: React.FC = () => {
       setTimeout(refreshStatus, 2000);
     } else {
       alert('يتم تفعيل صلاحية إرسال الرسائل عند فتح التطبيق داخل هاتف الأندرويد.');
+    }
+  };
+
+  // اختيار شريحة الـ SIM
+  const handleSelectSim = (subId: number) => {
+    setSelectedSubId(subId);
+    const bridge = (window as any).AndroidBridge;
+    if (bridge?.setSelectedSimSubscriptionId) {
+      bridge.setSelectedSimSubscriptionId(subId);
+      setTimeout(refreshStatus, 400);
     }
   };
 
@@ -290,6 +319,64 @@ export const SmsGatewayClientPage: React.FC = () => {
                 {lastCheckTime || 'الآن'}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* SIM Selection Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-3.5">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-emerald-400" />
+              <h4 className="text-sm font-black text-white">شريحة إرسال الرسائل (SIM Line)</h4>
+            </div>
+            <span className="text-[10px] bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full font-bold">
+              {availableSims.length > 0 ? `${availableSims.length} شرائح مكتشفة` : 'تحديد الخط'}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed">
+            اختر شريحة الاتصال التي تود إرسال الرسائل منها، أو اختر &quot;تلقائي&quot; للاعتماد على الشريحة الافتراضية للهاتف:
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <button
+              type="button"
+              onClick={() => handleSelectSim(-1)}
+              className={`p-3 rounded-2xl border text-right transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                selectedSubId === -1
+                  ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/30'
+                  : 'bg-slate-800/40 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              }`}
+            >
+              <div>
+                <span className="text-xs font-black block">⚙️ تلقائي (Default)</span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">الشريحة الافتراضية للهاتف</span>
+              </div>
+              {selectedSubId === -1 && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
+            </button>
+
+            {availableSims.map((sim: any) => (
+              <button
+                key={sim.subscriptionId}
+                type="button"
+                onClick={() => handleSelectSim(sim.subscriptionId)}
+                className={`p-3 rounded-2xl border text-right transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                  selectedSubId === sim.subscriptionId
+                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/30'
+                    : 'bg-slate-800/40 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                }`}
+              >
+                <div>
+                  <span className="text-xs font-black block">
+                    📱 شريحة {sim.simSlot} ({sim.displayName || sim.carrierName || 'SIM'})
+                  </span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    {sim.carrierName ? `شبكة ${sim.carrierName}` : `Slot ${sim.slotIndex}`}
+                  </span>
+                </div>
+                {selectedSubId === sim.subscriptionId && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
+              </button>
+            ))}
           </div>
         </div>
 

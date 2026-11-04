@@ -756,7 +756,43 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "isDeal" BOOLEAN DEFAULT false;`,
       `CREATE UNIQUE INDEX IF NOT EXISTS "BranchBlockedCustomer_branchId_userId_key" ON "BranchBlockedCustomer"("branchId", "userId");`,
       `CREATE INDEX IF NOT EXISTS "BranchBlockedCustomer_branchId_idx" ON "BranchBlockedCustomer"("branchId");`,
-      `CREATE INDEX IF NOT EXISTS "BranchBlockedCustomer_userId_idx" ON "BranchBlockedCustomer"("userId");`
+      `CREATE INDEX IF NOT EXISTS "BranchBlockedCustomer_userId_idx" ON "BranchBlockedCustomer"("userId");`,
+
+      // إنشاء جداول بوابة رسائل الـ SMS Gateway إن لم تكن موجودة بقاعدة البيانات
+      `CREATE TABLE IF NOT EXISTS "SmsGatewayDevice" (
+        "id" TEXT NOT NULL,
+        "deviceName" TEXT NOT NULL,
+        "deviceKey" TEXT NOT NULL,
+        "phoneNumber" TEXT,
+        "simOperator" TEXT,
+        "batteryLevel" INTEGER,
+        "isCharging" BOOLEAN NOT NULL DEFAULT false,
+        "isOnline" BOOLEAN NOT NULL DEFAULT false,
+        "lastSeenAt" TIMESTAMP(3),
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "SmsGatewayDevice_pkey" PRIMARY KEY ("id")
+      );`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "SmsGatewayDevice_deviceKey_key" ON "SmsGatewayDevice"("deviceKey");`,
+      `CREATE INDEX IF NOT EXISTS "SmsGatewayDevice_deviceKey_idx" ON "SmsGatewayDevice"("deviceKey");`,
+      `CREATE INDEX IF NOT EXISTS "SmsGatewayDevice_isActive_idx" ON "SmsGatewayDevice"("isActive");`,
+
+      `CREATE TABLE IF NOT EXISTS "SmsMessageLog" (
+        "id" TEXT NOT NULL,
+        "phone" TEXT NOT NULL,
+        "message" TEXT NOT NULL,
+        "type" TEXT NOT NULL DEFAULT 'OTP',
+        "status" TEXT NOT NULL DEFAULT 'PENDING',
+        "errorReason" TEXT,
+        "deviceId" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "sentAt" TIMESTAMP(3),
+        CONSTRAINT "SmsMessageLog_pkey" PRIMARY KEY ("id")
+      );`,
+      `CREATE INDEX IF NOT EXISTS "SmsMessageLog_status_idx" ON "SmsMessageLog"("status");`,
+      `CREATE INDEX IF NOT EXISTS "SmsMessageLog_phone_idx" ON "SmsMessageLog"("phone");`,
+      `CREATE INDEX IF NOT EXISTS "SmsMessageLog_deviceId_idx" ON "SmsMessageLog"("deviceId");`
     ];
 
     for (const sql of patches) {

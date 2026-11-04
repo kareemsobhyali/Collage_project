@@ -379,6 +379,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [walletBalance, setWalletBalance] = useState<number>(user?.walletBalance || 0);
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(user?.loyaltyPoints || 0);
   const [pointsRedemptionRate, setPointsRedemptionRate] = useState<number>(1);
+  const [pointsPerPound, setPointsPerPound] = useState<number>(0.1);
   const [convertingPoints, setConvertingPoints] = useState(false);
 
   // حالة الـ GPS المدمج مع العنوان المكتوب
@@ -589,12 +590,27 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             setWalletBalance(w.walletBalance ?? 0);
             setLoyaltyPoints(w.loyaltyPoints ?? 0);
             if (w.settings?.pointsRedemptionRate) {
-              setPointsRedemptionRate(w.settings.pointsRedemptionRate);
+              setPointsRedemptionRate(Number(w.settings.pointsRedemptionRate) || 1);
+            }
+            if (w.settings?.pointsPerPound) {
+              setPointsPerPound(Number(w.settings.pointsPerPound) || 0.1);
             }
           }
         })
         .catch(() => {});
     }
+
+    api
+      .getPublicLoyaltySettings()
+      .then((s) => {
+        if (s?.pointsPerPound) {
+          setPointsPerPound(Number(s.pointsPerPound) || 0.1);
+        }
+        if (s?.pointsRedemptionRate) {
+          setPointsRedemptionRate(Number(s.pointsRedemptionRate) || 1);
+        }
+      })
+      .catch(() => {});
   }, [user]);
 
   // إذا تم التقاط إحداثيات الـ GPS وكان العنوان المحفوظ بدون إحداثيات، نربط الإحداثيات به تلقائياً
@@ -809,7 +825,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const walletDiscount =
     useWallet && walletBalance > 0 ? Math.min(preWalletTotal, walletBalance) : 0;
   const total = Math.max(0, preWalletTotal - walletDiscount);
-  const pointsToEarn = Math.max(1, Math.floor(subtotal / 10));
+  const pointsToEarn = pointsPerPound > 0 ? Math.floor(subtotal * pointsPerPound) : 0;
 
   const isPhoneValid = /^01[0125][0-9]{8}$/.test(customerPhone.trim());
   const cleanEgyptianPhoneInput = (val: string) => {
