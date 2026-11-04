@@ -1861,6 +1861,90 @@ export const api = {
     return data;
   },
 
+  async getBranchFlashDeals() {
+    const res = await fetch(`${API_BASE_URL}/branch/flash-deals`, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع عروض المتجر');
+    return data;
+  },
+
+  async createBranchFlashDeal(dealData: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/flash-deals`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(dealData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إنشاء العرض');
+    return data;
+  },
+
+  async updateBranchFlashDeal(id: string, dealData: any) {
+    const res = await fetch(`${API_BASE_URL}/branch/flash-deals/${id}`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(dealData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعديل العرض');
+    return data;
+  },
+
+  async deleteBranchFlashDeal(id: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/flash-deals/${id}`, {
+      method: 'DELETE',
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل حذف العرض');
+    return data;
+  },
+
+  async toggleBranchFlashDeal(id: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/flash-deals/${id}/toggle`, {
+      method: 'PATCH',
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تعديل حالة العرض');
+    return data;
+  },
+
+  async getBranchCustomers() {
+    const res = await fetch(`${API_BASE_URL}/branch/customers`, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع عملاء المتجر');
+    return data;
+  },
+
+  async updateBranchCustomerCrm(userId: string, dataObj: { isBlocked?: boolean; restaurantNotes?: string }) {
+    const res = await fetch(`${API_BASE_URL}/branch/customers/${userId}/crm`, {
+      method: 'PUT',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(dataObj),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث بيانات العميل');
+    return data;
+  },
+
+  async unblockBranchCustomer(userId: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/customers/${userId}/unblock`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل فك حظر العميل');
+    return data;
+  },
+
+  async getBranchReviews() {
+    const res = await fetch(`${API_BASE_URL}/branch/reviews`, { headers: getBranchHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل استرجاع تقييمات المتجر');
+    return data;
+  },
+
   // 35. خدمات بوابة الرسائل SMS Gateway
   async getSmsConfig() {
     const res = await fetch(`${API_BASE_URL}/sms-gateway/config`);

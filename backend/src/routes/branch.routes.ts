@@ -2971,10 +2971,13 @@ router.get("/stats", async (req: AuthRequest, res: Response) => {
       completedOrders,
       todayCompletedOrders,
       monthCompletedOrders,
+      cancelledOrdersCount,
+      activeOrdersCount,
       itemsCount,
       categoriesCount,
       activeDriversCount,
       paymentBreakdown,
+      allRatings,
     ] = await Promise.all([
       prisma.order.count({ where: { branchId } }),
       prisma.order.count({ where: { branchId, createdAt: { gte: startOfToday } } }),
@@ -2990,6 +2993,8 @@ router.get("/stats", async (req: AuthRequest, res: Response) => {
         where: { branchId, status: "COMPLETED", createdAt: { gte: startOfMonth } },
         select: { total: true },
       }),
+      prisma.order.count({ where: { branchId, status: "CANCELLED" } }),
+      prisma.order.count({ where: { branchId, status: { in: ["PENDING", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY"] } } }),
       prisma.menuItem.count({ where: { branchId } }),
       prisma.menuCategory.count({ where: { branchId } }),
       prisma.deliveryDriver.count({ where: { branchId, isActive: true } }),
@@ -2999,12 +3004,20 @@ router.get("/stats", async (req: AuthRequest, res: Response) => {
         _sum: { total: true },
         _count: { id: true },
       }),
+      prisma.order.findMany({
+        where: { branchId, rating: { not: null } },
+        select: { rating: true },
+      }),
     ]);
 
     const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
     const todayRevenue = todayCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
     const monthRevenue = monthCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
     const averageOrderValue = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
+    const cancellationRate = totalOrders > 0 ? Math.round((cancelledOrdersCount / totalOrders) * 100) : 0;
+    const avgRating = allRatings.length > 0 
+      ? Math.round((allRatings.reduce((acc, r) => acc + (r.rating || 0), 0) / allRatings.length) * 10) / 10 
+      : 5.0;
 
     res.json({
       success: true,
@@ -3013,6 +3026,11 @@ router.get("/stats", async (req: AuthRequest, res: Response) => {
         todayOrders,
         completedOrdersCount: completedOrders.length,
         todayCompletedCount: todayCompletedOrders.length,
+        cancelledOrdersCount,
+        activeOrdersCount,
+        cancellationRate,
+        averageRating: avgRating,
+        totalReviewsCount: allRatings.length,
         totalRevenue,
         todayRevenue,
         monthRevenue,
@@ -3030,6 +3048,323 @@ router.get("/stats", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Branch stats error:", error);
     res.status(500).json({ error: "فشل استرجاع إحصائيات الفرع" });
+  }
+});
+
+// 30. إدارة عروض الفلاش الخاصة بالفرع (Branch Flash Deals)
+router.get("/flash-deals", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const deals = await prisma.flashDeal.findMany({
+      where: { branchId },
+      orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+    });
+    res.json({ success: true, deals });
+  } catch (error) {
+    console.error("Get branch flash deals error:", error);
+    res.status(500).json({ error: "فشل استرجاع عروض المطعم" });
+  }
+});
+
+router.post("/flash-deals", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const {
+      title,
+      subtitle,
+      dealType,
+      menuItemId,
+      originalPrice,
+      discountPrice,
+      discountPercent,
+      promoCode,
+      badgeText,
+      imageUrl,
+      maxQuantity,
+      isUnlimited,
+      maxPerUser,
+      isRecurring,
+      recurringDays,
+      dailyStartTime,
+      dailyEndTime,
+      expiresAt,
+      isActive,
+      displayOrder,
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      res.status(400).json({ error: "عنوان العرض مطلوب" });
+      return;
+    }
+
+    const resolvedExpiresAt = expiresAt ? new Date(expiresAt) : new Date(Date.now() + 365 * 24 * 3600 * 1000);
+    const origPrice = originalPrice !== undefined && originalPrice !== "" && !isNaN(Number(originalPrice)) ? Number(originalPrice) : null;
+    const discPrice = discountPrice !== undefined && discountPrice !== "" && !isNaN(Number(discountPrice)) ? Number(discountPrice) : null;
+    let discPercent = discountPercent !== undefined && discountPercent !== "" && !isNaN(Number(discountPercent)) ? parseInt(discountPercent) : null;
+    if (!discPercent && origPrice && discPrice && origPrice > discPrice) {
+      discPercent = Math.round(((origPrice - discPrice) / origPrice) * 100);
+    }
+
+    const deal = await prisma.flashDeal.create({
+      data: {
+        title: title.trim(),
+        subtitle: subtitle ? subtitle.trim() : null,
+        dealType: dealType || "COMBO",
+        branchId,
+        menuItemId: menuItemId && String(menuItemId).trim() ? String(menuItemId).trim() : null,
+        originalPrice: origPrice,
+        discountPrice: discPrice,
+        discountPercent: discPercent,
+        promoCode: promoCode && String(promoCode).trim() ? String(promoCode).trim().toUpperCase() : null,
+        badgeText: badgeText ? badgeText.trim() : "عرض خاص 🔥",
+        imageUrl: imageUrl ? imageUrl.trim() : null,
+        maxQuantity: isUnlimited ? null : (maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : null),
+        isUnlimited: Boolean(isUnlimited),
+        maxPerUser: maxPerUser !== undefined && maxPerUser !== "" && !isNaN(Number(maxPerUser)) ? Math.max(1, parseInt(maxPerUser)) : null,
+        isRecurring: Boolean(isRecurring),
+        recurringDays: recurringDays ? String(recurringDays).trim() : null,
+        dailyStartTime: dailyStartTime ? String(dailyStartTime).trim() : null,
+        dailyEndTime: dailyEndTime ? String(dailyEndTime).trim() : null,
+        expiresAt: resolvedExpiresAt,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+        displayOrder: displayOrder !== undefined ? parseInt(displayOrder) || 0 : 0,
+      },
+    });
+
+    res.status(201).json({ success: true, deal });
+  } catch (error) {
+    console.error("Create branch flash deal error:", error);
+    res.status(500).json({ error: "فشل إنشاء العرض" });
+  }
+});
+
+router.put("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const id = req.params.id as string;
+
+    const existing = await prisma.flashDeal.findFirst({ where: { id, branchId } });
+    if (!existing) {
+      res.status(404).json({ error: "العرض غير موجود أو غير تابع لمطعمك" });
+      return;
+    }
+
+    const {
+      title,
+      subtitle,
+      dealType,
+      menuItemId,
+      originalPrice,
+      discountPrice,
+      discountPercent,
+      promoCode,
+      badgeText,
+      imageUrl,
+      maxQuantity,
+      isUnlimited,
+      maxPerUser,
+      isRecurring,
+      recurringDays,
+      dailyStartTime,
+      dailyEndTime,
+      expiresAt,
+      isActive,
+      displayOrder,
+    } = req.body;
+
+    const origPrice = originalPrice !== undefined && originalPrice !== "" && !isNaN(Number(originalPrice)) ? Number(originalPrice) : null;
+    const discPrice = discountPrice !== undefined && discountPrice !== "" && !isNaN(Number(discountPrice)) ? Number(discountPrice) : null;
+    let discPercent = discountPercent !== undefined && discountPercent !== "" && !isNaN(Number(discountPercent)) ? parseInt(discountPercent) : null;
+    if (!discPercent && origPrice && discPrice && origPrice > discPrice) {
+      discPercent = Math.round(((origPrice - discPrice) / origPrice) * 100);
+    }
+
+    const updated = await prisma.flashDeal.update({
+      where: { id },
+      data: {
+        title: title ? title.trim() : existing.title,
+        subtitle: subtitle !== undefined ? (subtitle ? subtitle.trim() : null) : existing.subtitle,
+        dealType: dealType || existing.dealType,
+        menuItemId: menuItemId !== undefined ? (menuItemId ? String(menuItemId).trim() : null) : existing.menuItemId,
+        originalPrice: origPrice !== null ? origPrice : existing.originalPrice,
+        discountPrice: discPrice !== null ? discPrice : existing.discountPrice,
+        discountPercent: discPercent !== null ? discPercent : existing.discountPercent,
+        promoCode: promoCode !== undefined ? (promoCode ? String(promoCode).trim().toUpperCase() : null) : existing.promoCode,
+        badgeText: badgeText !== undefined ? (badgeText ? badgeText.trim() : null) : existing.badgeText,
+        imageUrl: imageUrl !== undefined ? (imageUrl ? imageUrl.trim() : null) : existing.imageUrl,
+        maxQuantity: isUnlimited ? null : (maxQuantity !== undefined && maxQuantity !== "" && !isNaN(Number(maxQuantity)) ? Math.max(1, parseInt(maxQuantity)) : existing.maxQuantity),
+        isUnlimited: isUnlimited !== undefined ? Boolean(isUnlimited) : existing.isUnlimited,
+        maxPerUser: maxPerUser !== undefined && maxPerUser !== "" && !isNaN(Number(maxPerUser)) ? Math.max(1, parseInt(maxPerUser)) : existing.maxPerUser,
+        isRecurring: isRecurring !== undefined ? Boolean(isRecurring) : existing.isRecurring,
+        recurringDays: recurringDays !== undefined ? (recurringDays ? String(recurringDays).trim() : null) : existing.recurringDays,
+        dailyStartTime: dailyStartTime !== undefined ? (dailyStartTime ? String(dailyStartTime).trim() : null) : existing.dailyStartTime,
+        dailyEndTime: dailyEndTime !== undefined ? (dailyEndTime ? String(dailyEndTime).trim() : null) : existing.dailyEndTime,
+        expiresAt: expiresAt ? new Date(expiresAt) : existing.expiresAt,
+        isActive: isActive !== undefined ? Boolean(isActive) : existing.isActive,
+        displayOrder: displayOrder !== undefined ? parseInt(displayOrder) || 0 : existing.displayOrder,
+      },
+    });
+
+    res.json({ success: true, deal: updated });
+  } catch (error) {
+    console.error("Update branch flash deal error:", error);
+    res.status(500).json({ error: "فشل تحديث العرض" });
+  }
+});
+
+router.delete("/flash-deals/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const id = req.params.id as string;
+
+    const existing = await prisma.flashDeal.findFirst({ where: { id, branchId } });
+    if (!existing) {
+      res.status(404).json({ error: "العرض غير موجود" });
+      return;
+    }
+
+    await prisma.flashDeal.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete branch flash deal error:", error);
+    res.status(500).json({ error: "فشل حذف العرض" });
+  }
+});
+
+router.patch("/flash-deals/:id/toggle", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+    const id = req.params.id as string;
+
+    const existing = await prisma.flashDeal.findFirst({ where: { id, branchId } });
+    if (!existing) {
+      res.status(404).json({ error: "العرض غير موجود" });
+      return;
+    }
+
+    const updated = await prisma.flashDeal.update({
+      where: { id },
+      data: { isActive: !existing.isActive },
+    });
+
+    res.json({ success: true, deal: updated });
+  } catch (error) {
+    console.error("Toggle branch flash deal error:", error);
+    res.status(500).json({ error: "فشل تغيير حالة العرض" });
+  }
+});
+
+// 31. جلب عملاء الفرع والعملاء المحظورين وسجل مشترياتهم
+router.get("/customers", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+
+    const [branchOrders, blockedRecords] = await Promise.all([
+      prisma.order.findMany({
+        where: { branchId },
+        select: {
+          id: true,
+          userId: true,
+          customerName: true,
+          customerPhone: true,
+          total: true,
+          status: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.branchBlockedCustomer.findMany({
+        where: { branchId },
+      }),
+    ]);
+
+    const blockedMap = new Map<string, { isBlocked: boolean; notes: string | null }>();
+    for (const b of blockedRecords) {
+      blockedMap.set(b.userId, { isBlocked: b.isBlocked, notes: b.notes });
+    }
+
+    const customerMap = new Map<string, any>();
+    for (const o of branchOrders) {
+      const key = o.userId || o.customerPhone;
+      if (!customerMap.has(key)) {
+        const crmInfo = o.userId ? blockedMap.get(o.userId) : null;
+        customerMap.set(key, {
+          userId: o.userId,
+          name: o.customerName,
+          phone: o.customerPhone,
+          totalOrders: 0,
+          completedOrders: 0,
+          cancelledOrders: 0,
+          totalSpent: 0,
+          lastOrderDate: o.createdAt,
+          isBlocked: crmInfo ? crmInfo.isBlocked : false,
+          notes: crmInfo ? crmInfo.notes : null,
+        });
+      }
+      const c = customerMap.get(key);
+      c.totalOrders += 1;
+      if (o.status === "COMPLETED") {
+        c.completedOrders += 1;
+        c.totalSpent += (o.total || 0);
+      } else if (o.status === "CANCELLED") {
+        c.cancelledOrders += 1;
+      }
+      if (new Date(o.createdAt) > new Date(c.lastOrderDate)) {
+        c.lastOrderDate = o.createdAt;
+      }
+    }
+
+    const customers = Array.from(customerMap.values()).sort((a, b) => b.totalSpent - a.totalSpent);
+    res.json({ success: true, customers });
+  } catch (error) {
+    console.error("Get branch customers error:", error);
+    res.status(500).json({ error: "فشل استرجاع قائمة عملاء الفرع" });
+  }
+});
+
+// 32. تقييمات وآراء العملاء الخاصة بالفرع
+router.get("/reviews", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchId = req.branch!.branchId;
+
+    const ratedOrders = await prisma.order.findMany({
+      where: { branchId, rating: { not: null } },
+      select: {
+        id: true,
+        customerName: true,
+        customerPhone: true,
+        rating: true,
+        review: true,
+        createdAt: true,
+        total: true,
+        items: {
+          select: { name: true, quantity: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const totalReviews = ratedOrders.length;
+    const sumRating = ratedOrders.reduce((sum, r) => sum + (r.rating || 0), 0);
+    const averageRating = totalReviews > 0 ? Math.round((sumRating / totalReviews) * 10) / 10 : 5.0;
+
+    const ratingDistribution: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    for (const r of ratedOrders) {
+      if (r.rating && r.rating >= 1 && r.rating <= 5) {
+        ratingDistribution[r.rating] = (ratingDistribution[r.rating] || 0) + 1;
+      }
+    }
+
+    res.json({
+      success: true,
+      reviews: ratedOrders,
+      totalReviews,
+      averageRating,
+      ratingDistribution,
+    });
+  } catch (error) {
+    console.error("Get branch reviews error:", error);
+    res.status(500).json({ error: "فشل استرجاع تقييمات الفرع" });
   }
 });
 
