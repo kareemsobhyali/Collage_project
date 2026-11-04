@@ -80,6 +80,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [rewardHistory, setRewardHistory] = useState<any[]>([]);
   const [convertingPoints, setConvertingPoints] = useState(false);
   const [walletMessage, setWalletMessage] = useState<string | null>(null);
+  const [loyaltySettings, setLoyaltySettings] = useState<{
+    enabled: boolean;
+    pointsPerPound: number;
+    pointsRedemptionRate: number;
+    minPointsToRedeem: number;
+    welcomePoints: number;
+  }>({
+    enabled: true,
+    pointsPerPound: 0.1,
+    pointsRedemptionRate: 1,
+    minPointsToRedeem: 50,
+    welcomePoints: 0,
+  });
 
   // Push Notification State
   const [notifPermission, setNotifPermission] = useState<string>(getNotificationPermissionState());
@@ -290,10 +303,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const loadProfileData = async () => {
     try {
       setLoadingAddresses(true);
-      const [addrData, walletData, supportData] = await Promise.all([
+      const [addrData, walletData, supportData, pubLoyalty] = await Promise.all([
         api.getAddresses().catch(() => []),
         api.getWallet().catch(() => null),
         api.getPublicSupportContact().catch(() => null),
+        api.getPublicLoyaltySettings().catch(() => null),
       ]);
       setAddresses(Array.isArray(addrData) ? addrData : []);
       if (supportData?.whatsappUrl) {
@@ -306,6 +320,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         setLoyaltyPoints(walletData.loyaltyPoints ?? 0);
         setWalletBalance(walletData.walletBalance ?? 0);
         setRewardHistory(walletData.history || []);
+        if (walletData.settings) {
+          setLoyaltySettings(walletData.settings);
+        } else if (pubLoyalty) {
+          setLoyaltySettings(pubLoyalty);
+        }
         const mergedUser = {
           ...user,
           loyaltyPoints: walletData.loyaltyPoints ?? 0,
@@ -313,6 +332,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         };
         onUpdateUser(mergedUser);
         localStorage.setItem('customer_user', JSON.stringify(mergedUser));
+      } else if (pubLoyalty) {
+        setLoyaltySettings(pubLoyalty);
       }
     } catch (e: any) {
       console.error(e);
@@ -547,104 +568,152 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           )}
 
           {/* Student Wallet & Loyalty Points Card */}
-          <div className="rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-950 to-purple-950 text-white p-4 sm:p-5 shadow-xl space-y-4 relative overflow-hidden border border-indigo-500/30">
-            {/* Ambient Glow */}
-            <div className="absolute top-0 right-1/4 w-32 h-20 bg-indigo-500/20 blur-2xl pointer-events-none rounded-full" />
-            
-            <div className="flex items-center justify-between gap-2 relative z-10">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md border border-white/15">
-                  <Wallet className="w-5 h-5 text-amber-300" />
-                </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-black text-white">محفظة ومكافآت UniFood</h4>
-                  <p className="text-[10px] text-indigo-200 font-medium">1 نقطة ولاء لكل 10 ج.م • كل نقطة = 1 ج.م رصيد</p>
-                </div>
-              </div>
-              <span className="text-[10px] bg-amber-400/20 text-amber-300 border border-amber-300/40 px-2.5 py-1 rounded-full font-black flex items-center gap-1 shrink-0 shadow-2xs">
-                <Gift className="w-3 h-3 text-amber-300" />
-                <span>كاش باك 10%</span>
-              </span>
-            </div>
+          {(() => {
+            const ppp = typeof loyaltySettings?.pointsPerPound === 'number' && loyaltySettings.pointsPerPound > 0
+              ? loyaltySettings.pointsPerPound
+              : 0.1;
+            const redemptionRate = typeof loyaltySettings?.pointsRedemptionRate === 'number' && loyaltySettings.pointsRedemptionRate > 0
+              ? loyaltySettings.pointsRedemptionRate
+              : 1;
+            const minPoints = typeof loyaltySettings?.minPointsToRedeem === 'number'
+              ? loyaltySettings.minPointsToRedeem
+              : 0;
 
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 relative z-10">
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-white/15 flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-indigo-200 block">رصيد المحفظة النقدي</span>
-                  <div className="text-xl sm:text-2xl font-black text-white mt-0.5 font-mono">
-                    {walletBalance.toFixed(0)} <span className="text-xs font-normal text-indigo-200">ج.م</span>
+            const rawCashback = ppp * redemptionRate * 100;
+            const formattedCashback = Number.isInteger(rawCashback)
+              ? rawCashback.toString()
+              : rawCashback.toFixed(1).replace(/\.0$/, '');
+
+            let pointsEarnDesc = '1 نقطة ولاء لكل 10 ج.م';
+            if (ppp < 1 && ppp > 0) {
+              const poundsPerPt = Math.round((1 / ppp) * 10) / 10;
+              pointsEarnDesc = `1 نقطة ولاء لكل ${poundsPerPt} ج.م`;
+            } else if (ppp >= 1) {
+              pointsEarnDesc = `${ppp} نقطة ولاء لكل 1 ج.م`;
+            }
+
+            let pointsRedeemDesc = `كل نقطة = ${redemptionRate} ج.م رصيد`;
+            if (redemptionRate < 0.1 && redemptionRate > 0) {
+              pointsRedeemDesc = `كل 100 نقطة = ${(redemptionRate * 100).toFixed(0)} ج.م رصيد`;
+            } else if (redemptionRate > 0) {
+              const formattedRate = Number.isInteger(redemptionRate)
+                ? redemptionRate.toString()
+                : redemptionRate.toFixed(2).replace(/\.00$/, '');
+              pointsRedeemDesc = `كل نقطة = ${formattedRate} ج.م رصيد`;
+            }
+
+            const equivalentVal = Math.round(loyaltyPoints * redemptionRate * 100) / 100;
+            const formattedEquivalent = Number.isInteger(equivalentVal)
+              ? equivalentVal.toString()
+              : equivalentVal.toFixed(1);
+
+            const isEligibleToRedeem = loyaltyPoints > 0 && loyaltyPoints >= minPoints;
+
+            return (
+              <div className="rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-950 to-purple-950 text-white p-4 sm:p-5 shadow-xl space-y-4 relative overflow-hidden border border-indigo-500/30">
+                {/* Ambient Glow */}
+                <div className="absolute top-0 right-1/4 w-32 h-20 bg-indigo-500/20 blur-2xl pointer-events-none rounded-full" />
+                
+                <div className="flex items-center justify-between gap-2 relative z-10">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md border border-white/15">
+                      <Wallet className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-white">محفظة ومكافآت UniFood</h4>
+                      <p className="text-[10px] text-indigo-200 font-medium">
+                        {pointsEarnDesc} • {pointsRedeemDesc}
+                      </p>
+                    </div>
                   </div>
+                  <span className="text-[10px] bg-amber-400/20 text-amber-300 border border-amber-300/40 px-2.5 py-1 rounded-full font-black flex items-center gap-1 shrink-0 shadow-2xs">
+                    <Gift className="w-3 h-3 text-amber-300" />
+                    <span>كاش باك {formattedCashback}%</span>
+                  </span>
                 </div>
-                <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-300 font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                  <span>متاح للخصم الفوري</span>
-                </div>
-              </div>
 
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-white/15 flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-indigo-200 block">نقاط الولاء الحالية</span>
-                  <div className="text-xl sm:text-2xl font-black text-amber-300 mt-0.5 flex items-center gap-1 font-mono">
-                    <span>{loyaltyPoints}</span>
-                    <span className="text-xs font-normal text-white">نقطة</span>
-                  </div>
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-200 font-bold">
-                  <span>⭐ تساوي {loyaltyPoints} ج.م رصيد</span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleConvertPoints}
-              disabled={convertingPoints || loyaltyPoints <= 0}
-              className={`w-full py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all relative z-10 ${
-                loyaltyPoints > 0
-                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-98 cursor-pointer'
-                  : 'bg-white/10 text-indigo-200 cursor-not-allowed opacity-80'
-              }`}
-            >
-              <ArrowLeftRight className={`w-4 h-4 ${convertingPoints ? 'animate-spin' : ''}`} />
-              <span>
-                {convertingPoints
-                  ? 'جاري التحويل...'
-                  : loyaltyPoints > 0
-                  ? `تحويل ${loyaltyPoints} نقطة إلى ${loyaltyPoints} ج.م في المحفظة`
-                  : 'اطلب الآن لاكتساب نقاط ولاء جديدة'}
-              </span>
-            </button>
-
-            {rewardHistory.length > 0 && (
-              <div className="pt-2.5 border-t border-white/15 space-y-2 relative z-10">
-                <div className="flex items-center justify-between text-[11px] font-bold text-indigo-200">
-                  <span>آخر حركات المكافآت:</span>
-                  <span className="text-[10px] text-indigo-300 font-mono">({rewardHistory.length})</span>
-                </div>
-                <div className="space-y-1.5 max-h-36 overflow-y-auto overscroll-contain pr-0.5">
-                  {rewardHistory.slice(0, 4).map((item: any) => (
-                    <div key={item.id} className="flex items-center justify-between text-xs bg-white/10 hover:bg-white/15 transition-colors px-3 py-2 rounded-xl border border-white/10">
-                      <span className="text-white font-medium truncate max-w-[180px] sm:max-w-xs">
-                        طلب #{item.orderNumber} ({item.branch?.name || 'مطعم'})
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {item.pointsEarned > 0 && (
-                          <span className="text-[10px] bg-amber-400/20 text-amber-300 font-black px-1.5 py-0.5 rounded-md border border-amber-400/30">
-                            +{item.pointsEarned} نقطة
-                          </span>
-                        )}
-                        {item.walletDiscount > 0 && (
-                          <span className="text-[10px] bg-rose-400/20 text-rose-300 font-black px-1.5 py-0.5 rounded-md border border-rose-400/30">
-                            -{item.walletDiscount} ج.م
-                          </span>
-                        )}
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 relative z-10">
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-white/15 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-indigo-200 block">رصيد المحفظة النقدي</span>
+                      <div className="text-xl sm:text-2xl font-black text-white mt-0.5 font-mono">
+                        {walletBalance.toFixed(0)} <span className="text-xs font-normal text-indigo-200">ج.م</span>
                       </div>
                     </div>
-                  ))}
+                    <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-300 font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>متاح للخصم الفوري</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-white/15 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-indigo-200 block">نقاط الولاء الحالية</span>
+                      <div className="text-xl sm:text-2xl font-black text-amber-300 mt-0.5 flex items-center gap-1 font-mono">
+                        <span>{loyaltyPoints}</span>
+                        <span className="text-xs font-normal text-white">نقطة</span>
+                      </div>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-200 font-bold">
+                      <span>⭐ تساوي {formattedEquivalent} ج.م رصيد</span>
+                    </div>
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleConvertPoints}
+                  disabled={convertingPoints || !isEligibleToRedeem}
+                  className={`w-full py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all relative z-10 ${
+                    isEligibleToRedeem
+                      ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-98 cursor-pointer'
+                      : 'bg-white/10 text-indigo-200 cursor-not-allowed opacity-80'
+                  }`}
+                >
+                  <ArrowLeftRight className={`w-4 h-4 ${convertingPoints ? 'animate-spin' : ''}`} />
+                  <span>
+                    {convertingPoints
+                      ? 'جاري التحويل...'
+                      : loyaltyPoints <= 0
+                      ? 'اطلب الآن لاكتساب نقاط ولاء جديدة'
+                      : loyaltyPoints < minPoints
+                      ? `الحد الأدنى للاستبدال ${minPoints} نقطة (لديك ${loyaltyPoints})`
+                      : `تحويل ${loyaltyPoints} نقطة إلى ${formattedEquivalent} ج.م في المحفظة`}
+                  </span>
+                </button>
+
+                {rewardHistory.length > 0 && (
+                  <div className="pt-2.5 border-t border-white/15 space-y-2 relative z-10">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-indigo-200">
+                      <span>آخر حركات المكافآت:</span>
+                      <span className="text-[10px] text-indigo-300 font-mono">({rewardHistory.length})</span>
+                    </div>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto overscroll-contain pr-0.5">
+                      {rewardHistory.slice(0, 4).map((item: any) => (
+                        <div key={item.id} className="flex items-center justify-between text-xs bg-white/10 hover:bg-white/15 transition-colors px-3 py-2 rounded-xl border border-white/10">
+                          <span className="text-white font-medium truncate max-w-[180px] sm:max-w-xs">
+                            طلب #{item.orderNumber} ({item.branch?.name || 'مطعم'})
+                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {item.pointsEarned > 0 && (
+                              <span className="text-[10px] bg-amber-400/20 text-amber-300 font-black px-1.5 py-0.5 rounded-md border border-amber-400/30">
+                                +{item.pointsEarned} نقطة
+                              </span>
+                            )}
+                            {item.walletDiscount > 0 && (
+                              <span className="text-[10px] bg-rose-400/20 text-rose-300 font-black px-1.5 py-0.5 rounded-md border border-rose-400/30">
+                                -{item.walletDiscount} ج.م
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* User Info & Web Push Notification Card */}
           <div className="p-3.5 sm:p-4 rounded-3xl bg-white border border-slate-200/90 shadow-2xs space-y-3">

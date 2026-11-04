@@ -1061,6 +1061,17 @@ export const api = {
   },
 
   // 37. إعدادات نظام نقاط الولاء
+  async getPublicLoyaltySettings() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/customer/public/loyalty-settings`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data;
+    } catch {
+      return null;
+    }
+  },
+
   async getLoyaltySettings() {
     const res = await fetch(`${API_BASE_URL}/admin/settings/loyalty`, {
       headers: getAdminHeaders(),

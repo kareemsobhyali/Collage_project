@@ -1659,8 +1659,15 @@ export const AdminPage: React.FC = () => {
     try {
       setLoadingLoyaltySettings(true);
       const data = await api.getLoyaltySettings();
-      if (data && data.settings) {
-        setLoyaltySettings(data.settings);
+      const loaded = data?.settings || data;
+      if (loaded && typeof loaded.pointsRedemptionRate !== 'undefined') {
+        setLoyaltySettings({
+          enabled: Boolean(loaded.enabled),
+          pointsPerPound: Number(loaded.pointsPerPound) || 0,
+          pointsRedemptionRate: Number(loaded.pointsRedemptionRate) || 0,
+          minPointsToRedeem: Number(loaded.minPointsToRedeem) || 0,
+          welcomePoints: Number(loaded.welcomePoints) || 0,
+        });
       }
     } catch (err: any) {
       console.error('فشل جلب إعدادات النقاط:', err);
@@ -1674,7 +1681,10 @@ export const AdminPage: React.FC = () => {
     try {
       setSavingLoyaltySettings(true);
       setLoyaltySaveSuccess(false);
-      await api.updateLoyaltySettings(loyaltySettings);
+      const res = await api.updateLoyaltySettings(loyaltySettings);
+      if (res?.settings) {
+        setLoyaltySettings(res.settings);
+      }
       setLoyaltySaveSuccess(true);
       setTimeout(() => setLoyaltySaveSuccess(false), 3500);
     } catch (err: any) {
@@ -7789,8 +7799,8 @@ export const AdminPage: React.FC = () => {
                       <div className="relative">
                         <input
                           type="number"
-                          step="0.01"
-                          min="0.001"
+                          step="any"
+                          min="0"
                           value={loyaltySettings.pointsRedemptionRate}
                           onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsRedemptionRate: parseFloat(e.target.value) || 0 })}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-3.5 pl-24 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
@@ -7808,6 +7818,26 @@ export const AdminPage: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Live Dynamic Cashback Banner in Admin */}
+                    <div className="p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border border-purple-200/80 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 text-xs font-black text-purple-900">
+                          <Gift className="w-4 h-4 text-purple-600 shrink-0" />
+                          <span>نسبة الكاش باك التلقائية الممنوحة للعميل:</span>
+                        </div>
+                        <div className="text-[11px] text-purple-700 font-medium">
+                          {loyaltySettings.pointsPerPound < 1 && loyaltySettings.pointsPerPound > 0
+                            ? `يكتسب العميل 1 نقطة لكل ${Math.round((1 / loyaltySettings.pointsPerPound) * 10) / 10} ج.م • كل 1 نقطة = ${loyaltySettings.pointsRedemptionRate} ج.م رصيد`
+                            : `يكتسب العميل ${loyaltySettings.pointsPerPound} نقطة لكل 1 ج.م • كل 1 نقطة = ${loyaltySettings.pointsRedemptionRate} ج.م رصيد`}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs sm:text-sm font-black font-mono text-purple-700 bg-white px-3 py-1.5 rounded-xl shadow-2xs border border-purple-200">
+                          كاش باك {((loyaltySettings.pointsPerPound || 0) * (loyaltySettings.pointsRedemptionRate || 0) * 100).toFixed(2).replace(/\.00$/, '')}%
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Min Points to Redeem */}
                     <div>
                       <label className="text-xs font-bold text-slate-700 block mb-1.5">
@@ -7818,7 +7848,7 @@ export const AdminPage: React.FC = () => {
                         min="0"
                         step="1"
                         value={loyaltySettings.minPointsToRedeem}
-                        onChange={(e) => setLoyaltySettings({ ...loyaltySettings, minPointsToRedeem: parseInt(e.target.value) || 0 })}
+                        onChange={(e) => setLoyaltySettings({ ...loyaltySettings, minPointsToRedeem: Math.max(0, parseInt(e.target.value) || 0) })}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                         required
                       />
@@ -7836,14 +7866,14 @@ export const AdminPage: React.FC = () => {
                         <input
                           type="number"
                           min="0"
-                          step="1"
+                          step="any"
                           value={loyaltySettings.pointsPerPound}
-                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsPerPound: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, pointsPerPound: parseFloat(e.target.value) || 0 })}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                           required
                         />
                         <span className="text-[10px] text-slate-500 block mt-1">
-                          كم نقطة يكسب العميل عن كل 1 جنيه يدفعه بالطلب.
+                          كم نقطة يكسب العميل عن كل 1 جنيه يدفعه بالطلب (مثال: 0.1 تعني نقطة لكل 10 جنيه، أو 1 تعني نقطة لكل جنيه).
                         </span>
                       </div>
 
@@ -7857,7 +7887,7 @@ export const AdminPage: React.FC = () => {
                           min="0"
                           step="1"
                           value={loyaltySettings.welcomePoints}
-                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, welcomePoints: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => setLoyaltySettings({ ...loyaltySettings, welcomePoints: Math.max(0, parseInt(e.target.value) || 0) })}
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white transition-colors"
                           required
                         />

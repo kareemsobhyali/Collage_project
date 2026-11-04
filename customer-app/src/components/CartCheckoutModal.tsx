@@ -378,6 +378,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [useWallet, setUseWallet] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(user?.walletBalance || 0);
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(user?.loyaltyPoints || 0);
+  const [pointsRedemptionRate, setPointsRedemptionRate] = useState<number>(1);
   const [convertingPoints, setConvertingPoints] = useState(false);
 
   // حالة الـ GPS المدمج مع العنوان المكتوب
@@ -587,6 +588,9 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           if (w) {
             setWalletBalance(w.walletBalance ?? 0);
             setLoyaltyPoints(w.loyaltyPoints ?? 0);
+            if (w.settings?.pointsRedemptionRate) {
+              setPointsRedemptionRate(w.settings.pointsRedemptionRate);
+            }
           }
         })
         .catch(() => {});
@@ -2574,7 +2578,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                     >
                       {convertingPoints
                         ? 'جاري التحويل...'
-                        : `تحويل ${loyaltyPoints} نقطة لـ ${loyaltyPoints} ج.م`}
+                        : `تحويل ${loyaltyPoints} نقطة لـ ${(Math.round(loyaltyPoints * pointsRedemptionRate * 100) / 100).toFixed((loyaltyPoints * pointsRedemptionRate) % 1 === 0 ? 0 : 1)} ج.م`}
                     </button>
                   )}
                 </div>

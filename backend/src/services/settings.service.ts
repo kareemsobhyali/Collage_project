@@ -12,7 +12,7 @@ export interface LoyaltySettings {
 const DEFAULT_LOYALTY_SETTINGS: LoyaltySettings = {
   enabled: true,
   pointsPerPound: 0.1,        // نقطة واحدة لكل 10 ج.م
-  pointsRedemptionRate: 0.05, // كل 100 نقطة تعادل 5 ج.م (كل 1 نقطة = 0.05 ج.م)
+  pointsRedemptionRate: 1.0,  // كل 1 نقطة تعادل 1 ج.م (كاش باك 10%)
   minPointsToRedeem: 50,      // الحد الأدنى للاستبدال 50 نقطة
   welcomePoints: 0,           // 0 لمنع إنشاء حسابات وهمية للاستفادة المجانية
 };

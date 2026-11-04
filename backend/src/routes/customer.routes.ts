@@ -67,6 +67,16 @@ router.get("/public/support-contact", async (_req: Request, res: Response) => {
   }
 });
 
+// جلب إعدادات نظام نقاط الولاء والكاش باك للعملاء
+router.get("/public/loyalty-settings", async (_req: Request, res: Response) => {
+  try {
+    const settings = await getLoyaltySettings();
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: "فشل استرجاع إعدادات نظام النقاط" });
+  }
+});
+
 // جلب ملف الـ PWA Manifest المخصص للمطعم أو المنصة
 router.get("/manifest", async (req: Request, res: Response) => {
   try {
