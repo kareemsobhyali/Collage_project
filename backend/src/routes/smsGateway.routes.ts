@@ -35,10 +35,20 @@ const authenticateGatewayDevice = async (req: Request, res: Response, next: Func
 router.get("/config", async (_req: Request, res: Response) => {
   try {
     const overview = await smsGatewayService.getGatewayOverview();
+    const { whatsappService } = await import("../services/whatsapp.service.js");
+    let isWhatsAppOnline = false;
+    try {
+      const statuses = await whatsappService.getAllAccountsStatus();
+      isWhatsAppOnline = statuses.some((s: any) => s.isConnected && s.isActive && (s.sendOtp || s.isDefault));
+    } catch {
+      isWhatsAppOnline = false;
+    }
+
     res.json({
       success: true,
       channelMode: overview.channelMode,
       isSmsGatewayOnline: overview.device.isOnline,
+      isWhatsAppOnline,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "حدث خطأ أثناء جلب إعدادات قنوات التفعيل" });

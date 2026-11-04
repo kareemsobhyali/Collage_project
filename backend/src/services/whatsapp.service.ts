@@ -742,7 +742,7 @@ class WhatsAppService {
         return { success: true, simulated: false };
       } catch (err) {
         console.error(`[WhatsApp] Failed to send verification to ${phone}:`, err);
-        return { success: true, simulated: true };
+        return { success: false, simulated: false };
       }
     }
 
@@ -751,7 +751,7 @@ class WhatsAppService {
     } else {
       console.warn(`[WhatsApp - Not Paired] Verification OTP triggered for ${phone.slice(0, 4)}***`);
     }
-    return { success: true, simulated: true };
+    return { success: false, simulated: true };
   }
 
   public async sendOrderStatusNotification(

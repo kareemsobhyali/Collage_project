@@ -136,10 +136,10 @@ public class UniFoodSmsGatewayService extends Service {
                         String message = msgObj.optString("message");
 
                         if (!phone.isEmpty() && !message.isEmpty()) {
-                            boolean sent = sendSmsViaSim(phone, message);
-                            reportMessageStatus(serverUrl, deviceKey, logId, sent ? "SENT" : "FAILED", sent ? null : "فشل تسليم الرسالة لنظام الأندرويد");
+                            SendResult result = sendSmsViaSim(phone, message);
+                            reportMessageStatus(serverUrl, deviceKey, logId, result.success ? "SENT" : "FAILED", result.errorReason);
 
-                            if (sent) {
+                            if (result.success) {
                                 int count = prefs.getInt(KEY_SENT_COUNT, 0) + 1;
                                 prefs.edit().putInt(KEY_SENT_COUNT, count).apply();
                                 updateNotificationText("تم إرسال " + count + " رسالة بنجاح اليوم");
@@ -170,37 +170,104 @@ public class UniFoodSmsGatewayService extends Service {
         Log.i(TAG, "SMS Gateway worker loop finished.");
     }
 
+    public static class SendResult {
+        public final boolean success;
+        public final String errorReason;
+
+        public SendResult(boolean success, String errorReason) {
+            this.success = success;
+            this.errorReason = errorReason;
+        }
+    }
+
     /**
-     * إرسال رسالة SMS عبر دالة الأندرويد الرسمية SmsManager
+     * إرسال رسالة SMS عبر دالة الأندرويد الرسمية SmsManager مع دعم الشرائح المتعددة والتحقق من الصلاحيات
      */
-    private boolean sendSmsViaSim(String phone, String message) {
+    public SendResult sendSmsViaSim(String phone, String message) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(android.Manifest.permission.SEND_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "SEND_SMS permission not granted");
+                return new SendResult(false, "صلاحية إرسال الرسائل (SEND_SMS) غير مفعّلة في الهاتف");
+            }
+        }
+
+        SmsManager smsManager = null;
         try {
-            SmsManager smsManager = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
+                if (subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        smsManager = getSystemService(SmsManager.class).createForSubscriptionId(subId);
+                    } else {
+                        smsManager = SmsManager.getSmsManagerForSubscriptionId(subId);
+                    }
+                } else {
+                    SubscriptionManager subManager = (SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                    if (subManager != null) {
+                        List<SubscriptionInfo> activeSubs = subManager.getActiveSubscriptionInfoList();
+                        if (activeSubs != null && !activeSubs.isEmpty()) {
+                            int activeSubId = activeSubs.get(0).getSubscriptionId();
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                smsManager = getSystemService(SmsManager.class).createForSubscriptionId(activeSubId);
+                            } else {
+                                smsManager = SmsManager.getSmsManagerForSubscriptionId(activeSubId);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Subscription resolution notice: " + e.getMessage());
+        }
+
+        if (smsManager == null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 smsManager = getSystemService(SmsManager.class);
             }
             if (smsManager == null) {
                 smsManager = SmsManager.getDefault();
             }
+        }
 
-            if (smsManager == null) {
-                Log.e(TAG, "SmsManager is null. Cannot send SMS.");
-                return false;
-            }
+        if (smsManager == null) {
+            Log.e(TAG, "SmsManager is null. Cannot send SMS.");
+            return new SendResult(false, "تعذر تهيئة نظام إرسال الرسائل في الهاتف");
+        }
 
-            // دعم الرسائل العربية والطويلة بتقسيمها تلقائياً
+        String targetPhone = phone.trim().replaceAll("[^0-9+]", "");
+        try {
             ArrayList<String> parts = smsManager.divideMessage(message);
             if (parts.size() > 1) {
-                smsManager.sendMultipartTextMessage(phone, null, parts, null, null);
+                smsManager.sendMultipartTextMessage(targetPhone, null, parts, null, null);
             } else {
-                smsManager.sendTextMessage(phone, null, message, null, null);
+                smsManager.sendTextMessage(targetPhone, null, message, null, null);
             }
 
-            Log.i(TAG, "SMS sent successfully to: " + phone);
-            return true;
+            Log.i(TAG, "SMS dispatched successfully to: " + targetPhone);
+            return new SendResult(true, null);
+        } catch (SecurityException se) {
+            Log.e(TAG, "SecurityException: " + se.getMessage());
+            return new SendResult(false, "صلاحية إرسال الرسائل (SEND_SMS) مرفوضة من الهاتف");
         } catch (Exception e) {
-            Log.e(TAG, "Failed to send SMS to " + phone + ": " + e.getMessage());
-            return false;
+            Log.e(TAG, "Failed to send SMS to " + targetPhone + ": " + e.getMessage());
+
+            // If target starts with 01 (11 digits), retry with +20 prefix as international format
+            if (targetPhone.startsWith("01") && targetPhone.length() == 11) {
+                try {
+                    String intlPhone = "+20" + targetPhone.substring(1);
+                    ArrayList<String> parts = smsManager.divideMessage(message);
+                    if (parts.size() > 1) {
+                        smsManager.sendMultipartTextMessage(intlPhone, null, parts, null, null);
+                    } else {
+                        smsManager.sendTextMessage(intlPhone, null, message, null, null);
+                    }
+                    Log.i(TAG, "SMS (+20 fallback) sent successfully to: " + intlPhone);
+                    return new SendResult(true, null);
+                } catch (Exception ex2) {
+                    return new SendResult(false, "فشل الإرسال: " + ex2.getMessage());
+                }
+            }
+            return new SendResult(false, "فشل الإرسال: " + e.getMessage());
         }
     }
 

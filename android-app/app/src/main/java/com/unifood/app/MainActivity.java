@@ -240,6 +240,10 @@ public class MainActivity extends Activity {
         createNotificationChannel();
         requestNotificationPermissionIfNeeded();
 
+        if ("smsGateway".equalsIgnoreCase(BuildConfig.FLAVOR_TYPE)) {
+            checkAndRequestSmsPermissions();
+        }
+
         FrameLayout rootLayout = new FrameLayout(this);
         rootLayout.setBackgroundColor(Color.parseColor("#0B0F19"));
 
@@ -640,6 +644,23 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void checkAndRequestSmsPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            boolean hasSms = checkSelfPermission(Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED;
+            boolean hasPhone = checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED;
+            if (!hasSms || !hasPhone) {
+                requestPermissions(new String[]{
+                        Manifest.permission.SEND_SMS,
+                        Manifest.permission.READ_PHONE_STATE
+                }, 2001);
+            } else {
+                UniFoodSmsGatewayService.startGatewayService(this, getActiveStartUrl(), "UNIFOOD-SMS-GATEWAY-2026");
+            }
+        } else {
+            UniFoodSmsGatewayService.startGatewayService(this, getActiveStartUrl(), "UNIFOOD-SMS-GATEWAY-2026");
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
@@ -649,6 +670,20 @@ public class MainActivity extends Activity {
             }
             pendingGeoCallback = null;
             pendingGeoOrigin = null;
+        } else if (requestCode == 2001) {
+            boolean allGranted = true;
+            for (int res : grantResults) {
+                if (res != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+            if (allGranted) {
+                UniFoodSmsGatewayService.startGatewayService(this, getActiveStartUrl(), "UNIFOOD-SMS-GATEWAY-2026");
+                if (webView != null) {
+                    webView.evaluateJavascript("if (window.refreshSmsGatewayStatus) window.refreshSmsGatewayStatus();", null);
+                }
+            }
         } else {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
@@ -897,22 +932,59 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public boolean sendNativeSmsTest(String phone, String message) {
             try {
-                android.telephony.SmsManager smsManager = null;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    smsManager = getSystemService(android.telephony.SmsManager.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+                        requestSmsPermission();
+                        return false;
+                    }
                 }
+
+                android.telephony.SmsManager smsManager = null;
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                        int subId = android.telephony.SubscriptionManager.getDefaultSmsSubscriptionId();
+                        if (subId != android.telephony.SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                smsManager = getSystemService(android.telephony.SmsManager.class).createForSubscriptionId(subId);
+                            } else {
+                                smsManager = android.telephony.SmsManager.getSmsManagerForSubscriptionId(subId);
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+
                 if (smsManager == null) {
-                    smsManager = android.telephony.SmsManager.getDefault();
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        smsManager = getSystemService(android.telephony.SmsManager.class);
+                    }
+                    if (smsManager == null) {
+                        smsManager = android.telephony.SmsManager.getDefault();
+                    }
                 }
                 if (smsManager == null) return false;
 
-                java.util.ArrayList<String> parts = smsManager.divideMessage(message);
-                if (parts.size() > 1) {
-                    smsManager.sendMultipartTextMessage(phone, null, parts, null, null);
-                } else {
-                    smsManager.sendTextMessage(phone, null, message, null, null);
+                String targetPhone = phone.trim().replaceAll("[^0-9+]", "");
+                try {
+                    java.util.ArrayList<String> parts = smsManager.divideMessage(message);
+                    if (parts.size() > 1) {
+                        smsManager.sendMultipartTextMessage(targetPhone, null, parts, null, null);
+                    } else {
+                        smsManager.sendTextMessage(targetPhone, null, message, null, null);
+                    }
+                    return true;
+                } catch (Exception ex) {
+                    if (targetPhone.startsWith("01") && targetPhone.length() == 11) {
+                        String intlPhone = "+20" + targetPhone.substring(1);
+                        java.util.ArrayList<String> parts = smsManager.divideMessage(message);
+                        if (parts.size() > 1) {
+                            smsManager.sendMultipartTextMessage(intlPhone, null, parts, null, null);
+                        } else {
+                            smsManager.sendTextMessage(intlPhone, null, message, null, null);
+                        }
+                        return true;
+                    }
+                    return false;
                 }
-                return true;
             } catch (Exception e) {
                 return false;
             }

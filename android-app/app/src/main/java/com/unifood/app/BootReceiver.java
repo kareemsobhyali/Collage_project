@@ -31,6 +31,20 @@ public class BootReceiver extends BroadcastReceiver {
                         context.startService(serviceIntent);
                     }
                 }
+
+                SharedPreferences smsPrefs = context.getSharedPreferences(
+                        UniFoodSmsGatewayService.PREFS_NAME,
+                        Context.MODE_PRIVATE
+                );
+                boolean isGatewayActive = smsPrefs.getBoolean(UniFoodSmsGatewayService.KEY_SERVICE_ENABLED, false);
+                if (isGatewayActive) {
+                    Intent smsServiceIntent = new Intent(context, UniFoodSmsGatewayService.class);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(smsServiceIntent);
+                    } else {
+                        context.startService(smsServiceIntent);
+                    }
+                }
             } catch (Exception ignored) {
             }
         }

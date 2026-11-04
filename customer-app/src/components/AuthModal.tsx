@@ -23,13 +23,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [otpChannel, setOtpChannel] = useState<'WHATSAPP' | 'SMS'>('WHATSAPP');
-  const [smsGatewayConfig, setSmsGatewayConfig] = useState<{ channelMode: string; isSmsGatewayOnline: boolean } | null>(null);
+  const [smsGatewayConfig, setSmsGatewayConfig] = useState<{ channelMode: string; isSmsGatewayOnline: boolean; isWhatsAppOnline?: boolean } | null>(null);
 
   useEffect(() => {
     api.getSmsConfig().then(cfg => {
       if (cfg) {
         setSmsGatewayConfig(cfg);
-        if (cfg.channelMode === 'SMS_ONLY') {
+        if (cfg.channelMode === 'SMS_ONLY' || (!cfg.isWhatsAppOnline && cfg.channelMode !== 'WHATSAPP_ONLY')) {
           setOtpChannel('SMS');
         }
       }
@@ -335,7 +335,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
               </div>
             </div>
 
-            {mode === 'REGISTER' && smsGatewayConfig?.channelMode === 'USER_CHOICE' && (
+            {mode === 'REGISTER' && (!smsGatewayConfig || smsGatewayConfig.channelMode === 'USER_CHOICE' || !smsGatewayConfig.channelMode) && (
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">طريقة استلام كود التفعيل:</label>
                 <div className="grid grid-cols-2 gap-2">

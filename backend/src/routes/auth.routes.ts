@@ -59,26 +59,26 @@ async function dispatchVerificationOtp(
   const { whatsappService } = await import("../services/whatsapp.service.js");
 
   const mode = await smsGatewayService.getVerificationChannelMode();
-  let targetChannel: "WHATSAPP" | "SMS" = "WHATSAPP";
+  let isWaOnline = false;
+  try {
+    const statuses = await whatsappService.getAllAccountsStatus();
+    isWaOnline = statuses.some((s: any) => s.isConnected && s.isActive && (s.sendOtp || s.isDefault));
+  } catch {
+    isWaOnline = false;
+  }
 
+  let targetChannel: "WHATSAPP" | "SMS" = "WHATSAPP";
   const requested = String(preferredChannel || "").toUpperCase();
   if (requested === "SMS") {
     targetChannel = "SMS";
   } else if (requested === "WHATSAPP") {
-    targetChannel = "WHATSAPP";
+    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
   } else if (mode === "SMS_ONLY") {
     targetChannel = "SMS";
-  } else if (mode === "WHATSAPP_FALLBACK_SMS") {
-    let isWaOnline = true;
-    try {
-      const statuses = await whatsappService.getAllAccountsStatus();
-      isWaOnline = statuses.some((s: any) => s.isConnected && s.isActive && (s.sendOtp || s.isDefault));
-    } catch {
-      isWaOnline = false;
-    }
+  } else if (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE") {
     targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
   } else {
-    targetChannel = "WHATSAPP";
+    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
   }
 
   if (targetChannel === "SMS") {
@@ -89,7 +89,15 @@ async function dispatchVerificationOtp(
     };
   } else {
     try {
-      await whatsappService.sendVerificationOtp(phone, code, magicLink, name);
+      const waRes = await whatsappService.sendVerificationOtp(phone, code, magicLink, name);
+      if (!waRes.success && (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE")) {
+        console.warn("[Auth OTP] WhatsApp was not connected, falling back to SMS Gateway");
+        await smsGatewayService.sendOtpSms(phone, code, magicLink, name);
+        return {
+          channel: "SMS",
+          message: "تم إرسال كود التفعيل في رسالة SMS لهاتفك 📱",
+        };
+      }
       return {
         channel: "WHATSAPP",
         message: "تم إرسال كود ورابط التفعيل السريع إلى رقم الواتساب الخاص بك 💬",
@@ -120,26 +128,26 @@ async function dispatchPasswordResetOtp(
   const { whatsappService } = await import("../services/whatsapp.service.js");
 
   const mode = await smsGatewayService.getVerificationChannelMode();
-  let targetChannel: "WHATSAPP" | "SMS" = "WHATSAPP";
+  let isWaOnline = false;
+  try {
+    const statuses = await whatsappService.getAllAccountsStatus();
+    isWaOnline = statuses.some((s: any) => s.isConnected && s.isActive && (s.sendOtp || s.isDefault));
+  } catch {
+    isWaOnline = false;
+  }
 
+  let targetChannel: "WHATSAPP" | "SMS" = "WHATSAPP";
   const requested = String(preferredChannel || "").toUpperCase();
   if (requested === "SMS") {
     targetChannel = "SMS";
   } else if (requested === "WHATSAPP") {
-    targetChannel = "WHATSAPP";
+    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
   } else if (mode === "SMS_ONLY") {
     targetChannel = "SMS";
-  } else if (mode === "WHATSAPP_FALLBACK_SMS") {
-    let isWaOnline = true;
-    try {
-      const statuses = await whatsappService.getAllAccountsStatus();
-      isWaOnline = statuses.some((s: any) => s.isConnected && s.isActive && (s.sendOtp || s.isDefault));
-    } catch {
-      isWaOnline = false;
-    }
+  } else if (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE") {
     targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
   } else {
-    targetChannel = "WHATSAPP";
+    targetChannel = isWaOnline ? "WHATSAPP" : "SMS";
   }
 
   if (targetChannel === "SMS") {
@@ -150,7 +158,15 @@ async function dispatchPasswordResetOtp(
     };
   } else {
     try {
-      await whatsappService.sendOtp(phone, code);
+      const waRes = await whatsappService.sendOtp(phone, code);
+      if (!waRes.success && (mode === "WHATSAPP_FALLBACK_SMS" || mode === "USER_CHOICE")) {
+        console.warn("[Reset OTP] WhatsApp was not connected, falling back to SMS Gateway");
+        await smsGatewayService.sendPasswordResetSms(phone, code);
+        return {
+          channel: "SMS",
+          message: "تم إرسال كود الاستعادة في رسالة SMS لهاتفك 📱",
+        };
+      }
       return {
         channel: "WHATSAPP",
         message: "تم إرسال كود استعادة كلمة المرور إلى واتساب هذا الرقم 💬",
