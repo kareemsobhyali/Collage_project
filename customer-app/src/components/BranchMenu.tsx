@@ -1988,10 +1988,11 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         </div>
       )}
 
-      {/* Floating Bottom Cart Bar */}
+      {/* زر السلة العائم في الشاشة على اليمين مع عداد بعدد الأصناف */}
       {cartItemCount > 0 && (
-        <div className="fixed bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 max-w-lg mx-auto z-40 pb-safe">
+        <div className="fixed bottom-5 sm:bottom-6 right-4 sm:right-6 z-40 pb-safe animate-fadeIn">
           <button
+            type="button"
             onClick={() => {
               if (isOutOfDeliveryZone) {
                 alert(`عذراً، هذا المطعم يقع خارج نطاق التوصيل لموقعك الحالي (${zoneCheck.distKm.toFixed(1)} كم • الحد الأقصى للنطاق: ${zoneCheck.radiusKm} كم). لا يمكن إتمام الطلب.`);
@@ -2007,34 +2008,58 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
               }
               onOpenCart();
             }}
-            className={`w-full text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl flex items-center justify-between transition-all active:scale-95 border backdrop-blur-md cursor-pointer ${
+            className={`group flex items-center gap-2.5 pl-3.5 sm:pl-4 pr-2.5 py-2 sm:py-2.5 rounded-full shadow-[0_12px_32px_rgba(79,70,229,0.38)] border backdrop-blur-md active:scale-90 hover:scale-105 transition-all duration-200 cursor-pointer ${
               isOutOfDeliveryZone
-                ? 'bg-rose-950/95 border-rose-800/80 hover:bg-rose-900/95 shadow-rose-950/30'
+                ? 'bg-gradient-to-r from-rose-950 via-rose-900 to-rose-950 border-rose-700/80 shadow-rose-950/40 text-white'
                 : isBranchOpen
-                ? 'bg-slate-900 hover:bg-slate-800 border-slate-700/50'
-                : 'bg-slate-800/90 border-slate-700/50'
+                ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-indigo-500/60 text-white hover:border-indigo-400'
+                : 'bg-gradient-to-r from-slate-800 to-slate-900 border-slate-700/60 text-white'
             }`}
+            title="عرض سلة الطلبات"
           >
-            <div className="flex items-center gap-3">
+            {/* أيقونة السلة مع العداد العائم */}
+            <div className="relative shrink-0">
               <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-black ${
-                  isOutOfDeliveryZone ? 'bg-rose-600' : isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white shadow-md transition-transform group-hover:rotate-6 ${
+                  isOutOfDeliveryZone
+                    ? 'bg-rose-600'
+                    : isBranchOpen
+                    ? 'bg-gradient-to-tr from-indigo-600 to-indigo-500'
+                    : 'bg-amber-600'
                 }`}
               >
-                {isOutOfDeliveryZone ? <MapPinOff className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
+                {isOutOfDeliveryZone ? <MapPinOff className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />}
               </div>
-              <div className="text-right">
-                <div className="text-xs text-slate-400">سلة المشتريات ({cartItemCount} أصناف)</div>
-                <div className="text-base font-black text-white">{cartTotal} ج.م</div>
+
+              {/* عداد بعدد الأصناف في السلة */}
+              <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 bg-rose-500 text-white text-[11px] font-black rounded-full flex items-center justify-center border-2 border-slate-900 shadow-md">
+                {cartItemCount}
+              </span>
+            </div>
+
+            {/* تفاصيل السعر والأصناف */}
+            <div className="text-right min-w-0 pr-0.5">
+              <div className="text-[11px] font-bold text-slate-300 flex items-center gap-1 leading-tight">
+                <span>السلة</span>
+                <span className="text-[10px] text-indigo-300 font-bold font-mono">({cartItemCount})</span>
+              </div>
+              <div className="text-sm sm:text-base font-black text-white font-mono leading-tight mt-0.5">
+                {cartTotal} ج.م
               </div>
             </div>
 
+            {/* سهم / شارة إتمام الطلب */}
             <span
-              className={`px-4 py-2 text-white text-xs font-black rounded-xl transition-all ${
-                isOutOfDeliveryZone ? 'bg-rose-600' : isBranchOpen ? 'bg-indigo-600' : 'bg-amber-600'
+              className={`mr-1 px-2.5 py-1 text-[11px] font-black rounded-full flex items-center gap-1 transition-all shrink-0 shadow-2xs ${
+                isOutOfDeliveryZone
+                  ? 'bg-rose-600 text-white'
+                  : isBranchOpen
+                  ? 'bg-indigo-600 group-hover:bg-indigo-500 text-white'
+                  : 'bg-amber-600 text-white'
               }`}
             >
-              {isOutOfDeliveryZone ? 'خارج نطاق التوصيل 🚫' : isBranchOpen ? 'إتمام الطلب' : 'المطعم مغلق'}
+              <span>{isOutOfDeliveryZone ? 'تنبيه' : isBranchOpen ? 'إتمام' : 'مغلق'}</span>
+              <span className="text-xs transition-transform group-hover:-translate-x-0.5">←</span>
             </span>
           </button>
         </div>

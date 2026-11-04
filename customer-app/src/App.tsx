@@ -9,7 +9,9 @@ import {
   Smartphone,
   X,
   CheckCircle2,
-  ShieldCheck
+  ShieldCheck,
+  Check,
+  Trash2
 } from 'lucide-react';
 import { api, API_BASE_URL, getFullImageUrl, syncRemoteServerConfig } from './services/api';
 import { registerServiceWorker, isRunningInNativeApk, registerNativeBackgroundSession, clearNativeBackgroundSession } from './services/notifications';
@@ -197,8 +199,10 @@ export function App() {
         (activeBranchSlug && activeBranchSlug === normalizedCurrent);
 
       if (!isSameBranch) {
-        // تفريغ سلة وقوائم المطعم السابق فوراً لمنع أي خلط بين مطعمين
-        setCart([]);
+        // تفريغ سلة وقوائم المطعم السابق إذا كان المستخدم يتصفح فرعاً بالفعل وانتقل لفرع آخر
+        if (activeBranchId) {
+          setCart([]);
+        }
         setCustomizingItem(null);
         setShowCartModal(false);
         setBranchCategories([]);
@@ -215,6 +219,14 @@ export function App() {
               });
               setBranchCategories(data.categories || []);
               setDeletedBranchInfo(null);
+
+              // التحقق من توافق السلة المحفوظة مع هذا الفرع؛ إذا كانت لفرع آخر يتم إفراغها
+              setCart((prevCart) => {
+                if (prevCart.length > 0 && prevCart[0].branchId && prevCart[0].branchId !== data.branch.id) {
+                  return [];
+                }
+                return prevCart;
+              });
             }
           })
           .catch((err) => {
@@ -425,7 +437,46 @@ export function App() {
         });
     }
   }, [requestedBranchKey, isAdminRoute, showDriverPortal]);
-  const [cart, setCart] = useState<any[]>([]);
+  // مفتاح تخزين السلة في ذاكرة المتصفح المحلية
+  const CART_STORAGE_KEY = 'unifood_customer_cart';
+
+  const [cart, setCart] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem(CART_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (_e) {}
+    return [];
+  });
+
+  // مزامنة السلة في localStorage تلقائياً عند أي إضافة أو حذف أو تعديل
+  useEffect(() => {
+    try {
+      if (cart && cart.length > 0) {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+      } else {
+        localStorage.removeItem(CART_STORAGE_KEY);
+      }
+    } catch (_e) {}
+  }, [cart]);
+
+  // مؤشر وجود أصناف محفوظة من جلسة سابقة لتنبيه العميل عند الرغبة في الإضافة
+  const [hasRestoredCartPrompt, setHasRestoredCartPrompt] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(CART_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) && parsed.length > 0;
+      }
+    } catch (_e) {}
+    return false;
+  });
+  const [pendingItemToAdd, setPendingItemToAdd] = useState<any | null>(null);
+  const [showRestoredCartModal, setShowRestoredCartModal] = useState<boolean>(false);
 
   // Modals state
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -445,6 +496,7 @@ export function App() {
   const isAnyModalOpen = Boolean(
     customizingItem ||
     showCartModal ||
+    showRestoredCartModal ||
     showGroupCartModal ||
     showProfileModal ||
     trackingOrder ||
@@ -1397,7 +1449,45 @@ export function App() {
         alert(err.message || 'فشل إضافة الصنف للسلة الجماعية');
       }
     }
-    setCart([...cart, { ...itemToAdd, branchId: selectedBranch.id }]);
+    // إذا كانت هناك أصناف سابقة مستعادة من جلسة سابقة، ننبه العميل هل يريد الإكمال عليها أم إفراغها
+    if (hasRestoredCartPrompt && cart.length > 0) {
+      setPendingItemToAdd(itemToAdd);
+      setShowRestoredCartModal(true);
+      return;
+    }
+
+    setCart([...cart, { ...itemToAdd, branchId: selectedBranch?.id || cart[0]?.branchId }]);
+    setActivationToast('تمت إضافة الصنف إلى السلة بنجاح 🛒');
+    setTimeout(() => setActivationToast(null), 2500);
+  };
+
+  const handleKeepRestoredAndAdd = () => {
+    if (pendingItemToAdd) {
+      setCart([...cart, { ...pendingItemToAdd, branchId: selectedBranch?.id || cart[0]?.branchId }]);
+    }
+    setHasRestoredCartPrompt(false);
+    setShowRestoredCartModal(false);
+    setPendingItemToAdd(null);
+    setActivationToast('تمت إضافة الصنف واستكمال سلتك السابقة بنجاح 🛒');
+    setTimeout(() => setActivationToast(null), 3000);
+  };
+
+  const handleClearRestoredAndAdd = () => {
+    if (pendingItemToAdd) {
+      setCart([{ ...pendingItemToAdd, branchId: selectedBranch?.id }]);
+    } else {
+      setCart([]);
+    }
+    setHasRestoredCartPrompt(false);
+    setShowRestoredCartModal(false);
+    setPendingItemToAdd(null);
+    setActivationToast('تم إفراغ السلة السابقة وبدء طلب جديد بنجاح 🛒');
+    setTimeout(() => setActivationToast(null), 3000);
+  };
+
+  const handleCancelRestoredPrompt = () => {
+    setShowRestoredCartModal(false);
+    setPendingItemToAdd(null);
   };
 
   const handleReorder = async (order: any) => {
@@ -1881,6 +1971,110 @@ export function App() {
             setPendingOpenGroupCart(false);
           }}
         />
+      )}
+
+      {/* نافذة تنبيه الأصناف السابقة في السلة من جلسة سابقة */}
+      {showRestoredCartModal && pendingItemToAdd && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-5 sm:p-6 shadow-2xl border border-amber-200 text-center space-y-4 animate-scaleUp">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 border border-amber-200 text-amber-600 mx-auto flex items-center justify-center shadow-xs">
+              <ShoppingBag className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-base font-black text-slate-900">
+                لديك أصناف سابقة في السلة! 🛒
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                يوجد لديك <strong className="text-amber-700 font-black">{cart.reduce((s, i) => s + (i.quantity || 1), 0)} أصناف</strong> في السلة بقيمة <strong className="text-slate-900 font-black">{cart.reduce((s, i) => s + (i.totalPrice || ((i.unitPrice || 0) * (i.quantity || 1))), 0)} ج.م</strong> من زيارتك السابقة.
+              </p>
+              <div className="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-right text-[11px] text-slate-700">
+                <span className="font-bold text-slate-400 block mb-0.5">الصنف الجديد المراد إضافته:</span>
+                <span className="font-black text-indigo-700 block truncate">
+                  + {pendingItemToAdd.itemName || pendingItemToAdd.name} ({pendingItemToAdd.totalPrice || pendingItemToAdd.unitPrice} ج.م)
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={handleKeepRestoredAndAdd}
+                className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>الاحتفاظ بالسلة السابقة والإضافة عليها</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClearRestoredAndAdd}
+                className="w-full py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                <span>إفراغ السلة السابقة والبدء من جديد</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCancelRestoredPrompt}
+                className="w-full py-1.5 text-slate-400 hover:text-slate-600 text-xs font-bold transition-colors cursor-pointer"
+              >
+                تراجع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* زر السلة العائم في الشاشة على اليمين عند تصفح الصفحة الرئيسية مع وجود أصناف في السلة */}
+      {!selectedBranch && cart.length > 0 && !isAnyModalOpen && (
+        <div className="fixed bottom-5 sm:bottom-6 right-4 sm:right-6 z-40 pb-safe animate-fadeIn" dir="rtl">
+          <button
+            type="button"
+            onClick={() => {
+              const targetBranchId = cart[0]?.branchId;
+              const b = branches.find((item: any) => item.id === targetBranchId);
+              if (b) {
+                handleSelectBranch(b).then(() => setShowCartModal(true));
+              } else if (targetBranchId) {
+                api.getBranchMenu(targetBranchId).then((data) => {
+                  if (data && data.branch) {
+                    setSelectedBranch(data.branch);
+                    setBranchCategories(data.categories || []);
+                    setShowCartModal(true);
+                  }
+                });
+              }
+            }}
+            className="group flex items-center gap-2.5 pl-3.5 sm:pl-4 pr-2.5 py-2 sm:py-2.5 rounded-full bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-[0_12px_32px_rgba(79,70,229,0.38)] border border-indigo-500/60 backdrop-blur-md active:scale-95 hover:scale-105 transition-all duration-200 cursor-pointer"
+            title="عرض سلة المشتريات"
+          >
+            <div className="relative shrink-0">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-md transition-transform group-hover:rotate-6">
+                <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 bg-rose-500 text-white text-[11px] font-black rounded-full flex items-center justify-center border-2 border-slate-900 shadow-md">
+                {cart.reduce((s, i) => s + (i.quantity || 1), 0)}
+              </span>
+            </div>
+
+            <div className="text-right min-w-0 pr-0.5">
+              <div className="text-[11px] font-bold text-slate-300 flex items-center gap-1 leading-tight">
+                <span>السلة</span>
+                <span className="text-[10px] text-indigo-300 font-bold font-mono">({cart.reduce((s, i) => s + (i.quantity || 1), 0)})</span>
+              </div>
+              <div className="text-sm sm:text-base font-black text-white font-mono leading-tight mt-0.5">
+                {cart.reduce((s, i) => s + (i.totalPrice || ((i.unitPrice || 0) * (i.quantity || 1))), 0)} ج.م
+              </div>
+            </div>
+
+            <span className="mr-1 px-2.5 py-1 text-[11px] font-black rounded-full bg-indigo-600 group-hover:bg-indigo-500 text-white flex items-center gap-1 transition-all shrink-0 shadow-2xs">
+              <span>عرض</span>
+              <span className="text-xs transition-transform group-hover:-translate-x-0.5">←</span>
+            </span>
+          </button>
+        </div>
       )}
 
       {/* Exit App Confirmation Dialog */}
