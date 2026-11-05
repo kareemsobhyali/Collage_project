@@ -2752,8 +2752,17 @@ router.post("/orders/:id/respond-addon", async (req: AuthRequest, res: Response)
       }
     });
 
-    if (!order || (order.userId !== userId && req.user!.role !== "SUPERADMIN")) {
-      res.status(404).json({ error: "الطلب غير موجود أو لا تملك صلاحية الوصول إليه" });
+    if (!order) {
+      res.status(404).json({ error: "الطلب غير موجود" });
+      return;
+    }
+
+    const isOwner = order.userId === userId || 
+      (req.user?.phone && order.customerPhone === req.user.phone) || 
+      req.user!.role === "SUPERADMIN";
+
+    if (!isOwner) {
+      res.status(403).json({ error: "لا تملك صلاحية الوصول لهذا الطلب" });
       return;
     }
 

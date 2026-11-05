@@ -14,7 +14,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { api, API_BASE_URL, getFullImageUrl, syncRemoteServerConfig } from './services/api';
-import { registerServiceWorker, isRunningInNativeApk, registerNativeBackgroundSession, clearNativeBackgroundSession } from './services/notifications';
+import { registerServiceWorker, isRunningInNativeApk, registerNativeBackgroundSession, clearNativeBackgroundSession, playProposalChime, sendWebNotification, notifyOrderStatusPush } from './services/notifications';
 import { BranchList } from './components/BranchList';
 import { BranchMenu } from './components/BranchMenu';
 import { LandingPage } from './components/LandingPage';
@@ -531,6 +531,8 @@ export function App() {
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
   const [showCartModal, setShowCartModal] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<any | null>(null);
+  const [trackingFocusSection, setTrackingFocusSection] = useState<string | null>(null);
+  const [pendingAddonToast, setPendingAddonToast] = useState<any | null>(null);
   const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [wheelOrder, setWheelOrder] = useState<any | null>(null);
@@ -1140,6 +1142,15 @@ export function App() {
           registerNativeBackgroundSession(currentToken, 'STUDENT', currentUid);
         }
       }
+      try {
+        const lastOrderStr = localStorage.getItem('unifood_last_order');
+        if (lastOrderStr) {
+          const lastOrder = JSON.parse(lastOrderStr);
+          if (lastOrder?.id) {
+            socket.emit('join_order', lastOrder.id);
+          }
+        }
+      } catch (_e) {}
       const curBranch = selectedBranchRef.current;
       if (curBranch?.id) {
         socket.emit('check_branch_presence', curBranch.id, (isOnline: boolean) => {
@@ -1403,6 +1414,30 @@ export function App() {
     socket.on('order_status_updated', (updatedOrder: any) => {
       if (!updatedOrder || !updatedOrder.id) return;
       window.dispatchEvent(new CustomEvent('order_status_updated', { detail: updatedOrder }));
+
+      // فحص إشعار المتصفح أو اقتراح إضافة معلق
+      notifyOrderStatusPush(updatedOrder);
+
+      // إذا كان التحديث يحمل اقتراح إضافة خاصة معلق
+      if (updatedOrder.customAddonProposal) {
+        try {
+          const prop = typeof updatedOrder.customAddonProposal === 'string'
+            ? JSON.parse(updatedOrder.customAddonProposal)
+            : updatedOrder.customAddonProposal;
+          if (prop && prop.status === 'PENDING') {
+            setPendingAddonToast({
+              orderId: updatedOrder.id,
+              orderNumber: updatedOrder.orderNumber,
+              branchName: updatedOrder.branch?.name || 'المطعم',
+              proposal: prop,
+              order: updatedOrder,
+            });
+          } else if (prop && (prop.status === 'ACCEPTED' || prop.status === 'REJECTED')) {
+            setPendingAddonToast((curr: any) => (curr?.orderId === updatedOrder.id ? null : curr));
+          }
+        } catch (_e) {}
+      }
+
       setTrackingOrder((prevOrder: any) => {
         if (!prevOrder || prevOrder.id !== updatedOrder.id) return prevOrder;
         return {
@@ -1414,10 +1449,63 @@ export function App() {
       });
     });
 
+    // 8. استقبال إشعار اقتراح إضافة خاصة من المطعم فورياً للعميل
+    socket.on('order_addon_proposal', (payload: any) => {
+      if (!payload) return;
+      const order = payload.order || { id: payload.orderId, orderNumber: payload.orderNumber };
+      const proposal = payload.proposal;
+      const branchName = payload.branchName || 'المطعم';
+
+      // تشغيل نغمة تنبيه خاصة بالاقتراح فوراً مع الاهتزاز
+      playProposalChime();
+
+      // إشعار النظام / المتصفح
+      const pTitle = `🛎️ اقتراح إضافة خاصة من (${branchName})`;
+      const pMsg = `يقترح المطعم إضافة "${proposal?.name || 'صنف خاص'}" بسعر (+${proposal?.price || 0} ج.م) للطلب #${payload.orderNumber || ''} - اضغط للمعاينة والرد`;
+      sendWebNotification(pTitle, pMsg, `/?openOrder=${payload.orderId}&focus=addonProposal`, `addon_${payload.orderId}`);
+
+      // عرض شريط تنبيه عائم في واجهة التطبيق
+      setPendingAddonToast({
+        orderId: payload.orderId,
+        orderNumber: payload.orderNumber,
+        branchName,
+        proposal,
+        order,
+      });
+
+      // إذا كانت شاشة تتبع الطلب لنفس الطلب مفتوحة حالياً، نقوم بتحديثها فورياً والتركيز على القسم
+      setTrackingOrder((prev: any) => {
+        if (prev && prev.id === payload.orderId) {
+          return {
+            ...prev,
+            customAddonProposal: JSON.stringify(proposal),
+            branch: payload.order?.branch || prev.branch,
+          };
+        }
+        return prev;
+      });
+      setTrackingFocusSection('addonProposal');
+    });
+
+    const handleProposalReceived = (e: any) => {
+      const detail = e.detail;
+      if (detail && detail.proposal && detail.order) {
+        setPendingAddonToast({
+          orderId: detail.order.id,
+          orderNumber: detail.order.orderNumber,
+          branchName: detail.order.branch?.name || 'المطعم',
+          proposal: detail.proposal,
+          order: detail.order,
+        });
+      }
+    };
+    window.addEventListener('unifood-addon-proposal-received', handleProposalReceived);
+
     return () => {
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibility);
       }
+      window.removeEventListener('unifood-addon-proposal-received', handleProposalReceived);
       socket.disconnect();
     };
   }, [isAdminRoute]);
@@ -1428,6 +1516,83 @@ export function App() {
       registerNativeBackgroundSession(token, 'STUDENT', user.id);
     }
   }, [user?.id]);
+
+  // فتح شاشة التتبع والتركيز على تفاصيل الإضافة تلقائياً عند النقر على إشعار خارجي
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const processOpenOrderQuery = (urlStr?: string) => {
+      try {
+        const urlObj = urlStr ? new URL(urlStr, window.location.origin) : new URL(window.location.href);
+        const params = urlObj.searchParams;
+        const targetOrderId = params.get('openOrder') || params.get('order');
+        const focusTarget = params.get('focus');
+
+        if (targetOrderId) {
+          if (!urlStr) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('openOrder');
+            newUrl.searchParams.delete('order');
+            if (newUrl.searchParams.get('focus') === 'addonProposal') {
+              newUrl.searchParams.delete('focus');
+            }
+            window.history.replaceState({}, '', newUrl.toString());
+          }
+
+          api.getOrder(targetOrderId)
+            .then((orderData) => {
+              if (orderData && orderData.id) {
+                setTrackingOrder(orderData);
+                if (focusTarget) {
+                  setTrackingFocusSection(focusTarget);
+                }
+              }
+            })
+            .catch((err) => {
+              console.error('Failed to open order from notification param:', err);
+            });
+        }
+      } catch (_e) {}
+    };
+
+    // 1. فحص الرابط المباشر عند بدء تشغيل الصفحة
+    processOpenOrderQuery();
+
+    // 2. استقبال رسالة النقر على الإشعار من ServiceWorker في حال كانت الصفحة مفتوحة بالخلفية
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NAVIGATE_TO' && event.data?.url) {
+        processOpenOrderQuery(event.data.url);
+      }
+    };
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
+
+    return () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
+    };
+  }, []);
+
+  const handleOpenAddonProposal = async (orderId: string, directOrder?: any) => {
+    try {
+      let orderToOpen = directOrder;
+      if (!orderToOpen || !orderToOpen.items) {
+        orderToOpen = await api.getOrder(orderId);
+      }
+      setTrackingOrder(orderToOpen);
+      setTrackingFocusSection('addonProposal');
+      setPendingAddonToast(null);
+    } catch (_err) {
+      if (directOrder) {
+        setTrackingOrder(directOrder);
+        setTrackingFocusSection('addonProposal');
+        setPendingAddonToast(null);
+      }
+    }
+  };
 
   if (isSmsGatewayRoute) {
     return (
@@ -2000,9 +2165,52 @@ export function App() {
         />
       )}
 
+      {/* شريط عائم تفاعلي لإشعار اقتراح إضافة خاصة من المطعم */}
+      {pendingAddonToast && (
+        <div
+          dir="rtl"
+          className="fixed top-3 inset-x-3 sm:inset-x-auto sm:right-4 sm:max-w-md z-[9999] cursor-pointer animate-fadeIn"
+          onClick={() => handleOpenAddonProposal(pendingAddonToast.orderId, pendingAddonToast.order)}
+        >
+          <div className="bg-gradient-to-r from-purple-800 via-indigo-900 to-purple-900 text-white p-3.5 sm:p-4 rounded-3xl shadow-2xl shadow-purple-950/60 border-2 border-purple-400/60 backdrop-blur-md flex items-center gap-3 transition-transform hover:scale-[1.02] active:scale-98 ring-4 ring-purple-500/20">
+            <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-2xl shrink-0 animate-bounce">
+              🛎️
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[11px] font-black text-purple-200">
+                  اقتراح إضافة خاصة • {pendingAddonToast.branchName}
+                </span>
+                <span className="text-xs font-mono font-black text-amber-300 bg-black/40 px-2 py-0.5 rounded-lg border border-amber-300/30">
+                  +{pendingAddonToast.proposal?.price} ج.م
+                </span>
+              </div>
+              <p className="text-sm font-black text-white truncate mt-0.5">
+                {pendingAddonToast.proposal?.name || 'صنف خاص'}
+              </p>
+              <p className="text-[11px] text-purple-200 font-bold">
+                اضغط هنا للمعاينة والموافقة أو الرفض 👈
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPendingAddonToast(null);
+              }}
+              className="p-1.5 text-purple-300 hover:text-white hover:bg-white/15 rounded-full transition-colors cursor-pointer"
+              title="إغلاق التنبيه"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {trackingOrder && (
         <OrderTrackingModal
           order={trackingOrder}
+          focusSection={trackingFocusSection}
           onOrderUpdated={(updatedOrder) => {
             setTrackingOrder(updatedOrder);
             window.dispatchEvent(new CustomEvent('order_status_updated', { detail: updatedOrder }));
@@ -2019,7 +2227,10 @@ export function App() {
               }).catch(() => {});
             }
           }}
-          onClose={() => setTrackingOrder(null)}
+          onClose={() => {
+            setTrackingOrder(null);
+            setTrackingFocusSection(null);
+          }}
         />
       )}
 

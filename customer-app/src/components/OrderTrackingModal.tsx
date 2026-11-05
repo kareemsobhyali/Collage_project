@@ -21,7 +21,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
-import { notifyOrderStatusPush, sendWebNotification } from '../services/notifications';
+import { notifyOrderStatusPush, sendWebNotification, playProposalChime } from '../services/notifications';
 import { LiveOrderMap } from './LiveOrderMap';
 import { SpinTheWheelModal } from './SpinTheWheelModal';
 import { extractCoordinatesFromAddress, cleanAddressText, getDisplayAddress, DEFAULT_CAMPUS_RESTAURANT_COORDS, getStoredRestaurantCoords, setStoredRestaurantCoords } from '../services/campusLocations';
@@ -30,6 +30,7 @@ interface OrderTrackingModalProps {
   order: any;
   onClose: () => void;
   onOrderUpdated?: (updatedOrder: any) => void;
+  focusSection?: string | null;
 }
 
 const cleanDriverDisplayName = (name?: string | null): string => {
@@ -67,7 +68,8 @@ const getDiffMins = (start?: string | null, end?: string | null): number | null 
 export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ 
   order: initialOrder, 
   onClose,
-  onOrderUpdated 
+  onOrderUpdated,
+  focusSection
 }) => {
   const [order, setOrder] = useState<any>(initialOrder);
   const [cancelling, setCancelling] = useState(false);
@@ -76,6 +78,35 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   const [refreshingOrder, setRefreshingOrder] = useState<boolean>(false);
   const [showWheelModal, setShowWheelModal] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const proposalRef = useRef<HTMLDivElement>(null);
+  const [highlightProposal, setHighlightProposal] = useState(false);
+
+  // التمرير التلقائي والتركيز على اقتراح الإضافة عند فتح الشاشة بطلب من الإشعار
+  useEffect(() => {
+    let hasProposal = false;
+    if (order?.customAddonProposal) {
+      try {
+        const p = typeof order.customAddonProposal === 'string' ? JSON.parse(order.customAddonProposal) : order.customAddonProposal;
+        if (p && p.status === 'PENDING') hasProposal = true;
+      } catch {}
+    }
+
+    if (focusSection === 'addonProposal' || hasProposal) {
+      setHighlightProposal(true);
+      const timer = setTimeout(() => {
+        if (proposalRef.current) {
+          proposalRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 350);
+      const resetTimer = setTimeout(() => {
+        setHighlightProposal(false);
+      }, 5000);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(resetTimer);
+      };
+    }
+  }, [focusSection, order?.customAddonProposal]);
 
   // مزامنة حالة الطلب فوراً عند تغير الـ prop من الشاشة الأب (App.tsx)
   useEffect(() => {
@@ -368,6 +399,26 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
       }
     });
 
+    // استقبال اقتراح إضافة خاصة من المطعم وتحديث الشاشة وتمرير التركيز مع نغمة فوراً
+    socket.on('order_addon_proposal', (payload: any) => {
+      if (payload && (payload.orderId === order.id || payload.order?.id === order.id)) {
+        setOrder((prev: any) => {
+          const merged = {
+            ...prev,
+            customAddonProposal: typeof payload.proposal === 'object' ? JSON.stringify(payload.proposal) : payload.proposal,
+            ...(payload.order || {}),
+          };
+          if (onOrderUpdated) onOrderUpdated(merged);
+          return merged;
+        });
+        playProposalChime();
+        setHighlightProposal(true);
+        setTimeout(() => {
+          proposalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 200);
+      }
+    });
+
     // استقبال تحديث موقع الطيار الحي على الخريطة
     socket.on('driver_location_updated', (locData: any) => {
       if (locData && typeof locData.lat === 'number' && typeof locData.lng === 'number') {
@@ -583,10 +634,19 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
               const newTotal = currentTotal + addonPrice;
 
               return (
-                <div className="p-4 bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 rounded-3xl border-2 border-purple-300 shadow-md space-y-3 animate-fadeIn" dir="rtl">
+                <div 
+                  ref={proposalRef}
+                  id="custom-addon-proposal-box"
+                  className={`p-4 bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 rounded-3xl border-2 space-y-3 transition-all duration-500 ${
+                    highlightProposal
+                      ? 'ring-4 ring-purple-500 ring-offset-2 border-purple-500 scale-[1.02] shadow-xl shadow-purple-500/25'
+                      : 'border-purple-300 shadow-md'
+                  } animate-fadeIn`} 
+                  dir="rtl"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl animate-bounce">🛎️</span>
+                      <span className={`text-xl ${highlightProposal ? 'animate-bounce' : ''}`}>🛎️</span>
                       <span className="text-xs font-black text-purple-900">
                         اقتراح إضافة خاصة من المطعم
                       </span>

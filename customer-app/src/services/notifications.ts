@@ -223,19 +223,73 @@ export async function sendWebNotification(
   }
 }
 
-export function notifyOrderStatusPush(order: any): void {
-  if (!order || !order.id || !order.status) return;
+export function playProposalChime(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const playTone = (freq: number, start: number, dur: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.28, start);
+        gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + dur);
+      };
+      playTone(784, now, 0.15); // G5
+      playTone(1046.5, now + 0.12, 0.35); // C6
+    }
+  } catch (_e) {}
 
-  // منع التكرار لنفس الحالة نهائياً
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([200, 100, 300]);
+    }
+  } catch (_e) {}
+}
+
+export function notifyOrderStatusPush(order: any): void {
+  if (!order || !order.id) return;
+
   const storedStatuses = getStoredNotifiedStatuses();
-  if (storedStatuses.get(order.id) === order.status) {
+  const orderNum = order.orderNumber || '';
+  const branchName = order.branch?.name || 'المطعم';
+
+  // 1. فحص وجود اقتراح إضافة خاصة معلق للعميل (Add-on Proposal)
+  if (order.customAddonProposal) {
+    try {
+      const proposal = typeof order.customAddonProposal === 'string' ? JSON.parse(order.customAddonProposal) : order.customAddonProposal;
+      if (proposal && proposal.status === 'PENDING') {
+        const proposalKey = `addon_prop_${proposal.id || proposal.name}_${proposal.price}`;
+        if (storedStatuses.get(order.id) !== proposalKey) {
+          saveNotifiedStatus(order.id, proposalKey);
+          playProposalChime();
+          const pTitle = `🛎️ اقتراح إضافة خاصة من (${branchName})`;
+          const pMsg = `يقترح المطعم إضافة "${proposal.name}" بسعر (+${proposal.price} ج.م) للطلب #${orderNum} - اضغط للموافقة أو الرفض`;
+          sendWebNotification(pTitle, pMsg, `/?openOrder=${order.id}&focus=addonProposal`, `addon_${order.id}`);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('unifood-addon-proposal-received', {
+                detail: { order, proposal },
+              })
+            );
+          }
+        }
+      }
+    } catch (_e) {}
+  }
+
+  // 2. فحص تغير حالة الطلب (ACCEPTED, PREPARING, READY, etc.)
+  if (!order.status || storedStatuses.get(order.id) === order.status) {
     return;
   }
   saveNotifiedStatus(order.id, order.status);
-
-  // إرسال تنبيه مرئي داخل واجهة التطبيق فقط (In-App Toast) بدون أي إشعارات نظام أو شريط علوي
-  const orderNum = order.orderNumber || '';
-  const branchName = order.branch?.name || 'المطعم';
 
   let title = '';
   let msg = '';

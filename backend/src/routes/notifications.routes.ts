@@ -236,6 +236,30 @@ router.get("/poll", async (req: Request, res: Response) => {
           });
         }
 
+        // فحص وجود اقتراح إضافة خاصة معلق للعميل (Add-on Proposal)
+        if (order.customAddonProposal) {
+          try {
+            const proposal = JSON.parse(order.customAddonProposal);
+            if (proposal && proposal.status === "PENDING") {
+              const proposalMs = proposal.createdAt ? new Date(proposal.createdAt).getTime() : orderUpdatedMs;
+              if (sinceParam === 0 || proposalMs > sinceParam) {
+                notifications.push({
+                  id: `addon_proposal_${order.orderNumber}_${proposal.id || proposalMs}`,
+                  tag: `addon_${order.orderNumber}`,
+                  channel: "ORDERS",
+                  title: `🛎️ اقتراح إضافة خاصة من المطعم • طلب #${order.orderNumber}`,
+                  body: `يقترح (${branchName}) إضافة "${proposal.name}" بسعر (+${proposal.price} ج.م) - اضغط للموافقة أو الرفض`,
+                  subText: `اقتراح إضافة • ${branchName}`,
+                  color: "#9333EA",
+                  soundType: "CHIME",
+                  actionUrl: `/?openOrder=${order.id}&focus=addonProposal`,
+                  timestamp: proposalMs,
+                });
+              }
+            }
+          } catch (_e) {}
+        }
+
         // فحص رسائل الكابتن السريعة للطالب
         const msgs = orderQuickMessages.get(order.id) || [];
         for (const msg of msgs) {

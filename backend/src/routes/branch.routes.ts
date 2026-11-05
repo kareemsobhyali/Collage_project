@@ -5,6 +5,7 @@ import prisma from "../prisma.js";
 import { generateToken, authenticateBranch, AuthRequest } from "../middleware/auth.js";
 import { 
   notifyOrderStatusChanged, 
+  notifyOrderAddonProposed,
   notifyBranchStatusChanged, 
   notifyDriverAssigned,
   notifyBranchMenuChanged,
@@ -2295,6 +2296,13 @@ router.post("/orders/:id/propose-addon", async (req: AuthRequest, res: Response)
 
     // إشعار فوري للعميل والمطعم عبر Socket.io
     notifyOrderStatusChanged(id, branchId, updatedOrder, updatedOrder.driverId || undefined);
+    notifyOrderAddonProposed(id, order.userId, {
+      orderId: id,
+      orderNumber: order.orderNumber,
+      branchName: updatedOrder.branch?.name || "المطعم",
+      proposal,
+      order: updatedOrder
+    });
 
     res.json({ success: true, order: updatedOrder, proposal });
   } catch (error: any) {

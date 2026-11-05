@@ -26,6 +26,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours, sanitizePromoCodeValue } from '../services/api';
+import { notifyOrderStatusPush } from '../services/notifications';
 import {
   getDisplayAddress,
   CAMPUS_LANDMARKS,
@@ -571,6 +572,8 @@ export const BranchList: React.FC<BranchListProps> = ({ branches, onSelectBranch
         });
 
         setActiveOrders(active);
+        // التحقق من وصول اقتراح إضافة خاصة أو تحديث لحالة أي طلب نشط
+        active.forEach((ord: any) => notifyOrderStatusPush(ord));
       } catch (err) {
         console.error('Failed to load active orders:', err);
       }

@@ -34,6 +34,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { api, getFullImageUrl, isBranchOpenByHours, sanitizePromoCodeValue } from '../services/api';
+import { notifyOrderStatusPush } from '../services/notifications';
 import { getDisplayAddress, getStoredClientCoords, isBranchInDeliveryZone } from '../services/campusLocations';
 import { getItemFallbackImage } from '../utils/foodImages';
 import { SmartRecommenderModal } from './SmartRecommenderModal';
@@ -668,6 +669,8 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
         });
 
         setActiveOrders(sorted);
+        // التحقق من وصول اقتراح إضافة خاصة أو تحديث لحالة أي طلب نشط
+        sorted.forEach((ord: any) => notifyOrderStatusPush(ord));
       } catch (_err) {}
     };
 

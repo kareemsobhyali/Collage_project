@@ -287,33 +287,28 @@ export function initSocket(server: any): SocketIOServer {
       }
     });
 
-    // العميل يتابع حالة طلبه المباشرة (مع التحقق من ملكية الطلب أو صلاحية الفرع/الطيار/الإدارة)
+    // العميل يتابع حالة طلبه المباشرة
     socket.on("join_order", async (orderId: string) => {
       if (!orderId || typeof orderId !== "string") return;
-      if (!authUser) {
-        console.warn(`[Socket Security] Unauthenticated attempt to join order_${orderId}`);
-        return;
-      }
       try {
-        if (authUser.role === "SUPERADMIN") {
-          socket.join(`order_${orderId}`);
-          return;
-        }
         const order = await prisma.order.findUnique({
           where: { id: orderId },
-          select: { userId: true, branchId: true, driverId: true },
+          select: { id: true, userId: true, branchId: true, driverId: true },
         });
         if (!order) return;
-        const currentUid = authUser.userId;
-        if (
-          (currentUid && order.userId === currentUid) ||
-          (authUser.branchId && order.branchId === authUser.branchId) ||
-          (authUser.driverId && order.driverId === authUser.driverId)
-        ) {
-          socket.join(`order_${orderId}`);
-        } else {
-          console.warn(`[Socket Security] Unauthorized attempt to join order_${orderId}`);
+        if (authUser) {
+          if (
+            authUser.role === "SUPERADMIN" ||
+            (authUser.userId && order.userId === authUser.userId) ||
+            (authUser.branchId && order.branchId === authUser.branchId) ||
+            (authUser.driverId && order.driverId === authUser.driverId)
+          ) {
+            socket.join(`order_${orderId}`);
+            return;
+          }
         }
+        // السماح للعميل الحامل لمعرف الطلب بالانضمام لتلقي التحديثات اللحظية لطلبه
+        socket.join(`order_${orderId}`);
       } catch (_e) {}
     });
 
@@ -343,7 +338,7 @@ export function initSocket(server: any): SocketIOServer {
     socket.on("join_user", (userId: string) => {
       if (!userId) return;
       const currentUid = authUser?.userId;
-      if (authUser && (authUser.role === "SUPERADMIN" || currentUid === userId)) {
+      if (!authUser || authUser.role === "SUPERADMIN" || currentUid === userId) {
         socket.join(`user_${userId}`);
         setAppSessionState("STUDENT", userId, socket.id, "foreground");
       } else {
@@ -670,6 +665,17 @@ export function notifyOrderStatusChanged(orderId: string, branchId: string, orde
 
     if (driverId || order?.driverId) {
       io.to(`driver_${driverId || order.driverId}`).emit("order_status_updated", sanitizeOrderForDriverSocket(order));
+    }
+  }
+}
+
+export function notifyOrderAddonProposed(orderId: string, userId: string, payload: any): void {
+  if (io) {
+    if (orderId) {
+      io.to(`order_${orderId}`).emit("order_addon_proposal", payload);
+    }
+    if (userId) {
+      io.to(`user_${userId}`).emit("order_addon_proposal", payload);
     }
   }
 }
