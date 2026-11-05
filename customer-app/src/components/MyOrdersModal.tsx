@@ -127,61 +127,57 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ onSelectOrderToTra
   }, []);
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-fadeIn"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div 
-        className="bg-white rounded-t-[28px] sm:rounded-3xl w-full max-w-lg max-h-[92dvh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden relative"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Mobile drag handle */}
-        <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto my-2.5 sm:hidden shrink-0 z-20" />
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-20">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold shadow-2xs border border-indigo-100/70">
-              <Clock className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-black text-slate-900 text-sm sm:text-base">سجل طلباتي السابقة</h3>
-                {orders.length > 0 && (
-                  <span className="text-[10px] font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
-                    {orders.length}
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-400 font-medium">متابعة وإعادة طلب وجباتك السابقة بسهولة</p>
-            </div>
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 w-full h-full overflow-hidden animate-fadeIn" dir="rtl">
+      {/* Top Sticky Header */}
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-white border-b border-slate-200/80 shadow-2xs sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+          >
+            <ArrowRight className="w-4 h-4 text-slate-600" />
+            <span className="text-xs font-black">رجوع</span>
+          </button>
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold shadow-2xs border border-indigo-100/70">
+            <Clock className="w-5 h-5 text-indigo-600" />
           </div>
-
-          <div className="flex items-center gap-1.5">
-            <button 
-              type="button"
-              onClick={fetchOrders}
-              disabled={loading}
-              className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors cursor-pointer active:scale-95 disabled:opacity-40"
-              title="تحديث قائمة الطلبات"
-            >
-              <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
-            </button>
-            <button 
-              type="button"
-              onClick={onClose} 
-              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-              title="إغلاق"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">سجل طلباتي السابقة</h3>
+              {orders.length > 0 && (
+                <span className="text-[10px] font-mono font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                  {orders.length}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">متابعة وإعادة طلب وجباتك السابقة بسهولة</p>
           </div>
         </div>
 
-        {/* Orders List Container */}
-        <div className="p-4 sm:p-5 overflow-y-auto modal-scroll flex-1 space-y-3.5 pb-8 sm:pb-6 overscroll-contain">
+        <div className="flex items-center gap-1.5">
+          <button 
+            type="button"
+            onClick={fetchOrders}
+            disabled={loading}
+            className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors cursor-pointer active:scale-95 disabled:opacity-40"
+            title="تحديث قائمة الطلبات"
+          >
+            <RotateCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
+          </button>
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+            title="إغلاق"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Orders List Container */}
+      <div className="p-4 sm:p-6 overflow-y-auto modal-scroll flex-1 space-y-3.5 pb-safe overscroll-contain max-w-3xl mx-auto w-full">
           {loading ? (
             <div className="py-16 text-center text-slate-400 space-y-3">
               <RotateCw className="w-8 h-8 mx-auto animate-spin text-indigo-600" />
@@ -353,6 +349,5 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ onSelectOrderToTra
           )}
         </div>
       </div>
-    </div>
   );
 };

@@ -389,6 +389,18 @@ export const api = {
     return data;
   },
 
+  // 8.66 الرد على اقتراح إضافة خاصة من المطعم (قبول أو رفض وتعديل الفاتورة)
+  async respondOrderAddon(orderId: string, accept: boolean) {
+    const res = await fetch(`${API_BASE_URL}/customer/orders/${orderId}/respond-addon`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ accept }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تحديث الاستجابة للاقتراح');
+    return data;
+  },
+
   // 8.7 جلب البانرات الإعلانية النشطة
   async getBanners() {
     const res = await fetch(`${API_BASE_URL}/customer/banners`);
@@ -1569,6 +1581,17 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل تحديث حالة الطلب');
+    return data;
+  },
+
+  async proposeOrderAddon(orderId: string, payload: { name: string; price: number; note?: string }) {
+    const res = await fetch(`${API_BASE_URL}/branch/orders/${orderId}/propose-addon`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إرسال اقتراح الإضافة');
     return data;
   },
 

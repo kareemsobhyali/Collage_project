@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { 
   X, 
   CheckCircle, 
+  Check,
   Clock, 
   ChefHat, 
   Truck, 
@@ -178,6 +179,25 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
       }
     );
     setTimeout(() => setSendingQuickMsg(false), 1200);
+  };
+
+  const [respondingAddon, setRespondingAddon] = useState(false);
+
+  // استجابة العميل لاقتراح إضافة خاصة من المطعم (قبول أو رفض)
+  const handleRespondAddon = async (accept: boolean) => {
+    if (!order?.id) return;
+    try {
+      setRespondingAddon(true);
+      const res = await api.respondOrderAddon(order.id, accept);
+      if (res?.order) {
+        setOrder(res.order);
+        if (onOrderUpdated) onOrderUpdated(res.order);
+      }
+    } catch (err: any) {
+      alert(err.message || 'فشل تحديث الاستجابة للاقتراح');
+    } finally {
+      setRespondingAddon(false);
+    }
   };
 
   // موقع المطعم الفعلي (من إعدادات المنظومة أو عنوان الفرع أو المخزن محلياً)
@@ -545,6 +565,105 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
 
         {/* Content */}
         <div className="p-5 sm:p-6 overflow-y-auto modal-scroll flex-1 space-y-5">
+          {/* Custom Add-on Proposal Prompt from Restaurant */}
+          {(() => {
+            let proposal: any = null;
+            if (order.customAddonProposal) {
+              try { proposal = JSON.parse(order.customAddonProposal); } catch {}
+            }
+            if (!proposal) return null;
+
+            const isPending = proposal.status === 'PENDING';
+            const isAccepted = proposal.status === 'ACCEPTED';
+            const isRejected = proposal.status === 'REJECTED';
+
+            if (isPending) {
+              const currentTotal = Number(order.total) || 0;
+              const addonPrice = Number(proposal.price) || 0;
+              const newTotal = currentTotal + addonPrice;
+
+              return (
+                <div className="p-4 bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-50 rounded-3xl border-2 border-purple-300 shadow-md space-y-3 animate-fadeIn" dir="rtl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl animate-bounce">🛎️</span>
+                      <span className="text-xs font-black text-purple-900">
+                        اقتراح إضافة خاصة من المطعم
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono font-black text-purple-700 bg-white px-2.5 py-1 rounded-xl shadow-xs border border-purple-200">
+                      +{addonPrice} ج.م
+                    </span>
+                  </div>
+
+                  <div className="bg-white/95 backdrop-blur-xs p-3 rounded-2xl border border-purple-100 space-y-1.5">
+                    <div className="font-black text-sm text-slate-900">
+                      {proposal.name}
+                    </div>
+                    {proposal.note && (
+                      <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                        "{proposal.note}"
+                      </p>
+                    )}
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-slate-500">الإجمالي الحالي: <strong className="text-slate-800 font-mono">{currentTotal} ج.م</strong></span>
+                      <span className="text-purple-700 font-black">
+                        الإجمالي بعد الموافقة: <strong className="font-mono text-sm">{newTotal} ج.م</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={respondingAddon}
+                      onClick={() => handleRespondAddon(true)}
+                      className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{respondingAddon ? 'جاري الاعتماد...' : 'موافق وإضافة للفاتورة'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={respondingAddon}
+                      onClick={() => handleRespondAddon(false)}
+                      className="py-2.5 px-4 bg-white hover:bg-rose-50 active:scale-95 text-rose-700 border border-rose-200 rounded-2xl text-xs font-black transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <span>رفض الإضافة</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            if (isAccepted) {
+              return (
+                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between gap-2 animate-fadeIn">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <span className="font-black block">تمت إضافة ({proposal.name}) للفاتورة</span>
+                      <span className="text-[10px] text-emerald-700">تم اعتماد موافقتك وزيادة {proposal.price} ج.م على الإجمالي</span>
+                    </div>
+                  </div>
+                  <span className="font-mono font-black text-emerald-800 bg-white px-2 py-0.5 rounded-lg border border-emerald-200">
+                    +{proposal.price} ج.م
+                  </span>
+                </div>
+              );
+            }
+
+            if (isRejected) {
+              return (
+                <div className="p-2.5 bg-slate-100 rounded-2xl border border-slate-200 text-[11px] text-slate-600 flex items-center gap-2">
+                  <span>تم رفض اقتراح إضافة ({proposal.name}) والاكتفاء بالطلب الأصلي كما هو.</span>
+                </div>
+              );
+            }
+
+            return null;
+          })()}
+
           {/* عجلة الحظ لكسب هدية الطلب */}
           {!order.wheelSpun && status !== 'REJECTED' && status !== 'CANCELLED' && (
             <div className="p-3.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-2xl text-white shadow-md flex items-center justify-between gap-2.5 animate-fadeIn">

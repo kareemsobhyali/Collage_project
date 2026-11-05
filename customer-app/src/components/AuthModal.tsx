@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Phone, Lock, X, ArrowLeft, AlertCircle, KeyRound, MessageSquare, Check, RefreshCw } from 'lucide-react';
+import { User, Phone, Lock, X, ArrowLeft, ArrowRight, AlertCircle, KeyRound, MessageSquare, Check, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
 
 interface AuthModalProps {
@@ -239,17 +239,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/75 p-0 sm:p-4 animate-fadeIn backdrop-blur-sm">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-sm max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto modal-scroll p-6 shadow-2xl relative pb-safe">
-        {/* Mobile drag handle */}
-        <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+    <div className="fixed inset-0 z-[80] flex flex-col bg-slate-50 w-full h-full overflow-hidden animate-fadeIn" dir="rtl">
+      {/* Top Sticky Header */}
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-white border-b border-slate-200/80 shadow-2xs sticky top-0 z-20 shrink-0">
         <button
+          type="button"
           onClick={onClose}
-          className="absolute left-4 top-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+          className="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+        >
+          <ArrowRight className="w-4 h-4 text-slate-600" />
+          <span className="text-xs font-black">رجوع</span>
+        </button>
+
+        <div className="font-black text-sm sm:text-base text-slate-900">
+          {mode === 'LOGIN' && 'تسجيل الدخول'}
+          {mode === 'REGISTER' && 'إنشاء حساب جديد'}
+          {mode === 'FORGOT_PHONE' && 'استعادة كلمة المرور'}
+          {mode === 'FORGOT_OTP' && 'تأكيد كود الواتساب'}
+          {mode === 'VERIFY_PHONE' && 'تفعيل رقم الهاتف'}
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+          title="إغلاق"
         >
           <X className="w-5 h-5" />
         </button>
+      </div>
 
+      {/* Full-Screen Scrollable Form Area */}
+      <div className="flex-1 overflow-y-auto modal-scroll p-4 sm:p-8 flex items-center justify-center">
+        <div className="bg-white rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-xl border border-slate-200/80 my-auto pb-safe">
         {/* Header Icon & Title */}
         <div className="text-center mb-6">
           <div className="w-14 h-14 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center font-black text-xl mb-3">
@@ -629,6 +651,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

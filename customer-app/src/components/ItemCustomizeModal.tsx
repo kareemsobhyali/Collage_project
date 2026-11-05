@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Plus, Minus, Check, MessageSquare, Sparkles } from 'lucide-react';
+import { X, Plus, Minus, Check, MessageSquare, Sparkles, ArrowRight } from 'lucide-react';
 import { getFullImageUrl } from '../services/api';
 import { getItemFallbackImage } from '../utils/foodImages';
 
@@ -193,10 +193,11 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-fadeIn">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[92dvh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative">
+    <div className="fixed inset-0 z-50 flex flex-col bg-white w-full h-full overflow-hidden animate-fadeIn" dir="rtl">
+      {/* Scrollable Container (Image + Details + Modifiers + Notes) */}
+      <div className="flex-1 overflow-y-auto modal-scroll w-full">
         {/* Top Header - Image fills full container with zero side gaps */}
-        <div className="relative w-full h-64 sm:h-80 overflow-hidden bg-slate-100 select-none">
+        <div className="relative w-full h-72 sm:h-96 overflow-hidden bg-slate-100 select-none">
           {(() => {
             const fallbackImg = getItemFallbackImage(item.name);
             const displayImg = item.imageUrl ? getFullImageUrl(item.imageUrl) : fallbackImg;
@@ -216,21 +217,29 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
           })()}
           <button
             onClick={onClose}
-            className="absolute top-4 left-4 z-20 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm transition-all active:scale-95 cursor-pointer shadow-md"
+            className="absolute top-4 right-4 z-20 px-3.5 py-2 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-all active:scale-95 cursor-pointer shadow-md flex items-center gap-1.5"
+            title="رجوع"
+          >
+            <ArrowRight className="w-4 h-4" />
+            <span className="text-xs font-black">رجوع</span>
+          </button>
+          <button
+            onClick={onClose}
+            className="absolute top-4 left-4 z-20 p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-all active:scale-95 cursor-pointer shadow-md"
             title="إغلاق"
           >
             <X className="w-5 h-5" />
           </button>
 
           {!isItemAvailable && (
-            <div className="absolute top-4 right-4 z-20 bg-rose-600/95 backdrop-blur-md text-white px-3 py-1 rounded-xl text-xs font-black shadow-md border border-white/20">
+            <div className="absolute top-4 right-24 z-20 bg-rose-600/95 backdrop-blur-md text-white px-3 py-1 rounded-xl text-xs font-black shadow-md border border-white/20">
               غير متوفر حالياً
             </div>
           )}
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-6 overflow-y-auto modal-scroll flex-1 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5 max-w-2xl mx-auto w-full">
           <div>
             <h3 className="text-lg sm:text-xl font-black text-slate-900">{item.name}</h3>
             {item.description && (
@@ -476,15 +485,17 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
             />
           </div>
         </div>
+      </div>
 
-        {/* Footer: Quantity & Add Button */}
-        <div className="p-4 border-t bg-slate-50 flex items-center gap-3 pb-safe">
+      {/* Footer: Quantity & Add Button */}
+      <div className="p-3 sm:p-4 border-t border-slate-200 bg-white/95 backdrop-blur-md sticky bottom-0 z-20 shadow-lg w-full shrink-0">
+        <div className="max-w-2xl mx-auto flex items-center gap-3 pb-safe">
           {/* Quantity Selector */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-2xl border border-slate-200 shadow-sm">
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="p-1 rounded-lg text-slate-600 hover:bg-slate-100"
+                className="p-1 rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 <Minus className="w-4 h-4" />
               </button>
@@ -496,7 +507,7 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
                     setQuantity(quantity + 1);
                   }
                 }}
-                className="p-1 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-1 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                 title={quantity >= maxAllowedQuantity ? `الحد الأقصى المتاح: ${maxAllowedQuantity}` : 'زيادة'}
               >
                 <Plus className="w-4 h-4" />
@@ -513,7 +524,7 @@ export const ItemCustomizeModal: React.FC<ItemCustomizeModalProps> = ({
           <button
             onClick={handleAdd}
             disabled={!isItemAvailable}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-black transition-all flex items-center justify-between ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-black transition-all flex items-center justify-between cursor-pointer ${
               !isItemAvailable
                 ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
                 : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 active:scale-95'

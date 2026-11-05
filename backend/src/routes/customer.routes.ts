@@ -2734,6 +2734,115 @@ router.post("/orders/:id/rate", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 6.2 استجابة العميل لاقتراح إضافة خاصة من المطعم (قبول أو رفض وتحديث الفاتورة فوراً)
+router.post("/orders/:id/respond-addon", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const userId = req.user!.userId;
+    const { accept } = req.body;
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: true,
+        branch: {
+          select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+        },
+        driver: { select: { id: true, name: true, phone: true } },
+      }
+    });
+
+    if (!order || (order.userId !== userId && req.user!.role !== "SUPERADMIN")) {
+      res.status(404).json({ error: "الطلب غير موجود أو لا تملك صلاحية الوصول إليه" });
+      return;
+    }
+
+    if (!order.customAddonProposal) {
+      res.status(400).json({ error: "لا يوجد اقتراح إضافة معلق لهذا الطلب" });
+      return;
+    }
+
+    let proposal: any = null;
+    try {
+      proposal = JSON.parse(order.customAddonProposal);
+    } catch (_e) {
+      res.status(400).json({ error: "بيانات اقتراح الإضافة غير صالحة" });
+      return;
+    }
+
+    if (proposal.status !== "PENDING") {
+      res.status(400).json({ error: "تمت الاستجابة لهذا الاقتراح مسبقاً" });
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    if (Boolean(accept)) {
+      proposal.status = "ACCEPTED";
+      proposal.respondedAt = nowIso;
+
+      const addPrice = Number(proposal.price) || 0;
+      const newSubtotal = Number((order.subtotal + addPrice).toFixed(2));
+      const newTotal = Number((order.total + addPrice).toFixed(2));
+
+      const updatedOrder = await prisma.$transaction(async (tx) => {
+        await tx.orderItem.create({
+          data: {
+            orderId: order.id,
+            itemName: proposal.name,
+            unitPrice: addPrice,
+            quantity: 1,
+            totalPrice: addPrice,
+            notes: proposal.note ? `إضافة خاصة معتمدة من العميل (${proposal.note})` : "إضافة خاصة معتمدة من العميل",
+          }
+        });
+
+        return await tx.order.update({
+          where: { id },
+          data: {
+            subtotal: newSubtotal,
+            total: newTotal,
+            customAddonProposal: JSON.stringify(proposal)
+          },
+          include: {
+            items: true,
+            branch: {
+              select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+            },
+            driver: { select: { id: true, name: true, phone: true } },
+          }
+        });
+      });
+
+      notifyOrderStatusChanged(id, order.branchId, updatedOrder, updatedOrder.driverId || undefined);
+      res.json({ success: true, accepted: true, order: updatedOrder });
+    } else {
+      proposal.status = "REJECTED";
+      proposal.respondedAt = nowIso;
+
+      const updatedOrder = await prisma.order.update({
+        where: { id },
+        data: {
+          customAddonProposal: JSON.stringify(proposal)
+        },
+        include: {
+          items: true,
+          branch: {
+            select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+          },
+          driver: { select: { id: true, name: true, phone: true } },
+        }
+      });
+
+      notifyOrderStatusChanged(id, order.branchId, updatedOrder, updatedOrder.driverId || undefined);
+      res.json({ success: true, accepted: false, order: updatedOrder });
+    }
+  } catch (error: any) {
+    console.error("Respond addon error:", error);
+    res.status(500).json({ error: "فشل تحديث استجابة الإضافة" });
+  }
+});
+
 // 6.5 تدوير عجلة الحظ وكسب مكافأة بعد إتمام الطلب (Spin The Wheel Gamification)
 router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) => {
   try {

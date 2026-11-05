@@ -240,6 +240,7 @@ model Order {
   unacceptedAlertSent Boolean        @default(false) // تم إرسال تنبيه بالواتساب عند التأخر في القبول
   wheelSpun          Boolean         @default(false) // هل قام العميل بتدوير عجلة الحظ لهذا الطلب
   wheelReward        String?         // تفاصيل الجائزة التي فاز بها العميل (JSON)
+  customAddonProposal String?        // اقتراح إضافة خاصة أو تعديل الفاتورة من المطعم للعميل (JSON)
   items              OrderItem[]
 
   @@index([branchId])

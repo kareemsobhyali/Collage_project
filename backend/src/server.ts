@@ -490,6 +490,25 @@ if (fs.existsSync(customerDistPath)) {
       }
     }
 
+    // تحويل تلقائي دائم (301) لأي رابط قديم بصيغة /r/:slug أو يحمل ?branch= إلى الرابط النظيف المباشر /:slug
+    const isLegacyBranchPath = segments.length === 2 && (segments[0] === 'r' || segments[0] === 'branch' || segments[0] === 'b');
+    const hasBranchQuery = Boolean(req.query.branch || req.query.r || req.query.b || req.query.slug);
+
+    if (!isApkRequest && (isLegacyBranchPath || (hasBranchQuery && (segments.length === 0 || segments[0] === 'r')))) {
+      const cleanSlug = targetBranchSlug;
+      if (cleanSlug && !['admin', 'driver', 'delivery', 'elviery', 'pos', 'manager', 'restaurant', 'partner', 'portal', 'sms-gateway-client', 'api', 'socket.io', 'uploads', 'manifest.json', 'favicon.ico', 'sw.js', 'robots.txt'].includes(cleanSlug.toLowerCase())) {
+        const q = new URLSearchParams(req.query as any);
+        q.delete('branch');
+        q.delete('r');
+        q.delete('b');
+        q.delete('slug');
+        const qs = q.toString() ? `?${q.toString()}` : '';
+        const isSubdomain = hostParts.length >= 3 && hostParts[0] === cleanSlug.toLowerCase();
+        const targetPath = isSubdomain ? `/${qs}` : `/${encodeURIComponent(cleanSlug)}${qs}`;
+        return res.redirect(301, targetPath);
+      }
+    }
+
     // إذا كان الزائر على هاتف آيفون (iOS) وطلب رابط تثبيت الـ APK، يتم تحويله مباشرة لصفحة المطعم أو الموقع فوراً
     const userAgent = String(req.headers['user-agent'] || '');
     const isIos = /iphone|ipad|ipod/i.test(userAgent);
@@ -667,6 +686,7 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "paymentSenderPhone" TEXT;`,
       `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "pickupPin" TEXT;`,
       `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "groupCartDetails" TEXT;`,
+      `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "customAddonProposal" TEXT;`,
       `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "loyaltyPoints" INTEGER DEFAULT 0;`,
       `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "walletBalance" DOUBLE PRECISION DEFAULT 0.0;`,
       `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isBlocked" BOOLEAN DEFAULT false;`,

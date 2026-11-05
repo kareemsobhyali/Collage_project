@@ -1017,6 +1017,18 @@ export function App() {
                   });
                   setBranchCategories(menuData.categories || []);
                   setDeletedBranchInfo(null);
+                  try {
+                    const newUrl = new URL(window.location.href);
+                    const slugOrId = menuData.branch.slug || menuData.branch.id;
+                    newUrl.searchParams.delete('branch');
+                    newUrl.searchParams.delete('r');
+                    newUrl.searchParams.delete('b');
+                    newUrl.searchParams.delete('slug');
+                    const hostParts = window.location.hostname.toLowerCase().split('.');
+                    const isSub = hostParts.length >= 3 && !['www', 'api', 'admin', 'driver', 'app', 'cdn', 'mail', 'localhost', 'pos', 'portal', 'static'].includes(hostParts[0]) && !/^\d+$/.test(hostParts[0]);
+                    newUrl.pathname = isSub ? '/' : `/${encodeURIComponent(slugOrId)}`;
+                    window.history.replaceState({ branchId: menuData.branch.id }, '', newUrl.toString());
+                  } catch (_e) {}
                   if (itemParam && Array.isArray(menuData.categories)) {
                     for (const cat of menuData.categories) {
                       const found = (cat.items || []).find((it: any) => it.id === itemParam);

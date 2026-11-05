@@ -2234,6 +2234,75 @@ router.put("/orders/:id/status", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 17.5 اقتراح إضافة صنف خاص أو تعديل الفاتورة للعميل (بناءً على طلب العميل في الملاحظات)
+router.post("/orders/:id/propose-addon", async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const branchId = req.branch!.branchId;
+    const { name, price, note } = req.body;
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      res.status(400).json({ error: "يرجى تحديد اسم الإضافة أو الصنف المطلوب" });
+      return;
+    }
+    const numPrice = Number(price);
+    if (isNaN(numPrice) || numPrice < 0) {
+      res.status(400).json({ error: "يرجى إدخال سعر صحيح للإضافة" });
+      return;
+    }
+
+    const order = await prisma.order.findFirst({
+      where: { id, branchId },
+      include: { items: true, user: true }
+    });
+
+    if (!order) {
+      res.status(404).json({ error: "الطلب غير موجود أو لا يتبع هذا الفرع" });
+      return;
+    }
+
+    if (["COMPLETED", "REJECTED", "CANCELLED"].includes(order.status)) {
+      res.status(400).json({ error: "لا يمكن اقتراح إضافة لطلب مكتمل أو ملغي" });
+      return;
+    }
+
+    const proposal = {
+      id: "prop_" + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+      name: name.trim(),
+      price: numPrice,
+      note: note ? String(note).trim() : null,
+      status: "PENDING", // PENDING | ACCEPTED | REJECTED
+      createdAt: new Date().toISOString(),
+      respondedAt: null
+    };
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: {
+        customAddonProposal: JSON.stringify(proposal)
+      },
+      include: {
+        items: true,
+        branch: {
+          select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+        },
+        user: {
+          select: { id: true, name: true, phone: true, isBlocked: true, restaurantNotes: true },
+        },
+        driver: { select: { id: true, name: true, phone: true } },
+      }
+    });
+
+    // إشعار فوري للعميل والمطعم عبر Socket.io
+    notifyOrderStatusChanged(id, branchId, updatedOrder, updatedOrder.driverId || undefined);
+
+    res.json({ success: true, order: updatedOrder, proposal });
+  } catch (error: any) {
+    console.error("Propose addon error:", error);
+    res.status(500).json({ error: "فشل إرسال اقتراح الإضافة للعميل" });
+  }
+});
+
 function parseBranchCoordsFromAddress(address?: string | null, fallback?: { lat: number; lng: number }): { lat: number; lng: number } {
   if (address) {
     const match = address.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
