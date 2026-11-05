@@ -1415,7 +1415,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div ref={scrollContainerRef} className="p-4 sm:p-5 overflow-y-auto modal-scroll flex-1 space-y-4 pb-48">
+        <div ref={scrollContainerRef} className="p-4 sm:p-5 overflow-y-auto modal-scroll flex-1 space-y-4 pb-3 sm:pb-4">
           {checkoutStep === 'DETAILS' ? (
             <>
               {/* ملخص مصغر للأصناف عند فتح شاشة الطلب دون إظهار تفاصيل الأصناف بالكامل */}

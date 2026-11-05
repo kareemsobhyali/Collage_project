@@ -270,7 +270,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
       </div>
 
       {/* Full-Screen Scrollable Form Area with Safe Space for Virtual Keyboard */}
-      <div className="flex-1 overflow-y-auto modal-scroll p-4 sm:p-8 flex flex-col items-center justify-start sm:justify-center pb-44 sm:pb-8">
+      <div className="flex-1 overflow-y-auto modal-scroll p-4 sm:p-8 flex flex-col items-center justify-start sm:justify-center pb-6 sm:pb-8">
         <div className="bg-white rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-xl border border-slate-200/80 my-4 sm:my-auto pb-safe">
         {/* Header Icon & Title */}
         <div className="text-center mb-6">
