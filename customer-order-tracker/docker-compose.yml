@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  customer-tracker:
+    build: .
+    container_name: customer-order-tracker
+    restart: always
+    environment:
+      - PORT=8005
+    ports:
+      - "127.0.0.1:8005:8005"
+    volumes:
+      - ./tracker_data:/app/data
+      - ./customer_tracker.db:/app/customer_tracker.db

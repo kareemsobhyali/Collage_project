@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>متابعة الطلب | ديفادو</title>
+    <link rel="stylesheet" href="/static/tracker/tracker.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="brand">
+                <span class="brand-badge">DIVADO</span>
+                <h1 id="branchName" class="brand-title">ديفادو</h1>
+            </div>
+            <div class="live-pill">
+                <span class="live-dot"></span>
+                <span>تتبع حي</span>
+            </div>
+        </header>
+
+        <!-- Order Card Hero -->
+        <section id="heroCard" class="hero-card preparing">
+            <div class="hero-top">
+                <span class="order-type-badge" id="orderTypeBadge">تيك أواي</span>
+                <span class="order-time" id="orderTime">منذ دقائق</span>
+            </div>
+
+            <div class="order-number-box">
+                <span class="order-lbl">رقم الطلب</span>
+                <h2 id="orderNumber" class="order-number">#---</h2>
+            </div>
+
+            <!-- Dynamic Status Content -->
+            <div id="statusContent" class="status-content">
+                <div class="status-icon-wrapper pulse">
+                    <span class="status-icon" id="statusEmoji">👨‍🍳</span>
+                </div>
+                <h3 id="statusTitle" class="status-title">جاري تحضير طلبك في المطبخ</h3>
+                <p id="statusDesc" class="status-desc">شيفات ديفادو يقومون بتجهيز وجبتك طازجة الآن بكل عناية...</p>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-bar" style="width: 50%;"></div>
+            </div>
+        </section>
+
+        <!-- Sound & Notification Activation Banner (Works on HTTP & HTTPS, Android & iOS) -->
+        <div id="pushPromptBanner" class="push-card" style="display: flex;">
+            <div class="push-icon" id="pushIcon">🔔</div>
+            <div class="push-text">
+                <strong id="pushTitle">تفعيل جرس التنبيه الصوتي</strong>
+                <p id="pushDesc">اضغط على "تفعيل" ليرن هاتفك بصوت واضح فور جاهزية طلبك.</p>
+            </div>
+            <button id="enablePushBtn" class="push-btn">تفعيل 🔔</button>
+        </div>
+
+        <!-- Order Items Breakdown -->
+        <section class="details-section">
+            <div class="section-header">
+                <h3>تفاصيل الفاتورة</h3>
+                <span id="itemsCount" class="badge-count">0 أصناف</span>
+            </div>
+
+            <div id="itemsList" class="items-list">
+                <div class="empty-items">جاري تحميل بيانات الفاتورة...</div>
+            </div>
+
+            <div class="total-bar">
+                <span>الإجمالي</span>
+                <span id="totalAmount" class="total-val">0.00 ج.م</span>
+            </div>
+        </section>
+
+        <!-- Footer Help -->
+        <footer class="footer">
+            <p>يرجى التوجه لشباك الاستلام فور تحول الشاشة للون الأخضر ورنين الهاتف.</p>
+            <div class="brand-footer">نظام المطبخ الذكي © ديفادو</div>
+        </footer>
+    </div>
+
+    <!-- Ready Modal Overlay (Sound + Animation) -->
+    <div id="readyModal" class="ready-modal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-icon">🔔</div>
+            <h2>طلبك جاهز للاستلام!</h2>
+            <p class="modal-order" id="modalOrderNum">#---</p>
+            <p class="modal-sub">تفضل بالتوجه لاستلام طلبك ساخناً وطازجاً الآن</p>
+            <button id="closeModalBtn" class="dismiss-btn">تم الاستلام 👍</button>
+        </div>
+    </div>
+
+    <script src="/static/tracker/tracker.js"></script>
+</body>
+</html>
