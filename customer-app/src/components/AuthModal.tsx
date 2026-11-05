@@ -239,7 +239,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-slate-50 w-full h-full overflow-hidden animate-fadeIn" dir="rtl">
+    <div className="fixed inset-0 z-[80] flex flex-col bg-slate-50 w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden animate-fadeIn" dir="rtl">
       {/* Top Sticky Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-white border-b border-slate-200/80 shadow-2xs sticky top-0 z-20 shrink-0">
         <button
@@ -269,9 +269,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
         </button>
       </div>
 
-      {/* Full-Screen Scrollable Form Area */}
-      <div className="flex-1 overflow-y-auto modal-scroll p-4 sm:p-8 flex items-center justify-center">
-        <div className="bg-white rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-xl border border-slate-200/80 my-auto pb-safe">
+      {/* Full-Screen Scrollable Form Area with Safe Space for Virtual Keyboard */}
+      <div className="flex-1 overflow-y-auto modal-scroll p-4 sm:p-8 flex flex-col items-center justify-start sm:justify-center pb-44 sm:pb-8">
+        <div className="bg-white rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-xl border border-slate-200/80 my-4 sm:my-auto pb-safe">
         {/* Header Icon & Title */}
         <div className="text-center mb-6">
           <div className="w-14 h-14 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center font-black text-xl mb-3">

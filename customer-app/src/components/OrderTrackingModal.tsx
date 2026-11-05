@@ -18,7 +18,8 @@ import {
   RotateCw,
   ShieldCheck,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  ArrowRight
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { notifyOrderStatusPush, sendWebNotification, playProposalChime } from '../services/notifications';
@@ -573,49 +574,56 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-fadeIn">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[92dvh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden relative">
-        {/* Mobile drag handle */}
-        <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto my-2 sm:hidden shrink-0 z-20" />
-
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden animate-fadeIn" dir="rtl">
+      <div className="w-full h-full flex-1 flex flex-col overflow-hidden max-w-2xl mx-auto bg-slate-50 sm:border-x sm:border-slate-200/90 shadow-sm relative">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-slate-50">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-black text-sm text-slate-800">تتبع الطلب #{order.orderNumber}</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold">
-                {order.orderType === 'DELIVERY' ? 'توصيل' : 'استلام من الفرع'}
-              </span>
-              {status !== 'COMPLETED' && status !== 'REJECTED' && (
-                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>مباشر</span>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-200 bg-white shrink-0 shadow-xs z-10">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 -mr-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors shrink-0 flex items-center justify-center cursor-pointer active:scale-95"
+              title="رجوع"
+            >
+              <ArrowRight className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-black text-sm sm:text-base text-slate-900 truncate">تتبع الطلب #{order.orderNumber}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold shrink-0">
+                  {order.orderType === 'DELIVERY' ? 'توصيل' : 'استلام من الفرع'}
                 </span>
-              )}
+                {status !== 'COMPLETED' && status !== 'REJECTED' && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>مباشر</span>
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-slate-400 block truncate">
+                {order.branch?.name || 'المطعم'}
+              </span>
             </div>
-            <span className="text-[11px] text-slate-400">
-              {order.branch?.name || 'المطعم'}
-            </span>
           </div>
           <div className="flex items-center gap-1">
             {status !== 'COMPLETED' && status !== 'REJECTED' && (
               <button
                 type="button"
                 onClick={() => fetchLatestOrderState(true)}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                className="p-1.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
                 title="تحديث حالة الطلب الآن"
               >
                 <RotateCw className={`w-4 h-4 ${refreshingOrder ? 'animate-spin text-indigo-600' : ''}`} />
               </button>
             )}
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600">
+            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer" title="إغلاق">
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-5 sm:p-6 overflow-y-auto modal-scroll flex-1 space-y-5">
+        <div className="p-4 sm:p-6 overflow-y-auto modal-scroll flex-1 space-y-5 pb-8">
           {/* Custom Add-on Proposal Prompt from Restaurant */}
           {(() => {
             let proposal: any = null;

@@ -71,9 +71,14 @@ body.modal-open .modal-scroll {
   -webkit-overflow-scrolling: touch;
 }
 
-/* أزرار اللمس السريعة */
+/* أزرار وحقول اللمس السريعة ومنع تغطية الكيبورد */
 button, a, input, select, textarea {
   touch-action: manipulation;
+}
+
+input, textarea, select {
+  scroll-margin-top: 80px;
+  scroll-margin-bottom: 140px;
 }
 
 /* دعم هواتف آيفون والشاشات الحديثة */

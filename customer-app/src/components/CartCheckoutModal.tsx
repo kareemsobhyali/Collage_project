@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   X,
   Trash2,
@@ -391,6 +391,13 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const [editingItemNoteIdx, setEditingItemNoteIdx] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // نظام إتمام الطلب على خطوتين مع عد تنازلي لتأكيد الطلب
+  const [checkoutStep, setCheckoutStep] = useState<'DETAILS' | 'CONFIRM'>('DETAILS');
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(8);
+  const countdownTimerRef = useRef<any>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const handleFinalSubmitOrderRef = useRef<() => void>(() => {});
 
   // تجميع نص العنوان الجديد المقروء من الحقول المقسمة بشكل منظم وواضح للكابتن والفاتورة
   const composedNewAddressDetails = useMemo(() => {
@@ -1032,8 +1039,9 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
     );
   };
 
-  const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 1. التحقق المسبق ونقل العميل إلى صفحة مراجعة وتأكيد الطلب
+  const handleProceedToConfirmation = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setError(null);
 
     if (!user) {
@@ -1072,7 +1080,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         return;
       }
 
-      // التحقق من نطاق التوصيل الجغرافي للمطعم (طلب المستخدم: منع الطلب إذا كان المطعم خارج الزون)
+      // التحقق من نطاق التوصيل الجغرافي للمطعم
       const zoneCheck = isBranchInDeliveryZone(branch, coords);
       if (!zoneCheck.inZone) {
         setError(
@@ -1177,6 +1185,45 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       return;
     }
 
+    // الانتقال للخطوة الثانية (صفحة مراجعة وتأكيد الطلب)
+    setCheckoutStep('CONFIRM');
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // 2. التنفيذ الفعلي لإرسال الطلب وحفظه في السيرفر
+  const handleFinalSubmitOrder = async () => {
+    if (loading) return;
+
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+
+    const finalPhone = (user?.phone || customerPhone || '').trim();
+    let finalDeliveryAddress = isUsingSavedAddress
+      ? addressText.trim()
+      : composedNewAddressDetails.trim();
+
+    if (orderType === 'DELIVERY') {
+      const coords = extractCoordinatesFromAddress(addressText) || capturedCoords;
+      if (coords) {
+        if (isUsingSavedAddress) {
+          const savedObj = savedAddresses.find((a) => a.id === selectedAddressId);
+          const writtenPart = cleanAddressText(addressText) || savedObj?.title || 'موقعي الحالي';
+          const titlePrefix =
+            savedObj?.title && !writtenPart.includes(savedObj.title)
+              ? `${savedObj.title} - ${writtenPart}`
+              : writtenPart;
+          finalDeliveryAddress = formatAddressWithCoordinates(titlePrefix, coords.lat, coords.lng);
+        } else {
+          const cleanComposed = composedNewAddressDetails.trim() || detectedPlaceLabel || 'موقعي الحالي';
+          finalDeliveryAddress = formatAddressWithCoordinates(cleanComposed, coords.lat, coords.lng);
+        }
+      }
+    }
+
     try {
       setLoading(true);
       requestPushPermission().catch(() => {});
@@ -1187,7 +1234,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         paymentMethod,
         addressText: orderType === 'DELIVERY' ? finalDeliveryAddress : 'استلام من الفرع',
         customerPhone: finalPhone,
-        customerName: (user.name || customerName || 'عميل').trim(),
+        customerName: (user?.name || customerName || 'عميل').trim(),
         notes: notes.trim() || undefined,
         deliveryZoneName:
           orderType === 'DELIVERY'
@@ -1247,10 +1294,49 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       onClose();
     } catch (err: any) {
       setError(err.message || 'فشل إرسال الطلب');
+      // إرجاع العميل لشاشة التفاصيل في حال وجود خطأ ليتمكن من تصحيحه
+      setCheckoutStep('DETAILS');
     } finally {
       setLoading(false);
     }
   };
+
+  // ربط الدالة بالمرجع لضمان استخدام أحدث القيم داخل الـ timer
+  useEffect(() => {
+    handleFinalSubmitOrderRef.current = handleFinalSubmitOrder;
+  });
+
+  // إدارة العد التنازلي التلقائي لـ 8 ثواني عند الوصول لشاشة المراجعة
+  useEffect(() => {
+    if (checkoutStep === 'CONFIRM') {
+      setCountdownSeconds(8);
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+
+      countdownTimerRef.current = setInterval(() => {
+        setCountdownSeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+            handleFinalSubmitOrderRef.current();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+  }, [checkoutStep]);
 
   return (
     <div
@@ -1280,9 +1366,12 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button
               type="button"
-              onClick={onClose}
+              onClick={checkoutStep === 'CONFIRM' ? () => {
+                if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                setCheckoutStep('DETAILS');
+              } : onClose}
               className="p-2 -mr-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors shrink-0 flex items-center justify-center cursor-pointer active:scale-95"
-              title="رجوع للمنيو"
+              title={checkoutStep === 'CONFIRM' ? "تعديل بيانات الطلب" : "رجوع للمنيو"}
             >
               <ArrowRight className="w-5 h-5" />
             </button>
@@ -1291,7 +1380,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
             </div>
             <div className="min-w-0">
               <h3 className="font-black text-slate-900 text-sm sm:text-base truncate">
-                إتمام الطلب - {branch.name}
+                {checkoutStep === 'CONFIRM' ? 'مراجعة وتأكيد الطلب النهائي' : `إتمام الطلب - ${branch.name}`}
               </h3>
               <div className="flex items-center gap-2 text-[11px] text-slate-500">
                 <span>{cart.reduce((acc, i) => acc + i.quantity, 0)} أصناف في السلة</span>
@@ -1314,7 +1403,10 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+              onClose();
+            }}
             className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shrink-0 cursor-pointer"
             title="إغلاق"
           >
@@ -1323,135 +1415,35 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-4 sm:p-5 overflow-y-auto modal-scroll flex-1 space-y-4 pb-4">
-          {/* 1. قائمة الأصناف المختارة */}
-          <section className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-black text-[11px] flex items-center justify-center">
-                  1
-                </span>
-                <h4 className="text-xs font-black text-slate-800">
-                  الأصناف المحددة ({cart.length})
-                </h4>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="text-[11px] font-black text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-xl transition-colors flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" />
-                <span>إضافة أصناف أخرى</span>
-              </button>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {cart.map((item, idx) => (
-                <div key={idx} className="py-2.5 first:pt-1 last:pb-0 text-xs space-y-1.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap font-black text-slate-900">
-                        <span>{item.itemName}</span>
-                        {item.sizeName && (
-                          <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200/60 px-1.5 py-0.5 rounded-md font-bold">
-                            {item.sizeName}
-                          </span>
-                        )}
-                      </div>
-
-                      {item.selectedModifiers?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {item.selectedModifiers.map((m: any, mIdx: number) => (
-                            <span
-                              key={mIdx}
-                              className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md font-medium"
-                            >
-                              + {m.optionName} ({m.price} ج.م)
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* ملاحظة الصنف أو زر إضافتها */}
-                      {editingItemNoteIdx === idx ? (
-                        <div className="mt-1.5 flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            value={item.notes || ''}
-                            onChange={(e) => handleUpdateItemNote(idx, e.target.value)}
-                            placeholder="مثال: بدون مخلل، كاتشب زيادة..."
-                            autoFocus
-                            className="flex-1 px-2.5 py-1 bg-amber-50/60 border border-amber-300 rounded-lg text-[11px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setEditingItemNoteIdx(null)}
-                            className="px-2 py-1 bg-amber-500 text-white rounded-lg text-[10px] font-bold"
-                          >
-                            تم
-                          </button>
-                        </div>
-                      ) : item.notes ? (
-                        <button
-                          type="button"
-                          onClick={() => setEditingItemNoteIdx(idx)}
-                          className="mt-1 text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 font-bold inline-flex items-center gap-1 hover:bg-amber-100"
-                        >
-                          <span>📝 {item.notes}</span>
-                          <span className="text-[9px] text-amber-600 underline">(تعديل)</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setEditingItemNoteIdx(idx)}
-                          className="mt-1 text-[10px] text-slate-400 hover:text-indigo-600 font-bold inline-flex items-center gap-1"
-                        >
-                          <span>+ إضافة ملاحظة على هذا الصنف</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="flex items-center bg-slate-100 border border-slate-200/80 rounded-xl p-0.5">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateQuantity(idx, item.quantity - 1)}
-                          className="w-6 h-6 flex items-center justify-center text-slate-600 hover:bg-white hover:text-slate-900 rounded-lg transition-colors"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="font-black text-xs text-slate-900 w-6 text-center font-mono">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateQuantity(idx, item.quantity + 1)}
-                          className="w-6 h-6 flex items-center justify-center text-slate-600 hover:bg-white hover:text-slate-900 rounded-lg transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-
-                      <span className="font-black text-indigo-700 min-w-[52px] text-left font-mono text-xs">
-                        {item.totalPrice} ج.م
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(idx)}
-                        className="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-colors"
-                        title="حذف الصنف"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+        <div ref={scrollContainerRef} className="p-4 sm:p-5 overflow-y-auto modal-scroll flex-1 space-y-4 pb-48">
+          {checkoutStep === 'DETAILS' ? (
+            <>
+              {/* ملخص مصغر للأصناف عند فتح شاشة الطلب دون إظهار تفاصيل الأصناف بالكامل */}
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-base shrink-0">
+                    🛍️
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-black text-xs sm:text-sm text-slate-900 block truncate">
+                      {cart.reduce((acc, i) => acc + i.quantity, 0)} أصناف في السلة
+                    </span>
+                    <span className="text-[11px] text-indigo-700 font-bold font-mono block">
+                      المجموع الفرعي: {subtotal} ج.م
+                    </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-200/70 transition-all active:scale-95 shrink-0 flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>تعديل السلة</span>
+                </button>
+              </div>
 
-          {/* 2. طريقة وتوقيت الاستلام */}
+              {/* 2. طريقة وتوقيت الاستلام */}
           <section className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -2726,87 +2718,334 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
               </div>
             </div>
           </section>
-        </div>
+        </>
+      ) : (
+        /* =================== الخطوة 2: صفحة مراجعة وتأكيد الطلب النهائي =================== */
+        <div className="space-y-4 animate-fadeIn">
+          {/* A. بطاقة العداد التنازلي التفاعلية (Countdown Hero Card) */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white shadow-xl space-y-3 relative overflow-hidden">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-2xl shrink-0 shadow-inner">
+                  ⏱️
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-black text-sm sm:text-base leading-snug">
+                    تأكيد الطلب التلقائي
+                  </h3>
+                  <p className="text-[11px] text-white/85 mt-0.5 leading-relaxed">
+                    راجع تفاصيل طلبك بالأسفل، سيتم إرسال الطلب تلقائياً بعد انتهاء الوقت أو يمكنك التأكيد فوراً!
+                  </p>
+                </div>
+              </div>
 
-        {/* الشريط السفلي الثابت لتأكيد الطلب */}
-        <div className="p-3 sm:p-4 border-t border-slate-200 bg-white space-y-2 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-          {!user && (
-            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900 font-bold">
-              <div className="flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>يرجى تسجيل الدخول لتأكيد ومتابعة الطلب</span>
+              {/* العداد الرقمي المباشر */}
+              <div className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-white text-indigo-700 shadow-md shrink-0">
+                <span className="font-mono text-2xl font-black leading-none">{countdownSeconds}</span>
+                <span className="text-[9px] font-bold text-indigo-500 mt-0.5">ثواني</span>
+              </div>
+            </div>
+
+            {/* شريط التقدم الزمني المتحرك */}
+            <div className="w-full bg-white/25 rounded-full h-2 overflow-hidden p-0.5">
+              <div
+                className="bg-emerald-400 h-full rounded-full transition-all duration-1000 ease-linear shadow-xs"
+                style={{ width: `${Math.max(0, Math.min(100, (countdownSeconds / 8) * 100))}%` }}
+              />
+            </div>
+          </div>
+
+          {/* B. تفاصيل الأصناف المطلوبة بالكامل */}
+          <section className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-black text-xs shrink-0">
+                  🍔
+                </div>
+                <h4 className="text-xs sm:text-sm font-black text-slate-900">
+                  تفاصيل الأصناف المطلوبة ({cart.length})
+                </h4>
               </div>
               <button
                 type="button"
-                onClick={onRequireAuth}
-                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-black shadow-2xs transition-colors shrink-0"
+                onClick={() => {
+                  if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                  setCheckoutStep('DETAILS');
+                }}
+                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-xl flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
               >
-                دخول الحساب
+                <Pencil className="w-3 h-3" />
+                <span>تعديل</span>
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {cart.map((item, idx) => (
+                <div key={idx} className="py-2.5 first:pt-1 last:pb-0 text-xs space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap font-black text-slate-900">
+                        <span className="font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded-md font-bold text-[11px]">
+                          {item.quantity}×
+                        </span>
+                        <span>{item.itemName}</span>
+                        {item.sizeName && (
+                          <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded-md font-bold">
+                            {item.sizeName}
+                          </span>
+                        )}
+                      </div>
+
+                      {item.selectedModifiers?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {item.selectedModifiers.map((m: any, mIdx: number) => (
+                            <span
+                              key={mIdx}
+                              className="text-[10px] bg-slate-50 text-slate-600 border border-slate-200/70 px-1.5 py-0.5 rounded-md"
+                            >
+                              + {m.optionName} ({m.price} ج.م)
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {item.notes && (
+                        <div className="mt-1 text-[11px] text-amber-900 bg-amber-50/80 px-2.5 py-1 rounded-xl border border-amber-200/70 font-medium inline-block">
+                          📝 ملاحظة: {item.notes}
+                        </div>
+                      )}
+                    </div>
+
+                    <span className="font-black text-slate-900 min-w-[55px] text-left font-mono text-xs sm:text-sm">
+                      {item.totalPrice} ج.م
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* C. بيانات الاستلام والعنوان والدفع */}
+          <section className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <h4 className="text-xs sm:text-sm font-black text-slate-900 pb-2 border-b border-slate-100 flex items-center gap-2">
+              <span>📍</span>
+              <span>بيانات الاستلام والتوصيل</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 block">طريقة الاستلام</span>
+                <span className="font-black text-slate-900 flex items-center gap-1.5">
+                  {orderType === 'DELIVERY' ? (
+                    <>
+                      <Truck className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <span>توصيل دليفري للعنوان</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingBag className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>استلام مباشر من فرع ({branch.name})</span>
+                    </>
+                  )}
+                </span>
+                {isScheduled && scheduledTime && (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md inline-block mt-1">
+                    ⏰ حجز مسبق: {scheduledTime}
+                  </span>
+                )}
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 block">طريقة الدفع</span>
+                <span className="font-black text-slate-900">
+                  {paymentMethod === 'CASH' && '💵 نقداً عند الاستلام'}
+                  {paymentMethod === 'INSTAPAY' && '⚡ تحويل إنستاباي'}
+                  {paymentMethod === 'VODAFONE_CASH' && '📱 تحويل فودافون كاش'}
+                  {paymentMethod === 'ONLINE_CARD' && '💳 بطاقة بنكية (فيزا / ماستركارد)'}
+                </span>
+              </div>
+            </div>
+
+            {orderType === 'DELIVERY' && (
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1 text-xs">
+                <span className="text-[10px] font-bold text-slate-500 block">عنوان التوصيل المعتمد</span>
+                <p className="font-bold text-slate-800 leading-relaxed">
+                  {cleanAddressText(isUsingSavedAddress ? addressText : composedNewAddressDetails) || 'الموقع المحدد'}
+                </p>
+                <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500">
+                  <Phone className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span className="font-mono font-bold">{user?.phone || customerPhone}</span>
+                </div>
+              </div>
+            )}
+
+            {notes.trim() && (
+              <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-xs space-y-1">
+                <span className="text-[10px] font-bold text-amber-700 block">ملاحظاتك للمطعم أو الكابتن</span>
+                <p className="text-amber-900 font-bold">{notes.trim()}</p>
+              </div>
+            )}
+          </section>
+
+          {/* D. ملخص الفاتورة النهائي */}
+          <section className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2.5 text-xs">
+            <h4 className="text-xs sm:text-sm font-black text-slate-900 pb-2 border-b border-slate-100 flex items-center gap-2">
+              <span>🧾</span>
+              <span>ملخص الفاتورة والحساب</span>
+            </h4>
+            <div className="space-y-1.5 text-slate-600">
+              <div className="flex justify-between">
+                <span>المجموع الفرعي للأصناف:</span>
+                <span className="font-bold font-mono text-slate-900">{subtotal} ج.م</span>
+              </div>
+              {orderType === 'DELIVERY' && (
+                <div className="flex justify-between items-center">
+                  <span>رسوم التوصيل:</span>
+                  <span className="font-bold font-mono text-slate-900">
+                    {deliveryFee > 0 ? `${deliveryFee} ج.م` : 'مجاناً ✨'}
+                  </span>
+                </div>
+              )}
+              {appliedPromo && discount > 0 && (
+                <div className="flex justify-between text-emerald-600 font-bold">
+                  <span>خصم الكوبون ({appliedPromo.code}):</span>
+                  <span className="font-mono">-{discount} ج.م</span>
+                </div>
+              )}
+              {walletDiscount > 0 && (
+                <div className="flex justify-between text-indigo-600 font-bold">
+                  <span>خصم المحفظة:</span>
+                  <span className="font-mono">-{walletDiscount} ج.م</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200 pt-2.5">
+                <span>الإجمالي المطلوب سداده:</span>
+                <span className="text-indigo-700 font-mono text-lg">{total} ج.م</span>
+              </div>
+              {pointsToEarn > 0 && (
+                <div className="flex items-center gap-1.5 text-[11px] text-amber-700 font-bold bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-200/70 mt-2">
+                  <Gift className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>
+                    ستكسب <strong>+{pointsToEarn} نقطة {isBranchCashback ? `كاش باك (${branchCashbackPct}%)` : 'ولاء'}</strong> في محفظتك فور إتمام الطلب!
+                  </span>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+
+        {/* الشريط السفلي الثابت لتأكيد الطلب */}
+        <div className="p-3 sm:p-4 border-t border-slate-200 bg-white space-y-2 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+          {checkoutStep === 'DETAILS' ? (
+            <>
+              {!user && (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900 font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>يرجى تسجيل الدخول لتأكيد ومتابعة الطلب</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onRequireAuth}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-black shadow-2xs transition-colors shrink-0"
+                  >
+                    دخول الحساب
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleProceedToConfirmation}
+                disabled={
+                  loading ||
+                  branch.isActive === false ||
+                  isBranchFullyClosed ||
+                  isBranchOffline ||
+                  isBranchBusy ||
+                  (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
+                  isOutOfDeliveryZone ||
+                  isZoneSelectionMissing
+                }
+                className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black shadow-lg transition-all flex items-center justify-between ${
+                  loading ||
+                  branch.isActive === false ||
+                  isBranchFullyClosed ||
+                  isBranchOffline ||
+                  isBranchBusy ||
+                  (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
+                  isOutOfDeliveryZone ||
+                  isZoneSelectionMissing
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                    : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white shadow-indigo-600/25 cursor-pointer'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span>
+                    {isOutOfDeliveryZone
+                      ? 'المطعم خارج نطاق التوصيل'
+                      : isZoneSelectionMissing
+                      ? 'برجاء اختيار منطقة التوصيل *'
+                      : branch.isActive === false
+                      ? 'المطعم موقوف حالياً'
+                      : isBranchFullyClosed
+                      ? 'المطعم مغلق حالياً'
+                      : isBranchClosedByHours
+                      ? 'المطعم مغلق (خارج مواعيد العمل)'
+                      : isBranchBusy
+                      ? 'المطعم في فترة استراحة وتجهيز'
+                      : isBranchOffline
+                      ? 'المطعم غير متصل بالإنترنت حالياً'
+                      : isScheduled && !isScheduledTimeValid
+                      ? 'المطعم مغلق في هذا التوقيت - اختر موعداً متاحاً'
+                      : !isScheduled && isBranchClosed
+                      ? 'المطعم مغلق حالياً'
+                      : !user
+                      ? 'تسجيل الدخول لإتمام الطلب'
+                      : 'متابعة لتأكيد الطلب'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="bg-white/20 px-2.5 py-1 rounded-xl font-mono text-xs sm:text-sm">
+                    {total} ج.م
+                  </span>
+                  <ArrowLeft className="w-4 h-4" />
+                </div>
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                  setCheckoutStep('DETAILS');
+                }}
+                disabled={loading}
+                className="py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
+              >
+                <Pencil className="w-4 h-4 text-slate-600" />
+                <span>تعديل الطلب</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleFinalSubmitOrder}
+                disabled={loading}
+                className="flex-1 py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl font-black text-xs sm:text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+              >
+                <CheckCircle className="w-5 h-5 shrink-0" />
+                <span>
+                  {loading
+                    ? 'جاري إرسال الطلب...'
+                    : `موافق وتأكيد الطلب (${countdownSeconds} ث)`}
+                </span>
               </button>
             </div>
           )}
-
-          <button
-            type="button"
-            onClick={handleCheckout}
-            disabled={
-              loading ||
-              branch.isActive === false ||
-              isBranchFullyClosed ||
-              isBranchOffline ||
-              isBranchBusy ||
-              (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
-              isOutOfDeliveryZone ||
-              isZoneSelectionMissing
-            }
-            className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black shadow-lg transition-all flex items-center justify-between ${
-              loading ||
-              branch.isActive === false ||
-              isBranchFullyClosed ||
-              isBranchOffline ||
-              isBranchBusy ||
-              (isScheduled ? !isScheduledTimeValid : isBranchClosed) ||
-              isOutOfDeliveryZone ||
-              isZoneSelectionMissing
-                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-                : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white shadow-indigo-600/25 cursor-pointer'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <span>
-                {loading
-                  ? 'جاري إرسال الطلب وتثبيت الموقع...'
-                  : isOutOfDeliveryZone
-                  ? 'المطعم خارج نطاق التوصيل'
-                  : isZoneSelectionMissing
-                  ? 'برجاء اختيار منطقة التوصيل *'
-                  : branch.isActive === false
-                  ? 'المطعم موقوف حالياً'
-                  : isBranchFullyClosed
-                  ? 'المطعم مغلق حالياً'
-                  : isBranchClosedByHours
-                  ? 'المطعم مغلق (خارج مواعيد العمل)'
-                  : isBranchBusy
-                  ? 'المطعم في فترة استراحة وتجهيز'
-                  : isBranchOffline
-                  ? 'المطعم غير متصل بالإنترنت حالياً'
-                  : isScheduled && !isScheduledTimeValid
-                  ? 'المطعم مغلق في هذا التوقيت - اختر موعداً متاحاً'
-                  : !isScheduled && isBranchClosed
-                  ? 'المطعم مغلق حالياً'
-                  : !user
-                  ? 'تسجيل الدخول لإتمام الطلب'
-                  : 'تأكيد الطلب الآن'}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="bg-white/20 px-2.5 py-1 rounded-xl font-mono text-xs sm:text-sm">
-                {total} ج.م
-              </span>
-              <ArrowLeft className="w-4 h-4" />
-            </div>
-          </button>
         </div>
       </div>
 

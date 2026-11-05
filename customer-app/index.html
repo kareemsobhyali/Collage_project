@@ -5,11 +5,26 @@
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#0B0F19" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>UniFood | يونيفود - اطلب وجبتك المفضلة أونلاين</title>
+    <script>
+      // تحسين تفاعل وتمرير حقول الإدخال عند فتح الكيبورد في الهواتف لمنع تغطيتها
+      if (typeof window !== 'undefined') {
+        window.addEventListener('focusin', function(e) {
+          var target = e.target;
+          if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+            setTimeout(function() {
+              try {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              } catch (err) {}
+            }, 300);
+          }
+        });
+      }
+    </script>
     <script>
       (function() {
         // 1. تحديد المطعم المستهدف من مسار الصفحة الحالية لتهيئة المانيفست المخصص وتنظيف الرابط
