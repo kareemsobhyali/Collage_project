@@ -2523,8 +2523,17 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {spinWheelPrizes.map((prize, idx) => (
                     <div key={prize.id || idx} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 relative">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-lg">{prize.icon || '🎁'}</span>
+                      <div className="flex items-center justify-between gap-1.5">
+                        <input
+                          type="text"
+                          value={prize.icon || '🎁'}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setSpinWheelPrizes(prev => prev.map((p, i) => i === idx ? { ...p, icon: val } : p));
+                          }}
+                          className="w-9 h-8 text-center text-lg bg-white border border-slate-200 rounded-lg shrink-0"
+                          title="رمز الجائزة (إيموجي)"
+                        />
                         <input
                           type="text"
                           value={prize.label || ''}
@@ -2533,15 +2542,15 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
                             setSpinWheelPrizes(prev => prev.map((p, i) => i === idx ? { ...p, label: val } : p));
                           }}
                           placeholder="اسم الجائزة"
-                          className="flex-1 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
+                          className="flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
                         />
                         <button
                           type="button"
                           onClick={() => setSpinWheelPrizes(prev => prev.filter((_, i) => i !== idx))}
-                          className="p-1 text-rose-500 hover:bg-rose-50 rounded cursor-pointer"
+                          className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer"
                           title="حذف الجائزة"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
 
@@ -2552,7 +2561,26 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
                             value={prize.type || 'COUPON'}
                             onChange={e => {
                               const val = e.target.value;
-                              setSpinWheelPrizes(prev => prev.map((p, i) => i === idx ? { ...p, type: val } : p));
+                              const defaultIcons: Record<string, string> = {
+                                COUPON: '🏷️',
+                                POINTS: '🌟',
+                                FREE_DELIVERY: '🚚',
+                                FREE_ITEM: '🍔',
+                                BETTER_LUCK: '🍀',
+                              };
+                              const defaultLabels: Record<string, string> = {
+                                COUPON: 'خصم 10%',
+                                POINTS: '10 نقاط',
+                                FREE_DELIVERY: 'توصيل مجاني',
+                                FREE_ITEM: 'وجبة هدية',
+                                BETTER_LUCK: 'حظ أوفر',
+                              };
+                              setSpinWheelPrizes(prev => prev.map((p, i) => i === idx ? {
+                                ...p,
+                                type: val,
+                                icon: defaultIcons[val] || p.icon || '🎁',
+                                label: (!p.label || Object.values(defaultLabels).includes(p.label)) ? defaultLabels[val] : p.label,
+                              } : p));
                             }}
                             className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-bold"
                           >

@@ -2484,7 +2484,19 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
             },
           },
           branch: {
-            select: { name: true, phone: true, address: true, logoUrl: true },
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              address: true,
+              logoUrl: true,
+              paymentConfig: true,
+              spinWheelEnabled: true,
+              spinWheelCouponDays: true,
+              spinWheelPrizes: true,
+              cashbackEnabled: true,
+              cashbackPercentage: true,
+            },
           },
           driver: {
             select: { id: true, name: true, phone: true },
@@ -2556,7 +2568,19 @@ router.get("/orders/:id", async (req: AuthRequest, res: Response) => {
       include: {
         items: true,
         branch: {
-          select: { id: true, name: true, phone: true, address: true, logoUrl: true, paymentConfig: true },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            address: true,
+            logoUrl: true,
+            paymentConfig: true,
+            spinWheelEnabled: true,
+            spinWheelCouponDays: true,
+            spinWheelPrizes: true,
+            cashbackEnabled: true,
+            cashbackPercentage: true,
+          },
         },
         driver: {
           select: { id: true, name: true, phone: true },
@@ -2587,7 +2611,19 @@ router.get("/my-orders", async (req: AuthRequest, res: Response) => {
       where: { userId: req.user!.userId },
       include: {
         branch: {
-          select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            address: true,
+            logoUrl: true,
+            paymentConfig: true,
+            spinWheelEnabled: true,
+            spinWheelCouponDays: true,
+            spinWheelPrizes: true,
+            cashbackEnabled: true,
+            cashbackPercentage: true,
+          },
         },
         driver: {
           select: { id: true, name: true, phone: true },
@@ -2756,7 +2792,19 @@ router.post("/orders/:id/respond-addon", async (req: AuthRequest, res: Response)
       include: {
         items: true,
         branch: {
-          select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            address: true,
+            logoUrl: true,
+            paymentConfig: true,
+            spinWheelEnabled: true,
+            spinWheelCouponDays: true,
+            spinWheelPrizes: true,
+            cashbackEnabled: true,
+            cashbackPercentage: true,
+          },
         },
         driver: { select: { id: true, name: true, phone: true } },
       }
@@ -2826,7 +2874,19 @@ router.post("/orders/:id/respond-addon", async (req: AuthRequest, res: Response)
           include: {
             items: true,
             branch: {
-              select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                address: true,
+                logoUrl: true,
+                paymentConfig: true,
+                spinWheelEnabled: true,
+                spinWheelCouponDays: true,
+                spinWheelPrizes: true,
+                cashbackEnabled: true,
+                cashbackPercentage: true,
+              },
             },
             driver: { select: { id: true, name: true, phone: true } },
           }
@@ -2847,7 +2907,19 @@ router.post("/orders/:id/respond-addon", async (req: AuthRequest, res: Response)
         include: {
           items: true,
           branch: {
-            select: { id: true, name: true, phone: true, address: true, logoUrl: true },
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              address: true,
+              logoUrl: true,
+              paymentConfig: true,
+              spinWheelEnabled: true,
+              spinWheelCouponDays: true,
+              spinWheelPrizes: true,
+              cashbackEnabled: true,
+              cashbackPercentage: true,
+            },
           },
           driver: { select: { id: true, name: true, phone: true } },
         }
@@ -2890,18 +2962,20 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
 
     // جوائز عجلة الحظ المتاحة مع الأوزان التناسبية (الافتراضية أو المخصصة للفرع)
     const DEFAULT_PRIZES = [
-      { id: "POINTS_10", type: "POINTS", amount: 10, label: "10 نقاط ولاء للمحفظة", icon: "🎁", weight: 35 },
-      { id: "DISCOUNT_10", type: "COUPON", percent: 10, label: "خصم 10% على طلبك القادم", icon: "🏷️", weight: 20 },
-      { id: "POINTS_5", type: "POINTS", amount: 5, label: "5 نقاط ولاء للمحفظة", icon: "🌟", weight: 20 },
-      { id: "DISCOUNT_15", type: "COUPON", percent: 15, label: "خصم 15% على طلبك القادم", icon: "🔥", weight: 10 },
-      { id: "POINTS_20", type: "POINTS", amount: 20, label: "20 نقطة ولاء للمحفظة", icon: "💎", weight: 10 },
-      { id: "FREE_DELIVERY", type: "FREE_DELIVERY", percent: 100, label: "توصيل مجاني لطلبك القادم", icon: "🚚", weight: 5 },
+      { id: "1", type: "COUPON", percent: 10, value: 10, label: "خصم 10%", icon: "🏷️", color: "#f59e0b", weight: 25 },
+      { id: "2", type: "POINTS", amount: 10, value: 10, label: "10 نقاط ولاء", icon: "🌟", color: "#6366f1", weight: 25 },
+      { id: "3", type: "FREE_DELIVERY", percent: 100, value: 0, label: "توصيل مجاني", icon: "🚚", color: "#06b6d4", weight: 10 },
+      { id: "4", type: "COUPON", percent: 15, value: 15, label: "خصم 15%", icon: "🔥", color: "#10b981", weight: 15 },
+      { id: "5", type: "FREE_ITEM", percent: 100, value: 0, label: "وجبة هدية", icon: "🍔", color: "#ec4899", weight: 10 },
+      { id: "6", type: "BETTER_LUCK", value: 0, label: "حظ أوفر في المرة القادمة", icon: "🍀", color: "#8b5cf6", weight: 15 },
     ];
 
     let PRIZES: any[] = DEFAULT_PRIZES;
     if (order.branch.spinWheelPrizes) {
       try {
-        const parsed = JSON.parse(order.branch.spinWheelPrizes);
+        const parsed = typeof order.branch.spinWheelPrizes === 'string'
+          ? JSON.parse(order.branch.spinWheelPrizes)
+          : order.branch.spinWheelPrizes;
         if (Array.isArray(parsed) && parsed.length >= 2) {
           PRIZES = parsed;
         }
@@ -2909,11 +2983,11 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
     }
 
     // السحب العشوائي الموزون حسب النسبة والوزن
-    const totalWeight = PRIZES.reduce((sum, p) => sum + (Math.max(1, Number(p.weight) || 1)), 0);
+    const totalWeight = PRIZES.reduce((sum, p) => sum + (Math.max(1, Number(p.weight) || 10)), 0);
     let rand = Math.random() * totalWeight;
     let selectedPrize: any = PRIZES[0];
     for (const p of PRIZES) {
-      const w = Math.max(1, Number(p.weight) || 1);
+      const w = Math.max(1, Number(p.weight) || 10);
       if (rand < w) {
         selectedPrize = p;
         break;
@@ -3020,12 +3094,13 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
       couponCode = null;
     }
 
+    const isBetterLuck = prizeType === "BETTER_LUCK";
     const prizeData = {
       ...selectedPrize,
       couponCode,
       expiresAt: (prizeType === "COUPON" || prizeType === "FREE_DELIVERY" || prizeType === "FREE_ITEM") ? expiresAt.toISOString() : undefined,
-      isPendingDelivery,
-      status: isPendingDelivery ? "PENDING_DELIVERY" : "AWARDED",
+      isPendingDelivery: isBetterLuck ? false : isPendingDelivery,
+      status: isBetterLuck ? "AWARDED" : (isPendingDelivery ? "PENDING_DELIVERY" : "AWARDED"),
     };
 
     const updatedOrder = await prisma.order.update({
@@ -3033,6 +3108,25 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
       data: {
         wheelSpun: true,
         wheelReward: JSON.stringify(prizeData),
+      },
+      include: {
+        items: true,
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            address: true,
+            logoUrl: true,
+            paymentConfig: true,
+            spinWheelEnabled: true,
+            spinWheelCouponDays: true,
+            spinWheelPrizes: true,
+            cashbackEnabled: true,
+            cashbackPercentage: true,
+          },
+        },
+        driver: { select: { id: true, name: true, phone: true } },
       },
     });
 
@@ -3046,7 +3140,9 @@ router.post("/orders/:id/spin-wheel", async (req: AuthRequest, res: Response) =>
       prize: prizeData,
       order: updatedOrder,
       user: updatedUser,
-      message: isPendingDelivery
+      message: isBetterLuck
+        ? `حظ أوفر في المرات القادمة! نتمنى لك يوماً سعيداً 🍀`
+        : isPendingDelivery
         ? `مبروك! فزت بـ ${selectedPrize.label} 🎉 (سيتم تفعيلها وإضافتها لحسابك فور استلام واكتمال الطلب بنجاح)`
         : `مبروك! فزت بـ ${selectedPrize.label} 🎉 وتمت إضافتها لحسابك`,
     });
