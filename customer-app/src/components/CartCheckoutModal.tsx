@@ -825,7 +825,11 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   const walletDiscount =
     useWallet && walletBalance > 0 ? Math.min(preWalletTotal, walletBalance) : 0;
   const total = Math.max(0, preWalletTotal - walletDiscount);
-  const pointsToEarn = pointsPerPound > 0 ? Math.floor(subtotal * pointsPerPound) : 0;
+  const isBranchCashback = Boolean(branch?.cashbackEnabled && (branch?.cashbackPercentage ?? 0) > 0);
+  const branchCashbackPct = Number(branch?.cashbackPercentage || 0);
+  const pointsToEarn = isBranchCashback
+    ? Math.floor(subtotal * (branchCashbackPct / 100))
+    : (pointsPerPound > 0 ? Math.floor(subtotal * pointsPerPound) : 0);
 
   const isPhoneValid = /^01[0125][0-9]{8}$/.test(customerPhone.trim());
   const cleanEgyptianPhoneInput = (val: string) => {
@@ -2619,9 +2623,29 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 <div className="flex items-center gap-1.5 text-[10px] text-indigo-800 font-bold bg-white/70 px-2.5 py-1 rounded-xl border border-indigo-100/80">
                   <Gift className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   <span>
-                    ستكسب <strong>+{pointsToEarn} نقطة ولاء</strong> فور إتمام هذا الطلب
+                    ستكسب <strong>+{pointsToEarn} نقطة {isBranchCashback ? `كاش باك (${branchCashbackPct}%)` : 'ولاء'}</strong> فور إتمام هذا الطلب
                   </span>
                 </div>
+              </div>
+            )}
+
+            {!user && pointsToEarn > 0 && (
+              <div className="p-2.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Gift className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    سجل دخولك لكسب <strong>+{pointsToEarn} نقطة {isBranchCashback ? `كاش باك (${branchCashbackPct}%)` : ''}</strong> في محفظتك!
+                  </span>
+                </div>
+                {onRequireAuth && (
+                  <button
+                    type="button"
+                    onClick={onRequireAuth}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-black shrink-0 cursor-pointer"
+                  >
+                    دخول
+                  </button>
+                )}
               </div>
             )}
           </section>

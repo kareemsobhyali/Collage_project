@@ -59,6 +59,8 @@ model Branch {
   spinWheelEnabled           Boolean               @default(true)  // تشغيل أو إيقاف عجلة الحظ
   spinWheelCouponDays        Int                   @default(7)     // مدة صلاحية كوبونات عجلة الحظ بالأيام
   spinWheelPrizes            String?               // تخصيص جوائز ونسب عجلة الحظ (JSON)
+  cashbackEnabled            Boolean               @default(false) // تشغيل أو إيقاف الكاش باك الخاص بالفرع
+  cashbackPercentage         Float                 @default(5.0)   // نسبة الكاش باك المئوية للفرع (مثال: 5% أو 10%)
   settingsPassword           String?               // رمز أو كلمة مرور قفل لوحة تحكم وإعدادات الفرع (يحددها الأدمن)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
@@ -82,10 +84,12 @@ model BranchUser {
   username  String   @unique
   password  String
   branchId  String
+  role      String   @default("STAFF") // "STAFF" (استقبال الطلبات والكاشير) | "MANAGER" (لوحة مدير المطعم والإدارة)
   branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@index([branchId])
+  @@index([role])
 }
 
 model BranchPaymentConfig {

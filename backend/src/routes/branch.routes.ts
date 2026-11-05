@@ -25,10 +25,10 @@ import { importBulkMenu } from "../services/menuImport.service.js";
 
 const router = Router();
 
-// 1. تسجيل دخول تطبيق الديسكتوب الخاص بالفرع
+// 1. تسجيل دخول تطبيق الديسكتوب الخاص بالفرع أو لوحة مدير المطعم
 router.post("/login", async (req: Request, res: Response) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, portal } = req.body;
     if (!username || !password) {
       res.status(400).json({ error: "اسم المستخدم وكلمة المرور مطلوبان" });
       return;
@@ -49,16 +49,27 @@ router.post("/login", async (req: Request, res: Response) => {
       return;
     }
 
+    // التحقق من الفصل بين لوحة مدير المطعم وشاشة استقبال الطلبات
+    if (portal === "MANAGER" && branchUser.role === "STAFF") {
+      res.status(403).json({ 
+        error: "هذا الحساب مخصص فقط لشاشة استقبال الطلبات والكاشير. يرجى استخدام اسم مستخدم وكلمة مرور مدير المطعم للوصول للوحة الإدارة." 
+      });
+      return;
+    }
+
     const isMatch = await bcrypt.compare(password, branchUser.password);
     if (!isMatch) {
       res.status(401).json({ error: "بيانات تسجيل الدخول غير صحيحة" });
       return;
     }
 
+    const userRole = branchUser.role === "MANAGER" ? "BRANCH_MANAGER" : "BRANCH_STAFF";
+
     const token = generateToken({
       branchUserId: branchUser.id,
       branchId: branchUser.branchId,
       username: branchUser.username,
+      role: branchUser.role || "STAFF",
     }, "365d");
 
     res.json({
@@ -66,9 +77,10 @@ router.post("/login", async (req: Request, res: Response) => {
       token,
       user: {
         id: branchUser.id,
-        name: `مدير مطعم ${branchUser.branch.name}`,
+        name: branchUser.role === "MANAGER" ? `مدير مطعم ${branchUser.branch.name}` : `استقبال طلبات ${branchUser.branch.name}`,
         phone: branchUser.username,
-        role: "BRANCH_MANAGER",
+        role: userRole,
+        branchUserRole: branchUser.role || "STAFF",
         branchId: branchUser.branchId,
         branchName: branchUser.branch.name,
         branchLogo: branchUser.branch.logoUrl,
@@ -286,6 +298,8 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
       spinWheelEnabled,
       spinWheelCouponDays,
       spinWheelPrizes,
+      cashbackEnabled,
+      cashbackPercentage,
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -324,6 +338,8 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
         spinWheelEnabled: spinWheelEnabled !== undefined ? Boolean(spinWheelEnabled) : undefined,
         spinWheelCouponDays: spinWheelCouponDays !== undefined ? (parseInt(spinWheelCouponDays, 10) || 7) : undefined,
         spinWheelPrizes: spinWheelPrizes !== undefined ? (typeof spinWheelPrizes === 'string' ? spinWheelPrizes : JSON.stringify(spinWheelPrizes)) : undefined,
+        cashbackEnabled: cashbackEnabled !== undefined ? Boolean(cashbackEnabled) : undefined,
+        cashbackPercentage: cashbackPercentage !== undefined ? Math.max(0, Math.min(100, parseFloat(cashbackPercentage) || 0)) : undefined,
       },
       include: { paymentConfig: true, deliveryZones: true },
     });
@@ -340,6 +356,40 @@ router.put("/details", async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Update branch details error:", error);
     res.status(500).json({ error: "فشل تحديث بيانات الفرع" });
+  }
+});
+
+// 2.7 تغيير كلمة المرور لحساب الفرع المسجل حالياً (مدير المطعم أو الكاشير)
+router.post("/change-password", async (req: AuthRequest, res: Response) => {
+  try {
+    const branchUserId = req.branch!.branchUserId;
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword || String(newPassword).trim().length < 4) {
+      res.status(400).json({ error: "كلمة المرور الجديدة يجب ألا تقل عن 4 خانات" });
+      return;
+    }
+
+    const user = await prisma.branchUser.findUnique({ where: { id: branchUserId } });
+    if (!user) {
+      res.status(404).json({ error: "المستخدم غير موجود" });
+      return;
+    }
+
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) {
+      res.status(400).json({ error: "كلمة المرور الحالية غير صحيحة" });
+      return;
+    }
+
+    const newHashed = await bcrypt.hash(String(newPassword).trim(), 10);
+    await prisma.branchUser.update({
+      where: { id: branchUserId },
+      data: { password: newHashed }
+    });
+
+    res.json({ success: true, message: "تم تغيير كلمة المرور بنجاح" });
+  } catch (err: any) {
+    res.status(500).json({ error: "فشل تغيير كلمة المرور" });
   }
 });
 

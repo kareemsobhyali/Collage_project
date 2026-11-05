@@ -60,11 +60,6 @@ export async function awardLoyaltyPointsIfCompleted(orderId: string): Promise<nu
       return 0;
     }
 
-    const settings = await getLoyaltySettings();
-    if (!settings.enabled) {
-      return 0;
-    }
-
     await prisma.$transaction([
       prisma.order.update({
         where: { id: orderId },

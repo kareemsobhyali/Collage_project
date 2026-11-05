@@ -1490,14 +1490,25 @@ export const api = {
   // ==========================================
   // Branch / Restaurant Manager API Methods
   // ==========================================
-  async branchLogin(username: string, password: string) {
+  async branchLogin(username: string, password: string, portal: string = 'MANAGER') {
     const res = await fetch(`${API_BASE_URL}/branch/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, portal }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'فشل تسجيل دخول المطعم');
+    return data;
+  },
+
+  async branchChangePassword(currentPassword: string, newPassword: string) {
+    const res = await fetch(`${API_BASE_URL}/branch/change-password`, {
+      method: 'POST',
+      headers: getBranchHeaders(),
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تغيير كلمة المرور');
     return data;
   },
 

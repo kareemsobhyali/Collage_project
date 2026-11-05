@@ -96,12 +96,18 @@ router.post("/login", async (req: Request, res: Response) => {
           return;
         }
 
+        if (branchUser.role === "STAFF") {
+          res.status(403).json({ error: "هذا الحساب مخصص فقط لشاشة استقبال الطلبات والكاشير، يرجى تسجيل الدخول بحساب مدير المطعم للوصول للوحة الإدارة." });
+          return;
+        }
+
         const isMatch = await bcrypt.compare(password, branchUser.password);
         if (isMatch) {
           const token = generateToken({
             branchUserId: branchUser.id,
             branchId: branchUser.branchId,
             username: branchUser.username,
+            role: branchUser.role || "MANAGER",
           }, "365d");
 
           res.json({
@@ -168,7 +174,7 @@ router.get("/branches", async (_req: AuthRequest, res: Response) => {
         paymentConfig: true,
         deliveryZones: true,
         users: {
-          select: { id: true, username: true, createdAt: true },
+          select: { id: true, username: true, role: true, createdAt: true },
         },
         _count: {
           select: { orders: true, items: true },
@@ -349,7 +355,9 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
       operationalStatus,
       closedUntil,
       closingReason,
-      settingsPassword
+      settingsPassword,
+      cashbackEnabled,
+      cashbackPercentage
     } = req.body;
 
     let formattedSlug: string | null | undefined = undefined;
@@ -390,6 +398,8 @@ router.put("/branches/:id", async (req: AuthRequest, res: Response) => {
         closedUntil: closedUntil !== undefined ? (closedUntil ? new Date(closedUntil) : null) : undefined,
         closingReason: closingReason !== undefined ? (closingReason ? String(closingReason).trim() : null) : undefined,
         settingsPassword: settingsPassword !== undefined ? (settingsPassword ? String(settingsPassword).trim() : null) : undefined,
+        cashbackEnabled: cashbackEnabled !== undefined ? Boolean(cashbackEnabled) : undefined,
+        cashbackPercentage: cashbackPercentage !== undefined ? Math.max(0, Math.min(100, parseFloat(cashbackPercentage) || 0)) : undefined,
       },
       include: {
         deliveryZones: true,
@@ -462,11 +472,19 @@ router.delete("/branches/:id", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// إنشاء أو تحديث يوزر الديسكتوب الخاص بالفرع
+// إنشاء أو تحديث حسابات الفرع (حساب كاشير استقبال الطلبات وحساب مدير المطعم)
 router.post("/branches/:id/credentials", async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { username, password, settingsPassword } = req.body;
+    const { 
+      posUsername, 
+      posPassword, 
+      managerUsername, 
+      managerPassword, 
+      username, 
+      password, 
+      settingsPassword 
+    } = req.body;
 
     if (settingsPassword !== undefined) {
       await prisma.branch.update({
@@ -477,58 +495,98 @@ router.post("/branches/:id/credentials", async (req: AuthRequest, res: Response)
       });
     }
 
-    if (!username && !password) {
-      res.json({ success: true, message: "تم تحديث كلمة مرور إعدادات الفرع بنجاح" });
-      return;
+    // 1. معالجة حساب كاشير استقبال الطلبات (STAFF)
+    const finalPosUsername = (posUsername || username)?.trim();
+    const finalPosPassword = (posPassword || password)?.trim();
+
+    if (finalPosUsername) {
+      const existingPos = await prisma.branchUser.findFirst({
+        where: {
+          username: finalPosUsername,
+          NOT: { branchId: id },
+        },
+      });
+      if (existingPos) {
+        res.status(400).json({ error: "اسم مستخدم الكاشير مسجل بالفعل لفرع آخر، اختر اسماً مختلفاً" });
+        return;
+      }
+
+      const existingStaff = await prisma.branchUser.findFirst({
+        where: { branchId: id, role: "STAFF" },
+      }) || await prisma.branchUser.findFirst({
+        where: { branchId: id },
+      });
+
+      if (existingStaff) {
+        const updateData: any = { username: finalPosUsername, role: "STAFF" };
+        if (finalPosPassword) {
+          updateData.password = await bcrypt.hash(finalPosPassword, 10);
+        }
+        await prisma.branchUser.update({
+          where: { id: existingStaff.id },
+          data: updateData,
+        });
+      } else if (finalPosPassword) {
+        const hashed = await bcrypt.hash(finalPosPassword, 10);
+        await prisma.branchUser.create({
+          data: {
+            username: finalPosUsername,
+            password: hashed,
+            branchId: id,
+            role: "STAFF",
+          },
+        });
+      }
     }
 
-    if (!username || !password) {
-      res.status(400).json({ error: "اسم المستخدم وكلمة المرور مطلوبان" });
-      return;
+    // 2. معالجة حساب مدير المطعم (MANAGER)
+    const cleanManagerUsername = managerUsername?.trim();
+    const cleanManagerPassword = managerPassword?.trim();
+
+    if (cleanManagerUsername) {
+      const existingManager = await prisma.branchUser.findFirst({
+        where: {
+          username: cleanManagerUsername,
+          NOT: { branchId: id },
+        },
+      });
+      if (existingManager) {
+        res.status(400).json({ error: "اسم مستخدم مدير المطعم مسجل لفرع آخر، اختر اسماً مختلفاً" });
+        return;
+      }
+
+      const managerUser = await prisma.branchUser.findFirst({
+        where: { branchId: id, role: "MANAGER" },
+      });
+
+      if (managerUser) {
+        const updateData: any = { username: cleanManagerUsername, role: "MANAGER" };
+        if (cleanManagerPassword) {
+          updateData.password = await bcrypt.hash(cleanManagerPassword, 10);
+        }
+        await prisma.branchUser.update({
+          where: { id: managerUser.id },
+          data: updateData,
+        });
+      } else if (cleanManagerPassword) {
+        const hashed = await bcrypt.hash(cleanManagerPassword, 10);
+        await prisma.branchUser.create({
+          data: {
+            username: cleanManagerUsername,
+            password: hashed,
+            branchId: id,
+            role: "MANAGER",
+          },
+        });
+      }
     }
 
-    const cleanUsername = username.trim();
-    const existing = await prisma.branchUser.findFirst({
-      where: {
-        username: cleanUsername,
-        NOT: { branchId: id },
-      },
-    });
-
-    if (existing) {
-      res.status(400).json({ error: "اسم المستخدم مستخدم لفرع آخر، يرجى اختيار اسم مختلف" });
-      return;
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // البحث عن يوزر موجود للفرع أو إنشاء جديد
-    const branchUser = await prisma.branchUser.findFirst({
+    const updatedUsers = await prisma.branchUser.findMany({
       where: { branchId: id },
+      select: { id: true, username: true, role: true, createdAt: true },
     });
 
-    let result;
-    if (branchUser) {
-      result = await prisma.branchUser.update({
-        where: { id: branchUser.id },
-        data: {
-          username: cleanUsername,
-          password: hashedPassword,
-        },
-        select: { id: true, username: true, branchId: true },
-      });
-    } else {
-      result = await prisma.branchUser.create({
-        data: {
-          username: cleanUsername,
-          password: hashedPassword,
-          branchId: id,
-        },
-        select: { id: true, username: true, branchId: true },
-      });
-    }
-
-    res.json({ success: true, user: result });
+    res.json({ success: true, users: updatedUsers, message: "تم تحديث بيانات دخول الفرع بنجاح" });
   } catch (error) {
     console.error("Set credentials error:", error);
     res.status(500).json({ error: "فشل حفظ بيانات دخول الفرع" });

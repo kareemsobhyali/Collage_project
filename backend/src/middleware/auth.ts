@@ -53,6 +53,7 @@ export interface AuthenticatedBranchPayload {
   branchUserId: string;
   branchId: string;
   username: string;
+  role?: string;
   iat?: number;
   exp?: number;
 }
@@ -176,6 +177,7 @@ export async function verifyTokenAndResolvePrincipal(
       select: {
         id: true,
         username: true,
+        role: true,
         branchId: true,
         branch: { select: { isActive: true } },
       },
@@ -196,6 +198,7 @@ export async function verifyTokenAndResolvePrincipal(
           branchUserId: branchUser.id,
           branchId: branchUser.branchId,
           username: branchUser.username,
+          role: branchUser.role || "STAFF",
           iat: decoded.iat,
           exp: decoded.exp,
         },
@@ -303,6 +306,36 @@ export async function authenticateBranch(req: AuthRequest, res: Response, next: 
     next();
   } catch {
     res.status(401).json({ error: "جلسة دخول الفرع منتهية، يرجى إعادة تسجيل الدخول" });
+  }
+}
+
+// حماية مسارات لوحة تحكم مدير المطعم (الإدارة) ومنع حسابات الكاشير/استقبال الطلبات العادية
+export async function authenticateBranchManager(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  const token = extractBearerToken(req);
+  if (!token) {
+    res.status(401).json({ error: "يرجى تسجيل الدخول إلى لوحة مدير المطعم أولاً" });
+    return;
+  }
+
+  try {
+    const result = await verifyTokenAndResolvePrincipal(token);
+    if (!result.principal) {
+      res.status(result.errorStatus || 401).json({ error: result.errorMessage || "جلسة دخول مدير المطعم منتهية" });
+      return;
+    }
+    if (result.principal.kind !== "BRANCH") {
+      res.status(403).json({ error: "رمز الدخول غير خاص بالفرع" });
+      return;
+    }
+    if (result.principal.branch.role === "STAFF") {
+      res.status(403).json({ error: "عذراً، هذا الإجراء مخصص لمدير المطعم فقط ولا يمكن إجراؤه من حساب الكاشير/استقبال الطلبات" });
+      return;
+    }
+
+    req.branch = result.principal.branch;
+    next();
+  } catch {
+    res.status(401).json({ error: "جلسة دخول مدير المطعم منتهية، يرجى إعادة تسجيل الدخول" });
   }
 }
 

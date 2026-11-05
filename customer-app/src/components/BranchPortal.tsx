@@ -115,6 +115,18 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
   const [spinWheelPrizes, setSpinWheelPrizes] = useState<any[]>([]);
   const [savingWheel, setSavingWheel] = useState(false);
 
+  // Cashback & Loyalty Settings State
+  const [cashbackEnabled, setCashbackEnabled] = useState(false);
+  const [cashbackPercentage, setCashbackPercentage] = useState(5.0);
+  const [savingCashback, setSavingCashback] = useState(false);
+
+  // Manager Password Change State
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [changingPass, setChangingPass] = useState(false);
+
   // Customers State
   const [customers, setCustomers] = useState<any[]>([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
@@ -323,6 +335,8 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
           ];
         }
         setSpinWheelPrizes(parsedPrizes);
+        setCashbackEnabled(Boolean(b.cashbackEnabled));
+        setCashbackPercentage(b.cashbackPercentage !== undefined && b.cashbackPercentage !== null ? Number(b.cashbackPercentage) : 5.0);
       }
 
       setOrders(Array.isArray(ordersData) ? ordersData : []);
@@ -890,6 +904,8 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
           freeDeliveryMinOrder: parseFloat(editFreeDeliveryMinOrder) || 0,
           receiptHeader: editReceiptHeader.trim(),
           receiptFooter: editReceiptFooter.trim(),
+          cashbackEnabled,
+          cashbackPercentage: Number(cashbackPercentage) || 5,
         }),
         api.updateBranchWorkingHours({
           openingTime: editOpeningTime,
@@ -912,6 +928,54 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
       alert(err.message || 'فشل حفظ بيانات وإعدادات المطعم');
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  // حفظ إعدادات الكاش باك بشكل منفصل وفوري
+  const handleSaveCashback = async () => {
+    if (!branch?.id) return;
+    try {
+      setSavingCashback(true);
+      const res = await api.updateBranchDetails({
+        name: branch.name,
+        cashbackEnabled,
+        cashbackPercentage: Number(cashbackPercentage) || 5,
+      });
+      if (res?.branch) {
+        setBranch(res.branch);
+        localStorage.setItem('branch_info', JSON.stringify(res.branch));
+      }
+      alert('تم تحديث إعدادات ونسبة الكاش باك للمطعم بنجاح! 💰');
+    } catch (err: any) {
+      alert(err.message || 'فشل حفظ إعدادات الكاش باك');
+    } finally {
+      setSavingCashback(false);
+    }
+  };
+
+  // تغيير كلمة مرور مدير المطعم
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPass || !newPass) {
+      alert('يرجى إدخال كلمة المرور الحالية وكلمة المرور الجديدة');
+      return;
+    }
+    if (newPass !== confirmPass) {
+      alert('كلمة المرور الجديدة وتأكيدها غير متطابقين');
+      return;
+    }
+    try {
+      setChangingPass(true);
+      await api.branchChangePassword(currentPass, newPass);
+      alert('تم تغيير كلمة المرور بنجاح! يرجى استخدامها في تسجيلات الدخول القادمة.');
+      setShowChangePasswordModal(false);
+      setCurrentPass('');
+      setNewPass('');
+      setConfirmPass('');
+    } catch (err: any) {
+      alert(err.message || 'فشل تغيير كلمة المرور');
+    } finally {
+      setChangingPass(false);
     }
   };
 
@@ -3017,6 +3081,115 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
               </div>
             </div>
 
+            {/* Cashback & Loyalty Program Settings */}
+            <div className="bg-gradient-to-br from-amber-50 via-white to-purple-50 p-4 sm:p-5 rounded-3xl border-2 border-amber-200/90 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-base shadow-sm">
+                    💰
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">برنامج الكاش باك ومكافأة العملاء (Cashback)</h3>
+                    <p className="text-[11px] text-slate-500 font-medium">التحكم في تشغيل أو إيقاف الكاش باك لفرعك وتحديد النسبة المئوية للمكافأة</p>
+                  </div>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-black ${cashbackEnabled ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-600 border border-slate-300'}`}>
+                  {cashbackEnabled ? `مفعل بنسبة ${cashbackPercentage}%` : 'الكاش باك متوقف'}
+                </span>
+              </div>
+
+              {/* Toggle switch */}
+              <label className="flex items-center justify-between p-3.5 bg-white rounded-2xl border border-amber-200 shadow-2xs cursor-pointer hover:bg-amber-50/40 transition-colors">
+                <div>
+                  <span className="font-black text-xs text-slate-900 block">تشغيل الكاش باك على طلبات هذا الفرع</span>
+                  <span className="text-[11px] text-slate-500">يحصل العميل على نقاط كاش باك في محفظته فور استلام واكتمال كل طلب ناجح</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={cashbackEnabled}
+                  onChange={e => setCashbackEnabled(e.target.checked)}
+                  className="w-5 h-5 text-amber-600 rounded cursor-pointer"
+                />
+              </label>
+
+              {cashbackEnabled && (
+                <div className="space-y-3 p-3.5 bg-white rounded-2xl border border-amber-200 shadow-2xs animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-slate-800">نسبة الكاش باك المئوية (%)</label>
+                    <span className="text-xs font-mono font-black text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-lg border border-purple-200">
+                      {cashbackPercentage}% كاش باك
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {[3, 5, 10, 15, 20].map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() => setCashbackPercentage(rate)}
+                        className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                          cashbackPercentage === rate
+                            ? 'bg-purple-600 text-white shadow-sm scale-105'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        {rate}%
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      step="0.5"
+                      value={cashbackPercentage}
+                      onChange={e => setCashbackPercentage(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                      className="w-28 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-black text-slate-900 text-center"
+                    />
+                    <span className="text-xs text-slate-600 font-bold">% مئوية من قيمة الطلب</span>
+                    <button
+                      type="button"
+                      disabled={savingCashback}
+                      onClick={handleSaveCashback}
+                      className="mr-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                    >
+                      {savingCashback ? 'جاري الحفظ...' : 'حفظ الكاش باك فوراً 💾'}
+                    </button>
+                  </div>
+
+                  {/* Simulation Box */}
+                  <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200 text-xs text-amber-950 flex items-center gap-2">
+                    <span className="text-lg">💡</span>
+                    <span>
+                      <strong>مثال توضيحي:</strong> إذا طلب العميل وجبة بمبلغ <strong>100 ج.م</strong>، سيكسب <strong>{Math.round(100 * (cashbackPercentage / 100))} ج.م</strong> نقاط كاش باك تضاف لمحفظته فور اكتمال الطلب.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Manager Account & Security */}
+            <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-purple-600" />
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">أمان وحساب مدير المطعم (الإدارة)</h3>
+                    <p className="text-[11px] text-slate-500">هذا الحساب مخصص فقط لإدارة المتجر ومنفصل عن حساب كاشير استقبال الطلبات</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowChangePasswordModal(true)}
+                  className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-black transition-colors cursor-pointer"
+                >
+                  تغيير كلمة المرور 🔑
+                </button>
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={savingProfile}
@@ -3829,6 +4002,83 @@ export const BranchPortal: React.FC<BranchPortalProps> = ({ onLogout, onClose })
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Manager Password Change Modal */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-purple-600" />
+                <span>تغيير كلمة مرور مدير المطعم</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowChangePasswordModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">كلمة المرور الحالية *</label>
+                <input
+                  type="password"
+                  required
+                  value={currentPass}
+                  onChange={e => setCurrentPass(e.target.value)}
+                  placeholder="أدخل كلمة المرور الحالية"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">كلمة المرور الجديدة *</label>
+                <input
+                  type="password"
+                  required
+                  value={newPass}
+                  onChange={e => setNewPass(e.target.value)}
+                  placeholder="كلمة مرور جديدة (4 خانات فأكثر)"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">تأكيد كلمة المرور الجديدة *</label>
+                <input
+                  type="password"
+                  required
+                  value={confirmPass}
+                  onChange={e => setConfirmPass(e.target.value)}
+                  placeholder="أعد إدخال كلمة المرور الجديدة"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={changingPass}
+                  className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>{changingPass ? 'جاري الحفظ...' : 'تأكيد تغيير كلمة المرور'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowChangePasswordModal(false)}
+                  className="py-2.5 px-4 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

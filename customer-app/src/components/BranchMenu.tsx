@@ -1170,6 +1170,29 @@ export const BranchMenu: React.FC<BranchMenuProps> = ({
               </div>
             </div>
 
+            {/* بانر الكاش باك للمطعم إذا كان مفعلاً */}
+            {branch.cashbackEnabled && (branch.cashbackPercentage ?? 0) > 0 && (
+              <div className="flex items-center justify-between gap-2.5 px-3 py-2 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-emerald-500/10 border border-amber-300/70 rounded-2xl shadow-2xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-amber-950 flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                    💰
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-black text-amber-950 flex items-center gap-1.5 truncate">
+                      <span>كاش باك {branch.cashbackPercentage}% على كل طلب</span>
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-100/90 px-1.5 py-0.2 rounded-md shrink-0">نقاط بالمحفظة</span>
+                    </div>
+                    <p className="text-[10px] text-amber-800 truncate">
+                      يرجع لك {branch.cashbackPercentage}% من قيمة طلبك كنقاط ولاء تستخدمها في خصومات طلباتك القادمة
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-xl shadow-xs">
+                  مكافأة ⚡
+                </div>
+              </div>
+            )}
+
             {/* الصف 4: أقسام المنيو السلسة (Category Tabs Pills) */}
             {nonEmptyCategories.length > 0 && (
               <div

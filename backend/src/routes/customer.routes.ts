@@ -2324,11 +2324,21 @@ router.post("/orders", async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // حساب نقاط الولاء المحسوبة لهذا الطلب حسب إعدادات المنظومة (لا تُودع في المحفظة إلا بعد اكتمال الطلب والتسليم)
-    const loyaltySettings = await getLoyaltySettings();
-    const pointsEarned = loyaltySettings.enabled 
-      ? Math.max(0, Math.floor(subtotal * loyaltySettings.pointsPerPound)) 
-      : 0;
+    // حساب نقاط الكاش باك / الولاء الخاصة بالفرع (التحكم المنفصل لكل مطعم)
+    const targetBranch = await prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { cashbackEnabled: true, cashbackPercentage: true }
+    });
+
+    let pointsEarned = 0;
+    if (targetBranch && targetBranch.cashbackEnabled && targetBranch.cashbackPercentage > 0) {
+      pointsEarned = Math.max(0, Math.floor(subtotal * (targetBranch.cashbackPercentage / 100)));
+    } else if (!targetBranch || (targetBranch.cashbackEnabled === undefined && targetBranch.cashbackEnabled === null)) {
+      const loyaltySettings = await getLoyaltySettings();
+      pointsEarned = loyaltySettings.enabled 
+        ? Math.max(0, Math.floor(subtotal * loyaltySettings.pointsPerPound)) 
+        : 0;
+    }
 
     // توليد رمز أمان استلام عشوائي (4 أرقام) للتحقق عند التسليم مع الطيار
     const pickupPin = crypto.randomInt(1000, 10000).toString();

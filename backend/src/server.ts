@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 import helmet from "helmet";
+import bcrypt from "bcryptjs";
 
 dotenv.config();
 const backendEnvPath = path.resolve(process.cwd(), "backend", ".env");
@@ -780,7 +781,11 @@ async function autoSyncDatabaseSchema() {
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "spinWheelEnabled" BOOLEAN DEFAULT true;`,
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "spinWheelCouponDays" INTEGER DEFAULT 7;`,
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "spinWheelPrizes" TEXT;`,
+      `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "cashbackEnabled" BOOLEAN DEFAULT false;`,
+      `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "cashbackPercentage" DOUBLE PRECISION DEFAULT 5.0;`,
       `ALTER TABLE "Branch" ADD COLUMN IF NOT EXISTS "settingsPassword" TEXT;`,
+      `ALTER TABLE "BranchUser" ADD COLUMN IF NOT EXISTS "role" TEXT DEFAULT 'STAFF';`,
+      `CREATE INDEX IF NOT EXISTS "BranchUser_role_idx" ON "BranchUser"("role");`,
       `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "adminVodafoneAllowed" BOOLEAN DEFAULT true;`,
       `ALTER TABLE "BranchPaymentConfig" ADD COLUMN IF NOT EXISTS "adminInstapayAllowed" BOOLEAN DEFAULT true;`,
       `ALTER TABLE "MenuCategory" ADD COLUMN IF NOT EXISTS "isDealsCategory" BOOLEAN DEFAULT false;`,
@@ -830,6 +835,37 @@ async function autoSyncDatabaseSchema() {
       await prisma.$executeRawUnsafe(sql).catch(() => {});
     }
     console.log("[DB Auto-Sync] Database schema columns verified and updated successfully.");
+
+    // تهيئة والتأكد من وجود حساب مدير مطعم منفصل لكل فرع بجانب حساب الكاشير واستقبال الطلبات
+    try {
+      const allBranches = await prisma.branch.findMany({
+        include: { users: true }
+      });
+      for (const branch of allBranches) {
+        const hasManager = branch.users.some(u => u.role === "MANAGER");
+        if (!hasManager) {
+          const rawSlug = branch.slug || branch.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const baseName = (rawSlug || "branch").replace(/_+/g, '');
+          const managerUsername = `${baseName}_manager`;
+          const existingUser = await prisma.branchUser.findUnique({ where: { username: managerUsername } });
+          if (!existingUser) {
+            const staffUser = branch.users.find(u => u.role === "STAFF") || branch.users[0];
+            const defaultPassHash = staffUser ? staffUser.password : await bcrypt.hash("123456", 10);
+            await prisma.branchUser.create({
+              data: {
+                username: managerUsername,
+                password: defaultPassHash,
+                branchId: branch.id,
+                role: "MANAGER"
+              }
+            });
+            console.log(`[Auto-Provision] Created separate manager account (${managerUsername}) for branch "${branch.name}"`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[Auto-Provision] Branch manager provisioning notice:", e);
+    }
 
     // تنظيف وترحيل أي لوجو مطعم مخزن بنظام Base64 القديم إلى ملف حقيقي لمنع انهيار وتوقف صفحة APK ومتصفحات الجوال
     try {

@@ -720,6 +720,8 @@ export const AdminPage: React.FC = () => {
   // Edit Branch Form
   const [editName, setEditName] = useState('');
   const [editSettingsPassword, setEditSettingsPassword] = useState('');
+  const [editCashbackEnabled, setEditCashbackEnabled] = useState(false);
+  const [editCashbackPercentage, setEditCashbackPercentage] = useState('5');
   const [editSlug, setEditSlug] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
@@ -823,6 +825,10 @@ export const AdminPage: React.FC = () => {
   // Credentials Form
   const [credUsername, setCredUsername] = useState('');
   const [credPassword, setCredPassword] = useState('');
+  const [credPosUsername, setCredPosUsername] = useState('');
+  const [credPosPassword, setCredPosPassword] = useState('');
+  const [credManagerUsername, setCredManagerUsername] = useState('');
+  const [credManagerPassword, setCredManagerPassword] = useState('');
   const [credSettingsPassword, setCredSettingsPassword] = useState('');
 
   const getAdminHeaders = () => {
@@ -3176,6 +3182,8 @@ export const AdminPage: React.FC = () => {
     setEditWorkingDays(branch.workingDays || 'SUN,MON,TUE,WED,THU,FRI,SAT');
     setEditOperationalStatus(branch.operationalStatus || 'OPEN');
     setEditSettingsPassword(branch.settingsPassword || '');
+    setEditCashbackEnabled(branch.cashbackEnabled ?? false);
+    setEditCashbackPercentage(String(branch.cashbackPercentage ?? 5));
   };
 
   const handleSaveEditBranch = async (e: React.FormEvent) => {
@@ -3209,6 +3217,8 @@ export const AdminPage: React.FC = () => {
           workingDays: editWorkingDays.trim() || 'SUN,MON,TUE,WED,THU,FRI,SAT',
           settingsPassword: editSettingsPassword.trim() || null,
           operationalStatus: editOperationalStatus,
+          cashbackEnabled: editCashbackEnabled,
+          cashbackPercentage: parseFloat(editCashbackPercentage) || 0,
         }),
       });
       const data = await res.json();
@@ -3295,9 +3305,12 @@ export const AdminPage: React.FC = () => {
 
   const handleOpenCredentials = (branch: any) => {
     setEditingCredentialsBranch(branch);
-    const existingUser = branch.users && branch.users[0];
-    setCredUsername(existingUser?.username || '');
-    setCredPassword('');
+    const staffUser = branch.users?.find((u: any) => u.role === 'STAFF') || branch.users?.[0];
+    const managerUser = branch.users?.find((u: any) => u.role === 'MANAGER');
+    setCredPosUsername(staffUser?.username || branch.slug || '');
+    setCredPosPassword('');
+    setCredManagerUsername(managerUser?.username || (branch.slug ? `${branch.slug}_manager` : ''));
+    setCredManagerPassword('');
     setCredSettingsPassword(branch.settingsPassword || '');
   };
 
@@ -3310,8 +3323,10 @@ export const AdminPage: React.FC = () => {
         method: 'POST',
         headers: getAdminHeaders(),
         body: JSON.stringify({
-          username: credUsername.trim() || undefined,
-          password: credPassword.trim() || undefined,
+          posUsername: credPosUsername.trim() || undefined,
+          posPassword: credPosPassword.trim() || undefined,
+          managerUsername: credManagerUsername.trim() || undefined,
+          managerPassword: credManagerPassword.trim() || undefined,
           settingsPassword: credSettingsPassword.trim() || null,
         }),
       });
@@ -3320,7 +3335,7 @@ export const AdminPage: React.FC = () => {
 
       setEditingCredentialsBranch(null);
       fetchDashboardData();
-      alert('تم تحديث بيانات دخول الفرع ورمز الإعدادات بنجاح');
+      alert('تم تحديث حسابات الفرع (الكاشير واستقبال الطلبات / مدير المطعم) بنجاح');
     } catch (err: any) {
       alert(err.message || 'خطأ أثناء تحديث بيانات الدخول');
     }
@@ -11605,6 +11620,48 @@ export const AdminPage: React.FC = () => {
                   💡 تمنع الكاشير من فتح شاشة «بيانات الفرع والدفع والتحكمات» إلا بإدخال هذا الرمز (اتركها فارغة لإتاحة الدخول دون رمز).
                 </span>
               </div>
+
+              {/* برنامج الكاش باك للفرع */}
+              <div className="p-3.5 bg-gradient-to-r from-emerald-50/80 via-teal-50/60 to-emerald-50/80 border border-emerald-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-sm shadow-xs">
+                      💰
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-800">برنامج الكاش باك والنقاط للفرع</label>
+                      <span className="text-[10px] text-slate-500 block">إرجاع نسبة من قيمة كل طلب كنقاط كاش باك للعميل</span>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editCashbackEnabled}
+                      onChange={e => setEditCashbackEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
+
+                {editCashbackEnabled && (
+                  <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between gap-3">
+                    <span className="text-xs font-bold text-slate-700">نسبة الكاش باك:</span>
+                    <div className="flex items-center gap-1.5 w-32">
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="100"
+                        step="0.5"
+                        value={editCashbackPercentage}
+                        onChange={e => setEditCashbackPercentage(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-900 text-center font-mono focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <span className="text-xs font-black text-emerald-800">%</span>
+                    </div>
+                  </div>
+                )}
+              </div>
               </div>
 
               <div className="flex items-center justify-end gap-2.5 p-3.5 sm:p-4 border-t border-slate-200 bg-white/95 backdrop-blur-sm shrink-0">
@@ -11777,12 +11834,15 @@ export const AdminPage: React.FC = () => {
       {/* D. Desktop Credentials Modal */}
       {editingCredentialsBranch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md my-auto flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg my-auto flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-5 pb-3 border-b border-slate-200 shrink-0">
-              <h3 className="font-black text-base text-slate-900">حساب الديسكتوب: {editingCredentialsBranch.name}</h3>
+              <div>
+                <h3 className="font-black text-base text-slate-900">إدارة حسابات الفرع: {editingCredentialsBranch.name}</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">فصل حساب الكاشير واستقبال الطلبات عن حساب مدير المطعم</p>
+              </div>
               <button 
                 onClick={() => setEditingCredentialsBranch(null)} 
-                className="text-slate-500 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
                 title="إغلاق"
               >
                 <X className="w-5 h-5" />
@@ -11791,43 +11851,94 @@ export const AdminPage: React.FC = () => {
 
             <form onSubmit={handleSaveCredentials} className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">اسم المستخدم للفرع</label>
-                  <input
-                    type="text"
-                    required
-                    value={credUsername}
-                    onChange={e => setCredUsername(e.target.value)}
-                    placeholder="مثال: burger_branch"
-                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
-                  />
+                
+                {/* 1. حساب كاشير واستقبال الطلبات */}
+                <div className="p-4 bg-slate-50/90 border border-slate-200 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                    <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                      🖥️
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900">حساب كاشير واستقبال طلبات الفرع (POS & Kitchen)</h4>
+                      <p className="text-[10px] text-slate-500">خاص بتطبيق الديسكتوب وشاشة استلام وتجهيز الطلبات</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">اسم مستخدم الكاشير *</label>
+                    <input
+                      type="text"
+                      required
+                      value={credPosUsername}
+                      onChange={e => setCredPosUsername(e.target.value)}
+                      placeholder="مثال: divado_pos"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">كلمة مرور الكاشير الجديدة</label>
+                    <input
+                      type="password"
+                      value={credPosPassword}
+                      onChange={e => setCredPosPassword(e.target.value)}
+                      placeholder="اتركها فارغة للإبقاء على كلمة المرور الحالية"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">كلمة المرور الجديدة</label>
-                  <input
-                    type="password"
-                    value={credPassword}
-                    onChange={e => setCredPassword(e.target.value)}
-                    placeholder={editingCredentialsBranch?.users?.length ? "اتركها فارغة للإبقاء على الحالية" : "أدخل كلمة مرور جديدة"}
-                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
-                  />
+                {/* 2. حساب مدير المطعم */}
+                <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-purple-200/80">
+                    <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
+                      👔
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-purple-950">حساب مدير المطعم (لوحة الإدارة والتحكم)</h4>
+                      <p className="text-[10px] text-purple-700">خاص بـ /manager (إدارة الكاش باك، المنيو، التقارير والمبيعات)</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">اسم مستخدم مدير المطعم *</label>
+                    <input
+                      type="text"
+                      required
+                      value={credManagerUsername}
+                      onChange={e => setCredManagerUsername(e.target.value)}
+                      placeholder="مثال: divado_manager"
+                      className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">كلمة مرور مدير المطعم الجديدة</label>
+                    <input
+                      type="password"
+                      value={credManagerPassword}
+                      onChange={e => setCredManagerPassword(e.target.value)}
+                      placeholder="اتركها فارغة للإبقاء على كلمة المرور الحالية"
+                      className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 font-mono"
+                    />
+                  </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-200">
+                {/* 3. رمز قفل الإعدادات */}
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-1.5">
                   <div className="flex items-center gap-1.5 mb-1">
                     <Lock className="w-3.5 h-3.5 text-amber-600" />
-                    <label className="block text-xs font-bold text-slate-800">رمز / كلمة مرور قفل لوحة تحكم وإعدادات الفرع (Settings PIN)</label>
+                    <label className="block text-xs font-bold text-slate-800">رمز قفل الإعدادات من شاشة الكاشير (Settings PIN)</label>
                   </div>
                   <input
                     type="text"
                     value={credSettingsPassword}
                     onChange={e => setCredSettingsPassword(e.target.value)}
                     placeholder="مثال: 1234 أو كود سري"
-                    className="w-full px-3 py-2 bg-amber-50/50 border border-amber-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-amber-500 font-mono"
+                    className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-amber-500 font-mono"
                   />
                   <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-                    🔐 عند تحديد هذا الرمز، لن يتمكن الكاشير من فتح شاشة «بيانات الفرع والدفع والتحكمات» إلا بإدخال هذا الرمز. (اتركه فارغاً لإتاحة الدخول بدون رمز).
+                    🔐 يمنع الكاشير من فتح إعدادات الدفع وبيانات الفرع دون إذن الإدارة (اتركه فارغاً للدخول بدون رمز).
                   </p>
                 </div>
               </div>
@@ -11842,9 +11953,9 @@ export const AdminPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
+                  className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 transition-all active:scale-95"
                 >
-                  تحديث البيانات
+                  حفظ وتحديث الحسابات
                 </button>
               </div>
             </form>
