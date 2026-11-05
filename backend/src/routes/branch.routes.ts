@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { exec } from "child_process";
 import prisma from "../prisma.js";
-import { generateToken, authenticateBranch, AuthRequest } from "../middleware/auth.js";
+import { generateToken, authenticateBranch, authenticateBranchManager, AuthRequest } from "../middleware/auth.js";
 import { 
   notifyOrderStatusChanged, 
   notifyOrderAddonProposed,
@@ -188,7 +188,7 @@ router.post("/verify-settings-password", async (req: AuthRequest, res: Response)
 });
 
 // تحديث أو تعيين أو إزالة كلمة مرور قفل إعدادات وتحكمات الفرع
-router.put("/settings-password", async (req: AuthRequest, res: Response) => {
+router.put("/settings-password", authenticateBranchManager, async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
     const { currentPassword, newPassword } = req.body;
@@ -275,7 +275,7 @@ router.put("/operational-status", async (req: AuthRequest, res: Response) => {
 });
 
 // 2.6 تعديل بيانات الفرع التشغيلية (الاسم، الهاتف، الموقع، رسوم التوصيل، التوصيل والاستلام، عروض التوصيل المجاني)
-router.put("/details", async (req: AuthRequest, res: Response) => {
+router.put("/details", authenticateBranchManager, async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
     const { 
@@ -1824,7 +1824,7 @@ router.get("/orders", async (req: AuthRequest, res: Response) => {
 });
 
 // 16.5 تحديث ملاحظة العميل أو إيقاف/تفعيل حسابه على مستوى هذا الفرع فقط (Tenant-Scoped Customer CRM)
-router.put("/customers/:userId/crm", async (req: AuthRequest, res: Response) => {
+router.put("/customers/:userId/crm", authenticateBranchManager, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.params.userId as string;
     const branchId = req.branch!.branchId;
@@ -1897,7 +1897,7 @@ router.put("/customers/:userId/crm", async (req: AuthRequest, res: Response) => 
 });
 
 // 16.6 استرجاع قائمة جميع العملاء المحظورين لهذا الفرع
-router.get("/customers/blocked", async (req: AuthRequest, res: Response) => {
+router.get("/customers/blocked", authenticateBranchManager, async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
 
@@ -1956,7 +1956,7 @@ router.get("/customers/blocked", async (req: AuthRequest, res: Response) => {
 });
 
 // 16.7 فك الحظر عن عميل لهذا الفرع
-router.post("/customers/:userId/unblock", async (req: AuthRequest, res: Response) => {
+router.post("/customers/:userId/unblock", authenticateBranchManager, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.params.userId as string;
     const branchId = req.branch!.branchId;
@@ -2704,7 +2704,7 @@ router.put("/orders/:id/assign-driver", async (req: AuthRequest, res: Response) 
 });
 
 // 23. تعديل وقت التنبيه المسبق للطلبات المحجوزة (Lead Time)
-router.put("/settings/schedule-lead", async (req: AuthRequest, res: Response) => {
+router.put("/settings/schedule-lead", authenticateBranchManager, async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
     const { scheduledLeadMins } = req.body;
@@ -2722,7 +2722,7 @@ router.put("/settings/schedule-lead", async (req: AuthRequest, res: Response) =>
 });
 
 // 24. تعديل مواعيد العمل الرسمية للفرع
-router.put("/settings/working-hours", async (req: AuthRequest, res: Response) => {
+router.put("/settings/working-hours", authenticateBranchManager, async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
     const { openingTime, closingTime, workingDays } = req.body;
@@ -3077,7 +3077,7 @@ router.put("/support-tickets/:id", async (req: AuthRequest, res: Response) => {
 });
 
 // إحصائيات ومبيعات وتقارير الفرع
-router.get("/stats", async (req: AuthRequest, res: Response) => {
+router.get("/stats", authenticateBranchManager, async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
 
@@ -3382,7 +3382,7 @@ router.patch("/flash-deals/:id/toggle", async (req: AuthRequest, res: Response) 
 });
 
 // 31. جلب عملاء الفرع والعملاء المحظورين وسجل مشترياتهم
-router.get("/customers", async (req: AuthRequest, res: Response) => {
+router.get("/customers", authenticateBranchManager, async (req: AuthRequest, res: Response) => {
   try {
     const branchId = req.branch!.branchId;
 
