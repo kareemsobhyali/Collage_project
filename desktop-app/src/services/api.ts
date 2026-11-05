@@ -296,6 +296,18 @@ export const api = {
     return data;
   },
 
+  // اقتراح إضافة خاصة / تعديل الفاتورة للعميل (بناءً على طلب العميل في الملاحظات)
+  async proposeOrderAddon(orderId: string, payload: { name: string; price: number; note?: string }) {
+    const res = await fetch(`${API_BASE_URL}/branch/orders/${orderId}/propose-addon`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل إرسال اقتراح الإضافة');
+    return data;
+  },
+
   // 4. المنيو
   async getMenu() {
     const res = await fetch(`${API_BASE_URL}/branch/menu`, {

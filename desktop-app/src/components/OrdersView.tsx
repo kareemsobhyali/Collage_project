@@ -184,6 +184,47 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [compensationDiscountType, setCompensationDiscountType] = useState<'PERCENT' | 'FIXED'>('PERCENT');
   const [compensationNote, setCompensationNote] = useState<string>('');
 
+  // Propose Custom Add-on Proposal Dialog State
+  const [proposingAddonOrder, setProposingAddonOrder] = useState<any | null>(null);
+  const [addonName, setAddonName] = useState<string>('');
+  const [addonPrice, setAddonPrice] = useState<string>('');
+  const [addonNote, setAddonNote] = useState<string>('');
+  const [submittingAddon, setSubmittingAddon] = useState<boolean>(false);
+
+  const handleSendAddonProposal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!proposingAddonOrder) return;
+    if (!addonName.trim()) {
+      alert('يرجى إدخال اسم الإضافة أو الصنف المطلوب');
+      return;
+    }
+    const numPrice = Number(addonPrice);
+    if (isNaN(numPrice) || numPrice < 0) {
+      alert('يرجى تحديد سعر صحيح للإضافة (مثلاً 20 ج.م)');
+      return;
+    }
+
+    try {
+      setSubmittingAddon(true);
+      await api.proposeOrderAddon(proposingAddonOrder.id, {
+        name: addonName.trim(),
+        price: numPrice,
+        note: addonNote.trim() || undefined,
+      });
+
+      alert(`تم إرسال اقتراح إضافة (${addonName.trim()}) بسعر ${numPrice} ج.م للعميل بنجاح! 🚀\nسيظهر للعميل في شاشة التتبع إشعار فوري بخياري القبول والرفض وتعديل الفاتورة.`);
+      setProposingAddonOrder(null);
+      setAddonName('');
+      setAddonPrice('');
+      setAddonNote('');
+      if (onRefreshOrders) await onRefreshOrders();
+    } catch (err: any) {
+      alert(err.message || 'فشل إرسال اقتراح الإضافة للعميل');
+    } finally {
+      setSubmittingAddon(false);
+    }
+  };
+
   // مزامنة الطلب المفتوح مع التحديثات اللحظية وإرجاع الكاشير فوراً لشاشة الطلبات الجديدة إذا أُلغي الطلب من العميل أو تغيرت حالته من جديد (PENDING)
   useEffect(() => {
     if (acceptingOrder) {
@@ -811,6 +852,63 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                     </div>
                   )}
 
+                  {/* Custom Add-on Proposal Section */}
+                  {(() => {
+                    let proposal: any = null;
+                    if (dOrder.customAddonProposal) {
+                      try { proposal = JSON.parse(dOrder.customAddonProposal); } catch {}
+                    }
+                    const isPropPending = proposal?.status === 'PENDING';
+                    const isPropAccepted = proposal?.status === 'ACCEPTED';
+                    const isPropRejected = proposal?.status === 'REJECTED';
+
+                    return (
+                      <div className="mt-3 space-y-2">
+                        {proposal && (
+                          <div className={`p-3.5 rounded-2xl text-xs border space-y-1.5 ${
+                            isPropPending ? 'bg-indigo-50 border-indigo-300 text-indigo-950 animate-pulse' :
+                            isPropAccepted ? 'bg-emerald-50 border-emerald-300 text-emerald-950' :
+                            'bg-slate-100 border-slate-300 text-slate-700'
+                          }`}>
+                            <div className="flex items-center justify-between font-black">
+                              <span className="flex items-center gap-1.5 text-xs">
+                                {isPropPending && '⏳ اقتراح إضافة معلق في انتظار رد العميل:'}
+                                {isPropAccepted && '✅ وافق العميل وتمت إضافة الصنف للفاتورة:'}
+                                {isPropRejected && '❌ رفض العميل اقتراح الإضافة:'}
+                              </span>
+                              <span className="font-mono text-purple-700 bg-white px-2.5 py-0.5 rounded-lg border border-purple-200 font-black text-xs">
+                                +{proposal.price} ج.م
+                              </span>
+                            </div>
+                            <div className="font-black text-sm text-slate-900">{proposal.name}</div>
+                            {proposal.note && <div className="text-xs text-slate-600 font-medium">ملاحظة للعميل: "{proposal.note}"</div>}
+                            <div className="text-[11px] text-slate-500">
+                              {isPropPending && 'العميل يرى إشعاراً فورياً في شاشة التتبع بخياري (قبول أو رفض)...'}
+                              {isPropAccepted && 'تم تحديث الإجمالي وإدراج الصنف في الفاتورة بنجاح'}
+                              {isPropRejected && 'تم الرفض، ويتم تحضير الطلب الأصلي كما هو دون زيادة'}
+                            </div>
+                          </div>
+                        )}
+
+                        {(isPending || isPreparing || isReady) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProposingAddonOrder(dOrder);
+                              setAddonName(dOrder.notes ? dOrder.notes.slice(0, 45) : '');
+                              setAddonPrice('');
+                              setAddonNote('');
+                            }}
+                            className="w-full py-3 px-4 bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 hover:from-purple-100 hover:to-indigo-100 text-purple-900 border-2 border-dashed border-purple-300 hover:border-purple-400 rounded-2xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-98"
+                          >
+                            <Sparkles className="w-4 h-4 text-purple-600" />
+                            <span>➕ اقتراح إضافة خاصة / تعديل الفاتورة للعميل</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {/* Group Cart Bags Breakdown */}
                   {dOrder.groupCartDetails && (() => {
                     try {
@@ -1372,6 +1470,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       </button>
                       <button
                         type="button"
+                        onClick={() => {
+                          setProposingAddonOrder(dOrder);
+                          setAddonName(dOrder.notes ? dOrder.notes.slice(0, 45) : '');
+                          setAddonPrice('');
+                          setAddonNote('');
+                        }}
+                        className="px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        title="اقتراح إضافة صنف خاص أو تعديل الحساب بناءً على طلب العميل"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                        <span>اقتراح إضافة خاصة ➕</span>
+                      </button>
+                      <button
+                        type="button"
                         disabled={updatingId === dOrder.id}
                         onClick={() => handleUpdateStatus(dOrder.id, 'READY')}
                         className="flex-1 sm:flex-none justify-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md shadow-emerald-600/25 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
@@ -1399,6 +1511,20 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       >
                         <XCircle className="w-3.5 h-3.5 text-rose-600" />
                         <span>إلغاء الطلب</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProposingAddonOrder(dOrder);
+                          setAddonName(dOrder.notes ? dOrder.notes.slice(0, 45) : '');
+                          setAddonPrice('');
+                          setAddonNote('');
+                        }}
+                        className="px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        title="اقتراح إضافة صنف خاص أو تعديل الحساب بناءً على طلب العميل"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                        <span>اقتراح إضافة خاصة ➕</span>
                       </button>
                       <button
                         type="button"
@@ -1795,6 +1921,36 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         </div>
                       </div>
                     )}
+
+                    {/* حالة اقتراح إضافة خاصة للعميل على الكارت */}
+                    {(() => {
+                      let proposal: any = null;
+                      if (order.customAddonProposal) {
+                        try { proposal = JSON.parse(order.customAddonProposal); } catch {}
+                      }
+                      if (!proposal) return null;
+                      const isPropPending = proposal?.status === 'PENDING';
+                      const isPropAccepted = proposal?.status === 'ACCEPTED';
+                      const isPropRejected = proposal?.status === 'REJECTED';
+
+                      return (
+                        <div className={`p-2 rounded-xl border text-[11px] space-y-1 ${
+                          isPropPending ? 'bg-indigo-50 border-indigo-200 text-indigo-950 animate-pulse' :
+                          isPropAccepted ? 'bg-emerald-50 border-emerald-200 text-emerald-950' :
+                          'bg-slate-100 border-slate-200 text-slate-700'
+                        }`}>
+                          <div className="flex items-center justify-between font-black">
+                            <span>
+                              {isPropPending && '⏳ اقتراح إضافة معلق:'}
+                              {isPropAccepted && '✅ قبل العميل الإضافة:'}
+                              {isPropRejected && '❌ رفض العميل الإضافة:'}
+                            </span>
+                            <span className="font-mono text-purple-700 font-bold">+{proposal.price} ج.م</span>
+                          </div>
+                          <div className="font-bold truncate text-slate-900">{proposal.name}</div>
+                        </div>
+                      );
+                    })()}
 
                     {/* شريط تتبع الطيار الحي على بطاقة الطلب (قبل الاستلام وبعد الاستلام) */}
                     {order.orderType === 'DELIVERY' && (order.driver || order.driverId) && !isCompleted && !isRejected && (() => {
@@ -2566,6 +2722,119 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 تراجع
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Add-on Proposal Modal */}
+      {proposingAddonOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-3 sm:p-4 animate-fadeIn" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-purple-50/50 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 shrink-0 shadow-2xs">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-900 text-sm">
+                    اقتراح إضافة خاصة للطلب #{proposingAddonOrder.orderNumber}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    إرسال عرض إضافة صنف أو تعديل الفاتورة للعميل فوراً
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setProposingAddonOrder(null)} 
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <form onSubmit={handleSendAddonProposal} className="p-4 sm:p-5 space-y-4 text-xs">
+              {(proposingAddonOrder.notes || proposingAddonOrder.orderNotes) && (
+                <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 space-y-1">
+                  <span className="font-black text-[11px] text-amber-800">ملاحظة العميل على الطلب:</span>
+                  <p className="text-xs font-bold leading-relaxed">
+                    "{proposingAddonOrder.notes || proposingAddonOrder.orderNotes}"
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">اسم الإضافة / الصنف المطلوب *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="مثلاً: صوص شيدر إضافي أو كانز بيبسي مثلج"
+                  value={addonName}
+                  onChange={e => setAddonName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">السعر الإضافي بالجنيه (ج.م) *</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="1"
+                    required
+                    placeholder="مثلاً: 20"
+                    value={addonPrice}
+                    onChange={e => setAddonPrice(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 pl-12 text-slate-900 font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white"
+                  />
+                  <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold text-xs">ج.م</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">ملاحظة توضيحية للعميل (اختياري)</label>
+                <input
+                  type="text"
+                  placeholder="مثلاً: بناءً على طلبكم في الملاحظات، وفرنا الإضافة المطلوبة"
+                  value={addonNote}
+                  onChange={e => setAddonNote(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white"
+                />
+              </div>
+
+              {/* Price Calculation Box */}
+              <div className="p-3 bg-purple-50 rounded-2xl border border-purple-200 text-purple-950 space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span>إجمالي الطلب الحالي:</span>
+                  <span className="font-mono font-bold">{proposingAddonOrder.total} ج.م</span>
+                </div>
+                <div className="flex items-center justify-between font-black text-purple-700 text-xs">
+                  <span>الإجمالي الجديد في حال موافقة العميل:</span>
+                  <span className="font-mono text-sm">{((proposingAddonOrder.total || 0) + (Number(addonPrice) || 0)).toFixed(0)} ج.م</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={submittingAddon || !addonName.trim() || !addonPrice}
+                  className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl font-black shadow-md shadow-purple-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer text-xs sm:text-sm"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>{submittingAddon ? 'جاري الإرسال...' : 'إرسال الاقتراح للعميل'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProposingAddonOrder(null)}
+                  className="px-5 py-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
