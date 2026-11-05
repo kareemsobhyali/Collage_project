@@ -24,10 +24,13 @@ if [ "$CURRENT_DIR" != "$APP_DIR" ]; then
 fi
 cd "$APP_DIR"
 
-# 4. إنشاء البيئة الافتراضية وتثبيت الحزم الجاهزة (بدون بناء Rust)
+# تنظيف أي نهايات أسطر ويندوز CRLF
+sed -i 's/\r$//' customer-tracker.service nginx-trackorder.unifood.store.conf start.sh 2>/dev/null || true
+
+# 4. إنشاء البيئة الافتراضية وتثبيت الحزم الجاهزة
 python3 -m venv venv
 ./venv/bin/pip install --no-cache-dir --upgrade pip
-./venv/bin/pip install --no-cache-dir --prefer-binary "fastapi>=0.115.0" "uvicorn>=0.32.0" "sqlalchemy>=2.0.36" "aiosqlite>=0.20.0" "pydantic>=2.10.0" "python-dotenv>=1.0.1" "pywebpush>=2.0.1"
+./venv/bin/pip install --no-cache-dir --prefer-binary "fastapi>=0.115.0" "uvicorn>=0.32.0" "websockets>=13.0" "sqlalchemy>=2.0.36" "greenlet>=3.1.0" "aiosqlite>=0.20.0" "pydantic>=2.10.0" "python-dotenv>=1.0.1" "pywebpush>=2.0.1"
 
 # 5. تفعيل خدمة Systemd لتعمل تلقائياً في الخلفية وعلى بورت 8005
 cp customer-tracker.service /etc/systemd/system/customer-tracker.service
